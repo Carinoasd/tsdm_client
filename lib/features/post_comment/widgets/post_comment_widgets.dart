@@ -355,13 +355,22 @@ class _PostCommentDialogState extends State<_PostCommentDialog> {
                   maxLines: 5,
                   // The forum counts code points (X5 `dstrLenCalc`), not what Flutter's `maxLength` counts: an emoji
                   // made of several is several there.
+                  // As the forum counts against its limit (an ASCII character 1, any other 2): it cuts a longer comment
+                  // without saying so. Pasted text is cut to fit; a word being composed is let through until it is.
                   inputFormatters: [
-                    TextInputFormatter.withFunction(
-                      (old, value) => value.text.runes.length > form.maxLength ? old : value,
-                    ),
+                    TextInputFormatter.withFunction((old, value) {
+                      if (value.composing.isValid || postCommentLength(value.text) <= form.maxLength) {
+                        return value;
+                      }
+                      final text = postCommentFit(value.text, form.maxLength);
+                      return TextEditingValue(
+                        text: text,
+                        selection: TextSelection.collapsed(offset: text.length),
+                      );
+                    }),
                   ],
                   decoration: InputDecoration(
-                    counterText: '${_controller.text.runes.length}/${form.maxLength}',
+                    counterText: '${postCommentLength(_controller.text)}/${form.maxLength}',
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(appInnerRadius)),
                   ),
                 ),
@@ -373,7 +382,13 @@ class _PostCommentDialogState extends State<_PostCommentDialog> {
           ),
           TextButton(
             key: const ValueKey('post-comment-send'),
-            onPressed: form == null || _sending || _controller.text.trim().isEmpty ? null : _send,
+            onPressed:
+                form == null ||
+                    _sending ||
+                    _controller.text.trim().isEmpty ||
+                    postCommentLength(_controller.text) > form.maxLength
+                ? null
+                : _send,
             child: Text(tr.send),
           ),
         ],

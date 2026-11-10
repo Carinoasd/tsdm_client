@@ -242,3 +242,25 @@ String? _avatarOf(uh.Element? img) {
 /// The url of the forum's comment window of floor [pid] of thread [tid] (`a.cmmnt`).
 String postCommentWindowUrl({required String tid, required String pid}) =>
     '$baseUrl/forum.php?mod=misc&action=comment&tid=$tid&pid=$pid&extra=&page=1';
+
+/// The length of [text] as the forum counts a comment against its limit (`cutstr($comment, 200)` of
+/// `post/newreply.php`, on the escaped text): a printable ASCII character, a tab or a line break 1 (an escaped `&`,
+/// `"`, `<`, `>` as well: `cutstr` counts the entity as its character), any other character 2, a control character
+/// 0. The forum cuts a longer comment without saying so; the window's counter (`dstrLenCalc`) counts otherwise.
+int postCommentLength(String text) => text.runes.fold(0, (n, r) => n + _postCommentUnits(r));
+
+int _postCommentUnits(int rune) => rune >= 128 ? 2 : (rune == 9 || rune == 10 || (rune >= 32 && rune <= 126) ? 1 : 0);
+
+/// The longest start of [text] whose [postCommentLength] is at most [limit], whole characters only.
+String postCommentFit(String text, int limit) {
+  final buffer = StringBuffer();
+  var n = 0;
+  for (final rune in text.runes) {
+    n += _postCommentUnits(rune);
+    if (n > limit) {
+      break;
+    }
+    buffer.writeCharCode(rune);
+  }
+  return buffer.toString();
+}

@@ -624,7 +624,17 @@ void main() {
       expect(reloads, 1);
     });
 
-    testWidgets('the limit counts code points, as the forum does', (tester) async {
+    test("the forum's count: an ASCII character 1, any other 2, as its cutstr", () {
+      expect(postCommentLength('ab &<>"\n'), 8);
+      expect(postCommentLength('字字'), 4);
+      expect(postCommentLength('\u{1F600}'), 2);
+      expect(postCommentLength('a\rb'), 2);
+      expect(postCommentFit('ab字字', 5), 'ab字');
+      // Measured on the test forum: "CM測試長度" and 150 "字" were kept as "CM測試長度" and 95 "字".
+      expect(postCommentFit('CM測試長度${'字' * 150}', 200), 'CM測試長度${'字' * 95}');
+    });
+
+    testWidgets('the limit counts as the forum does; pasted text is cut to fit', (tester) async {
       final forum = _Forum(reads: {'action=comment': _json('window_api.json')});
       await pump(
         tester,
@@ -639,15 +649,14 @@ void main() {
       await tester.tap(find.text('open'));
       await tester.pumpAndSettle();
       final input = find.byKey(const ValueKey('post-comment-input'));
-      // A family emoji: one character on screen, five code points for the forum.
-      const family = '\u{1F468}\u200D\u{1F469}\u200D\u{1F467}';
-      await tester.enterText(input, '${'a' * 196}$family');
+      await tester.enterText(input, '字' * 101);
       await tester.pump();
-      expect(tester.widget<TextField>(input).controller!.text, isNot(contains(family)), reason: '201 code points');
-      await tester.enterText(input, '${'a' * 195}$family');
-      await tester.pump();
-      expect(tester.widget<TextField>(input).controller!.text.runes.length, 200);
+      expect(tester.widget<TextField>(input).controller!.text, '字' * 100);
       expect(find.text('200/200'), findsOneWidget);
+      await tester.enterText(input, '${'a' * 199}字');
+      await tester.pump();
+      expect(tester.widget<TextField>(input).controller!.text, 'a' * 199);
+      expect(find.text('199/200'), findsOneWidget);
     });
 
     testWidgets('a delete window that cannot be read: nothing sent, no reload', (tester) async {
