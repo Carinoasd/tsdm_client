@@ -267,6 +267,7 @@
       "readLater": "稍后阅读",
       "drafts": "论坛草稿",
       "localDrafts": "本机草稿",
+      "downloads": "下载管理",
       "bookmarks": "书签",
       "messages": "私信",
       "friends": "好友",
@@ -724,7 +725,8 @@
           "detail": "所有账号共用这个上限，超过时先删除最久没看的帖子；每个帖子最多保存 20 页",
           "value": "${count: int} 个帖子"
         }
-      }
+      },
+      "attachmentDownloadDirectory": "附件下载文件夹"
     },
     "advancedSection": {
       "title": "高级",
@@ -4174,5 +4176,31 @@
   },
   "threadRecommend": {
     "unknown": "未能确认结果，请重新整理帖子查看。"
+  },
+  "attachmentDownload": {
+    "title": "下载管理",
+    "active": "进行中",
+    "failed": "未完成",
+    "completed": "已完成",
+    "empty": "没有下载",
+    "queued": "等待中",
+    "cancelled": "已取消",
+    "failedGeneric": "下载失败",
+    "open": "打开",
+    "share": "分享",
+    "saveAs": "另存",
+    "showInFolder": "打开文件夹",
+    "delete": "删除",
+    "retry": "重试",
+    "cancel": "取消",
+    "thread": "来源帖子",
+    "purchase": "购买",
+    "deleteTitle": "删除下载",
+    "deleteMessage": "同时删除文件「$name」",
+    "largeTitle": "正在使用移动网络",
+    "largeMessage": "「$name」大小 $size，确定下载？",
+    "saved": "已保存到 $path",
+    "openFailed": "没有可以打开此文件的应用",
+    "threadFallback": "帖子 $tid"
   }
 }

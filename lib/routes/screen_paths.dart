@@ -410,6 +410,9 @@ class ScreenPaths {
   /// Page listing the drafts kept on this device for the current account.
   static const String localDrafts = '/localDrafts';
 
+  /// Page listing the attachment downloads of the current account.
+  static const String attachmentDownloads = '/attachmentDownloads';
+
   /// Page listing the threads the current account follows.
   static const String followedThreads = '/followedThreads';
 

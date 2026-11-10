@@ -35,6 +35,15 @@
                     android:name="android.support.FILE_PROVIDER_PATHS"
                     android:resource="@xml/update_file_paths" />
         </provider>
+        <provider
+                android:name="kzs.th000.tsdm_client.AttachmentFileProvider"
+                android:authorities="${applicationId}.attachments"
+                android:exported="false"
+                android:grantUriPermissions="true">
+            <meta-data
+                    android:name="android.support.FILE_PROVIDER_PATHS"
+                    android:resource="@xml/attachment_file_paths" />
+        </provider>
         <activity
                 android:name="kzs.th000.tsdm_client.InteractiveHtmlActivity"
                 android:exported="false"

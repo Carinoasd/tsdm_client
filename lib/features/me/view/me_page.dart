@@ -167,6 +167,12 @@ class _MePageState extends State<MePage> {
         label: tr.drafts,
         onTap: () => _open(ScreenPaths.myThread, query: {'tab': 'drafts'}),
       ),
+      (
+        key: const ValueKey('me-downloads'),
+        icon: Icons.download_outlined,
+        label: tr.downloads,
+        onTap: () => _open(ScreenPaths.attachmentDownloads),
+      ),
     ];
   }
 

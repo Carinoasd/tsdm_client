@@ -267,6 +267,7 @@
       "readLater": "Read later",
       "drafts": "Forum drafts",
       "localDrafts": "Local drafts",
+      "downloads": "Downloads",
       "bookmarks": "Bookmarks",
       "messages": "Messages",
       "friends": "Friends",
@@ -724,7 +725,8 @@
           "detail": "Shared by all accounts; the threads not read for the longest time are deleted first. Each thread keeps at most 20 pages",
           "value": "${count: int} threads"
         }
-      }
+      },
+      "attachmentDownloadDirectory": "Attachment download folder"
     },
     "advancedSection": {
       "title": "Advanced",
@@ -4174,5 +4176,31 @@
   },
   "threadRecommend": {
     "unknown": "Could not confirm the result: refresh the thread to see it."
+  },
+  "attachmentDownload": {
+    "title": "Downloads",
+    "active": "In progress",
+    "failed": "Unfinished",
+    "completed": "Completed",
+    "empty": "No downloads",
+    "queued": "Waiting",
+    "cancelled": "Cancelled",
+    "failedGeneric": "Download failed",
+    "open": "Open",
+    "share": "Share",
+    "saveAs": "Save as",
+    "showInFolder": "Open folder",
+    "delete": "Delete",
+    "retry": "Retry",
+    "cancel": "Cancel",
+    "thread": "Source thread",
+    "purchase": "Buy",
+    "deleteTitle": "Delete download",
+    "deleteMessage": "The file \"$name\" is deleted too",
+    "largeTitle": "On mobile data",
+    "largeMessage": "\"$name\" is $size. Download it?",
+    "saved": "Saved to $path",
+    "openFailed": "No app can open this file",
+    "threadFallback": "Thread $tid"
   }
 }

@@ -455,6 +455,10 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
   ///
   /// It lives in the settings table, so a backup carries it; not part of the cross-device sync.
   frequentForums<String>(name: 'frequentForums', type: String, defaultValue: ''),
+
+  /// The folder the attachments are downloaded to on Windows and Linux, empty for the user's downloads folder. Tied to
+  /// the device, not synced.
+  attachmentDownloadDirectory<String>(name: 'attachmentDownloadDirectory', type: String, defaultValue: ''),
   ;
 
   const SettingsKeys({required this.name, required this.type, required this.defaultValue});

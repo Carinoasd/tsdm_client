@@ -267,6 +267,7 @@
       "readLater": "稍後閱讀",
       "drafts": "論壇草稿",
       "localDrafts": "本機草稿",
+      "downloads": "下載管理",
       "bookmarks": "書籤",
       "messages": "私訊",
       "friends": "好友",
@@ -724,7 +725,8 @@
           "detail": "所有帳號共用這個上限，超過時先刪除最久沒看的帖子；每個帖子最多保存 20 頁",
           "value": "${count: int} 個帖子"
         }
-      }
+      },
+      "attachmentDownloadDirectory": "附件下載資料夾"
     },
     "advancedSection": {
       "title": "高級",
@@ -4174,5 +4176,31 @@
   },
   "threadRecommend": {
     "unknown": "未能確認結果，請重新整理帖子查看。"
+  },
+  "attachmentDownload": {
+    "title": "下載管理",
+    "active": "進行中",
+    "failed": "未完成",
+    "completed": "已完成",
+    "empty": "沒有下載",
+    "queued": "等待中",
+    "cancelled": "已取消",
+    "failedGeneric": "下載失敗",
+    "open": "開啟",
+    "share": "分享",
+    "saveAs": "另存",
+    "showInFolder": "開啟資料夾",
+    "delete": "刪除",
+    "retry": "重試",
+    "cancel": "取消",
+    "thread": "來源帖子",
+    "purchase": "購買",
+    "deleteTitle": "刪除下載",
+    "deleteMessage": "同時刪除檔案「$name」",
+    "largeTitle": "正在使用行動網路",
+    "largeMessage": "「$name」大小 $size，確定下載？",
+    "saved": "已存到 $path",
+    "openFailed": "沒有可以開啟此檔案的程式",
+    "threadFallback": "帖子 $tid"
   }
 }

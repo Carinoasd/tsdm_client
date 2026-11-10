@@ -13,6 +13,8 @@ import 'package:sqlite3/common.dart' show SqliteException;
 import 'package:tsdm_client/constants/constants.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/extensions/string.dart';
+import 'package:tsdm_client/features/attachment_download/repository/attachment_download_manager.dart';
+import 'package:tsdm_client/features/attachment_download/repository/attachment_download_store.dart';
 import 'package:tsdm_client/features/floor_bookmark/repository/floor_bookmark_store.dart';
 import 'package:tsdm_client/features/local_draft/repository/local_draft_store.dart';
 import 'package:tsdm_client/shared/models/models.dart';
@@ -285,6 +287,9 @@ class StorageProvider with LoggerMixin {
     // queued waits for this transaction), the row goes here.
     FloorBookmarkStore.app?.forget(uid);
     await settings.deleteByName(FloorBookmarkStore.rowKeyOf(uid));
+    // The list of its attachment downloads (the files stay where they were saved).
+    AttachmentDownloadManager.app?.forget(uid);
+    await settings.deleteByName(AttachmentDownloadStore.rowKeyOf(uid));
   }
 
   /*             cookie             */
