@@ -667,9 +667,10 @@ SpaceListPage<ReceivedPoke> parseReceivedPokePage(uh.Document document) {
   return SpaceListPage(items: items, nextPageUrl: _nextPageUrl(ct), session: session);
 }
 
-/// The first page of the wall of [uid]; with [cid] only that message.
+/// The first page of the wall of [uid] (of the account in use for 0: a guest is asked to log in); with [cid] only
+/// that message.
 String spaceWallUrl(int uid, {int? cid}) =>
-    '$baseUrl/home.php?mod=space&uid=$uid&do=wall${cid == null ? '' : '&cid=$cid'}';
+    '$baseUrl/home.php?mod=space${uid > 0 ? '&uid=$uid' : ''}&do=wall${cid == null ? '' : '&cid=$cid'}';
 
 /// The first page of the greetings received.
 const spacePokeListUrl = '$baseUrl/home.php?mod=spacecp&ac=poke';

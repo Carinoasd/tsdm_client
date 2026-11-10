@@ -40,9 +40,6 @@ enum SpaceTab {
   static SpaceTab of(String? name) => values.where((e) => e.name == name).firstOrNull ?? blog;
 }
 
-/// What can be done with a message of a wall, as the forum printed its links.
-enum _WallAction { reply, delete }
-
 /// The blogs, the albums and the wall of the member [uid], a tab each.
 ///
 /// The member's own space offers to post a blog and to upload pictures; the wall offers to write a message to whom
@@ -133,7 +130,9 @@ class _SpacePageState extends State<SpacePage> with SingleTickerProviderStateMix
   }
 
   Future<void> _writeOnWall(SpaceSession session, {SpaceBlogComment? replyTo}) async {
-    if (await showWallMessageDialog(context, session: session, ownerUid: _uid, replyTo: replyTo) && mounted) {
+    // A wall opened without its member is the account's own: the one its page was served to.
+    final owner = _uid > 0 ? _uid : session.uid;
+    if (await showWallMessageDialog(context, session: session, ownerUid: owner, replyTo: replyTo) && mounted) {
       unawaited(_wall.refresh());
     }
   }
@@ -146,46 +145,14 @@ class _SpacePageState extends State<SpacePage> with SingleTickerProviderStateMix
 
   Widget _wallTile(BuildContext context, SpaceListState<SpaceBlogComment> state, SpaceBlogComment comment) {
     final session = state.session;
-    final tr = context.t.spacePage.wall;
-    final actions = [
-      if (session != null && comment.canReply) _WallAction.reply,
-      if (session != null && comment.canDelete) _WallAction.delete,
-    ];
     return AppSurface(
       child: SpaceBlogCommentTile(
         comment,
-        trailing: session == null || actions.isEmpty
+        trailing: session == null || !(comment.canReply || comment.canDelete)
             ? null
-            : SizedBox.square(
-                dimension: 24,
-                // Chosen once the menu is closed: a dialog opened from the item itself would be closed with the menu.
-                child: PopupMenuButton<_WallAction>(
-                  padding: EdgeInsets.zero,
-                  iconSize: 18,
-                  onSelected: (action) async => switch (action) {
-                    _WallAction.reply => _writeOnWall(session, replyTo: comment),
-                    _WallAction.delete => _deleteFromWall(session, comment),
-                  },
-                  itemBuilder: (_) => [
-                    for (final action in actions)
-                      PopupMenuItem(
-                        value: action,
-                        child: Row(
-                          children: [
-                            Icon(switch (action) {
-                              _WallAction.reply => Icons.reply_outlined,
-                              _WallAction.delete => Icons.delete_outline,
-                            }),
-                            sizedBoxPopupMenuItemIconSpacing,
-                            Text(switch (action) {
-                              _WallAction.reply => tr.reply,
-                              _WallAction.delete => tr.delete,
-                            }),
-                          ],
-                        ),
-                      ),
-                  ],
-                ),
+            : WallMessageActions(
+                onReply: comment.canReply ? () async => _writeOnWall(session, replyTo: comment) : null,
+                onDelete: comment.canDelete ? () async => _deleteFromWall(session, comment) : null,
               ),
       ),
     );

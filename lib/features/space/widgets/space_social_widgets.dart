@@ -261,3 +261,56 @@ class _PokeDialogState extends State<_PokeDialog> {
     );
   }
 }
+
+/// What can be done with a message of a wall, as the forum printed its links.
+enum _WallAction { reply, delete }
+
+/// The menu of a message of a wall: reply ([onReply]) and delete ([onDelete]), each when given.
+///
+/// The action runs once the menu is closed: a dialog opened from the item itself would be closed with the menu.
+class WallMessageActions extends StatelessWidget {
+  /// Constructor.
+  const WallMessageActions({this.onReply, this.onDelete, super.key});
+
+  /// Reply to the message.
+  final VoidCallback? onReply;
+
+  /// Delete the message.
+  final VoidCallback? onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final tr = context.t.spacePage.wall;
+    final actions = [if (onReply != null) _WallAction.reply, if (onDelete != null) _WallAction.delete];
+    return SizedBox.square(
+      dimension: 24,
+      child: PopupMenuButton<_WallAction>(
+        padding: EdgeInsets.zero,
+        iconSize: 18,
+        onSelected: (action) => switch (action) {
+          _WallAction.reply => onReply?.call(),
+          _WallAction.delete => onDelete?.call(),
+        },
+        itemBuilder: (_) => [
+          for (final action in actions)
+            PopupMenuItem(
+              value: action,
+              child: Row(
+                children: [
+                  Icon(switch (action) {
+                    _WallAction.reply => Icons.reply_outlined,
+                    _WallAction.delete => Icons.delete_outline,
+                  }),
+                  sizedBoxPopupMenuItemIconSpacing,
+                  Text(switch (action) {
+                    _WallAction.reply => tr.reply,
+                    _WallAction.delete => tr.delete,
+                  }),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}

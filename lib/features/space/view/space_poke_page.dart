@@ -141,7 +141,7 @@ class _PokeTile extends StatelessWidget {
                 child: CircleAvatar(
                   radius: 18,
                   backgroundImage: poke.avatarUrl == null ? null : CachedImageProvider(poke.avatarUrl!),
-                  child: poke.avatarUrl == null ? Text(poke.username.characters.first) : null,
+                  child: poke.avatarUrl == null ? Text(poke.username.characters.firstOrNull ?? '?') : null,
                 ),
               ),
               sizedBoxW12H12,

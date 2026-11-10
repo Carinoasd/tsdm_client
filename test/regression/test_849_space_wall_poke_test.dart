@@ -42,6 +42,7 @@ import 'package:tsdm_client/features/space/repository/space_social_repository.da
 import 'package:tsdm_client/features/space/repository/space_write_repository.dart';
 import 'package:tsdm_client/features/space/utils/parse_space.dart';
 import 'package:tsdm_client/features/space/utils/space_switches.dart';
+import 'package:tsdm_client/features/space/widgets/space_social_widgets.dart';
 import 'package:tsdm_client/features/space/widgets/space_widgets.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
@@ -466,5 +467,34 @@ void main() {
     final actions = tester.getRect(find.byKey(const ValueKey('actions')));
     expect(actions.right, closeTo(320, 0.5));
     expect(find.text(comment.time!), findsOneWidget);
+  });
+
+  testWidgets('a dialog opened from the menu of a message stays open once the menu is closed', (tester) async {
+    await tester.pumpWidget(
+      TranslationProvider(
+        child: MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: WallMessageActions(
+                  onReply: () async => showDialog<void>(
+                    context: context,
+                    builder: (_) => const AlertDialog(title: Text('reply')),
+                  ),
+                  onDelete: () {},
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+    expect(find.byIcon(Icons.delete_outline), findsOneWidget);
+    await tester.tap(find.byIcon(Icons.reply_outlined));
+    await tester.pumpAndSettle();
+    expect(find.byType(AlertDialog), findsOneWidget);
+    expect(find.text('reply'), findsOneWidget);
   });
 }

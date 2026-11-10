@@ -114,6 +114,7 @@ final class SpaceListState<T> {
     loadingMore: loadingMore ?? this.loadingMore,
     loadMoreFailed: loadMoreFailed ?? this.loadMoreFailed,
     failure: failure == _keep ? this.failure : failure as LoadFailure?,
+    // Kept as they are: they come with the first page only.
     session: session,
     canPost: canPost,
   );
