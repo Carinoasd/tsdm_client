@@ -60,6 +60,7 @@ class LocalNoticeKeys {
         final String draft when draft.trim().isNotEmpty => draft,
         _ => null,
       },
+      maybeSent: query['ms'] == '1',
     );
     return target.isEmpty ? null : target;
   }
@@ -112,6 +113,7 @@ final class LocalNoticeTarget {
     this.fid,
     this.watchAlerts = false,
     this.draft,
+    this.maybeSent = false,
   });
 
   /// Notice to mark as read.
@@ -138,6 +140,10 @@ final class LocalNoticeTarget {
   /// The text of a reply typed in a notification that was not sent, null for every other notification.
   final String? draft;
 
+  /// Whether the reply of [draft] may have reached the forum after all (nothing came back after it was posted): the
+  /// draft kept from it says so.
+  final bool maybeSent;
+
   /// Nothing to open.
   bool get isEmpty => tid == null && pid == null && peerUid == null && fid == null && !watchAlerts;
 
@@ -151,6 +157,7 @@ final class LocalNoticeTarget {
     if (fid != null) 'fid=$fid',
     if (watchAlerts) 'wa=1',
     if (draft case final draft?) 'draft=${Uri.encodeQueryComponent(draft)}',
+    if (maybeSent) 'ms=1',
   ].join('&');
 
   @override
@@ -163,10 +170,11 @@ final class LocalNoticeTarget {
       other.lastPost == lastPost &&
       other.fid == fid &&
       other.watchAlerts == watchAlerts &&
-      other.draft == draft;
+      other.draft == draft &&
+      other.maybeSent == maybeSent;
 
   @override
-  int get hashCode => Object.hash(nid, tid, pid, peerUid, lastPost, fid, watchAlerts, draft);
+  int get hashCode => Object.hash(nid, tid, pid, peerUid, lastPost, fid, watchAlerts, draft, maybeSent);
 
   @override
   String toString() => 'LocalNoticeTarget(${LocalNoticeKeys.loggable(toQuery())})';

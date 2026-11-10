@@ -2644,6 +2644,7 @@
       "action": "Reply",
       "sent": "Replied",
       "failed": "Reply not sent",
+      "unconfirmed": "Reply result unknown",
       "openApp": "Send it in the app",
       "locked": "The app is locked, unlock it to send",
       "error": "Sending failed, try again later"

@@ -146,13 +146,23 @@ Future<void> _handle(DirectReplyRequest request) async {
         enabled: () => directReplyEnabled(storage),
         locked: appLocked,
         clientOf: runtime.clientOf,
+        pinned: () async {
+          try {
+            return await DirectReplyPins(storage).holds(request.noticeId, request.targetKey);
+          } on Object catch (e, st) {
+            // Not known to hold it: nothing is sent, the text goes to the app.
+            talker.handle(e, st, 'direct reply: pins unreadable');
+            return false;
+          }
+        },
       );
     } on Object catch (e, st) {
       talker.handle(e, st, 'direct reply: failed before sending');
       outcome = DirectReplyNotSent(t.localNotification.directReply.error);
     }
-    if (outcome is! DirectReplySent) {
-      // Sent again only by hand, from the app or from a new notification.
+    if (outcome is DirectReplyNotSent) {
+      // Not sent: may be sent again by hand, from the app or from a new notification. A reply whose result is unknown
+      // keeps its mark: the same text is not sent twice in a row.
       _recent.remove(key);
     }
     talker.info('direct reply: ${outcome.runtimeType}');

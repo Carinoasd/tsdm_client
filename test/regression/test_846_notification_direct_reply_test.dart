@@ -133,20 +133,35 @@ final class _Forum implements HttpClientAdapter {
   void close({bool force = false}) {}
 }
 
+/// A storage over a database in memory, closed after the test.
+StorageProvider _storage() {
+  final db = AppDatabase(NativeDatabase.memory());
+  addTearDown(db.close);
+  return StorageProvider(db, {}, {});
+}
+
 NetClientProvider _clientOf(_Forum forum) => NetClientProvider.buildNoCookie(
   dio: Dio(BaseOptions(baseUrl: baseUrl))..httpClientAdapter = forum,
   cookie: CookieProvider.buildEmpty(),
 );
 
-/// The response of the reply action of a notification.
+/// The id of the notification offering the direct reply to the target of [payload].
+int? _pinnedIdOf(String? payload) {
+  final uid = LocalNoticeKeys.parseOpenNotification(payload)?.uid;
+  final target = LocalNoticeKeys.parseTarget(payload);
+  final key = uid == null || target == null ? null : directReplyTargetKey(uid, target);
+  return key == null ? null : directReplyNoticeIdOf(key);
+}
+
+/// The response of the reply action of a notification: by default from the notification its payload was posted as.
 NotificationResponse _action({
-  int? id = localNoticeId,
+  int? id,
   String? actionId = directReplyActionId,
   String? input,
   String? payload,
 }) => NotificationResponse(
   notificationResponseType: NotificationResponseType.selectedNotificationAction,
-  id: id,
+  id: id ?? _pinnedIdOf(payload) ?? localNoticeId,
   actionId: actionId,
   input: input,
   payload: payload,
@@ -190,9 +205,20 @@ NotificationAutoSyncInfoPm _pm({int? peerUid = 1000, int count = 1}) => Notifica
   peerUid: peerUid,
 );
 
-/// Records what is shown.
+typedef _Shown = ({int id, String? title, String? body, NotificationDetails? details, String? payload});
+
+/// Records what is shown, and keeps the shade as Android does: a notification is (id, tag), shown again under the same
+/// pair it is replaced. The extras of an action's PendingIntent are kept by request code as the plugin makes them
+/// (`id * 16` as a Java int, `FLAG_UPDATE_CURRENT`): a notification posted under the same request code rewrites them.
 final class _Plugin extends Fake implements FlutterLocalNotificationsPlugin {
-  final shown = <({int id, String? title, String? body, NotificationDetails? details, String? payload})>[];
+  final shown = <_Shown>[];
+  final shade = <(int, String?), _Shown>{};
+  final cancelled = <(int, String?)>[];
+
+  /// The payload the reply action under each request code sends.
+  final actionExtras = <int, ({int id, String? payload})>{};
+
+  static int requestCodeOf(int id) => (id * 16).toSigned(32);
 
   @override
   Future<void> show({
@@ -201,7 +227,37 @@ final class _Plugin extends Fake implements FlutterLocalNotificationsPlugin {
     String? body,
     NotificationDetails? notificationDetails,
     String? payload,
-  }) async => shown.add((id: id, title: title, body: body, details: notificationDetails, payload: payload));
+  }) async {
+    final n = (id: id, title: title, body: body, details: notificationDetails, payload: payload);
+    shown.add(n);
+    shade[(id, notificationDetails?.android?.tag)] = n;
+    if (notificationDetails?.android?.actions?.isNotEmpty ?? false) {
+      actionExtras[requestCodeOf(id)] = (id: id, payload: payload);
+    }
+  }
+
+  @override
+  Future<void> cancel({required int id, String? tag}) async {
+    cancelled.add((id, tag));
+    shade.remove((id, tag));
+  }
+
+  @override
+  Future<List<ActiveNotification>> getActiveNotifications() async => [
+    for (final (id, tag) in shade.keys) ActiveNotification(id: id, tag: tag),
+  ];
+
+  /// What the reply typed in notification [n] sends: the extras its action carries now.
+  NotificationResponse replyTo(_Shown n, String text) {
+    final extras = actionExtras[requestCodeOf(n.id)]!;
+    return NotificationResponse(
+      notificationResponseType: NotificationResponseType.selectedNotificationAction,
+      id: extras.id,
+      actionId: directReplyActionId,
+      input: text,
+      payload: extras.payload,
+    );
+  }
 }
 
 void main() {
@@ -265,6 +321,8 @@ void main() {
             account: account,
             hideContent: hideContent,
             directReply: directReply,
+            storage: _storage(),
+            android: true,
           );
           return plugin.shown.single.details!.android!.actions;
         }
@@ -315,7 +373,7 @@ void main() {
 
     test('a private message goes to the peer of the conversation', () {
       final r = DirectReplyRequest.of(
-        _action(id: localNoticeIdOf(1000), input: 'hi', payload: _pmPayload(1000)),
+        _action(input: 'hi', payload: _pmPayload(1000)),
       )!;
       expect(r.uid, 1000);
       expect(r.target.peerUid, 1000);
@@ -368,6 +426,7 @@ void main() {
       bool enabled = true,
       bool locked = false,
       bool accountKept = true,
+      bool pinned = true,
       DirectReplySend send = sendDirectReplyWith,
     }) async {
       final f = forum ?? _Forum();
@@ -381,6 +440,7 @@ void main() {
           asked.add(uid);
           return accountKept ? _clientOf(f) : null;
         },
+        pinned: () async => pinned,
         send: send,
       );
       return (outcome, f, asked);
@@ -568,6 +628,232 @@ void main() {
         store: store,
       );
       expect((await store.load(1000, LocalDraftKey.message('2000')))!.body, '在的');
+    });
+  });
+
+  group('F. the target of a notification offering the reply never changes', () {
+    const account = LocalNoticeAccount(uid: 1000);
+    const named = LocalNoticeAccount(uid: 1000, named: true);
+
+    Future<_Shown> post(
+      _Plugin plugin,
+      StorageProvider storage,
+      NotificationAutoSyncInfo info, {
+      LocalNoticeAccount account = account,
+    }) async {
+      await showLocalNotificationWith(
+        plugin: plugin,
+        translations: tr,
+        info: info,
+        account: account,
+        directReply: true,
+        storage: storage,
+        android: true,
+      );
+      return plugin.shown.last;
+    }
+
+    /// Run the reply [response] as the isolate of the plugin does, with the pins of [storage]; what was posted, if
+    /// anything, is in the forum's requests.
+    Future<(DirectReplyOutcome?, _Forum)> reply(NotificationResponse response, StorageProvider storage) async {
+      final forum = _Forum();
+      final request = DirectReplyRequest.of(response);
+      if (request == null) {
+        return (null, forum);
+      }
+      final outcome = await runDirectReply(
+        request,
+        translations: tr,
+        enabled: () async => true,
+        locked: () async => false,
+        clientOf: (_) async => _clientOf(forum),
+        pinned: () => DirectReplyPins(storage).holds(request.noticeId, request.targetKey),
+      );
+      return (outcome, forum);
+    }
+
+    NotificationAutoSyncInfoPm pmFrom(int peer, {String msg = 'hi'}) => NotificationAutoSyncInfoPm(
+      user: 'P$peer',
+      msg: msg,
+      notice: 0,
+      personalMessage: 1,
+      broadcastMessage: 0,
+      timestamp: 1700000000,
+      peerUid: peer,
+    );
+
+    test('a newer item of another target, posted while a reply is typed: the reply still goes to the first', () async {
+      final storage = _storage();
+      final plugin = _Plugin();
+      final first = await post(plugin, storage, pmFrom(1000));
+      expect(isDirectReplyNoticeId(first.id), isTrue, reason: 'its own id, not the shared one');
+      expect(first.id, isNot(localNoticeId));
+
+      // While the user types in the first notification, the next sync brings a reply to a floor of the same account.
+      final second = await post(plugin, storage, _notice(tid: 9600001, pid: 9700002));
+      expect(second.id, isNot(first.id));
+      expect(_Plugin.requestCodeOf(second.id), isNot(_Plugin.requestCodeOf(first.id)));
+      expect(plugin.shade.keys.map((e) => e.$1), [second.id], reason: 'still one notification for the slot');
+
+      // The reply typed in the first one is sent with what its action carries now: the first target, never the floor.
+      final (outcome, forum) = await reply(plugin.replyTo(first, '在的'), storage);
+      expect(outcome, isA<DirectReplySent>());
+      expect(forum.posts.single.uri.queryParameters['ac'], 'pm');
+      expect(forum.posts.single.form['touid'], '1000');
+      expect(forum.posts.where((e) => e.uri.queryParameters['replysubmit'] == 'yes'), isEmpty);
+    });
+
+    test('a newer item of the same target updates the same notification', () async {
+      final storage = _storage();
+      final plugin = _Plugin();
+      final first = await post(plugin, storage, pmFrom(1000));
+      final again = await post(plugin, storage, pmFrom(1000, msg: 'still there?'));
+      expect(again.id, first.id);
+      expect(plugin.shade, hasLength(1));
+      expect(plugin.shade.values.single.body, 'still there?');
+      final (outcome, forum) = await reply(plugin.replyTo(first, '在'), storage);
+      expect(outcome, isA<DirectReplySent>());
+      expect(forum.posts.single.form['touid'], '1000');
+    });
+
+    test('a single item then several: the summary replaces it, a reply typed in it still goes to its target', () async {
+      final storage = _storage();
+      final plugin = _Plugin();
+      final first = await post(plugin, storage, pmFrom(1000));
+      final several = await post(plugin, storage, _pm(count: 2));
+      expect(several.id, localNoticeId, reason: 'several items keep the shared id');
+      expect(several.details!.android!.actions, isNull);
+      expect(plugin.shade.keys, [(localNoticeId, null)], reason: 'the single one is taken back');
+      expect(plugin.cancelled.map((e) => e.$1), contains(first.id));
+      final (outcome, forum) = await reply(plugin.replyTo(first, '在'), storage);
+      expect(outcome, isA<DirectReplySent>());
+      expect(forum.posts.single.form['touid'], '1000');
+    });
+
+    test('several items then a single one: the summary is taken back', () async {
+      final storage = _storage();
+      final plugin = _Plugin();
+      await post(plugin, storage, _pm(count: 2));
+      final single = await post(plugin, storage, pmFrom(1000));
+      expect(plugin.shade.keys.map((e) => e.$1), [single.id]);
+    });
+
+    test('every account named: each account keeps its own slot', () async {
+      final storage = _storage();
+      final plugin = _Plugin();
+      final mine = await post(plugin, storage, pmFrom(1000), account: named);
+      final other = await post(
+        plugin,
+        storage,
+        pmFrom(1000),
+        account: const LocalNoticeAccount(uid: 2000, named: true),
+      );
+      expect(plugin.shade.keys.map((e) => e.$1).toSet(), {mine.id, other.id});
+      final several = await post(plugin, storage, _pm(count: 2), account: named);
+      expect(several.id, localNoticeIdOf(1000));
+      expect(plugin.shade.keys.map((e) => e.$1).toSet(), {other.id, localNoticeIdOf(1000)});
+    });
+
+    test('the accounts announced changed: the same target is not shown twice', () async {
+      final storage = _storage();
+      final plugin = _Plugin();
+      final before = await post(plugin, storage, pmFrom(1000));
+      final after = await post(plugin, storage, pmFrom(1000), account: named);
+      expect(after.id, before.id);
+      expect(plugin.shade, hasLength(1));
+      expect(plugin.shade.keys.single.$2, directReplyTag(1000, '1000:m:1000'));
+    });
+
+    test('an action carrying another target than its notification was made for is never sent', () async {
+      final storage = _storage();
+      final plugin = _Plugin();
+      final first = await post(plugin, storage, pmFrom(1000));
+      // As if the extras of the first notification had been rewritten with the floor's payload.
+      final swapped = NotificationResponse(
+        notificationResponseType: NotificationResponseType.selectedNotificationAction,
+        id: first.id,
+        actionId: directReplyActionId,
+        input: '在的',
+        payload: _floorPayload(1000),
+      );
+      final (outcome, forum) = await reply(swapped, storage);
+      expect(outcome, isNull);
+      expect(forum.requests, isEmpty);
+    });
+
+    test('an id is never given to a second target, nor while another notification under it is shown', () async {
+      final storage = _storage();
+      final pins = DirectReplyPins(storage);
+      expect(await pins.claim(42, '1000:m:1'), isTrue);
+      expect(await pins.claim(42, '1000:m:1'), isTrue, reason: 'the same target');
+      expect(await pins.claim(42, '1000:m:2'), isFalse);
+      expect(await pins.holds(42, '1000:m:1'), isTrue);
+      expect(await pins.holds(42, '1000:m:2'), isFalse);
+
+      final later = DirectReplyPins(storage, now: () => DateTime.now().add(DirectReplyPins.keepFor * 2));
+      expect(
+        await later.claim(42, '1000:m:2', shown: [(id: 42, tag: directReplyTag(0, '1000:m:1'))]),
+        isFalse,
+        reason: 'the first notification is still in the shade',
+      );
+      expect(await later.claim(42, '1000:m:2', shown: const []), isTrue, reason: 'long gone: the id is free again');
+      expect(await later.holds(42, '1000:m:1'), isFalse);
+    });
+
+    test('a reply the pins do not hold is not sent', () async {
+      final storage = _storage();
+      final request = DirectReplyRequest.of(_action(input: 'x', payload: _pmPayload(1000)))!;
+      final (outcome, forum) = await reply(_action(input: 'x', payload: _pmPayload(1000)), storage);
+      expect((outcome! as DirectReplyNotSent).reason, tr.localNotification.directReply.openApp);
+      expect(forum.requests, isEmpty);
+      expect(await DirectReplyPins(storage).holds(request.noticeId, request.targetKey), isFalse);
+    });
+
+    test('without the shade or the storage, no action is offered', () async {
+      final plugin = _Plugin();
+      await showLocalNotificationWith(
+        plugin: plugin,
+        translations: tr,
+        info: pmFrom(1000),
+        account: account,
+        directReply: true,
+        storage: _storage(),
+        android: false,
+      );
+      expect(plugin.shown.single.details!.android!.actions, isNull);
+      expect(plugin.shown.single.id, localNoticeId);
+    });
+  });
+
+  group('G. a reply whose result is unknown', () {
+    test('a timeout after the post says the result is unknown, not "not sent"', () async {
+      final request = DirectReplyRequest.of(_action(input: '好的', payload: _floorPayload(1000)))!;
+      Future<DirectReplyOutcome> run(AppException e) => runDirectReply(
+        request,
+        translations: tr,
+        enabled: () async => true,
+        locked: () async => false,
+        clientOf: (_) async => _clientOf(_Forum()),
+        pinned: () async => true,
+        send: (_, _) async => left(e),
+      );
+      expect(await run(HttpRequestFailedException(null)), isA<DirectReplyUnconfirmed>());
+      expect(await run(HttpHandshakeFailedException('timeout', timedOut: true)), isA<DirectReplyUnconfirmed>());
+      expect(await run(HttpRequestFailedException(502)), isA<DirectReplyUnconfirmed>());
+      expect(await run(HttpHandshakeFailedException('offline', connectionFailed: true)), isA<DirectReplyNotSent>());
+      expect(await run(ReplyWindowFetchFailedException(noNetwork: true)), isA<DirectReplyNotSent>());
+      expect(await run(HttpRequestFailedException(403)), isA<DirectReplyNotSent>());
+
+      final content = directReplyOutcomeContentOf(tr, request, const DirectReplyUnconfirmed());
+      expect(content.title, tr.localNotification.directReply.unconfirmed);
+      expect(content.body, tr.chatPage.maybeSent);
+      final target = LocalNoticeKeys.parseTarget(content.payload)!;
+      expect(target.draft, '好的');
+      expect(target.maybeSent, isTrue);
+
+      final store = LocalDraftStore.memory();
+      await keepDirectReplyDraft(1000, target, store: store);
+      expect((await store.load(1000, LocalDraftKey.floorReply('9600001', '9700002')))!.maybeSent, isTrue);
     });
   });
 

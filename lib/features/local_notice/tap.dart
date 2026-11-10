@@ -433,6 +433,7 @@ Future<void> keepDirectReplyDraft(int uid, LocalNoticeTarget target, {LocalDraft
       updatedAt: at,
       tid: tid == null ? null : '$tid',
       replyAction: tid != null && pid != null ? directReplyActionUrl(tid: tid, pid: pid) : null,
+      maybeSent: target.maybeSent,
     ),
   );
 }
