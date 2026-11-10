@@ -355,6 +355,11 @@ class ScreenPaths {
   /// Need to login before see the content.
   static const String ratingStats = '/ratingStats';
 
+  /// The moderator's panel: the moderation queue, the recycle bins and the log of the forum's moderation panel.
+  ///
+  /// Offered to an account of a management group.
+  static const String moderatorPanel = '/moderatorPanel';
+
   /// Page to edit a post or thread.
   ///
   /// Contains:
