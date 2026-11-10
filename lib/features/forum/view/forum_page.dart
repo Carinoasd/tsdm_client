@@ -304,7 +304,7 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
       : null;
 
   /// Watch this forum for new threads, or stop: the threads after the newest one shown now are announced (after the
-  /// newest of the first check when the list shown is filtered).
+  /// newest of the first check when the list shown is filtered or another page than the first).
   Future<void> _toggleWatch(BuildContext context, ForumState state) async {
     final fid = int.tryParse(widget.fid);
     final cubit = context.read<ForumWatchCubit>();
@@ -321,8 +321,9 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
       }
       return;
     }
-    // Only the forum's own list tells its newest thread: a filtered one may show none of the latest.
-    final newest = state.filterState.isFiltering()
+    // Only the forum's own first page tells its newest thread: a filtered one, or a later page jumped to, may show none
+    // of the latest.
+    final newest = state.filterState.isFiltering() || state.currentPage != 1
         ? 0
         : state.normalThreadList.map((e) => int.tryParse(e.threadID) ?? 0).fold(0, math.max);
     final result = await cubit.watchForum(
@@ -335,10 +336,6 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
       result == ForumWatchChange.ok || result == ForumWatchChange.exists
           ? showSnackBar(context: context, message: tr.watched)
           : showForumWatchChange(context, result);
-    }
-    if (mounted) {
-      // Relabel the menu item.
-      setState(() {});
     }
   }
 

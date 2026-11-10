@@ -21,6 +21,7 @@ library;
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:dio/dio.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -29,6 +30,7 @@ import 'package:go_router/go_router.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/extensions/string.dart';
+import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/blocking/repository/user_block_repository.dart';
 import 'package:tsdm_client/features/forum_watch/cubit/forum_watch_cubit.dart';
 import 'package:tsdm_client/features/forum_watch/models/forum_watch_config.dart';
@@ -43,12 +45,19 @@ import 'package:tsdm_client/features/local_notice/show.dart';
 import 'package:tsdm_client/features/notification/utils/push_rules.dart';
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
+import 'package:tsdm_client/features/settings/view/settings_page.dart';
+import 'package:tsdm_client/features/theme/cubit/theme_cubit.dart';
 import 'package:tsdm_client/features/thread_follow/utils/followed_thread_notice.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/app_routes.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
+import 'package:tsdm_client/shared/providers/cookie_provider/cookie_provider.dart';
+import 'package:tsdm_client/shared/providers/image_cache_provider/image_cache_provider.dart';
+import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
+import 'package:tsdm_client/shared/providers/net_client_provider/net_error_saver.dart';
+import 'package:tsdm_client/shared/providers/providers.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/models/database/database.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 import 'package:tsdm_client/shared/repositories/fragments_repository/fragments_repository.dart';
@@ -563,6 +572,23 @@ void main() {
       expect(await readForumWatchInterval(storage), const Duration(minutes: 30));
       await storage.saveInt(SettingsKeys.forumWatchCheckMinutes.name, 15);
       expect(await readForumWatchInterval(storage), const Duration(minutes: 15));
+      // A round that asked nothing (the block list unreadable) gives the slot back: the next heartbeat checks.
+      final later = _now.add(const Duration(hours: 2));
+      expect(
+        await forumWatchTick(
+          storage: storage,
+          store: store,
+          uid: _uid,
+          clock: () => later,
+          gap: Duration.zero,
+          blocks: () async => throw const UserBlockStorageException('broken'),
+          fetch: (source) async => const ForumWatchFetched([], viewerUid: _uid),
+          announce: (_) async => true,
+        ),
+        isNotNull,
+      );
+      expect(await tick(later.add(const Duration(minutes: 1))), isNotNull);
+      expect(await tick(later.add(const Duration(minutes: 2))), isNull);
       // Nothing watched: no check, no slot taken.
       await cubit.unwatchForum(_fid);
       expect(await tick(_now.add(const Duration(hours: 5))), isNull);
@@ -793,6 +819,43 @@ void main() {
       );
       await tester.pump();
     }
+
+    testWidgets('the settings page leads to it on every platform, notifications posted or not', (tester) async {
+      tester.view
+        ..physicalSize = const Size(384, 792)
+        ..devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      getIt
+        ..registerSingleton<AppDatabase>(db)
+        ..registerSingleton<CookieProvider>(CookieProvider.buildEmpty())
+        ..registerFactory<CookieProvider>(CookieProvider.buildEmpty, instanceName: ServiceKeys.empty)
+        ..registerSingleton<NetErrorSaver>(NetErrorSaver())
+        ..registerSingleton<ImageCacheProvider>(ImageCacheProvider(NetClientProvider.buildNoCookie(dio: Dio())));
+      final theme = ThemeCubit();
+      addTearDown(theme.close);
+      await tester.pumpWidget(
+        RepositoryProvider<AuthenticationRepository>.value(
+          value: AuthenticationRepository(),
+          child: MultiBlocProvider(
+            providers: [
+              BlocProvider<SettingsBloc>.value(value: bloc),
+              BlocProvider<ThemeCubit>.value(value: theme),
+            ],
+            child: TranslationProvider(child: const MaterialApp(home: SettingsPage())),
+          ),
+        ),
+      );
+      for (var i = 0; i < 8; i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      // The test host posts no notification (`autoSyncPostsNotifications`): the categories are not shown, the entry is.
+      expect(autoSyncPostsNotifications, isFalse);
+      final entry = find.byKey(const ValueKey('notice-forum-watch'));
+      await tester.scrollUntilVisible(entry, 300, scrollable: find.byType(Scrollable).first);
+      expect(entry, findsOneWidget);
+      expect(find.byKey(const ValueKey('notice-category-keywordAlert')), findsNothing);
+    });
 
     testWidgets('the alerts, then what is watched: forums with their count, keywords, scope, interval', (tester) async {
       await pump(tester);

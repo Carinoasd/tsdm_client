@@ -12,6 +12,10 @@ const _idMask = 0x0FFFFFFF;
 
 /// Id of the notification of the new threads of watched forum [fid]: one per forum, a later one replacing it.
 ///
+/// Not per account, on purpose: only the account in use is checked, and the notification left from an account used
+/// before is about a forum the account in use may watch too; the latest one is what a tap should open. The 28 bits
+/// of the forum id leave no room for the uid either.
+///
 /// Apart from the notifications of the auto sync (`localNoticeId`, `localNoticeIdOf`), of the followed threads
 /// (`followedThreadNoticeId`) and the persistent one of the background message service.
 int forumWatchForumNoticeId(int fid) => _forumIdBase | (fid & _idMask);

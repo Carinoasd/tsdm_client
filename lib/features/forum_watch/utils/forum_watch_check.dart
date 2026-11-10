@@ -356,6 +356,11 @@ Future<ForumWatchRound?> forumWatchTick({
     clock: clock,
     gap: gap,
   );
+  if (round.asked == 0 && round.stopped) {
+    // Nothing asked (the block list unreadable, the account switched, the service stopping): the next heartbeat may
+    // check after all.
+    await ForumWatchCheckSlot.release(storage, uid, slot);
+  }
   talker.debug(
     'forum watch of uid ${"$uid".obscured(4)}: ${round.asked} asked, ${round.failed} failed, '
     '${round.found.length} found, ${round.announced.length} announced${round.stopped ? ", stopped" : ""}',
