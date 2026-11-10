@@ -373,7 +373,11 @@ void main() {
       expect(moderateOperationsFor(closed: false), [
         ModerateOperation.stick,
         ModerateOperation.digest,
+        ModerateOperation.highlight,
+        ModerateOperation.recommend,
         ModerateOperation.close,
+        ModerateOperation.bump,
+        ModerateOperation.down,
         ModerateOperation.move,
         ModerateOperation.delete,
       ]);
