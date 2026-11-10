@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
+import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/features/video_player/models/post_video.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/cookie_provider/cookie_provider.dart';
@@ -106,16 +107,20 @@ final class NetVideoFetcher with LoggerMixin implements VideoFetcher {
     final part = File('${file.path}.${cancelToken.hashCode}.part');
     final url = video.url.toString();
     _writing.add(part.path);
-    final result = await getIt
-        .get<NetClientProvider>()
-        .download(
-          url,
-          part.path,
-          cancelToken: cancelToken,
-          onReceiveProgress: (received, total) => onProgress?.call(total > 0 ? received / total : null),
-        )
-        .run();
-    _writing.remove(part.path);
+    final SyncVoidEither result;
+    try {
+      result = await getIt
+          .get<NetClientProvider>()
+          .download(
+            url,
+            part.path,
+            cancelToken: cancelToken,
+            onReceiveProgress: (received, total) => onProgress?.call(total > 0 ? received / total : null),
+          )
+          .run();
+    } finally {
+      _writing.remove(part.path);
+    }
     if (result.isLeft()) {
       if (part.existsSync()) {
         await part.delete();

@@ -54,10 +54,14 @@ final class _VideoBackend implements VideoBackend {
   String? opened;
   bool disposed = false;
 
+  /// Holds the open until completed, when set.
+  Completer<void>? opening;
+
   @override
   Future<void> open(String source) async {
     opened = source;
     log.add('open $source');
+    await opening?.future;
   }
 
   @override
@@ -292,14 +296,18 @@ void main() {
     late _VideoFetcher fetcher;
     late _AudioFetcher audioFetcher;
 
+    /// The open of the next backend made waits for it, when set.
+    Completer<void>? nextOpening;
+
     Future<void> pump(WidgetTester tester, Widget child) async {
       addTearDown(await registerFloorServices());
       addTearDown(VideoPlayback.reset);
       log = [];
       backends = [];
+      nextOpening = null;
       fetcher = _VideoFetcher();
       VideoPlayback.backendFactory = () {
-        final backend = _VideoBackend(log);
+        final backend = _VideoBackend(log)..opening = nextOpening;
         backends.add(backend);
         return backend;
       };
@@ -415,6 +423,25 @@ void main() {
       await tester.pump();
       expect(find.text('无法播放'), findsOneWidget);
       expect(backends.single.disposed, isTrue);
+      await finish(tester);
+    });
+
+    testWidgets('an error while the stream is being opened shows it cannot play, the open done after too', (
+      tester,
+    ) async {
+      await pump(tester, PostVideoPlayer(PostVideo(url: _stream)));
+      final opening = nextOpening = Completer<void>();
+      await tester.tap(find.byType(PostVideoPlayer));
+      await tester.pump();
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      backends.single.fail('loading failed');
+      await tester.pump();
+      opening.complete();
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('无法播放'), findsOneWidget);
+      expect(find.byKey(const ValueKey('video view')), findsNothing);
+      expect(log, ['open https://video.example.com/v/clip.mp4', 'dispose https://video.example.com/v/clip.mp4']);
       await finish(tester);
     });
 

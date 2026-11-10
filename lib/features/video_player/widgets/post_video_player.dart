@@ -244,6 +244,10 @@ class _PostVideoPlayerState extends State<PostVideoPlayer> with WidgetsBindingOb
       // Cancelled for a former start (another one, or let go): dropped. Anything else is this one failing.
       _fail(generation, VideoFetchFailure.network);
     } on Object catch (e, st) {
+      if (generation != _generation) {
+        // Taken over already (failed by the player's error, or stopped): the player freed under it threw.
+        return;
+      }
       talker.handle(e, st, 'failed to play video ${widget.video}');
       _fail(generation, null);
     }
