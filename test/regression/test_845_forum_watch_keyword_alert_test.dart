@@ -849,12 +849,14 @@ void main() {
         await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
         await tester.pump(const Duration(milliseconds: 50));
       }
-      // The test host posts no notification (`autoSyncPostsNotifications`): the categories are not shown, the entry is.
-      expect(autoSyncPostsNotifications, isFalse);
       final entry = find.byKey(const ValueKey('notice-forum-watch'));
       await tester.scrollUntilVisible(entry, 300, scrollable: find.byType(Scrollable).first);
       expect(entry, findsOneWidget);
-      expect(find.byKey(const ValueKey('notice-category-keywordAlert')), findsNothing);
+      // The categories only where notifications are posted (`autoSyncPostsNotifications`), the entry everywhere.
+      expect(
+        find.byKey(const ValueKey('notice-category-keywordAlert'), skipOffstage: false),
+        autoSyncPostsNotifications ? findsOneWidget : findsNothing,
+      );
     });
 
     testWidgets('the alerts, then what is watched: forums with their count, keywords, scope, interval', (tester) async {

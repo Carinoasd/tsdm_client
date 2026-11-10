@@ -611,7 +611,7 @@
         "quietEnd": "Until",
         "forumNewThread": "New threads in forums",
         "keywordAlert": "Keyword alerts",
-        "forumWatch": "New thread alerts"
+        "forumWatch": "New thread and keyword alerts"
       },
       "notificationHideContent": {
         "title": "Hide notification content",
@@ -3869,7 +3869,7 @@
     }
   },
   "forumWatch": {
-    "title": "New thread alerts",
+    "title": "New thread and keyword alerts",
     "alerts": "Alerts",
     "settings": "Settings",
     "noAlerts": "No alerts yet",
