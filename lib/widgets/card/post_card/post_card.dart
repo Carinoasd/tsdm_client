@@ -44,6 +44,7 @@ import 'package:tsdm_client/shared/models/medal.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/models/post_image_auto_load.dart';
 import 'package:tsdm_client/shared/models/thread_floor_interaction_mode.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/clipboard.dart';
 import 'package:tsdm_client/utils/html/post_typography.dart';
 import 'package:tsdm_client/utils/logger.dart';
@@ -330,7 +331,7 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
                 sizedBoxW2H2,
                 Text(
                   [
-                    if (userGroup != null && userGroup.isNotEmpty) userGroup,
+                    if (userGroup != null && userGroup.isNotEmpty) context.displayText(userGroup),
                     if (publishTime != null) publishTime.yyyyMMDDHHMMSS(),
                     // Sent from the app (plugin 3.3.0), as the web page prints it beside the time.
                     if (widget.post.fromApp) context.t.postCard.fromApp,

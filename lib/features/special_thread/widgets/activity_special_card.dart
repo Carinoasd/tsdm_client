@@ -93,7 +93,7 @@ class _ActivityCardState extends State<_ActivityCard> with _SpecialActions {
               avatar: a.avatar,
               detail: [
                 if (a.payment case final payment?) payment < 0 ? tr.selfPay : tr.pays(amount: payment),
-                if (a.message.isNotEmpty) a.message,
+                if (a.message.isNotEmpty) context.displayText(a.message),
               ].join(' · '),
             ),
         ],
@@ -118,7 +118,7 @@ class _ActivityCardState extends State<_ActivityCard> with _SpecialActions {
     return AppEmbedCard(
       icon: Icons.event_outlined,
       title: tr.title,
-      subtitle: a.activityClass.isEmpty ? null : a.activityClass,
+      subtitle: a.activityClass.isEmpty ? null : context.displayText(a.activityClass),
       trailing: _busy ? const SizedBox(width: 20, height: 20, child: CircularIndicator()) : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -131,13 +131,13 @@ class _ActivityCardState extends State<_ActivityCard> with _SpecialActions {
                 child: CachedImage(image, maxHeight: 200, fit: BoxFit.contain),
               ),
             ),
-          if (a.activityClass.isNotEmpty) _InfoRow(tr.type, a.activityClass),
+          if (a.activityClass.isNotEmpty) _InfoRow(tr.type, context.displayText(a.activityClass)),
           if (start != null)
             _InfoRow(
               tr.time,
               end == null ? start.yyyyMMDDHHMM() : tr.timeRange(from: start.yyyyMMDDHHMM(), to: end.yyyyMMDDHHMM()),
             ),
-          if (a.place.isNotEmpty) _InfoRow(tr.place, a.place),
+          if (a.place.isNotEmpty) _InfoRow(tr.place, context.displayText(a.place)),
           _InfoRow(tr.gender, switch (a.gender) {
             1 => tr.genderMale,
             2 => tr.genderFemale,

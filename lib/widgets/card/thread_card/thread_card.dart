@@ -427,7 +427,7 @@ class _CardLayout extends StatelessWidget {
           foregroundColor: colorScheme.onSecondaryContainer,
         ),
       );
-      name = SingleLineText('$forum', style: nameStyle);
+      name = SingleLineText(context.displayText('$forum'), style: nameStyle);
     }
     final meta = <Widget>[
       if (publishTime != null) SingleLineText(publishTime!.yyyyMMDD(), style: timeStyle),
@@ -474,7 +474,7 @@ class _CardLayout extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
           child: Text(
-            name,
+            context.displayText(name),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(color: colorScheme.onSecondaryContainer),
@@ -553,7 +553,7 @@ class _CardLayout extends StatelessWidget {
             if (quotedMessage != null)
               Padding(
                 padding: edgeInsetsL16R16B12,
-                child: Row(children: [Expanded(child: QuotedText(quotedMessage ?? ''))]),
+                child: Row(children: [Expanded(child: QuotedText(context.displayText(quotedMessage ?? '')))]),
               ),
             _buildInfoWidgetRow(
               context: context,

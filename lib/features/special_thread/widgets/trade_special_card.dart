@@ -90,7 +90,10 @@ class _TradeCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(goods.subject, style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+                Text(
+                  context.displayText(goods.subject),
+                  style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                ),
                 if (meta.isNotEmpty)
                   Text(
                     meta,

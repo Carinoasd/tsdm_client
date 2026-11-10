@@ -4,6 +4,7 @@ import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/shared/models/models.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/cached_image/cached_image_provider.dart';
 
@@ -65,7 +66,7 @@ class BountyAnswerCard extends StatelessWidget {
             width: double.infinity,
             child: AppInsetBlock(
               color: Theme.of(context).colorScheme.surfaceContainerHigh,
-              child: Text(answer, style: textTheme.bodyMedium),
+              child: Text(context.displayText(answer), style: textTheme.bodyMedium),
             ),
           ),
         ],

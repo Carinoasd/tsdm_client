@@ -8,6 +8,7 @@ import 'package:tsdm_client/features/poll/models/forum_poll.dart';
 import 'package:tsdm_client/features/poll/models/poll_voters.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/show_bottom_sheet.dart';
 import 'package:tsdm_client/widgets/indicator.dart';
 
@@ -110,7 +111,7 @@ class _PollVotersListState extends State<PollVotersList> {
               if (option.id != null)
                 DropdownMenuItem(
                   value: option,
-                  child: Text(option.label, maxLines: 1, overflow: TextOverflow.ellipsis),
+                  child: Text(context.displayText(option.label), maxLines: 1, overflow: TextOverflow.ellipsis),
                 ),
           ],
           onChanged: (option) {
