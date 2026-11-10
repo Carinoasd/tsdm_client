@@ -275,6 +275,14 @@ extension ParseUrl on String {
       return RecognizedRoute(ScreenPaths.chatHistory, pathParameters: {'uid': queryParameters['touid']!});
     }
 
+    // The forum's statistics: misc.php?mod=stat[&op=...], shown in the app's read only page of them.
+    if (mod == 'stat' && uri.path.endsWith('misc.php')) {
+      return RecognizedRoute(
+        ScreenPaths.siteStats,
+        queryParameters: {'url': Uri.parse('$baseUrl/misc.php').replace(queryParameters: queryParameters).toString()},
+      );
+    }
+
     // Tags: the threads of one (`misc.php?mod=tag&id=N` or `&name=xx`; the full, paged list is `type=thread`) or the
     // cloud of all (`misc.php?mod=tag`). The other kinds of the tag page (articles, blogs, doings) and the tag
     // tools (`op=add|manage|set|search`) stay with the web page.

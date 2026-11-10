@@ -48,7 +48,8 @@ class SiteStatsRepository {
       };
     }
     final chartUrl = page.chartUrl;
-    if (chartUrl == null) {
+    // The page names where its trend is; only a statistics page of the forum is asked with the session.
+    if (chartUrl == null || !isStatsUrl(chartUrl)) {
       return TaskEither.right(page);
     }
     return TaskEither(

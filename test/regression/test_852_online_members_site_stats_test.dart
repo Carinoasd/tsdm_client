@@ -251,6 +251,17 @@ void main() {
       }
     });
 
+    test("the forum's links to its statistics open the page in the app", () {
+      for (final link in ['misc.php?mod=stat&op=team', 'https://tsdm39.com/misc.php?mod=stat&op=team']) {
+        final route = link.parseUrlToRoute();
+        expect(route?.screenPath, ScreenPaths.siteStats, reason: link);
+        final url = route!.queryParameters['url']!;
+        expect(url, 'https://www.tsdm39.com/misc.php?mod=stat&op=team');
+        expect(SiteStatsRepository.isStatsUrl(url), isTrue);
+      }
+      expect('https://evil.example/misc.php?mod=stat'.parseUrlToRoute(), isNull);
+    });
+
     test('only a statistics page of the forum is asked for a url given', () {
       expect(SiteStatsRepository.isStatsUrl('https://www.tsdm39.com/misc.php?mod=stat&op=team'), isTrue);
       expect(SiteStatsRepository.isStatsUrl('https://tsdm39.com/misc.php?mod=stat'), isTrue);
@@ -285,6 +296,21 @@ void main() {
       asked.clear();
       await _repository({SiteStatsRepository.basicUrl: 'basic.html'}, asked).fetch(SiteStatsRepository.basicUrl).run();
       expect(asked, [SiteStatsRepository.basicUrl]);
+    });
+
+    test('a trend the page names elsewhere is not asked', () async {
+      final asked = <String>[];
+      final html = _raw(
+        'trend.html',
+      ).replaceFirst("drawstatchart('misc.php", "drawstatchart('https://evil.example/misc.php");
+      final page = (await SiteStatsRepository(
+        fetchText: (url) {
+          asked.add(url);
+          return TaskEither.right(html);
+        },
+      ).fetch(trendUrl).run()).getOrElse((e) => throw e);
+      expect(asked, [trendUrl]);
+      expect(page.chart, isNull);
     });
 
     test("no permission: the forum's words", () async {

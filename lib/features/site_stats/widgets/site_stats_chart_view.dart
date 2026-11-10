@@ -40,6 +40,8 @@ class SiteStatsChartView extends StatelessWidget {
           minX: 0,
           maxX: (labels.length - 1).toDouble().clamp(0, double.infinity),
           minY: 0,
+          // A trend of zeros only (a quiet forum's log) still gets an axis.
+          maxY: chart.series.every((s) => s.values.every((v) => v == 0)) ? 1 : null,
           gridData: FlGridData(
             drawVerticalLine: false,
             getDrawingHorizontalLine: (_) => FlLine(color: colorScheme.outlineVariant, strokeWidth: 1),
