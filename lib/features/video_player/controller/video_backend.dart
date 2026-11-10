@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/instance.dart';
 
 /// What plays a video of a floor and shows it. Tests give a fake one.
 abstract interface class VideoBackend {
@@ -70,8 +71,13 @@ final class MediaKitVideoBackend implements VideoBackend {
   bool _disposed = false;
 
   Future<void> _setRate(double rate) async {
-    if (!_disposed) {
+    if (_disposed) {
+      return;
+    }
+    try {
       await _player.setRate(rate);
+    } on Object catch (e, st) {
+      talker.handle(e, st, 'failed to set the video speed');
     }
   }
 
@@ -99,7 +105,11 @@ final class MediaKitVideoBackend implements VideoBackend {
     required Future<void> Function() onEnterFullscreen,
     required Future<void> Function() onExitFullscreen,
   }) {
-    final speed = VideoSpeedButton(rate: _player.stream.rate, initialRate: _player.state.rate, onChanged: _setRate);
+    final speed = VideoSpeedButton(
+      rate: _player.stream.rate,
+      initialRate: _player.state.rate,
+      onChanged: (rate) => unawaited(_setRate(rate)),
+    );
     final mobile = MaterialVideoControlsThemeData(
       // In a page that scrolls the gestures stay off (their default): a drag scrolls it.
       bottomButtonBar: [
@@ -196,13 +206,16 @@ class VideoSpeedButton extends StatelessWidget {
         final current = snapshot.data ?? 1.0;
         return Tooltip(
           message: context.t.videoPlayer.speed,
-          child: InkWell(
-            onTap: () async => _choose(context, current),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-              child: Text(
-                videoSpeedLabel(current),
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+          child: Semantics(
+            button: true,
+            child: InkWell(
+              onTap: () async => _choose(context, current),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                child: Text(
+                  videoSpeedLabel(current),
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                ),
               ),
             ),
           ),
