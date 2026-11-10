@@ -384,7 +384,8 @@ final class RecycleBinNotDone extends RecycleBinOutcome {
   /// Constructor.
   const RecycleBinNotDone({required this.done, required this.remaining});
 
-  /// How many were done.
+  /// How many were done; at most that many when a later page could not be read again (the items picked on it are
+  /// counted done).
   final int done;
 
   /// The items still in the bin.
