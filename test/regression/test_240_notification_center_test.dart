@@ -170,6 +170,30 @@ String _noticePage(List<(int, int, String, String)> notes) {
   return '<html><body><div class="nts">${rows.join()}</div></body></html>';
 }
 
+/// Answers every request with the forum's JSON [body], as the plugin answers the private message page of a forum with
+/// private messages switched off.
+final class _JsonAdapter implements HttpClientAdapter {
+  _JsonAdapter(this.body);
+
+  final String body;
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async => ResponseBody.fromString(
+    body,
+    200,
+    headers: {
+      Headers.contentTypeHeader: ['application/json'],
+    },
+  );
+
+  @override
+  void close({bool force = false}) {}
+}
+
 final class _OfflineAdapter implements HttpClientAdapter {
   @override
   Future<ResponseBody> fetch(RequestOptions options, Stream<Uint8List>? requestStream, Future<void>? cancelFuture) =>
@@ -738,6 +762,9 @@ void main() {
         ..registerSingleton<NetErrorSaver>(NetErrorSaver())
         ..registerSingleton<CookieProvider>(CookieProvider.buildEmpty())
         ..registerFactory<CookieProvider>(CookieProvider.buildEmpty, instanceName: ServiceKeys.empty)
+        ..registerSingleton<NetClientProvider>(
+          NetClientProvider.buildNoCookie(dio: Dio()..httpClientAdapter = _OfflineAdapter()),
+        )
         ..registerSingleton<ImageCacheProvider>(
           ImageCacheProvider(NetClientProvider.buildNoCookie(dio: Dio()..httpClientAdapter = _OfflineAdapter())),
         );
@@ -844,6 +871,23 @@ void main() {
 
     Finder card(int id) => find.byKey(ValueKey('notice-card-$id'));
     final list = find.descendant(of: find.byType(ListView), matching: find.byType(Scrollable)).first;
+
+    testWidgets('private messages off: the empty tab says the forum\'s own words', (tester) async {
+      await getIt.unregister<NetClientProvider>();
+      getIt.registerSingleton<NetClientProvider>(
+        NetClientProvider.buildNoCookie(
+          dio: Dio()..httpClientAdapter = _JsonAdapter('{"ok":0,"error":"message","message":"抱歉，私信功能尚未开启","login":0}'),
+        ),
+      );
+      await open(
+        tester,
+        state: const NotificationState(status: NotificationStatus.success, ownerUid: 1000),
+      );
+      await tester.tap(find.text('私人消息').first);
+      await _settle(tester);
+      expect(find.text('抱歉，私信功能尚未开启'), findsOneWidget);
+      expect(find.text('还没有私人消息'), findsNothing);
+    });
 
     testWidgets('cards: author, kind and relative time; grouped by day', (tester) async {
       await open(tester);
