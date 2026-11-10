@@ -52,7 +52,11 @@ class SecondaryTitleCard extends StatelessWidget {
               return Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  SecondaryTitleBadge(title.imageUrl, width: badgeWidth, semanticLabel: title.name),
+                  SecondaryTitleBadge(
+                    title.imageUrl,
+                    width: badgeWidth,
+                    semanticLabel: context.displayText(title.name),
+                  ),
                   sizedBoxW8H8,
                   Text(
                     context.displayText(title.name),

@@ -87,7 +87,9 @@ class _MyMedalsPageState extends State<MyMedalsPage> {
         content: [
           AppNoticeBanner(tone: AppNoticeTone.warning, message: context.displayText(page.hideWarning)),
           sizedBoxW12H12,
-          Text(tr.myMedalsHideConfirm(names: newlyHidden.take(10).map((m) => '「${m.name}」').join())),
+          Text(
+            tr.myMedalsHideConfirm(names: newlyHidden.take(10).map((m) => '「${context.displayText(m.name)}」').join()),
+          ),
         ],
       );
       if (!ok || !mounted) return;

@@ -129,7 +129,11 @@ class _TitleShopPageState extends State<TitleShopPage> {
                   // Prefer the server's own sentence: it carries the exact price and currency.
                   AppInsetBlock(
                     outlined: true,
-                    child: Text(context.displayText(item.form?.confirmText ?? tr.purchaseConfirm(price: item.price))),
+                    child: Text(
+                      item.form?.confirmText != null
+                          ? context.displayText(item.form!.confirmText!)
+                          : tr.purchaseConfirm(price: context.displayText(item.price)),
+                    ),
                   ),
                   sizedBoxW12H12,
                   AppNoticeBanner(message: tr.notEquipped),
