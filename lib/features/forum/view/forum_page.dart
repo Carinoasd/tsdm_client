@@ -24,6 +24,7 @@ import 'package:tsdm_client/features/forum_watch/view/forum_watch_page.dart';
 import 'package:tsdm_client/features/jump_page/cubit/jump_page_cubit.dart';
 import 'package:tsdm_client/features/keyboard/widgets/keyboard_page_actions.dart';
 import 'package:tsdm_client/features/keyboard/widgets/keyboard_selectable.dart';
+import 'package:tsdm_client/features/moderate/models/thread_perms.dart';
 import 'package:tsdm_client/features/moderate/repository/moderate_repository.dart';
 import 'package:tsdm_client/features/moderate/view/moderate_queue_page.dart';
 import 'package:tsdm_client/features/moderate/widgets/moderate_sheet.dart';
@@ -160,7 +161,14 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
     if (threads.isEmpty) {
       return;
     }
-    final report = await showBatchModerateSheet(context, threads: threads, fid: fid);
+    final uid = context.readOrNull<AuthenticationRepository>()?.effectiveCurrentUid;
+    final report = await showBatchModerateSheet(
+      context,
+      threads: threads,
+      fid: fid,
+      // The forum page answer carries no permissions: what a thread page of this forum told the account lately.
+      perms: uid == null ? null : ForumPermsMemory.of(uid: uid, fid: fid),
+    );
     if (report == null || !mounted) {
       return;
     }

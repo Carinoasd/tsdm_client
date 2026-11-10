@@ -167,6 +167,8 @@ class PostCard extends StatefulWidget {
     this.onEdited,
     this.onJoinDebate,
     this.onModerate,
+    this.moderateActions,
+    this.canRemoveRate = true,
     this.onBanAuthor,
     this.multiQuote,
     super.key,
@@ -188,6 +190,13 @@ class PostCard extends StatefulWidget {
   /// Manage this floor as a moderator (warn, hide, delete the reply); null where the account does not moderate the
   /// thread's forum.
   final void Function(FloorModerateAction action)? onModerate;
+
+  /// The operations [onModerate] is offered with, of the ones the floor takes (`floorModerateActionsFor`); null for
+  /// every one of them (the page does not tell what the account may do: the forum's window decides).
+  final List<FloorModerateAction>? moderateActions;
+
+  /// Whether taking rates of the floor back is offered with [onModerate] (moderators of the forum).
+  final bool canRemoveRate;
 
   /// Ban the floor's author from posting, or lift the ban ([Post.banAuthorUid]); null where the forum offers it not.
   final VoidCallback? onBanAuthor;
@@ -629,19 +638,24 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
           for (final action in floorModerateActionsFor(
             first: widget.post.postFloor == 1 || (widget.post.shareLink?.contains('mod=viewthread&') ?? false),
           ))
-            item(
-              switch (action) {
-                FloorModerateAction.warn => _PostCardActions.moderateWarn,
-                FloorModerateAction.ban => _PostCardActions.moderateBan,
-                FloorModerateAction.delete => _PostCardActions.moderateDelete,
-                FloorModerateAction.stick => _PostCardActions.moderateStick,
-              },
-              // A floor known warned or stuck is offered taking it back (the forum's window decides all the same).
-              floorModerateIcon(action, undo: _knownDone(action)),
-              floorModerateName(context, action, undo: _knownDone(action)),
-              color: action == FloorModerateAction.delete ? colorScheme.error : null,
-            ),
-        if (online && widget.onModerate != null && widget.post.rate != null && _removeRateTid(context) != null)
+            if (widget.moderateActions?.contains(action) ?? true)
+              item(
+                switch (action) {
+                  FloorModerateAction.warn => _PostCardActions.moderateWarn,
+                  FloorModerateAction.ban => _PostCardActions.moderateBan,
+                  FloorModerateAction.delete => _PostCardActions.moderateDelete,
+                  FloorModerateAction.stick => _PostCardActions.moderateStick,
+                },
+                // A floor known warned or stuck is offered taking it back (the forum's window decides all the same).
+                floorModerateIcon(action, undo: _knownDone(action)),
+                floorModerateName(context, action, undo: _knownDone(action)),
+                color: action == FloorModerateAction.delete ? colorScheme.error : null,
+              ),
+        if (online &&
+            widget.onModerate != null &&
+            widget.canRemoveRate &&
+            widget.post.rate != null &&
+            _removeRateTid(context) != null)
           item(_PostCardActions.moderateRemoveRate, Icons.remove_circle_outline, context.t.moderateFloorOps.removeRate),
         if (online && widget.onBanAuthor != null)
           item(

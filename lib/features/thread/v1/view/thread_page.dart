@@ -32,7 +32,9 @@ import 'package:tsdm_client/features/floor_bookmark/widgets/floor_bookmark_widge
 import 'package:tsdm_client/features/forum/models/models.dart';
 import 'package:tsdm_client/features/jump_page/cubit/jump_page_cubit.dart';
 import 'package:tsdm_client/features/keyboard/widgets/keyboard_page_actions.dart';
+import 'package:tsdm_client/features/moderate/models/moderate_form.dart';
 import 'package:tsdm_client/features/moderate/models/moderate_posts.dart';
+import 'package:tsdm_client/features/moderate/models/thread_perms.dart';
 import 'package:tsdm_client/features/moderate/repository/moderate_repository.dart';
 import 'package:tsdm_client/features/moderate/widgets/floor_moderate_dialog.dart';
 import 'package:tsdm_client/features/moderate/widgets/member_ban_dialog.dart';
@@ -240,8 +242,8 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
   /// The account logged in moderates the forum the thread is in, as the forum says: the management is offered.
   bool _moderates = false;
 
-  /// Floors this moderator warned (true) or took the warning back of (false) while the thread is open, by pid: the
-  /// forum's app API does not tell a floor is warned, the page shows what was done all the same.
+  /// Floors this moderator warned (true) or took the warning back of (false) while the thread is open, by pid: before
+  /// plugin 3.7.0 the forum's app API does not tell a floor is warned, the page shows what was done all the same.
   final _warnedByMe = <String, bool>{};
 
   /// Waits for where the reading stopped while it is not read yet, see [_progressLoading].
@@ -614,9 +616,23 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
 
   /// Ask the forum whether the account logged in moderates the forum of the thread in [state], once per account and
   /// forum (a move puts the thread in another one): the management is offered only then.
+  ///
+  /// A page that tells what the account may manage itself ([ThreadState.perms], plugin 3.7.0 of the forum's app API)
+  /// asks nothing: the management offered is what it says ([_threadOperations], [_floorActions]). What it says is
+  /// kept for the forum page's management of several threads ([ForumPermsMemory]).
   void _askModerator(BuildContext context, ThreadState state) {
     final uid = context.read<AuthenticationRepository>().effectiveCurrentUid;
     final fid = state.fid;
+    if (state.perms case final perms? when !state.isOffline) {
+      _moderatorAsked = null;
+      if (_moderates) {
+        setState(() => _moderates = false);
+      }
+      if (uid != null && fid != null && state.floorsUid == uid) {
+        ForumPermsMemory.note(uid: uid, fid: fid, perms: perms, draft: state.isDraft);
+      }
+      return;
+    }
     final key = uid == null || fid == null || state.isOffline ? null : '$uid:$fid';
     if (key == _moderatorAsked) {
       return;
@@ -641,6 +657,38 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
     }).ignore();
   }
 
+  /// The management operations offered on the thread in [state]: the ones the page says the web page's management
+  /// menu has ([ThreadState.perms]); every one for a moderator of the forum when the page does not tell (an older
+  /// plugin, the web page: [_moderates]). None offline, or before the page told the forum.
+  List<ModerateOperation> _threadOperations(ThreadState state) {
+    if (state.isOffline || state.fid == null) {
+      return const [];
+    }
+    final all = moderateOperationsFor(closed: state.threadSoftClosed);
+    return switch (state.perms) {
+      final perms? => perms.threadOperations(all),
+      null => _moderates ? all : const [],
+    };
+  }
+
+  /// The management operations offered on floor [post] of the thread in [state], null to offer every one the floor
+  /// takes (`floorModerateActionsFor`), and whether taking rates of it back is offered: null and yes for a moderator
+  /// of the forum when the page does not tell ([_moderates]); else what the page's permissions say
+  /// ([ThreadState.perms]: the floor's own `can.warn` for the warning; a reply is stuck by the thread's author too,
+  /// moderator or not), rates taken back by a moderator of the forum. No management at all (`offered` false) when
+  /// neither applies.
+  ({bool offered, List<FloorModerateAction>? actions, bool removeRate}) _floorActions(ThreadState state, Post post) {
+    if (state.isOffline || state.tid == null || state.fid == null) {
+      return (offered: false, actions: const [], removeRate: false);
+    }
+    final perms = state.perms;
+    if (perms == null) {
+      return (offered: _moderates, actions: null, removeRate: _moderates);
+    }
+    final actions = perms.floorOperations(canWarn: post.canWarn);
+    return (offered: actions.isNotEmpty || perms.isModerator, actions: actions, removeRate: perms.isModerator);
+  }
+
   /// Offer the management of the thread in [state]; reload the thread it changed, leave the thread it deleted.
   Future<void> _moderate(BuildContext context, ThreadState state) async {
     final done = await showThreadModerateSheet(
@@ -648,6 +696,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
       tid: state.tid!,
       fid: state.fid!,
       closed: state.threadSoftClosed,
+      perms: state.perms,
     );
     if (!context.mounted || done == null) {
       return;
@@ -2039,7 +2088,8 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
                                   context,
                                   post,
                                   PostCard(
-                                    _asWarnedByMe(post),
+                                    // A page that tells the warned floors itself needs no memory of them.
+                                    state.perms == null ? _asWarnedByMe(post) : post,
                                     replyCallback: replyPostCallback,
                                     multiQuote: state.replyParameters == null || state.threadClosed || state.isOffline
                                         ? null
@@ -2048,13 +2098,17 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
                                     onJoinDebate: state.replyParameters == null || state.threadClosed
                                         ? null
                                         : _joinDebate,
-                                    onModerate: _moderates && !state.isOffline && state.tid != null && state.fid != null
+                                    onModerate: _floorActions(state, post).offered
                                         ? (action) => _moderateFloor(context, state, post, action)
                                         : null,
+                                    moderateActions: _floorActions(state, post).actions,
+                                    canRemoveRate: _floorActions(state, post).removeRate,
                                     // Not the account's own floors: the forum never lets staff ban themselves.
+                                    // Where the page tells the account's permissions, only with the one to ban.
                                     onBanAuthor:
                                         post.banAuthorUid != null &&
                                             post.banAuthorUid != state.floorsUid &&
+                                            (state.perms?.allowBanUser ?? true) &&
                                             !state.isOffline &&
                                             state.fid != null
                                         ? () => _banAuthor(context, state, post)
@@ -2767,7 +2821,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
                           description: context.t.threadPage.copyTid(tid: state.tid!),
                           onSelected: () async => copyToClipboard(context, state.tid!),
                         ),
-                        if (_moderates && !state.isOffline && state.fid != null)
+                        if (_threadOperations(state).isNotEmpty)
                           MenuCustomItem(
                             icon: Icons.admin_panel_settings_outlined,
                             description: context.t.moderate.menu,

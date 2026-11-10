@@ -5,6 +5,7 @@ import 'package:fpdart/fpdart.dart' show Left, Right;
 import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/features/moderate/models/moderate_form.dart';
+import 'package:tsdm_client/features/moderate/models/thread_perms.dart';
 import 'package:tsdm_client/features/moderate/repository/moderate_repository.dart';
 import 'package:tsdm_client/features/moderate/view/split_thread_page.dart';
 import 'package:tsdm_client/features/thread_link_card/models/thread_link_card_info.dart';
@@ -106,48 +107,57 @@ const List<ModerateOperation> moderateBatchOperations = [
   ModerateOperation.delete,
 ];
 
-/// Let the moderator pick one of [operations], delete last and apart.
-Future<ModerateOperation?> _pickOperation(BuildContext context, List<ModerateOperation> operations) =>
-    showModalBottomSheet<ModerateOperation>(
-      context: context,
-      showDragHandle: true,
-      builder: (context) => SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              for (final op in operations) ...[
-                if (op == ModerateOperation.delete) const Divider(height: 1),
-                ListTile(
-                  leading: Icon(
-                    moderateOperationIcon(op),
-                    color: op == ModerateOperation.delete ? Theme.of(context).colorScheme.error : null,
+/// Let the moderator pick one of [operations], delete last and apart; nothing to pick from is nothing picked.
+Future<ModerateOperation?> _pickOperation(BuildContext context, List<ModerateOperation> operations) async =>
+    operations.isEmpty
+    ? null
+    : showModalBottomSheet<ModerateOperation>(
+        context: context,
+        showDragHandle: true,
+        builder: (context) => SafeArea(
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final op in operations) ...[
+                  if (op == ModerateOperation.delete) const Divider(height: 1),
+                  ListTile(
+                    leading: Icon(
+                      moderateOperationIcon(op),
+                      color: op == ModerateOperation.delete ? Theme.of(context).colorScheme.error : null,
+                    ),
+                    title: Text(
+                      moderateOperationName(context, op),
+                      style: op == ModerateOperation.delete
+                          ? TextStyle(color: Theme.of(context).colorScheme.error)
+                          : null,
+                    ),
+                    onTap: () => Navigator.of(context).pop(op),
                   ),
-                  title: Text(
-                    moderateOperationName(context, op),
-                    style: op == ModerateOperation.delete
-                        ? TextStyle(color: Theme.of(context).colorScheme.error)
-                        : null,
-                  ),
-                  onTap: () => Navigator.of(context).pop(op),
-                ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
-      ),
-    );
+      );
 
 /// Offer the management of threads [threads] (tid and title, in the list's order) of forum [fid] to a moderator: pick
 /// an operation, fill in the forum's window of it once, send it for every thread; the threads not done are listed
 /// with why. Null when nothing was sent.
+///
+/// With [perms] (what a thread page of the forum told the account lately, `ForumPermsMemory`) only the operations the
+/// forum's own management menu has are offered; without, every one, as the forum's window decides.
 Future<ModerateBatchReport?> showBatchModerateSheet(
   BuildContext context, {
   required List<(String, String)> threads,
   required int fid,
+  ThreadPerms? perms,
   ModerateRepository? repository,
 }) async {
-  final operation = await _pickOperation(context, moderateBatchOperations);
+  final operation = await _pickOperation(
+    context,
+    perms?.threadOperations(moderateBatchOperations) ?? moderateBatchOperations,
+  );
   if (operation == null || !context.mounted) {
     return null;
   }
@@ -158,6 +168,7 @@ Future<ModerateBatchReport?> showBatchModerateSheet(
       operation: operation,
       tids: [for (final (tid, _) in threads) tid],
       fid: fid,
+      maxLevel: perms?.maxLevelOf(operation),
       repository: repository ?? ModerateRepository.network(),
     ),
   );
@@ -209,14 +220,20 @@ Future<ModerateBatchReport?> showBatchModerateSheet(
 /// of it, send it. Null when nothing was done.
 ///
 /// A split picks its floors on a page of its own ([openSplitThreadPage]); once done, the new thread is offered to open.
+///
+/// With [perms] (what the thread's page told the account, plugin 3.7.0 of the forum's app API) only the operations
+/// the web page's management menu has are offered, and a stick or a digest no higher than the account may set;
+/// without, every one, as the forum's window decides.
 Future<ModerateDone?> showThreadModerateSheet(
   BuildContext context, {
   required String tid,
   required int fid,
   required bool closed,
+  ThreadPerms? perms,
   ModerateRepository? repository,
 }) async {
-  final operation = await _pickOperation(context, moderateOperationsFor(closed: closed));
+  final offered = moderateOperationsFor(closed: closed);
+  final operation = await _pickOperation(context, perms?.threadOperations(offered) ?? offered);
   if (operation == null || !context.mounted) {
     return null;
   }
@@ -257,6 +274,7 @@ Future<ModerateDone?> showThreadModerateSheet(
       operation: operation,
       tid: tid,
       fid: fid,
+      maxLevel: perms?.maxLevelOf(operation),
       repository: repository ?? ModerateRepository.network(),
     ),
   );
@@ -275,6 +293,7 @@ class ModerateDialog extends StatefulWidget {
     required this.tid,
     required this.fid,
     required this.repository,
+    this.maxLevel,
     this.imageBuilder,
     super.key,
   }) : tids = null;
@@ -286,6 +305,7 @@ class ModerateDialog extends StatefulWidget {
     required List<String> this.tids,
     required this.fid,
     required this.repository,
+    this.maxLevel,
     this.imageBuilder,
     super.key,
   }) : assert(tids.isNotEmpty, 'no thread to manage'),
@@ -305,6 +325,10 @@ class ModerateDialog extends StatefulWidget {
 
   /// Where the window comes from and goes to.
   final ModerateRepository repository;
+
+  /// The highest stick or digest level offered (`ThreadPerms.maxLevelOf`: what the forum's app API says the account
+  /// may set); null to offer every level the window lists. The level the thread has now stays offered either way.
+  final int? maxLevel;
 
   /// Builds the picture of a stamp or an icon at its url; the app's cached image when null.
   final Widget Function(String url)? imageBuilder;
@@ -666,6 +690,13 @@ class _ModerateDialogState extends State<ModerateDialog> {
     return !_isBatch ? dialog : PopScope(canPop: !_sending, child: dialog);
   }
 
+  /// Whether [level] of a stick or a digest is offered: no higher than [ModerateDialog.maxLevel], or the one the
+  /// thread has now.
+  bool _offersLevel(ModerateChoice level) {
+    final max = widget.maxLevel;
+    return max == null || level.selected || (int.tryParse(level.value) ?? 0) <= max;
+  }
+
   /// The chosen operation has an end day: a level other than none, a highlight the forum counts, a recommendation.
   bool _hasExpiration(ModerateForm form) => switch (_operation) {
     ModerateOperation.stick ||
@@ -688,11 +719,12 @@ class _ModerateDialogState extends State<ModerateDialog> {
           runSpacing: 8,
           children: [
             for (final level in form.levels)
-              ChoiceChip(
-                label: Text(level.label),
-                selected: _level == level.value,
-                onSelected: _sending ? null : (_) => setState(() => _level = level.value),
-              ),
+              if (_offersLevel(level))
+                ChoiceChip(
+                  label: Text(level.label),
+                  selected: _level == level.value,
+                  onSelected: _sending ? null : (_) => setState(() => _level = level.value),
+                ),
           ],
         ),
       if (form.choices.isNotEmpty)
