@@ -3898,11 +3898,13 @@
     "currentPassword": "Current password",
     "otherCheck": "The forum asks for an email or phone check, finish it on the web page",
     "changed": "Changed",
-    "passwordChanged": "Password changed, log in again with the new one",
-    "resultUnknown": "Could not tell whether it changed, refresh to check"
+    "passwordChanged": "Password changed and the forum cleared the security question, log in again with the new password",
+    "resultUnknown": "Could not tell whether it changed, refresh to check",
+    "required": "Required"
   },
   "privacySettingsPage": {
     "title": "Privacy",
+    "discardTitle": "Discard the changes not saved?",
     "save": "Save",
     "saved": "Saved",
     "saveFailed": "Failed to save, try again later"

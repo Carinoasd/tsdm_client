@@ -281,11 +281,12 @@ final class PrivacySettingsCubit extends Cubit<PrivacySettingsState> {
         if (changed.contains(e.tab.op)) e.tab.op: e.section!,
     };
     for (final section in wanted.values) {
-      if (!await _repository.savePrivacy(uid, section)) {
-        break;
-      }
+      final saved = await _repository.savePrivacy(uid, section);
       if (isClosed) {
         return;
+      }
+      if (!saved) {
+        break;
       }
     }
     final now = await _repository.privacy(uid);

@@ -9,6 +9,7 @@ import 'package:tsdm_client/features/account_security/models/account_security.da
 import 'package:tsdm_client/features/account_security/repository/account_security_repository.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/utils/show_dialog.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/indicator.dart';
@@ -42,22 +43,44 @@ class PrivacySettingsPage extends StatelessWidget {
         builder: (context, state) {
           final cubit = context.read<PrivacySettingsCubit>();
           final canSave = state.changed.isNotEmpty;
-          return Scaffold(
-            appBar: AppBar(
-              title: Text(tr.title),
-              actions: [
-                if (state.saving)
-                  const Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: sizedCircularProgressIndicator)
-                else
-                  IconButton(
-                    key: const ValueKey('privacy-save'),
-                    icon: const Icon(Icons.check),
-                    tooltip: tr.save,
-                    onPressed: canSave ? cubit.save : null,
-                  ),
-              ],
+          // Changes not saved are only dropped when the user says so.
+          return PopScope(
+            canPop: !canSave && !state.saving,
+            onPopInvokedWithResult: (didPop, _) async {
+              if (didPop || state.saving) {
+                return;
+              }
+              final navigator = Navigator.of(context);
+              final discard = await showQuestionDialog(
+                context: context,
+                title: tr.discardTitle,
+                message: [
+                  for (final e in state.edited)
+                    if (state.changed.contains(e.tab.op)) e.tab.title,
+                ].join('、'),
+                dangerous: true,
+              );
+              if (discard ?? false) {
+                navigator.pop();
+              }
+            },
+            child: Scaffold(
+              appBar: AppBar(
+                title: Text(tr.title),
+                actions: [
+                  if (state.saving)
+                    const Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: sizedCircularProgressIndicator)
+                  else
+                    IconButton(
+                      key: const ValueKey('privacy-save'),
+                      icon: const Icon(Icons.check),
+                      tooltip: tr.save,
+                      onPressed: canSave ? cubit.save : null,
+                    ),
+                ],
+              ),
+              body: SafeArea(bottom: false, child: _body(context, state)),
             ),
-            body: SafeArea(bottom: false, child: _body(context, state)),
           );
         },
       ),

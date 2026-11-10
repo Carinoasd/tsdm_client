@@ -9,6 +9,7 @@ import 'package:tsdm_client/features/account_security/models/account_security.da
 import 'package:tsdm_client/features/account_security/repository/account_security_repository.dart';
 import 'package:tsdm_client/features/account_security/utils/account_security_parser.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
+import 'package:tsdm_client/features/in_app_browser/utils/open_forum_page.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
@@ -21,7 +22,10 @@ import 'package:tsdm_client/widgets/indicator.dart';
 /// center.
 class AccountSecurityPage extends StatelessWidget {
   /// Constructor.
-  const AccountSecurityPage({super.key});
+  const AccountSecurityPage({this.repository, super.key});
+
+  /// The repository to use, a new one by default (the tests give theirs).
+  final AccountSecurityRepository? repository;
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +38,7 @@ class AccountSecurityPage extends StatelessWidget {
         body: AppStateView(icon: Icons.login_outlined, message: context.t.general.needLogin),
       );
     }
-    final repository = AccountSecurityRepository();
+    final repository = this.repository ?? AccountSecurityRepository();
     return RepositoryProvider.value(
       value: repository,
       child: BlocProvider(
@@ -153,6 +157,9 @@ class _AccountFormDialogState extends State<_AccountFormDialog> {
   final _texts = <String, TextEditingController>{};
   final _choices = <String, String>{};
 
+  /// The current password was asked: its field stays while it is checked.
+  bool _asked = false;
+
   @override
   void dispose() {
     _current.dispose();
@@ -180,7 +187,7 @@ class _AccountFormDialogState extends State<_AccountFormDialog> {
         final cubit = context.read<AccountFormCubit>();
         final busy = state.status == AccountFormStatus.opening || state.status == AccountFormStatus.submitting;
         final (Widget content, List<Widget> actions) = switch (state.status) {
-          AccountFormStatus.opening when state.form == null => (
+          AccountFormStatus.opening when state.form == null && !_asked => (
             const SizedBox(height: 96, child: CenteredCircularIndicator()),
             <Widget>[],
           ),
@@ -190,12 +197,16 @@ class _AccountFormDialogState extends State<_AccountFormDialog> {
               autofocus: true,
               obscureText: true,
               enabled: !busy,
+              autofillHints: const [AutofillHints.password],
               decoration: appFieldDecoration(label: tr.currentPassword, icon: Icons.lock_outline),
               validator: (v) => (v ?? '').isEmpty ? context.t.loginPage.passwordEmpty : null,
               onFieldSubmitted: (_) async => _verify(cubit),
             ),
             [
-              FilledButton(onPressed: busy ? null : () async => _verify(cubit), child: Text(context.t.general.ok)),
+              FilledButton(
+                onPressed: busy ? null : () async => _verify(cubit),
+                child: busy ? const _ButtonProgress() : Text(context.t.general.ok),
+              ),
             ],
           ),
           AccountFormStatus.otherCheck => (
@@ -203,8 +214,15 @@ class _AccountFormDialogState extends State<_AccountFormDialog> {
             [
               FilledButton(
                 onPressed: () async {
+                  // Signed in with the account in use where the in-app browser runs.
+                  final router = GoRouter.of(context);
+                  final failed = context.t.openInAppPage.browserLaunchFailed;
                   Navigator.of(context).pop();
-                  await context.dispatchAsUrl(accountCenterUrl, external: true);
+                  final opened = await openForumPageInBrowser(router, accountCenterUrl);
+                  final page = router.routerDelegate.navigatorKey.currentContext;
+                  if (!opened && page != null && page.mounted) {
+                    showSnackBar(context: page, message: failed);
+                  }
                 },
                 child: Text(context.t.general.openInBrowser),
               ),
@@ -219,27 +237,29 @@ class _AccountFormDialogState extends State<_AccountFormDialog> {
             [
               FilledButton(
                 onPressed: state.status == AccountFormStatus.ready ? () async => _submit(cubit, state.form!) : null,
-                child: state.status == AccountFormStatus.ready
-                    ? Text(context.t.general.ok)
-                    : const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+                child: state.status == AccountFormStatus.ready ? Text(context.t.general.ok) : const _ButtonProgress(),
               ),
             ],
           ),
         };
-        return AlertDialog(
-          title: Text(widget.title),
-          scrollable: true,
-          content: Form(
-            key: _formKey,
-            child: ConstrainedBox(constraints: const BoxConstraints(minWidth: 280), child: content),
-          ),
-          actions: [
-            TextButton(
-              onPressed: state.status == AccountFormStatus.submitting ? null : () => Navigator.of(context).pop(),
-              child: Text(context.t.general.cancel),
+        // Never closed while the forum handles a post: a password changed meanwhile would leave the login dead unseen.
+        return PopScope(
+          canPop: !busy,
+          child: AlertDialog(
+            title: Text(widget.title),
+            scrollable: true,
+            content: Form(
+              key: _formKey,
+              child: ConstrainedBox(constraints: const BoxConstraints(minWidth: 280), child: content),
             ),
-            ...actions,
-          ],
+            actions: [
+              TextButton(
+                onPressed: busy ? null : () => Navigator.of(context).pop(),
+                child: Text(context.t.general.cancel),
+              ),
+              ...actions,
+            ],
+          ),
         );
       },
     );
@@ -260,7 +280,9 @@ class _AccountFormDialogState extends State<_AccountFormDialog> {
             autofillHints: obscure ? const [AutofillHints.newPassword] : null,
             decoration: appFieldDecoration(label: label),
             // The password and the email are required; an answer may be left empty with "no question".
-            validator: (v) => form.method != AccountMethod.question && (v ?? '').isEmpty ? '' : null,
+            validator: (v) => form.method == AccountMethod.question || (v ?? '').isNotEmpty
+                ? null
+                : (obscure ? context.t.loginPage.passwordEmpty : context.t.accountSecurityPage.required),
           ),
           AccountChoiceField(:final name, :final label, :final options, :final initial) =>
             DropdownButtonFormField<String>(
@@ -286,6 +308,7 @@ class _AccountFormDialogState extends State<_AccountFormDialog> {
       return;
     }
     final password = _current.text;
+    setState(() => _asked = true);
     await cubit.open(currentPassword: password);
     if (mounted && cubit.state.status == AccountFormStatus.ready) {
       // Not kept once checked.
@@ -305,4 +328,12 @@ class _AccountFormDialogState extends State<_AccountFormDialog> {
         },
     });
   }
+}
+
+class _ButtonProgress extends StatelessWidget {
+  const _ButtonProgress();
+
+  @override
+  Widget build(BuildContext context) =>
+      const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2));
 }

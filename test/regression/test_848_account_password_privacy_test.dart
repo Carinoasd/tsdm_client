@@ -13,6 +13,7 @@
 /// * the privacy page has a form per tab; saving one replaces every setting of the tab with what is sent.
 library;
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -22,12 +23,15 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:talker_flutter/talker_flutter.dart';
+import 'package:tsdm_client/constants/constants.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/features/account_security/cubit/account_security_cubit.dart';
 import 'package:tsdm_client/features/account_security/models/account_security.dart';
 import 'package:tsdm_client/features/account_security/repository/account_security_repository.dart';
 import 'package:tsdm_client/features/account_security/utils/account_security_parser.dart';
+import 'package:tsdm_client/features/account_security/view/account_security_page.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
@@ -35,6 +39,7 @@ import 'package:tsdm_client/features/settings/view/settings_page.dart';
 import 'package:tsdm_client/features/theme/cubit/theme_cubit.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
+import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/providers/cookie_provider/cookie_provider.dart';
 import 'package:tsdm_client/shared/providers/image_cache_provider/image_cache_provider.dart';
@@ -68,6 +73,12 @@ final class _Forum implements HttpClientAdapter {
 
   /// Fail the posts at the transport level.
   bool failPost = false;
+
+  /// Answer the privacy posts with the redirect the forum sends after a form it handled.
+  bool redirectPrivacy = false;
+
+  /// Hold the answer to the way's form until it completes.
+  Completer<void>? holdSubmit;
 
   /// The privacy tabs with their pages, by `op`.
   final privacyPages = <String, String>{
@@ -138,11 +149,21 @@ final class _Forum implements HttpClientAdapter {
       if (applyPrivacy) {
         privacyPages[op] = _applied(privacyPages[op]!, form);
       }
+      if (redirectPrivacy) {
+        return ResponseBody.fromString(
+          '',
+          302,
+          headers: {
+            'location': ['home.php?mod=spacecp&ac=privacy&op=$op'],
+          },
+        );
+      }
       return _answer(_read('result_privacy_v13.json'));
     }
     if (q['security_submit'] == 'yes') {
       return _answer(_read(verifyAnswer));
     }
+    await holdSubmit?.future;
     return _answer(_read(submitAnswer));
   }
 
@@ -482,6 +503,18 @@ void main() {
       await cubit.close();
     });
 
+    test('the redirect the forum answers a handled privacy form is taken, then read again', () async {
+      final forum = _Forum()..redirectPrivacy = true;
+      final cubit = PrivacySettingsCubit(repository: _repo(forum), uid: _uid);
+      await cubit.load();
+      final other = cubit.state.edited.last.section!.items.single as PrivacyChoice;
+      cubit.change('other', other.withValue(other.value == '1' ? '0' : '1'));
+      await cubit.save();
+      expect(forum.posts.single.uri.queryParameters, containsPair('op', 'other'));
+      expect(cubit.state.lastSaveOk, isTrue);
+      await cubit.close();
+    });
+
     test('a tab the forum did not take is reported and kept changed', () async {
       final forum = _Forum()..applyPrivacy = false;
       final cubit = PrivacySettingsCubit(repository: _repo(forum), uid: _uid);
@@ -575,6 +608,75 @@ void main() {
       expect(security, findsNothing);
       expect(privacy, findsNothing);
     });
+
+    testWidgets(
+      'the password dialog stays while posting; once changed the login is marked dead, the login page opens',
+      (
+        tester,
+      ) async {
+        tester.view
+          ..physicalSize = const Size(400, 800)
+          ..devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        final storage = getIt.get<StorageProvider>();
+        await tester.runAsync(
+          () => storage.saveCookie(username: 'alice', uid: _uid, cookie: {'${cookiePrefix}_auth': 'x'}),
+        );
+        final hold = Completer<void>();
+        final forum = _Forum()..holdSubmit = hold;
+        final router = GoRouter(
+          routes: [
+            GoRoute(
+              path: '/',
+              builder: (_, _) => AccountSecurityPage(repository: _repo(forum)),
+            ),
+            GoRoute(
+              path: ScreenPaths.login,
+              name: ScreenPaths.login,
+              builder: (_, s) => Text('login ${s.uri.queryParameters['username']}'),
+            ),
+          ],
+        );
+        addTearDown(router.dispose);
+        Future<void> settle() async {
+          for (var i = 0; i < 8; i++) {
+            await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
+            await tester.pump(const Duration(milliseconds: 50));
+          }
+        }
+
+        await tester.pumpWidget(
+          RepositoryProvider<AuthenticationRepository>.value(
+            value: AuthenticationRepository(
+              user: const UserLoginInfo(username: 'alice', uid: _uid),
+            ),
+            child: TranslationProvider(child: MaterialApp.router(routerConfig: router)),
+          ),
+        );
+        await settle();
+        await tester.tap(find.text('账号密码'));
+        await settle();
+        final fields = find.descendant(of: find.byType(AlertDialog), matching: find.byType(TextFormField));
+        expect(fields, findsNWidgets(2));
+        await tester.enterText(fields.at(0), _new);
+        await tester.enterText(fields.at(1), _new);
+        final tr = LocaleSettings.instance.currentTranslations;
+        await tester.tap(find.descendant(of: find.byType(AlertDialog), matching: find.text(tr.general.ok)));
+        await settle();
+        expect(forum.posts, hasLength(1));
+        // Back while the forum handles the post: the dialog stays.
+        await tester.binding.handlePopRoute();
+        await settle();
+        expect(find.byType(AlertDialog), findsOneWidget);
+
+        hold.complete();
+        await settle();
+        expect(find.byType(AlertDialog), findsNothing);
+        expect(find.text('login alice'), findsOneWidget);
+        final expired = await tester.runAsync(storage.fetchExpiredSessions);
+        expect(expired!.map((e) => e.user.uid), [_uid]);
+      },
+    );
   });
 }
 

@@ -274,7 +274,8 @@ final class AccountSecurityRepository with LoggerMixin {
     final resp = await _buildClient(uid).postForm(section.action.toString(), data: data, singleAttempt: true).run();
     switch (resp) {
       case Left(value: HttpHandshakeFailedException(statusCode: 301 || 302 || 303)):
-        // The forum's redirect after it handled the form, not followed for a single attempt.
+        // The forum's redirect after it handled the form, not followed for a single attempt. A redirect to the login
+        // page is taken the same way: the caller reads the tabs again and goes by what the forum has.
         return true;
       case Left(:final value):
         error('privacy tab ${section.tab.op} failed: ${value.runtimeType}');

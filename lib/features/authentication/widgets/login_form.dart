@@ -7,15 +7,14 @@ import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/features/authentication/bloc/authentication_bloc.dart';
 import 'package:tsdm_client/features/authentication/repository/models/models.dart';
 import 'package:tsdm_client/features/authentication/widgets/captcha_image.dart';
-import 'package:tsdm_client/features/in_app_browser/utils/link_routing.dart';
+import 'package:tsdm_client/features/in_app_browser/utils/open_forum_page.dart';
 import 'package:tsdm_client/features/local_notice/notification_permission_prompt.dart';
 import 'package:tsdm_client/features/notification/bloc/auto_notification_cubit.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
-import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/utils/logger.dart';
+import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/debounce_buttons.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 // TODO: Fetch login questions dynamically from web server.
 final _loginQuestions = ['无安全问题', '母亲的名字', '爷爷的名字', '父亲出生的城市', '您其中一位老师的名字', '您个人计算机的型号', '您最喜欢的餐馆名称', '驾驶执照的最后四位数字'];
@@ -382,15 +381,10 @@ class _LoginFormState extends State<LoginForm> with LoggerMixin {
   }
 }
 
-/// Open the forum page [url] signed out: in the in-app browser where it runs (the forum shows the sign up and the lost
-/// password pages to a guest only, and an account may be in use while another one logs in), in the external browser
-/// elsewhere.
+/// Open the forum page [url] signed out: the forum shows the sign up and the lost password pages to a guest only, and
+/// an account may be in use while another one logs in.
 Future<void> _openSignedOut(BuildContext context, String url) async {
-  if (await inAppBrowserAvailable()) {
-    if (context.mounted) {
-      await context.pushNamed(ScreenPaths.inAppBrowser, queryParameters: {'url': url, 'guest': '1'});
-    }
-    return;
+  if (!await openForumPageInBrowser(GoRouter.of(context), url, guest: true) && context.mounted) {
+    showSnackBar(context: context, message: context.t.openInAppPage.browserLaunchFailed, clearPrevious: true);
   }
-  await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
 }

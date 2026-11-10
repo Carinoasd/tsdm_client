@@ -3898,11 +3898,13 @@
     "currentPassword": "目前密碼",
     "otherCheck": "論壇要求透過信箱或手機驗證，請在網頁中完成",
     "changed": "修改成功",
-    "passwordChanged": "密碼已修改，請用新密碼重新登入",
-    "resultUnknown": "無法確認是否修改成功，請重新整理後查看"
+    "passwordChanged": "密碼已修改，論壇同時清除了安全提問，請用新密碼重新登入",
+    "resultUnknown": "無法確認是否修改成功，請重新整理後查看",
+    "required": "不能為空"
   },
   "privacySettingsPage": {
     "title": "隱私設定",
+    "discardTitle": "放棄未儲存的修改？",
     "save": "儲存",
     "saved": "已儲存",
     "saveFailed": "儲存失敗，請稍後再試"

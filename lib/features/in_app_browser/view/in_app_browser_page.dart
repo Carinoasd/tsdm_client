@@ -106,6 +106,10 @@ class _InAppBrowserPageState extends State<InAppBrowserPage> {
     switch (browserNavigationOf(uri, mainFrame: mainFrame, initial: _initialPending)) {
       case BrowserNavigationAllow():
         return NavigationActionPolicy.ALLOW;
+      // Signed out, the pages a guest goes on to (the new account the forum logged in after signing up) are not the
+      // app's account: they stay here.
+      case BrowserNavigationOpenInApp() when widget.guest:
+        return NavigationActionPolicy.ALLOW;
       case BrowserNavigationOpenInApp():
         if (mounted) {
           unawaited(context.dispatchAsUrl('$uri'));
