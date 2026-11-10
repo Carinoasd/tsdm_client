@@ -36,6 +36,7 @@ const _alice = UserLoginInfo(username: 'Alice', uid: 1000);
 const _content = [
   'me-my-threads',
   'me-favorites',
+  'me-collections',
   'me-followed-threads',
   'me-floor-bookmarks',
   'me-read-later',

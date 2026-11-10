@@ -124,6 +124,12 @@ class _MePageState extends State<MePage> {
         onTap: () => _open(ScreenPaths.favorite),
       ),
       (
+        key: const ValueKey('me-collections'),
+        icon: Icons.collections_bookmark_outlined,
+        label: tr.collections,
+        onTap: () => _open(ScreenPaths.collections, query: {'tab': 'mine'}),
+      ),
+      (
         key: const ValueKey('me-followed-threads'),
         icon: Icons.notifications_active_outlined,
         label: tr.followedThreads,

@@ -21,6 +21,7 @@ import 'package:tsdm_client/features/blocking/repository/user_block_repository.d
 import 'package:tsdm_client/features/blocking/utils/block_filter.dart';
 import 'package:tsdm_client/features/blocking/utils/thread_author_cache.dart';
 import 'package:tsdm_client/features/blocking/widgets/block_aware_post.dart';
+import 'package:tsdm_client/features/collection/widgets/collect_thread_sheet.dart';
 import 'package:tsdm_client/features/editor/utils/mention_suggestions.dart';
 import 'package:tsdm_client/features/editor/widgets/mention_suggestion_bar.dart';
 import 'package:tsdm_client/features/favorite/utils/thread_favorite_action.dart';
@@ -2686,6 +2687,16 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
                             description: context.t.threadPage.shareToFriend.title,
                             onSelected: () async =>
                                 shareThreadToFriend(context, tid: state.tid!, title: state.title ?? ''),
+                          ),
+                        // The forum's 淘帖: put the thread in collections of the account.
+                        if (int.tryParse(state.tid!) case final tid?
+                            when tid > 0 &&
+                                !state.isOffline &&
+                                context.read<AuthenticationRepository>().effectiveCurrentUid != null)
+                          MenuCustomItem(
+                            icon: Icons.collections_bookmark_outlined,
+                            description: context.t.collection.collect,
+                            onSelected: () async => showCollectThreadSheet(context, tid: tid),
                           ),
                         MenuCustomItem(
                           icon: Icons.qr_code_2_outlined,

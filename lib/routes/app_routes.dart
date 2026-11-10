@@ -15,6 +15,10 @@ import 'package:tsdm_client/features/chat/view/chat_history_page.dart';
 import 'package:tsdm_client/features/chat/view/chat_page.dart';
 import 'package:tsdm_client/features/checkin/view/auto_checkin_page.dart';
 import 'package:tsdm_client/features/checkin/view/checkin_calendar_page.dart';
+import 'package:tsdm_client/features/collection/models/collection.dart';
+import 'package:tsdm_client/features/collection/view/collection_comments_page.dart';
+import 'package:tsdm_client/features/collection/view/collection_detail_page.dart';
+import 'package:tsdm_client/features/collection/view/collection_list_page.dart';
 import 'package:tsdm_client/features/custom_emoji/view/custom_emoji_packs_page.dart';
 import 'package:tsdm_client/features/editor/utils/mention_suggestions.dart';
 import 'package:tsdm_client/features/editor/view/quick_phrases_page.dart';
@@ -320,6 +324,20 @@ final List<RouteBase> _appRoutes = [
     builder: (state) => AlbumUploadPage(albumId: int.tryParse(state.uri.queryParameters['albumId'] ?? '')),
   ),
   AppRoute(path: ScreenPaths.tagCloud, builder: (_) => const TagCloudPage()),
+  AppRoute(
+    path: ScreenPaths.collections,
+    builder: (state) => CollectionListPage(
+      initialTab: CollectionListTab.values.asNameMap()[state.uri.queryParameters['tab']],
+    ),
+  ),
+  AppRoute(
+    path: ScreenPaths.collectionDetail,
+    builder: (state) => CollectionDetailPage(ctid: int.tryParse(state.pathParameters['ctid'] ?? '') ?? 0),
+  ),
+  AppRoute(
+    path: ScreenPaths.collectionComments,
+    builder: (state) => CollectionCommentsPage(ctid: int.tryParse(state.pathParameters['ctid'] ?? '') ?? 0),
+  ),
   AppRoute(
     path: ScreenPaths.latestThread,
     builder: (state) {
