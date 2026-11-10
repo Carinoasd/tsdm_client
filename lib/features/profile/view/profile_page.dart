@@ -24,10 +24,12 @@ import 'package:tsdm_client/features/local_notice/tap.dart';
 import 'package:tsdm_client/features/need_login/view/need_login_page.dart';
 import 'package:tsdm_client/features/profile/bloc/current_title_cubit.dart';
 import 'package:tsdm_client/features/profile/bloc/profile_bloc.dart';
+import 'package:tsdm_client/features/profile/models/models.dart';
 import 'package:tsdm_client/features/profile/repository/profile_repository.dart';
 import 'package:tsdm_client/features/profile/utils/parse_profile.dart';
 import 'package:tsdm_client/features/profile/widgets/secondary_title_badge.dart';
 import 'package:tsdm_client/features/profile/widgets/user_group_progress_section.dart';
+import 'package:tsdm_client/features/share_qr/share_qr_dialog.dart';
 import 'package:tsdm_client/features/space/view/space_page.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
@@ -99,6 +101,7 @@ enum _ProfileActions {
   logout,
   editAvatar,
   blockedUsers,
+  shareQr,
 }
 
 /// Page of user profile.
@@ -140,6 +143,19 @@ class _ProfilePageState extends State<ProfilePage> {
         _showAppBarTitle = false;
       });
     }
+  }
+
+  Future<void> _showShareQr(BuildContext context, UserProfile profile) async {
+    final uid = widget.uid ?? profile.uid;
+    if (uid == null) {
+      return;
+    }
+    await showShareQrDialog(
+      context,
+      url: shareQrProfileUrl(uid),
+      title: profile.username ?? widget.username ?? uid,
+      fileName: 'tsdm-user-$uid',
+    );
   }
 
   Widget _buildSliverAppBar(BuildContext context, ProfileState state, {required bool logout}) {
@@ -211,6 +227,8 @@ class _ProfilePageState extends State<ProfilePage> {
                 await context.pushNamed(ScreenPaths.editAvatar);
               case _ProfileActions.blockedUsers:
                 await context.pushNamed(ScreenPaths.userBlock);
+              case _ProfileActions.shareQr:
+                await _showShareQr(context, userProfile);
             }
           },
           // Same items and actions, grouped: activity, own profile, account level, then logout apart in the error
@@ -294,6 +312,17 @@ class _ProfilePageState extends State<ProfilePage> {
                 ],
               ),
             ),
+            PopupMenuItem(
+              enabled: userProfile.uid != null,
+              value: _ProfileActions.shareQr,
+              child: Row(
+                children: [
+                  const Icon(Icons.qr_code_2_outlined),
+                  sizedBoxPopupMenuItemIconSpacing,
+                  Text(context.t.shareQr.title),
+                ],
+              ),
+            ),
             const PopupMenuDivider(height: 8),
             PopupMenuItem(
               enabled: !logout,
@@ -336,6 +365,12 @@ class _ProfilePageState extends State<ProfilePage> {
             queryParameters: {'authorUid': ?userProfile.uid, 'authorName': ?userProfile.username},
           ),
         ),
+        if ((widget.uid ?? userProfile.uid) != null)
+          IconButton(
+            icon: const Icon(Icons.qr_code_2_outlined),
+            tooltip: context.t.shareQr.title,
+            onPressed: () async => _showShareQr(context, userProfile),
+          ),
         if ((widget.uid ?? userProfile.uid) != null)
           IconButton(
             icon: const Icon(Icons.person_add_alt_1_outlined),

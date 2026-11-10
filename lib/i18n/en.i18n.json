@@ -2071,6 +2071,11 @@
     "share": "Share",
     "siteName": "天使动漫"
   },
+  "shareQr": {
+    "title": "Share as QR code",
+    "save": "Save",
+    "share": "Share"
+  },
   "postReport": {
     "menu": "Report",
     "title": "Report floor ${floor: String}",
