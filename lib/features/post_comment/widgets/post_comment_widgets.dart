@@ -353,21 +353,10 @@ class _PostCommentDialogState extends State<_PostCommentDialog> {
                   enabled: !_sending,
                   minLines: 2,
                   maxLines: 5,
-                  // The forum counts code points (X5 `dstrLenCalc`), not what Flutter's `maxLength` counts: an emoji
-                  // made of several is several there.
                   // As the forum counts against its limit (an ASCII character 1, any other 2): it cuts a longer comment
-                  // without saying so. Pasted text is cut to fit; a word being composed is let through until it is.
+                  // without saying so.
                   inputFormatters: [
-                    TextInputFormatter.withFunction((old, value) {
-                      if (value.composing.isValid || postCommentLength(value.text) <= form.maxLength) {
-                        return value;
-                      }
-                      final text = postCommentFit(value.text, form.maxLength);
-                      return TextEditingValue(
-                        text: text,
-                        selection: TextSelection.collapsed(offset: text.length),
-                      );
-                    }),
+                    TextInputFormatter.withFunction((old, value) => postCommentLimitEdit(old, value, form.maxLength)),
                   ],
                   decoration: InputDecoration(
                     counterText: '${postCommentLength(_controller.text)}/${form.maxLength}',
@@ -540,3 +529,56 @@ class _PostCommentDeleteDialogState extends State<_PostCommentDeleteDialog> {
     );
   }
 }
+
+/// The edit [value] of a comment input that was [old], kept within [limit] as the forum counts it
+/// ([postCommentLength]).
+///
+/// A word being composed is let through (the send button waits until it fits). Otherwise only what the edit put in
+/// (between what the two values share at their start and at their end) is cut, whole characters at a time, to the room
+/// the rest leaves: what was typed before stays, wherever the caret was. The caret goes after what was put in.
+TextEditingValue postCommentLimitEdit(TextEditingValue old, TextEditingValue value, int limit) {
+  if (value.composing.isValid || postCommentLength(value.text) <= limit) {
+    return value;
+  }
+  final before = old.text;
+  final after = value.text;
+  var start = 0;
+  while (start < before.length && start < after.length && before.codeUnitAt(start) == after.codeUnitAt(start)) {
+    start++;
+  }
+  var end = 0;
+  while (end < before.length - start &&
+      end < after.length - start &&
+      before.codeUnitAt(before.length - 1 - end) == after.codeUnitAt(after.length - 1 - end)) {
+    end++;
+  }
+  // Never split a surrogate pair at either edge.
+  if (start > 0 && start < after.length && _isLowSurrogate(after.codeUnitAt(start))) {
+    start--;
+  }
+  if (end > 0 && after.length - end > start && _isLowSurrogate(after.codeUnitAt(after.length - end))) {
+    end--;
+  }
+  final prefix = after.substring(0, start);
+  final suffix = after.substring(after.length - end);
+  final room = limit - postCommentLength(prefix) - postCommentLength(suffix);
+  if (room < 0) {
+    return old;
+  }
+  final inserted = StringBuffer();
+  var used = 0;
+  for (final character in after.substring(start, after.length - end).characters) {
+    used += postCommentLength(character);
+    if (used > room) {
+      break;
+    }
+    inserted.write(character);
+  }
+  final text = '$prefix$inserted$suffix';
+  return TextEditingValue(
+    text: text,
+    selection: TextSelection.collapsed(offset: prefix.length + inserted.length),
+  );
+}
+
+bool _isLowSurrogate(int unit) => unit >= 0xDC00 && unit <= 0xDFFF;

@@ -251,7 +251,8 @@ int postCommentLength(String text) => text.runes.fold(0, (n, r) => n + _postComm
 
 int _postCommentUnits(int rune) => rune >= 128 ? 2 : (rune == 9 || rune == 10 || (rune >= 32 && rune <= 126) ? 1 : 0);
 
-/// The longest start of [text] whose [postCommentLength] is at most [limit], whole characters only.
+/// The longest start of [text] whose [postCommentLength] is at most [limit], cut as the forum's `cutstr` cuts it (by
+/// code point).
 String postCommentFit(String text, int limit) {
   final buffer = StringBuffer();
   var n = 0;

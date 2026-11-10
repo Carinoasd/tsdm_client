@@ -634,6 +634,32 @@ void main() {
       expect(postCommentFit('CM測試長度${'字' * 150}', 200), 'CM測試長度${'字' * 95}');
     });
 
+    test('cut to fit: only what the edit put in, whole characters; what was typed stays', () {
+      TextEditingValue at(String text, int caret) => TextEditingValue(
+        text: text,
+        selection: TextSelection.collapsed(offset: caret),
+      );
+      final typed = 'a' * 190;
+      // Pasted at the start: the typed text is all kept, the paste cut to the room left.
+      final pasted = postCommentLimitEdit(at(typed, 0), at('${'b' * 20}$typed', 20), 200);
+      expect(pasted.text, '${'b' * 10}$typed');
+      expect(pasted.selection.baseOffset, 10);
+      // In the middle.
+      final middle = postCommentLimitEdit(at(typed, 95), at('${'a' * 95}字字字字字字${'a' * 95}', 101), 200);
+      expect(middle.text, '${'a' * 95}字字字字字${'a' * 95}');
+      expect(middle.selection.baseOffset, 100);
+      // A family emoji is not cut in half: it does not fit whole, it is left out.
+      const family = '\u{1F468}\u200D\u{1F469}\u200D\u{1F467}';
+      expect(postCommentLimitEdit(at('a' * 196, 196), at('${'a' * 196}$family', 204), 200).text, 'a' * 196);
+      // Being composed: let through.
+      final composing = TextEditingValue(
+        text: '字' * 101,
+        selection: const TextSelection.collapsed(offset: 101),
+        composing: const TextRange(start: 100, end: 101),
+      );
+      expect(postCommentLimitEdit(at('字' * 100, 100), composing, 200), composing);
+    });
+
     testWidgets('the limit counts as the forum does; pasted text is cut to fit', (tester) async {
       final forum = _Forum(reads: {'action=comment': _json('window_api.json')});
       await pump(
@@ -653,6 +679,8 @@ void main() {
       await tester.pump();
       expect(tester.widget<TextField>(input).controller!.text, '字' * 100);
       expect(find.text('200/200'), findsOneWidget);
+      await tester.enterText(input, '');
+      await tester.pump();
       await tester.enterText(input, '${'a' * 199}字');
       await tester.pump();
       expect(tester.widget<TextField>(input).controller!.text, 'a' * 199);
