@@ -168,6 +168,7 @@ final class AttachmentDownload {
 
   /// A copy with the given fields replaced; [clearPath], [clearMessage]… set those to null.
   AttachmentDownload copyWith({
+    String? url,
     AttachmentDownloadStatus? status,
     String? filename,
     int? received,
@@ -186,7 +187,7 @@ final class AttachmentDownload {
   }) => AttachmentDownload(
     id: id,
     uid: uid,
-    url: url,
+    url: url ?? this.url,
     filename: filename ?? this.filename,
     createdAt: createdAt,
     status: status ?? this.status,

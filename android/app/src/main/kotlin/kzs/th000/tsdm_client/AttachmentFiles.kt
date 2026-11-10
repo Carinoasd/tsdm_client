@@ -10,7 +10,7 @@ import java.io.IOException
 
 /**
  * The attachments the app downloaded (`attachments` in the app's directory on the shared storage, or in its own files
- * when there is none), handed to the app that opens their type through the update file provider.
+ * when there is none), handed to the app that opens their type through [AttachmentFileProvider].
  */
 object AttachmentFiles {
     private const val FOLDER = "attachments"
@@ -45,7 +45,7 @@ object AttachmentFiles {
      */
     fun open(context: Context, path: String?, start: (Intent) -> Unit): Boolean {
         val file = path?.let { validate(roots(context), it) } ?: return false
-        val uri = FileProvider.getUriForFile(context, "${context.packageName}.updates", file)
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}.attachments", file)
         val type = MimeTypeMap.getSingleton().getMimeTypeFromExtension(file.extension.lowercase()) ?: "*/*"
         val intent = Intent(Intent.ACTION_VIEW)
             .setDataAndType(uri, type)
@@ -58,3 +58,6 @@ object AttachmentFiles {
         }
     }
 }
+
+/** Serves the downloaded attachments only (`res/xml/attachment_file_paths.xml`), apart from the updates' provider. */
+class AttachmentFileProvider : FileProvider()

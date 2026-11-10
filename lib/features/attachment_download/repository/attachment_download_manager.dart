@@ -102,7 +102,9 @@ final class AttachmentDownloadManager extends ChangeNotifier with LoggerMixin {
   }
 
   /// Download the attachment at [url] for account [uid]. The same attachment (by its id, the address changes with each
-  /// page) running or saved already (its file still there) is not downloaded again: that download is returned.
+  /// page) running or saved already (its file still there) is not downloaded again: that download is returned. One
+  /// that failed or was cancelled starts again from [url], keeping the paid address ([AttachmentDownload.resolvedUrl])
+  /// so the credits of the download are not taken twice.
   ///
   /// [filename] and [size] are what the post shows of it; [tid] and [threadTitle] the thread it is in.
   Future<AttachmentDownload> start({
@@ -122,6 +124,24 @@ final class AttachmentDownloadManager extends ChangeNotifier with LoggerMixin {
         (e.status == AttachmentDownloadStatus.completed && e.path != null && File(e.path!).existsSync());
     if (items.where((e) => same(e) && kept(e)).firstOrNull case final existing?) {
       return existing;
+    }
+    final stopped = items.where((e) => same(e) && e.status != AttachmentDownloadStatus.completed).firstOrNull;
+    if (stopped != null) {
+      final again = stopped.copyWith(
+        url: url,
+        status: AttachmentDownloadStatus.queued,
+        received: 0,
+        clearTotal: true,
+        clearMessage: true,
+        clearFinishedAt: true,
+      );
+      items
+        ..removeWhere((e) => e.id == stopped.id)
+        ..insert(0, again);
+      await _save(uid);
+      notifyListeners();
+      _pump(uid);
+      return again;
     }
     final now = _now();
     final item = AttachmentDownload(

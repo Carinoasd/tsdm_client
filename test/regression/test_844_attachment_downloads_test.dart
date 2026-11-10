@@ -334,6 +334,36 @@ void main() {
       expect(attachmentResolvedUrlValidFor, lessThan(const Duration(hours: 1)));
     });
 
+    test(
+      'tapping the attachment again after a paid download failed reuses it: the credits are not taken twice',
+      () async {
+        final url = _urlOf(36);
+        // The post opened again: another token of the same attachment.
+        final later =
+            '$_base/forum.php?mod=attachment&aid=${base64.encode(utf8.encode('36|a1a2a3a4|1700000100|31|1000'))}';
+        const credit = '$_base/forum.php?mod=misc&action=attachcredit&aid=36&formhash=f1f2f3f4';
+        final paid = '${_urlOf(36)}&ck=c1c2c3c4';
+        final fetcher = _FakeFetcher(
+          {
+            url: [_redirect('forum.php?mod=misc&action=attachcredit&aid=36&formhash=f1f2f3f4')],
+            later: [_redirect('forum.php?mod=misc&action=attachcredit&aid=36&formhash=f1f2f3f4')],
+            paid: [_page('<html><body>oops</body></html>'), _file('zip bytes')],
+          },
+          pages: {credit: _fixture('credit_taken.html')},
+        );
+        final manager = managerOf(fetcher);
+        final item = await manager.start(uid: 31, url: url, filename: 'acc_note.zip');
+        await _until(manager, () => manager.find(31, item.id)?.status == AttachmentDownloadStatus.failed);
+        final again = await manager.start(uid: 31, url: later, filename: 'acc_note.zip');
+        expect(again.id, item.id);
+        expect(again.url, later);
+        await _until(manager, () => manager.find(31, item.id)?.status == AttachmentDownloadStatus.completed);
+        expect(fetcher.pageRequests, [credit]);
+        expect(fetcher.requests, [url, paid, paid]);
+        expect(manager.itemsOf(31), hasLength(1));
+      },
+    );
+
     test('a running download is cancelled and retried; the same address is not downloaded twice at once', () async {
       final url = _urlOf(36);
       final fetcher = _FakeFetcher({
