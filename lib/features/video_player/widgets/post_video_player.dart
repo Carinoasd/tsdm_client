@@ -185,7 +185,9 @@ class _PostVideoPlayerState extends State<PostVideoPlayer> with WidgetsBindingOb
     });
     // Silent at once, not when the video is loaded.
     await VideoPlayback._claim(this);
-    VideoBackend? backend;
+    if (generation != _generation || !mounted) {
+      return;
+    }
     try {
       final String source;
       if (widget.video.isAttachment) {
@@ -204,8 +206,7 @@ class _PostVideoPlayerState extends State<PostVideoPlayer> with WidgetsBindingOb
       if (generation != _generation || !mounted) {
         return;
       }
-      backend = VideoPlayback.backendFactory();
-      _backend = backend;
+      final backend = _backend = VideoPlayback.backendFactory();
       _subscriptions
         ..add(backend.playingStream.listen(_onPlaying))
         ..add(backend.errorStream.listen(_onError));
