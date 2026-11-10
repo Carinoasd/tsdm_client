@@ -6,12 +6,14 @@
   "formhash": "f1f2f3f4",
   "type": "result",
   "schema": 13,
-  "kind": "message",
+  "kind": "handle",
   "message": "抱歉，两次发布操作太快，请等待 15 秒再试",
   "message_key": "operating_too_fast",
   "url": "",
-  "handlekey": "",
-  "values": {},
+  "handlekey": "qcwall_35",
+  "values": {
+    "waittime": "15"
+  },
   "login": 0,
   "alert": "error"
 }

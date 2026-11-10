@@ -4,17 +4,19 @@
 ///   of the blogs (`home/space_comment_li`): the forum prints the delete link (`c_CID_delete`) to the author, the owner
 ///   and a moderator of comments, the reply link (`c_CID_reply`) on the owner's own wall only, to the named messages of
 ///   others; `&cid=C` (the link of a wall notice) shows that message only;
+/// * every post goes as the website's popups send it (`inajax=1`, the `handlekey`), and the app API answers it as the
+///   popup's handler (`kind: handle`, `alert` `right` or `error`);
 /// * a message is posted to `home.php?mod=spacecp&ac=comment` (`id` the owner, `idtype=uid`, `commentsubmit`,
-///   `quickcomment`), answered `kind: redirect`, `do_success`; a reply adds `cid` and goes, quoted, to the wall of the
-///   message's author (`note_wall_reply_success`: "已经回复到NAME的留言板"); posting again within 15 seconds is
-///   `operating_too_fast`; a delete is `op=delete&cid=C` with `deletesubmit`, refused `no_privilege_comment_del` to
-///   another, `comments_do_not_exist` once gone;
+///   `quickcomment`), answered `do_success` "操作成功" with `values.cid`; a reply adds `cid` and goes, quoted, to the
+///   wall of the message's author (`note_wall_reply_success`: "已经回复到NAME的留言板"); posting again within 15 seconds
+///   is `operating_too_fast`; a delete is `op=delete&cid=C` with `deletesubmit`, `do_success`, refused
+///   `no_privilege_comment_del` to another, `comments_do_not_exist` once gone;
 /// * the privacy of the wall (`privacy.view.wall`) prints "抱歉！由于 NAME 的隐私设置，您不能访问当前内容"; the wall
 ///   switched off (`wallstatus`) prints the 提示信息 "抱歉，留言板功能尚未开启" (the fixture is that page's
 ///   `showmessage` structure, captured from the switched off records module, with the wall's words);
 /// * the poke form `home.php?mod=spacecp&ac=poke&op=send|reply&uid=N` offers the greetings (`iconid`, 0 the plain
-///   one) and a note the forum cuts to 30 (`cutstr`), answered `kind: message`, `poke_success` (`alert: right`); the
-///   form refuses the account itself (`not_to_their_own_greeted`) and asks a guest to log in;
+///   one) and a note the forum cuts to 30 (`cutstr`), answered `poke_success`; greeting back (`op=reply`) removes the
+///   greeting received; the form refuses the account itself (`not_to_their_own_greeted`) and asks a guest to log in;
 /// * the greetings received are `home.php?mod=spacecp&ac=poke`, the latest of each member; `op=ignore&uid=N` with
 ///   `ignoresubmit` ignores one, without `uid` all of them (`has_been_hailed_overlooked`).
 ///
@@ -152,7 +154,7 @@ void main() {
       expect(off.message, '抱歉，留言板功能尚未开启');
       expect(off.needLogin, isFalse);
       expect(spaceModuleSwitchedOff(off.message), isTrue);
-      expect(spaceModuleSwitchedOff('抱歉，好友功能尚未開啓'), isTrue);
+      expect(spaceModuleSwitchedOff('抱歉，好友功能尚未开启'), isTrue);
     });
 
     test('a switched off module is noted once', () {
@@ -175,7 +177,7 @@ void main() {
       final net = _Transport()..postAnswer = (_, _) => _text('result_wall_posted.json');
       final result = await net.repository().postWall(session, 35, '  你好\n第二行 ');
       expect(result.outcome, SpaceWriteOutcome.done);
-      expect(result.message, isNull);
+      expect(result.message, '操作成功');
       final (url, body) = net.posts.single;
       expect(url, SpaceSocialRepository.commentSubmitUrl);
       expect(url, contains('inajax=1'));
@@ -196,15 +198,15 @@ void main() {
         const SpaceSession(uid: 35, formHash: 'f1f2f3f4'),
         35,
         '回覆',
-        replyTo: 54,
+        replyTo: 58,
       );
       expect(result.outcome, SpaceWriteOutcome.done);
-      expect(result.message, '已经回复到测试会员甲的留言板');
+      expect(result.message, '已经回复到测试会员丙的留言板');
       final (_, body) = net.posts.single;
-      expect(body['cid'], '54');
+      expect(body['cid'], '58');
       expect(body['id'], '35');
       expect(body.containsKey('quickcomment'), isFalse);
-      expect(body['handlekey'], 'replycommenthk_54');
+      expect(body['handlekey'], 'replycommenthk_58');
     });
 
     test('refusals are the forum words, sent once', () async {
@@ -219,9 +221,13 @@ void main() {
       final (url, body) = net.posts.last;
       expect(url, '$baseUrl/home.php?mod=spacecp&ac=comment&op=delete&cid=6&inajax=1');
       expect(body, {'formhash': 'f1f2f3f4', 'deletesubmit': 'true', 'handlekey': 'delcommenthk_6'});
+      net.postAnswer = (_, _) => _text('result_wall_deleted.json');
+      expect((await net.repository().deleteWall(session, 58)).outcome, SpaceWriteOutcome.done);
       net.postAnswer = (_, _) => _text('result_wall_delete_missing.json');
-      expect((await net.repository().deleteWall(session, 29)).message, '抱歉，您指定的评论不存在');
-      expect(net.posts, hasLength(3));
+      final gone = await net.repository().deleteWall(session, 58);
+      expect(gone.outcome, SpaceWriteOutcome.rejected);
+      expect(gone.message, '抱歉，您指定的评论不存在');
+      expect(net.posts, hasLength(4));
     });
 
     test('nothing is sent for another account; a failed request is not sent again', () async {
@@ -326,11 +332,17 @@ void main() {
       final back = (await repo.loadPokeForm(35, reply: true)).form!;
       expect(back.reply, isTrue);
       expect(net.gets.last, startsWith('$baseUrl/home.php?mod=spacecp&ac=poke&op=reply&uid=35'));
-      await repo.sendPoke(back, '0', '');
+      net.postAnswer = (_, _) => _text('result_poke_replied.json');
+      expect((await repo.sendPoke(back, '0', '')).outcome, SpaceWriteOutcome.done);
       expect(net.posts.last.$1, '$baseUrl/home.php?mod=spacecp&ac=poke&op=reply&uid=35&inajax=1');
+      expect(net.posts.last.$2['handlekey'], 'pokereply');
+      net.postAnswer = (_, _) => _text('result_poke_self.json');
+      final self = await repo.sendPoke(form, '1', '');
+      expect(self.outcome, SpaceWriteOutcome.rejected);
+      expect(self.message, '不能向自己打招呼');
       net.uid = 33;
       expect((await repo.sendPoke(form, '1', '')).outcome, SpaceWriteOutcome.identityChanged);
-      expect(net.posts, hasLength(2));
+      expect(net.posts, hasLength(3));
     });
 
     test('the greetings received: who, the greeting, when; the session of the list', () {
@@ -362,7 +374,8 @@ void main() {
       expect(one.message, '招呼已忽略');
       expect(net.posts.single.$1, '$baseUrl/home.php?mod=spacecp&ac=poke&op=ignore&uid=33&inajax=1');
       expect(net.posts.single.$2, {'formhash': 'f1f2f3f4', 'ignoresubmit': 'true', 'handlekey': 'pokeignore'});
-      await repo.ignorePokes(session);
+      net.postAnswer = (_, _) => _text('result_poke_ignored_all.json');
+      expect((await repo.ignorePokes(session)).outcome, SpaceWriteOutcome.done);
       expect(net.posts.last.$1, '$baseUrl/home.php?mod=spacecp&ac=poke&op=ignore&inajax=1');
       expect(net.posts.last.$2['handlekey'], 'allignore');
     });

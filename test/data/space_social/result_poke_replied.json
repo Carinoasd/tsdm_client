@@ -1,0 +1,21 @@
+{
+  "ok": 1,
+  "api": 1,
+  "time": 1700000000,
+  "uid": 35,
+  "formhash": "f1f2f3f4",
+  "type": "result",
+  "schema": 13,
+  "kind": "handle",
+  "message": "已发送，测试会员甲下次访问时会收到通知",
+  "message_key": "poke_success",
+  "url": "https://forum.test/./",
+  "handlekey": "pokereply",
+  "values": {
+    "username": "测试会员甲",
+    "uid": "31",
+    "from": ""
+  },
+  "login": 0,
+  "alert": "right"
+}

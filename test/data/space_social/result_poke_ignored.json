@@ -6,12 +6,15 @@
   "formhash": "f1f2f3f4",
   "type": "result",
   "schema": 13,
-  "kind": "message",
+  "kind": "handle",
   "message": "招呼已忽略",
   "message_key": "has_been_hailed_overlooked",
   "url": "",
-  "handlekey": "",
-  "values": {},
+  "handlekey": "pokeignore",
+  "values": {
+    "uid": "33",
+    "from": ""
+  },
   "login": 0,
   "alert": "right"
 }
