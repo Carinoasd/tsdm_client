@@ -83,6 +83,13 @@ KeywordScope? _scopeOf(Map<String, dynamic> item) {
   );
 }
 
+/// Whether the scopes [a] and [b] read the same in the document: the same choice and the same names of the forums.
+bool _sameScopeItem(KeywordScope a, KeywordScope b) =>
+    a.custom == b.custom &&
+    a.latest == b.latest &&
+    a.forums.length == b.forums.length &&
+    [for (final (i, f) in a.forums.indexed) f.fid == b.forums[i].fid && f.name == b.forums[i].name].every((e) => e);
+
 /// [config] with the sections of the sync document taken in at [now] (milliseconds): the items of `watch_forums`
 /// ([forums]) and of `watch_keywords` ([keywords]), and the item of `watch_scope` ([scope]). Null when nothing changes.
 ///
@@ -91,12 +98,13 @@ KeywordScope? _scopeOf(Map<String, dynamic> item) {
 /// here, one it records as removed is removed here unless it was watched (or added) again later. One the document
 /// does not hold stays as it is, and so does one whose item this version does not read (not a forum id, a keyword
 /// that is not the key of its text or longer than a keyword may be). The scope is taken whole when the document's is
-/// later, or as late and another choice.
+/// later, or as late and another one (another choice, or another name of a forum).
 ///
 /// The forums and the keywords are then the latest first, at most [forumWatchForumMax] and [forumWatchKeywordMax] of
 /// them, and the forums the check fetches ([ForumWatchConfig.fetchedFids]: the watched ones and the ones of a picked
 /// scope, the limit the page holds a change to) at most [forumWatchForumMax]: over it the forums watched longest ago
-/// go, so the scope's are still looked in. What goes is dropped without a record: not removed on the other devices.
+/// go, so the scope's are still looked in. What goes is dropped without a record: not removed on the other devices,
+/// and watched here again by a later sync once there is room (the keywords gone, a smaller scope).
 ForumWatchConfig? forumWatchWithSynced(
   ForumWatchConfig config, {
   required Map<String, Map<String, dynamic>> forums,
@@ -191,7 +199,7 @@ ForumWatchConfig? forumWatchWithSynced(
     final theirs = _scopeOf(scope);
     if (theirs != null &&
         (theirs.updated > config.scope.updated ||
-            (theirs.updated == config.scope.updated && !theirs.sameChoiceAs(config.scope)))) {
+            (theirs.updated == config.scope.updated && !_sameScopeItem(theirs, config.scope)))) {
       nextScope = theirs;
       changed = true;
     }

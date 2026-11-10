@@ -556,6 +556,39 @@ void main() {
       expect(tie.removedForums, {8: _t + 20, 9: _t + 30});
       expect([for (final k in tie.keywords) k.text], ['Theirs', 'MINE']);
       expect((tie.scope.custom, tie.scope.updated), (false, _t + 40));
+      // The same choice of the same time under another name of a forum: the document's name.
+      final named = tie.copyWith(
+        scope: const KeywordScope(
+          custom: true,
+          forums: [WatchedForum(fid: 3, name: '旧名', updated: 1)],
+          updated: _t + 40,
+        ),
+      );
+      final renamed = forumWatchWithSynced(
+        named,
+        forums: const {},
+        keywords: const {},
+        scope: {
+          'updated': _t + 40,
+          'custom': true,
+          'latest': true,
+          'forums': [
+            {'fid': 3, 'name': '新名'},
+          ],
+        },
+        now: _t + 50,
+      )!;
+      expect(renamed.scope.forums.single.name, '新名');
+      expect(
+        forumWatchWithSynced(
+          renamed,
+          forums: const {},
+          keywords: const {},
+          scope: forumWatchScopeItem(renamed),
+          now: _t + 50,
+        ),
+        isNull,
+      );
       // And then nothing more to take.
       expect(
         forumWatchWithSynced(
@@ -612,6 +645,18 @@ void main() {
         now: _t + 500,
       )!;
       expect(plain.watchedFids, hasLength(10));
+      // What went was not unwatched: the document still holds it, and once there is room (the scope back to the
+      // default) the next sync watches it here again.
+      final roomy = forumWatchWithSynced(
+        next.withScope(const KeywordScope(), now: _t + 600),
+        forums: {
+          for (var fid = 1; fid <= 3; fid++) '$fid': {'updated': _t + fid, 'name': '版块$fid'},
+        },
+        keywords: const {},
+        scope: null,
+        now: _t + 700,
+      )!;
+      expect(roomy.watchedFids, {11, 12, 13, 14, 6, 5, 4, 3, 2, 1});
     });
 
     test('over the limits after a merge: the latest 10 forums and 50 keywords, the others without a record', () {
