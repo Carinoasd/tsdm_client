@@ -10,7 +10,6 @@ import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/features/jump_page/cubit/jump_page_cubit.dart';
 import 'package:tsdm_client/features/thread/v1/bloc/thread_bloc.dart';
 import 'package:tsdm_client/features/thread/v1/widgets/floor_layout.dart';
-import 'package:tsdm_client/features/thread/v1/widgets/operation_log_card.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
@@ -591,20 +590,9 @@ class PostListState extends State<PostList> with LoggerMixin {
   }
 
   List<Widget> _buildSlivers(BuildContext context) {
-    final side = MediaQuery.sizeOf(context).width < 600 ? 6.0 : 16.0;
     return [
-      // Above the opening place, top to bottom; laid out upwards from it.
-      if (widget.latestModAct != null && widget.latestModAct!.isNotEmpty && widget.threadID != null)
-        SliverToBoxAdapter(
-          // Same column and side room as the floors below it.
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(side, 8, side, 0),
-            child: AppContentWidth(
-              maxWidth: ReadingWidthScope.floorOf(context),
-              child: OperationLogCard(latestAction: widget.latestModAct!, tid: widget.threadID!),
-            ),
-          ),
-        ),
+      // Above the opening place, top to bottom; laid out upwards from it. The moderation notice is not here: the
+      // forum prints it in the first floor and so does the floor.
       SliverToBoxAdapter(
         child: AppContentWidth(
           maxWidth: ReadingWidthScope.floorOf(context),
