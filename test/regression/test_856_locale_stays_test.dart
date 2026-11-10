@@ -149,7 +149,8 @@ void main() {
     expect(boot, contains('await applyLanguageSetting(settings.locale);'));
 
     // No lifecycle callback, page or repository sets the language: the start and the choice in the settings go
-    // through `app_language.dart`, the background service has its own isolate (and its own translations). Any
+    // through `app_language.dart`, the background isolates (the message service, the reply typed in a notification) have
+    // their own (and their own translations), set up in `background_isolate.dart`. Any
     // mention counts, a call as much as a tear-off.
     final setter = RegExp(r'\b(setLocale|setLocaleRaw|useDeviceLocale)(Sync)?\b');
     final callers =
@@ -162,7 +163,7 @@ void main() {
             .map((f) => f.path)
             .toList()
           ..sort();
-    expect(callers, ['lib/features/background_sync/background_sync_entry.dart', 'lib/utils/app_language.dart']);
+    expect(callers, ['lib/features/background_sync/background_isolate.dart', 'lib/utils/app_language.dart']);
   });
 
   testWidgets('the stored language stays whatever Android does to the activity', (tester) async {
