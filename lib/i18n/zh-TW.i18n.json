@@ -2272,6 +2272,14 @@
   "bountyAnswerCard": {
     "title": "最佳答案"
   },
+  "moderateFloorOps": {
+    "stick": "置頂回覆",
+    "unstick": "解除置頂",
+    "stuck": "置頂回覆",
+    "removeRate": "撤銷評分",
+    "attachments": "附件",
+    "deleteAttachment": "刪除附件"
+  },
   "bbcodeEditor": {
     "experimentalInfo": "實驗性bbcode編輯器",
     "experimentalInfoTitle": "實驗性bbcode編輯器",

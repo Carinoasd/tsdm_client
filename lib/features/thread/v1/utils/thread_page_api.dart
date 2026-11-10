@@ -251,7 +251,8 @@ ThreadPageInfo threadPageFromApi(Map<String, dynamic> json, int pageNumber) {
     threadClosed:
         uid > 0 &&
         (_int(reply['allowed']) == 0 || _int(reply['fastpost']) == 0 || _int(reply['fastpost_allowed']) == 0),
-    postList: postList,
+    // The forum lists stuck replies on the first page only.
+    postList: currentPage == 1 ? markStuckReplies(postList, newestFirst: _int(json['ordertype']) == 1) : postList,
     replyParameters: replyParameters,
     threadType: threadType,
     isDraft: draft,
@@ -409,3 +410,35 @@ Map<String, dynamic> _map(Object? value) => value is Map<String, dynamic> ? valu
 
 List<Map<String, dynamic>> _list(Object? value) =>
     value is List ? value.whereType<Map<String, dynamic>>().toList() : const [];
+
+/// [posts] of a page of the app API with the replies stuck under the first floor marked ([Post.stuck]), as far as the
+/// order tells: the answer (plugin 3.7.0) does not say which they are.
+///
+/// The forum lists a page as its first floor, the stuck replies (on the first page only), the hot replies, then the
+/// floors in their order (`viewthread` `postarr`), a stuck reply taken out of where it was. A reply before a later
+/// floor it would come after (a greater floor number when oldest first, a smaller one when [newestFirst]) is a stuck
+/// one. A stuck reply numbered below (above, when [newestFirst]) every floor of the page that is not stuck is not told
+/// apart: the second floor stuck, or the second and the third. The first floor, the hot replies and floors without a
+/// number are never marked.
+List<Post> markStuckReplies(List<Post> posts, {required bool newestFirst}) {
+  bool regular(Post p) => !p.hot && (p.postFloor ?? 0) > 1;
+  final stuck = <int>{};
+  // The smallest (oldest first) or greatest (newest first) floor after each one.
+  int? bound;
+  for (var i = posts.length - 1; i >= 0; i--) {
+    final post = posts[i];
+    if (!regular(post)) {
+      continue;
+    }
+    final floor = post.postFloor!;
+    if (bound != null && (newestFirst ? floor < bound : floor > bound)) {
+      stuck.add(i);
+    } else {
+      bound = floor;
+    }
+  }
+  if (stuck.isEmpty) {
+    return posts;
+  }
+  return [for (final (i, post) in posts.indexed) stuck.contains(i) && !post.stuck ? post.copyWith(stuck: true) : post];
+}

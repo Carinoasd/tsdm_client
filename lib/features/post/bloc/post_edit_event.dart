@@ -14,6 +14,16 @@ final class PostEditIdentityChanged extends PostEditEvent with PostEditIdentityC
   const PostEditIdentityChanged();
 }
 
+/// The forum deleted attachment [aid] of the edited post (the edit page's attachment list).
+@MappableClass()
+final class PostEditAttachmentDeleted extends PostEditEvent with PostEditAttachmentDeletedMappable {
+  /// Constructor.
+  const PostEditAttachmentDeleted(this.aid);
+
+  /// The attachment.
+  final int aid;
+}
+
 /// User requested to load the data to edit.
 @MappableClass()
 final class PostEditLoadDataRequested extends PostEditEvent with PostEditLoadDataRequestedMappable {

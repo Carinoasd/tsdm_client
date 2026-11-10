@@ -162,10 +162,11 @@ void main() {
       );
     });
 
-    test('the operations of a floor: no reply deletion on the first floor', () {
+    test('the operations of a floor: no reply sticking or deletion on the first floor', () {
       expect(floorModerateActionsFor(first: false), [
         FloorModerateAction.warn,
         FloorModerateAction.ban,
+        FloorModerateAction.stick,
         FloorModerateAction.delete,
       ]);
       expect(floorModerateActionsFor(first: true), [FloorModerateAction.warn, FloorModerateAction.ban]);
