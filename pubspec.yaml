@@ -78,8 +78,10 @@ dependencies:
   m3e_design: ^0.2.1
   material_design_icons_flutter: ^7.0.7296
   material_symbols_icons: ^4.2892.0
-  media_kit_libs_linux: ^1.2.1
-  media_kit_libs_windows_audio: ^1.0.9
+  media_kit: ^1.2.6
+  # libmpv with video on every platform; also plays the sound of just_audio_media_kit on Windows and Linux.
+  media_kit_libs_video: ^1.0.7
+  media_kit_video: ^2.0.1
   native_flutter_proxy: ^0.3.1
   # 0.6 requires Flutter 3.44.
   pasteboard: ^0.5.0

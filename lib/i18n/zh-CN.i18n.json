@@ -2366,6 +2366,16 @@
     "loadFailed": "加载失败",
     "notificationChannel": "音乐播放"
   },
+  "videoPlayer": {
+    "play": "播放",
+    "speed": "倍速",
+    "mute": "静音",
+    "unmute": "取消静音",
+    "cannotPlay": "无法播放",
+    "loadFailed": "加载失败",
+    "retry": "重试",
+    "open": "打开"
+  },
   "threadVisitHistoryPage": {
     "filterAccount": "按账号筛选",
     "allAccounts": "全部账号",

@@ -2,6 +2,8 @@ import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
+import 'package:tsdm_client/features/video_player/models/post_video.dart';
+import 'package:tsdm_client/features/video_player/widgets/post_video_player.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/utils/html/media_preview.dart';
@@ -23,7 +25,7 @@ enum PostMediaKind {
 @immutable
 final class PostMedia {
   /// Constructor.
-  const PostMedia({required this.kind, this.url});
+  const PostMedia({required this.kind, this.url, this.videoElement = false, this.poster});
 
   /// The player of the [element], see [PostMedia].
   ///
@@ -69,6 +71,14 @@ final class PostMedia {
     };
     final url = _httpUrl(raw);
     final audio = tag == 'audio' || (url != null && _audioFileRe.hasMatch(url.path));
+    if (tag == 'video' && !audio) {
+      return PostMedia(
+        kind: PostMediaKind.video,
+        url: url,
+        videoElement: true,
+        poster: _httpUrl(element.attributes['poster']),
+      );
+    }
     return PostMedia(kind: audio ? PostMediaKind.audio : PostMediaKind.video, url: url);
   }
 
@@ -276,6 +286,18 @@ final class PostMedia {
   /// Where it plays from, an http(s) url; null when the player has none the browser could open.
   final Uri? url;
 
+  /// Whether the player is an html5 `<video>`: [url] is the video itself, whatever its address looks like.
+  final bool videoElement;
+
+  /// The picture a `<video>` shows before it plays (`poster`), an http(s) url; null without one.
+  final Uri? poster;
+
+  /// Whether [url] is on a known video or music site ([site] names it): its player, not a file of its own.
+  bool get fromKnownSite {
+    final host = url?.host.toLowerCase();
+    return host != null && _knownSites.keys.any((domain) => host == domain || host.endsWith('.$domain'));
+  }
+
   /// The name of the site the player is from: the name of a known video or music site, else the host without `www.`;
   /// null without [url].
   String? get site {
@@ -412,6 +434,10 @@ class PostMediaCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // A video file or a stream the app plays itself, in the floor.
+    if (PostVideo.ofMedia(media) case final video?) {
+      return PostVideoPlayer(video);
+    }
     final target = _target;
     final plain = _buildPlain(context);
     if (target == null) {

@@ -2366,6 +2366,16 @@
     "loadFailed": "Failed to load",
     "notificationChannel": "Music playback"
   },
+  "videoPlayer": {
+    "play": "Play",
+    "speed": "Speed",
+    "mute": "Mute",
+    "unmute": "Unmute",
+    "cannotPlay": "Can't play",
+    "loadFailed": "Failed to load",
+    "retry": "Retry",
+    "open": "Open"
+  },
   "threadVisitHistoryPage": {
     "filterAccount": "Filter by account",
     "allAccounts": "All accounts",
