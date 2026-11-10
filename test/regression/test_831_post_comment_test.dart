@@ -348,6 +348,23 @@ void main() {
       expect(failing.sent, hasLength(1), reason: 'never sent again');
     });
 
+    test('a success with words not known, a page: no verdict (the page is read again, nothing sent twice)', () {
+      final ok = _json('comment_ok_api.json')
+        ..['message_key'] = 'post_reply_mod_succeed'
+        ..['alert'] = 'info';
+      expect(postCommentOutcomeOf(ok, doneKeys: const {'comment_add_succeed'}), isA<PostCommentUnknown>());
+      expect(
+        postCommentOutcomeOf(_json('window_api.json'), doneKeys: const {'comment_add_succeed'}),
+        isA<PostCommentUnknown>(),
+      );
+      // The forum's escapes in its handler's words.
+      final escaped = postCommentOutcomeOf(
+        r"<root><![CDATA[<script>errorhandle_comment('第一行\n\'引号\'', {});</script>]]></root>",
+        doneKeys: const {},
+      );
+      expect((escaped as PostCommentRefused).message, "第一行\n'引号'");
+    });
+
     test("the moderators' delete: its window, its form with the reason, the forum's verdict", () async {
       final forum = _Forum(reads: {'action=delcomment': _json('delete_window_api.json')});
       final window = await forum.repository.openDelete(tid: '1234567', commentId: 16);
@@ -605,6 +622,70 @@ void main() {
       expect(forum.sent.single.$2, containsPair('reason', '重复'));
       expect(find.text('管理操作成功'), findsOneWidget);
       expect(reloads, 1);
+    });
+
+    testWidgets('the limit counts code points, as the forum does', (tester) async {
+      final forum = _Forum(reads: {'action=comment': _json('window_api.json')});
+      await pump(
+        tester,
+        Builder(
+          builder: (context) => TextButton(
+            onPressed: () async => showPostCommentDialog(context, _window),
+            child: const Text('open'),
+          ),
+        ),
+        forum: forum,
+      );
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+      final input = find.byKey(const ValueKey('post-comment-input'));
+      // A family emoji: one character on screen, five code points for the forum.
+      const family = '\u{1F468}\u200D\u{1F469}\u200D\u{1F467}';
+      await tester.enterText(input, '${'a' * 196}$family');
+      await tester.pump();
+      expect(tester.widget<TextField>(input).controller!.text, isNot(contains(family)), reason: '201 code points');
+      await tester.enterText(input, '${'a' * 195}$family');
+      await tester.pump();
+      expect(tester.widget<TextField>(input).controller!.text.runes.length, 200);
+      expect(find.text('200/200'), findsOneWidget);
+    });
+
+    testWidgets('a delete window that cannot be read: nothing sent, no reload', (tester) async {
+      var reloads = 0;
+      final floor = _apiFloors('thread_api_moderator.json')['11263']!;
+      final forum = _Forum(answer: _json('delete_ok_api.json'));
+      await pump(
+        tester,
+        PostCommentSection(floor, tid: '1234567', onReload: () => reloads++),
+        forum: forum,
+        uid: 33,
+      );
+      await tester.tap(find.byKey(const ValueKey('post-comment-delete-16')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('post-comment-delete-confirm')));
+      await tester.pumpAndSettle();
+      expect(forum.sent, isEmpty);
+      expect(reloads, 0);
+      expect(find.text(t.postComment.loadFailed), findsOneWidget);
+    });
+
+    testWidgets("a member's more page: a comment shown already is not added again", (tester) async {
+      final json = _json('thread_api_member.json');
+      final floor = threadPageFromApi(json, 1).postList.firstWhere((e) => e.postID == '11263');
+      // Page 2 after two more comments: it starts with the two last of page 1 (rows without ids for a member).
+      final body = ((json['posts'] as List)[1] as Map<String, dynamic>)['body_html'] as String;
+      final rows = RegExp(
+        r'<div class="pstl xs1 cl">[\s\S]*?</span></span>\s*</div>\s*</div>',
+      ).allMatches(body).toList();
+      expect(rows, hasLength(5));
+      final shifted = '${rows[3][0]}${rows[4][0]}${_json('more_api.json')['document']}';
+      final forum = _Forum(reads: {'commentmore': shifted});
+      await pump(tester, PostCommentSection(floor, tid: '1234567'), forum: forum);
+      await tester.tap(find.byKey(const ValueKey('post-comment-more')));
+      await tester.pumpAndSettle();
+      for (final name in ['ag_t03', 'ag_t02', 'ag_t01', 'ag_low']) {
+        expect(find.textContaining('$name  2026', findRichText: true), findsOneWidget, reason: name);
+      }
     });
 
     testWidgets('without a reload (the post of a notice, an offline copy): no delete', (tester) async {

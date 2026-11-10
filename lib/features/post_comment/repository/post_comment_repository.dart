@@ -272,7 +272,8 @@ PostCommentOutcome postCommentOutcomeOf(Object? data, {required Set<String> done
     if (doneKeys.contains(result.messageKey) || result.alert == 'right') {
       return PostCommentDone(result.message);
     }
-    return result.messageKey.isEmpty ? const PostCommentUnknown() : PostCommentRefused(result.message);
+    // Taken by the forum's verdict, with words this does not know: the page read again tells (never sent twice).
+    return const PostCommentUnknown();
   }
   if (data is! String) {
     return const PostCommentUnknown();
@@ -300,7 +301,15 @@ final _cdataRe = RegExp(r'<!\[CDATA\[([\s\S]*)\]\]>');
 String _ajaxHtml(String data) => _cdataRe.firstMatch(data)?.group(1) ?? data;
 
 /// A single quoted JavaScript string's text.
-String _jsString(String s) => s.replaceAllMapped(RegExp(r'\\(.)'), (m) => m.group(1)!);
+String _jsString(String s) => s.replaceAllMapped(
+  RegExp(r'\\(.)'),
+  (m) => switch (m.group(1)!) {
+    'n' => '\n',
+    'r' => '',
+    't' => '\t',
+    final c => c,
+  },
+);
 
 /// The forum's words in a fragment that is not the window: its error handler, its `alert_error`, or its text.
 String? _refusalOf(String html, uh.HtmlDocument doc) {

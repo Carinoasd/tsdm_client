@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
@@ -80,14 +81,16 @@ class _PostCommentSectionState extends State<PostCommentSection> {
       showSnackBar(context: context, message: context.t.postComment.loadFailed);
       return;
     }
+    // A comment posted meanwhile moves the pages on: one shown already is not added again. A member's comments have
+    // no id (no delete link): their author, time and text tell them apart.
+    Object keyOf(PostComment c) => c.id ?? (c.authorUid, c.authorName, c.time, c.content);
     final known = {
-      for (final c in [...widget.post.comments, ..._more])
-        if (c.id != null) c.id!,
+      for (final c in [...widget.post.comments, ..._more]) keyOf(c),
     };
     setState(() {
       _loading = false;
       _page++;
-      _more.addAll(page.comments.where((c) => c.id == null || !known.contains(c.id)));
+      _more.addAll(page.comments.where((c) => known.add(keyOf(c))));
       _hasMore = page.hasMore && page.comments.isNotEmpty;
     });
   }
@@ -329,38 +332,52 @@ class _PostCommentDialogState extends State<_PostCommentDialog> {
   Widget build(BuildContext context) {
     final tr = context.t.postComment;
     final form = _form;
-    return AlertDialog(
-      icon: const Icon(Icons.add_comment_outlined),
-      title: Text(tr.title),
-      scrollable: true,
-      content: ConstrainedBox(
-        constraints: const BoxConstraints(minWidth: 320),
-        child: form == null
-            ? const Padding(
-                padding: EdgeInsets.all(16),
-                child: Center(child: CircularProgressIndicator()),
-              )
-            : TextField(
-                key: const ValueKey('post-comment-input'),
-                controller: _controller,
-                autofocus: true,
-                enabled: !_sending,
-                minLines: 2,
-                maxLines: 5,
-                maxLength: form.maxLength,
-                decoration: InputDecoration(
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(appInnerRadius)),
+    // Not closed while the comment is out: the dialog says what the forum answered.
+    return PopScope(
+      canPop: !_sending,
+      child: AlertDialog(
+        icon: const Icon(Icons.add_comment_outlined),
+        title: Text(tr.title),
+        scrollable: true,
+        content: ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: 320),
+          child: form == null
+              ? const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              : TextField(
+                  key: const ValueKey('post-comment-input'),
+                  controller: _controller,
+                  autofocus: true,
+                  enabled: !_sending,
+                  minLines: 2,
+                  maxLines: 5,
+                  // The forum counts code points (X5 `dstrLenCalc`), not what Flutter's `maxLength` counts: an emoji
+                  // made of several is several there.
+                  inputFormatters: [
+                    TextInputFormatter.withFunction(
+                      (old, value) => value.text.runes.length > form.maxLength ? old : value,
+                    ),
+                  ],
+                  decoration: InputDecoration(
+                    counterText: '${_controller.text.runes.length}/${form.maxLength}',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(appInnerRadius)),
+                  ),
                 ),
-              ),
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(context.t.general.cancel)),
-        TextButton(
-          key: const ValueKey('post-comment-send'),
-          onPressed: form == null || _sending || _controller.text.trim().isEmpty ? null : _send,
-          child: Text(tr.send),
         ),
-      ],
+        actions: [
+          TextButton(
+            onPressed: _sending ? null : () => Navigator.of(context).pop(),
+            child: Text(context.t.general.cancel),
+          ),
+          TextButton(
+            key: const ValueKey('post-comment-send'),
+            onPressed: form == null || _sending || _controller.text.trim().isEmpty ? null : _send,
+            child: Text(tr.send),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -393,10 +410,10 @@ Future<void> showPostCommentDeleteDialog(
           return switch (await repository.openDelete(tid: tid, commentId: id)) {
             PostCommentWindowForm(:final form) =>
               auth.effectiveCurrentUid != uid || (form.uid != null && form.uid != uid)
-                  ? null
+                  ? _DeleteNotSent.accountChanged
                   : await repository.sendDelete(form, reason),
             PostCommentWindowRefused(:final message) => PostCommentRefused(message),
-            PostCommentWindowFailed() => const PostCommentUnknown(),
+            PostCommentWindowFailed() => _DeleteNotSent.windowFailed,
           };
         },
         onDone: onDone,
@@ -405,13 +422,22 @@ Future<void> showPostCommentDeleteDialog(
   );
 }
 
+/// Why a delete was not sent.
+enum _DeleteNotSent {
+  /// The account in use is not the one the dialog was opened for.
+  accountChanged,
+
+  /// The forum's delete window could not be read.
+  windowFailed,
+}
+
 class _PostCommentDeleteDialog extends StatefulWidget {
   const _PostCommentDeleteDialog(this.comment, {required this.delete, required this.onDone});
 
   final PostComment comment;
 
-  /// Delete with the reason; null when the account changed (nothing sent).
-  final Future<PostCommentOutcome?> Function(String reason) delete;
+  /// Delete with the reason: the forum's [PostCommentOutcome], or why nothing was sent ([_DeleteNotSent]).
+  final Future<Object> Function(String reason) delete;
 
   final VoidCallback onDone;
 
@@ -437,10 +463,12 @@ class _PostCommentDeleteDialogState extends State<_PostCommentDeleteDialog> {
     setState(() => _busy = true);
     final outcome = await widget.delete(_reason.text.trim());
     final message = switch (outcome) {
-      null => tr.accountChanged,
+      _DeleteNotSent.accountChanged => tr.accountChanged,
+      _DeleteNotSent.windowFailed => tr.loadFailed,
       PostCommentDone(:final message) => message.isEmpty ? tr.deleted : message,
       PostCommentRefused(:final message) => message.isEmpty ? tr.refused : message,
       PostCommentUnknown() => tr.unknown,
+      _ => tr.unknown,
     };
     if (outcome is PostCommentDone || outcome is PostCommentUnknown) {
       widget.onDone();
@@ -456,38 +484,44 @@ class _PostCommentDeleteDialogState extends State<_PostCommentDeleteDialog> {
   Widget build(BuildContext context) {
     final tr = context.t.postComment;
     final colorScheme = Theme.of(context).colorScheme;
-    return AlertDialog(
-      icon: Icon(Icons.delete_outline, color: colorScheme.error),
-      title: Text(tr.deleteTitle),
-      scrollable: true,
-      content: ConstrainedBox(
-        constraints: const BoxConstraints(minWidth: 320),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            PostCommentTile(widget.comment),
-            sizedBoxW16H16,
-            TextField(
-              key: const ValueKey('post-comment-delete-reason'),
-              controller: _reason,
-              enabled: !_busy,
-              decoration: InputDecoration(
-                labelText: tr.reason,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(appInnerRadius)),
+    return PopScope(
+      canPop: !_busy,
+      child: AlertDialog(
+        icon: Icon(Icons.delete_outline, color: colorScheme.error),
+        title: Text(tr.deleteTitle),
+        scrollable: true,
+        content: ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: 320),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              PostCommentTile(widget.comment),
+              sizedBoxW16H16,
+              TextField(
+                key: const ValueKey('post-comment-delete-reason'),
+                controller: _reason,
+                enabled: !_busy,
+                decoration: InputDecoration(
+                  labelText: tr.reason,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(appInnerRadius)),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
+        actions: [
+          TextButton(
+            onPressed: _busy ? null : () => Navigator.of(context).pop(),
+            child: Text(context.t.general.cancel),
+          ),
+          TextButton(
+            key: const ValueKey('post-comment-delete-confirm'),
+            onPressed: _busy ? null : _delete,
+            child: Text(tr.delete, style: TextStyle(color: colorScheme.error)),
+          ),
+        ],
       ),
-      actions: [
-        TextButton(onPressed: _busy ? null : () => Navigator.of(context).pop(), child: Text(context.t.general.cancel)),
-        TextButton(
-          key: const ValueKey('post-comment-delete-confirm'),
-          onPressed: _busy ? null : _delete,
-          child: Text(tr.delete, style: TextStyle(color: colorScheme.error)),
-        ),
-      ],
     );
   }
 }
