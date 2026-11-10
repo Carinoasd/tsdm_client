@@ -242,7 +242,8 @@ ThreadPageInfo threadPageFromApi(Map<String, dynamic> json, int pageNumber) {
     threadClosed:
         uid > 0 &&
         (_int(reply['allowed']) == 0 || _int(reply['fastpost']) == 0 || _int(reply['fastpost_allowed']) == 0),
-    postList: markStuckReplies(postList, newestFirst: _int(json['ordertype']) == 1),
+    // The forum lists stuck replies on the first page only.
+    postList: currentPage == 1 ? markStuckReplies(postList, newestFirst: _int(json['ordertype']) == 1) : postList,
     replyParameters: replyParameters,
     threadType: threadType,
     isDraft: draft,
@@ -407,8 +408,9 @@ List<Map<String, dynamic>> _list(Object? value) =>
 /// The forum lists a page as its first floor, the stuck replies (on the first page only), the hot replies, then the
 /// floors in their order (`viewthread` `postarr`), a stuck reply taken out of where it was. A reply before a later
 /// floor it would come after (a greater floor number when oldest first, a smaller one when [newestFirst]) is a stuck
-/// one; a stuck reply that is where it would be anyway (the second floor stuck, alone) is not told apart. The first
-/// floor, the hot replies and floors without a number are never marked.
+/// one. A stuck reply numbered below (above, when [newestFirst]) every floor of the page that is not stuck is not told
+/// apart: the second floor stuck, or the second and the third. The first floor, the hot replies and floors without a
+/// number are never marked.
 List<Post> markStuckReplies(List<Post> posts, {required bool newestFirst}) {
   bool regular(Post p) => !p.hot && (p.postFloor ?? 0) > 1;
   final stuck = <int>{};

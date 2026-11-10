@@ -13,6 +13,7 @@
 /// and as a super moderator saw it once he edited a member's floor.
 library;
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -251,6 +252,12 @@ void main() {
       expect(first.postFloor, isNull);
       expect(first.shareLink, contains('mod=viewthread&tid=$_tid'));
       expect(stuck.shareLink, contains('goto=findpost'));
+    });
+
+    test('another page is never marked', () {
+      final json = _data('thread_stuck_api.json')! as Map<String, dynamic>;
+      final posts = threadPageFromApi({...json, 'page': 2}, 2).postList;
+      expect(posts.where((e) => e.stuck), isEmpty);
     });
 
     test('the app API: told by the order of the first page', () {
@@ -492,6 +499,14 @@ void main() {
       expect(body['delattachop'], '1');
       expect(body.keys.where((e) => e.contains('90008')), isEmpty);
       expect(body.keys, containsAll(['attachupdate[90009]', 'attachnew[90009][description]']));
+      // Another attachment whose id starts the same keeps its fields.
+      final similar = editFormWithoutAttachment({
+        'attach': {
+          'used': const <Object>[],
+          'fields': {'attachupdate[9000]': '', 'attachnew[90008][description]': '', 'attachnew[9000][price]': '0'},
+        },
+      }, 9000);
+      expect((similar['attach'] as Map)['fields'], {'attachnew[90008][description]': ''});
       // The served answer is left as it was.
       expect(editAttachmentsOf(json), hasLength(2));
     });
@@ -546,6 +561,48 @@ void main() {
       expect(find.text('mx.zip'), findsNothing);
       expect(find.text('mx.png'), findsOneWidget);
     });
+  });
+
+  testWidgets('the list stays while a deletion is out, and the editor learns it was deleted', (tester) async {
+    final answer = Completer<Either<AppException, ModerateResponse>>();
+    final deleted = <int>[];
+    final repo = FloorOpsRepository(
+      get: (_) async => throw StateError('no read'),
+      getOnce: (_) => answer.future,
+      post: (_, _) async => throw StateError('no post'),
+      currentUid: () => 42,
+    );
+    await tester.pumpWidget(
+      TranslationProvider(
+        child: MaterialApp(
+          home: Scaffold(
+            body: EditAttachmentsButton(
+              attachments: editAttachmentsOf(_data('edit_attach_moderator.json')! as Map<String, dynamic>),
+              tid: _tid,
+              pid: _pid,
+              formHash: 'f1f2f3f4',
+              formUid: 42,
+              onDeleted: deleted.add,
+              repository: repo,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.byType(IconButton));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.descendant(of: find.widgetWithText(ListTile, 'mx.zip'), matching: find.byIcon(Icons.delete_outline)),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(t.general.ok));
+    await tester.pump();
+    await tester.tapAt(const Offset(5, 5));
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text('mx.zip'), findsOneWidget);
+    answer.complete(right(_ok(_data('deleteattach_ok.json'))));
+    await tester.pumpAndSettle();
+    expect(deleted, [90008]);
   });
 
   group("another member's floor", () {

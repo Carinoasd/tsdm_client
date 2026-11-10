@@ -121,13 +121,16 @@ class _AttachmentListState extends State<_AttachmentList> {
           formUid: widget.formUid,
         )
         .run();
+    // The forum deleted it whatever became of the list: the editor learns it even when the list was closed.
+    if (outcome case Right(value: FloorOpSucceeded())) {
+      widget.onDeleted(attachment.aid);
+    }
     if (!mounted) {
       return;
     }
     setState(() => _deleting = null);
     switch (outcome) {
       case Right(value: FloorOpSucceeded()):
-        widget.onDeleted(attachment.aid);
         setState(() => _left.removeWhere((e) => e.aid == attachment.aid));
         if (_left.isEmpty) {
           Navigator.of(context).pop();
@@ -147,27 +150,31 @@ class _AttachmentListState extends State<_AttachmentList> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return SafeArea(
-      child: ListView(
-        shrinkWrap: true,
-        children: [
-          for (final attachment in _left)
-            ListTile(
-              leading: Icon(attachment.isImage ? Icons.image_outlined : Icons.insert_drive_file_outlined),
-              title: Text(
-                attachment.filename.isNotEmpty ? attachment.filename : '${attachment.aid}',
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
+    // Stays while a deletion is out, so its answer is shown.
+    return PopScope(
+      canPop: _deleting == null,
+      child: SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            for (final attachment in _left)
+              ListTile(
+                leading: Icon(attachment.isImage ? Icons.image_outlined : Icons.insert_drive_file_outlined),
+                title: Text(
+                  attachment.filename.isNotEmpty ? attachment.filename : '${attachment.aid}',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                trailing: _deleting == attachment.aid
+                    ? const SizedBox.square(dimension: 24, child: CircularProgressIndicator(strokeWidth: 2))
+                    : IconButton(
+                        icon: Icon(Icons.delete_outline, color: colorScheme.error),
+                        tooltip: context.t.moderateFloorOps.deleteAttachment,
+                        onPressed: _deleting == null ? () async => _delete(attachment) : null,
+                      ),
               ),
-              trailing: _deleting == attachment.aid
-                  ? const SizedBox.square(dimension: 24, child: CircularProgressIndicator(strokeWidth: 2))
-                  : IconButton(
-                      icon: Icon(Icons.delete_outline, color: colorScheme.error),
-                      tooltip: context.t.moderateFloorOps.deleteAttachment,
-                      onPressed: _deleting == null ? () async => _delete(attachment) : null,
-                    ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }

@@ -76,10 +76,11 @@ final class PostEditBloc extends Bloc<PostEditEvent, PostEditState> with LoggerM
   }
 
   /// The forum deleted an attachment of the edited post: the form left as the website's edit page leaves it
-  /// ([editFormWithoutAttachment]), so saving the edit updates the post's attachment mark.
+  /// ([editFormWithoutAttachment]), so saving the edit updates the post's attachment mark. Taken while the edit is
+  /// being sent as well: the form sent already is not changed, the one kept for another try is.
   void _onAttachmentDeleted(PostEditAttachmentDeleted event, _Emit emit) {
     final content = state.content;
-    if (content == null || _submitting || !_active(emit)) return;
+    if (content == null || !_active(emit)) return;
     final json = content.postForm;
     emit(
       state.copyWith(
