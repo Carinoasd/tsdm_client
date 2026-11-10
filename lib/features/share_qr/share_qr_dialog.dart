@@ -124,14 +124,9 @@ class _ShareQrDialogState extends State<ShareQrDialog> {
                     data: widget.url,
                     size: shareQrSize,
                     backgroundColor: Colors.white,
-                    // Square finder patterns and modules: the package draws round ones when the shape is left out, and
-                    // decoders that look for square patterns (OpenCV) do not find those. The shapes are not redundant.
-                    // ignore_for_file: avoid_redundant_argument_values
-                    eyeStyle: const QrEyeStyle(eyeShape: QrEyeShape.square, color: Colors.black),
-                    dataModuleStyle: const QrDataModuleStyle(
-                      dataModuleShape: QrDataModuleShape.square,
-                      color: Colors.black,
-                    ),
+                    // The package's own eye and module styles are square and black. Styles built here with only a color
+                    // leave the shape out, which the painter draws round: decoders that look for square patterns (OpenCV)
+                    // do not find those.
                   ),
                   sizedBoxW12H12,
                   Text(

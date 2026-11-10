@@ -14,6 +14,16 @@ import 'package:tsdm_client/widgets/custom_alert_dialog.dart';
 import 'package:tsdm_client/widgets/heroes.dart';
 import 'package:tsdm_client/widgets/single_line_text.dart';
 
+/// The thread repository of the page, or a fresh one where the notice is shown outside a thread page (a floor in the
+/// notification detail).
+ThreadRepository _threadRepositoryOf(BuildContext context) {
+  try {
+    return context.read<ThreadRepository>();
+  } on ProviderNotFoundException {
+    return ThreadRepository();
+  }
+}
+
 /// Open the dialog with the whole moderation log of thread [tid].
 Future<void> showOperationLogDialog(BuildContext context, String tid) async {
   final tr = context.t.threadPage.operationLog;
@@ -30,7 +40,7 @@ Future<void> showOperationLogDialog(BuildContext context, String tid) async {
               Expanded(child: Text(tr.title)),
             ],
           ),
-          future: context.read<ThreadRepository>().fetchOperationLog(tid).run(),
+          future: _threadRepositoryOf(context).fetchOperationLog(tid).run(),
           successBuilder: (context, data) {
             if (data.isLeft()) {
               return AppNoticeBanner(tone: AppNoticeTone.error, message: context.t.general.failedToLoad);

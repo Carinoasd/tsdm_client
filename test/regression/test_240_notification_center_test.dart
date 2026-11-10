@@ -173,9 +173,10 @@ String _noticePage(List<(int, int, String, String)> notes) {
 /// Answers every request with the forum's JSON [body], as the plugin answers the private message page of a forum with
 /// private messages switched off.
 final class _JsonAdapter implements HttpClientAdapter {
-  _JsonAdapter(this.body);
+  _JsonAdapter(this.body, {this.contentType = 'application/json'});
 
   final String body;
+  final String contentType;
 
   @override
   Future<ResponseBody> fetch(
@@ -872,11 +873,15 @@ void main() {
     Finder card(int id) => find.byKey(ValueKey('notice-card-$id'));
     final list = find.descendant(of: find.byType(ListView), matching: find.byType(Scrollable)).first;
 
-    testWidgets('private messages off: the empty tab says the forum\'s own words', (tester) async {
+    testWidgets("private messages off: the empty tab says the forum's own words", (tester) async {
       await getIt.unregister<NetClientProvider>();
       getIt.registerSingleton<NetClientProvider>(
         NetClientProvider.buildNoCookie(
-          dio: Dio()..httpClientAdapter = _JsonAdapter('{"ok":0,"error":"message","message":"抱歉，私信功能尚未开启","login":0}'),
+          dio: Dio()
+            ..httpClientAdapter = _JsonAdapter(
+              '{"ok":0,"error":"message","message":"抱歉，私信功能尚未开启","login":0}',
+              contentType: 'text/html; charset=utf-8',
+            ),
         ),
       );
       await open(

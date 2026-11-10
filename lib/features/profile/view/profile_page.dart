@@ -420,18 +420,19 @@ class _ProfilePageState extends State<ProfilePage> {
                     onPressed: () =>
                         unawaited(showAddFriendDialog(context, uid: otherUid, username: userProfile.username)),
                   ),
-                OverflowAction(
-                  icon: Icons.email_outlined,
-                  label: context.t.postCard.profileDialog.pmTooltip,
-                  placement: OverflowPlacement.pinned,
-                  onPressed: () => unawaited(
-                    context.pushNamed(
-                      ScreenPaths.chat,
-                      pathParameters: {'uid': otherUid!},
-                      extra: <String, dynamic>{'username': userProfile.username},
+                if (otherUid != null)
+                  OverflowAction(
+                    icon: Icons.email_outlined,
+                    label: context.t.postCard.profileDialog.pmTooltip,
+                    placement: OverflowPlacement.pinned,
+                    onPressed: () => unawaited(
+                      context.pushNamed(
+                        ScreenPaths.chat,
+                        pathParameters: {'uid': otherUid},
+                        extra: <String, dynamic>{'username': userProfile.username},
+                      ),
                     ),
                   ),
-                ),
                 // Local and silent: nothing is sent to the forum.
                 if (canBlock)
                   OverflowAction(
