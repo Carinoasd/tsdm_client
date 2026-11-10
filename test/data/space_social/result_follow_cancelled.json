@@ -1,0 +1,21 @@
+{
+  "ok": 1,
+  "api": 1,
+  "time": 1700000000,
+  "uid": 31,
+  "formhash": "f1f2f3f4",
+  "type": "result",
+  "schema": 13,
+  "kind": "handle",
+  "message": "取消成功",
+  "message_key": "follow_cancel_succeed",
+  "url": "https://forum.test/./",
+  "handlekey": "followmod",
+  "values": {
+    "fuid": "35",
+    "type": "del",
+    "from": "list"
+  },
+  "login": 0,
+  "alert": "right"
+}

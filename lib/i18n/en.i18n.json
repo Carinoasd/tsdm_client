@@ -277,7 +277,9 @@
       "checkinCalendar": "Check-in calendar",
       "ratingStats": "Rating statistics",
       "visitors": "Recent visitors",
-      "siteStats": "Site statistics"
+      "siteStats": "Site statistics",
+      "followFeed": "Feed",
+      "doings": "Records"
     }
   },
   "home": {
@@ -4167,6 +4169,53 @@
       "ignored": "Ignored",
       "sent": "Sent",
       "loadFailed": "Could not open the poke form"
+    },
+    "follow": {
+      "action": "Follow",
+      "feed": "Feed",
+      "broadcasts": "Broadcasts",
+      "following": "Following",
+      "followers": "Followers",
+      "hall": "Everyone",
+      "emptyFeed": "No broadcasts yet",
+      "emptyFollowing": "Not following anyone yet",
+      "emptyFollowers": "No followers yet",
+      "follow": "Follow",
+      "unfollow": "Unfollow",
+      "followed": "Following",
+      "unfollowed": "Unfollowed",
+      "mutual": "Following each other",
+      "followsYou": "Follows you",
+      "remark": "Remark",
+      "remarkSaved": "Remark saved",
+      "loadFailed": "Could not read the follow status",
+      "counts": "${followers: int} followers · ${following: int} following",
+      "relay": "Relay",
+      "relayNote": "Note",
+      "relayReply": "Also reply to the thread",
+      "relayed": "Relayed",
+      "deleteFeed": "Delete broadcast",
+      "deleted": "Deleted"
+    },
+    "doing": {
+      "title": "Records",
+      "all": "Everyone",
+      "follow": "Following",
+      "friends": "Friends",
+      "mine": "Mine",
+      "empty": "No records yet",
+      "post": "Post a record",
+      "message": "Record",
+      "posted": "Posted",
+      "reply": "Reply",
+      "replyTo": "Reply to $name",
+      "replies": "Replies",
+      "noReplies": "No replies yet",
+      "replied": "Replied",
+      "moreReplies": "More replies",
+      "deleteDoing": "Delete record",
+      "deleteReply": "Delete reply",
+      "deleted": "Deleted"
     }
   },
   "postComment": {

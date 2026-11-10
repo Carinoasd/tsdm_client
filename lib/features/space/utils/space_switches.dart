@@ -7,6 +7,15 @@ enum SpaceModule {
 
   /// The greetings, part of the friends module (`friendstatus`).
   poke,
+
+  /// Following members and the lists of the followed and of the followers (`followerstatus`, "关注功能尚未开启").
+  follow,
+
+  /// The broadcasts (`followstatus`, "广播功能尚未开启").
+  broadcast,
+
+  /// The records (`doingstatus`, "记录功能尚未开启").
+  doing,
 }
 
 /// The modules of the space the forum said, during this run, are switched off ("抱歉，留言板功能尚未开启"): their entries

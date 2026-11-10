@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root><![CDATA[<h3 class="flb"><em>提示信息</em><span><a href="javascript:;" class="flbc" onclick="hideWindow('followmod');" title="关闭">关闭</a></span></h3>
+<div class="c altw">
+<div class="alert_right">成功关注<script type="text/javascript" reload="1">if(typeof succeedhandle_followmod=='function') {succeedhandle_followmod('https://forum.test/./', '成功关注', {'fuid':'35','type':'add','special':'0','from':'list'});}setTimeout("hideWindow('followmod')", 2000);</script></div>
+</div>
+<p class="o pns">
+<span class="z xg1">2 秒后窗口关闭</span>
+</p>
+]]></root>

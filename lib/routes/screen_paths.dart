@@ -326,6 +326,24 @@ class ScreenPaths {
   /// The greetings received: https://tsdm39.com/home.php?mod=spacecp&ac=poke
   static const String spacePokes = '/space/pokes';
 
+  /// The broadcasts: of the members the account follows and of everyone (https://tsdm39.com/home.php?mod=follow), or of
+  /// one member (https://tsdm39.com/home.php?mod=follow&uid=xxx&do=view).
+  ///
+  /// Query parameters: `uid`, the member; `username` for the title.
+  static const String followFeed = '/follow/feed';
+
+  /// The members a member follows and their followers: https://tsdm39.com/home.php?mod=follow&do=following
+  ///
+  /// Query parameters: `uid`, the member (none for the account in use); `username` for the title; `tab`, `following`
+  /// (default) or `follower`.
+  static const String followMembers = '/follow/members';
+
+  /// The records: https://tsdm39.com/home.php?mod=space&do=doing
+  ///
+  /// Query parameters: `uid`, the member whose records are shown (the lists of the account in use without one);
+  /// `username` for the title; `doid`, the one record to show.
+  static const String doing = '/doing';
+
   /// Page to show "Latest thread" on web side.
   ///
   /// https://tsdm39.com/home.php?mod=forum&searchid=xxx&orderby...

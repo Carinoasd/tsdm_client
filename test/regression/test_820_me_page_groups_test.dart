@@ -18,6 +18,7 @@ import 'package:talker_flutter/talker_flutter.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/me/view/me_page.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
+import 'package:tsdm_client/features/space/utils/space_switches.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
@@ -45,7 +46,7 @@ const _content = [
   'me-drafts',
   'me-downloads',
 ];
-const _social = ['me-messages', 'me-friends', 'me-visitors'];
+const _social = ['me-messages', 'me-friends', 'me-visitors', 'me-follow-feed', 'me-doings'];
 const _stats = ['me-points', 'me-checkin-calendar', 'me-reading-stats', 'me-rating-stats', 'me-site-stats'];
 
 /// The services in order, their page and whether a guest is asked for a login.
@@ -212,6 +213,21 @@ void main() {
       top = at;
     }
     expect(find.byKey(const ValueKey('me-manage-accounts')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the broadcasts and the records go once the forum says their module is switched off', (tester) async {
+    addTearDown(() => spaceModulesOff.value = const {});
+    await pump(tester, guest: false);
+    await expectGroup(tester, 'me-group-social', _social);
+    markSpaceModuleOff(SpaceModule.doing);
+    await _settle(tester, rounds: 2);
+    expect(find.byKey(const ValueKey('me-doings')), findsNothing);
+    await expectGroup(tester, 'me-group-social', [..._social]..remove('me-doings'));
+    markSpaceModuleOff(SpaceModule.broadcast);
+    await _settle(tester, rounds: 2);
+    await expectGroup(tester, 'me-group-social', ['me-messages', 'me-friends', 'me-visitors']);
+    expect(find.byKey(const ValueKey('me-follow-feed')), findsNothing);
     expect(tester.takeException(), isNull);
   });
 

@@ -21,11 +21,14 @@ import 'package:tsdm_client/features/collection/view/collection_comments_page.da
 import 'package:tsdm_client/features/collection/view/collection_detail_page.dart';
 import 'package:tsdm_client/features/collection/view/collection_list_page.dart';
 import 'package:tsdm_client/features/custom_emoji/view/custom_emoji_packs_page.dart';
+import 'package:tsdm_client/features/doing/view/doing_page.dart';
 import 'package:tsdm_client/features/editor/utils/mention_suggestions.dart';
 import 'package:tsdm_client/features/editor/view/quick_phrases_page.dart';
 import 'package:tsdm_client/features/favorite/models/models.dart';
 import 'package:tsdm_client/features/favorite/view/favorite_page.dart';
 import 'package:tsdm_client/features/floor_bookmark/view/floor_bookmark_page.dart';
+import 'package:tsdm_client/features/follow/view/follow_feed_page.dart';
+import 'package:tsdm_client/features/follow/view/follow_members_page.dart';
 import 'package:tsdm_client/features/forum/models/models.dart';
 import 'package:tsdm_client/features/forum/view/forum_group_page.dart';
 import 'package:tsdm_client/features/forum/view/forum_page.dart';
@@ -306,6 +309,31 @@ final List<RouteBase> _appRoutes = [
     ),
   ),
   AppRoute(path: ScreenPaths.spacePokes, builder: (_) => const SpacePokePage()),
+  // The broadcasts and the follow lists: home.php?mod=follow[&uid=N][&do=view|following|follower].
+  AppRoute(
+    path: ScreenPaths.followFeed,
+    builder: (state) => FollowFeedPage(
+      uid: int.tryParse(state.uri.queryParameters['uid'] ?? ''),
+      username: state.uri.queryParameters['username'],
+    ),
+  ),
+  AppRoute(
+    path: ScreenPaths.followMembers,
+    builder: (state) => FollowMembersPage(
+      uid: int.tryParse(state.uri.queryParameters['uid'] ?? ''),
+      username: state.uri.queryParameters['username'],
+      followers: state.uri.queryParameters['tab'] == 'follower',
+    ),
+  ),
+  // The records: home.php?mod=space[&uid=N]&do=doing[&doid=M].
+  AppRoute(
+    path: ScreenPaths.doing,
+    builder: (state) => DoingPage(
+      uid: int.tryParse(state.uri.queryParameters['uid'] ?? ''),
+      username: state.uri.queryParameters['username'],
+      doid: int.tryParse(state.uri.queryParameters['doid'] ?? ''),
+    ),
+  ),
   AppRoute(
     path: ScreenPaths.spaceBlog,
     builder: (state) => SpaceBlogPage(

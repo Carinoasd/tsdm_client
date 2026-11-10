@@ -3,6 +3,7 @@ import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/features/authentication/utils/logged_user_parser.dart';
 import 'package:tsdm_client/features/red_packet/utils/parse_red_packet.dart' show parseFormHash;
 import 'package:tsdm_client/features/space/models/space_models.dart';
+import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:universal_html/html.dart' as uh;
 
 /// The forum's url [url] as an absolute url (`./data/…`, `home.php?…`, or already absolute).
@@ -665,6 +666,34 @@ SpaceListPage<ReceivedPoke> parseReceivedPokePage(uh.Document document) {
     );
   }
   return SpaceListPage(items: items, nextPageUrl: _nextPageUrl(ct), session: session);
+}
+
+/// What the forum printed instead of a page of the space, for the parsers of its other pages (the follow lists, the
+/// broadcasts, the records): the privacy notice, the 提示信息 of a switched off module, the login prompt; null when
+/// the page is none of them.
+({String message, bool needLogin, bool passwordRequired})? spaceNoticeOf(uh.Document document) => _noticeOf(document);
+
+/// The account [document] was served to and the form hash of its session; null for a guest.
+SpaceSession? spaceSessionOf(uh.Document document) => _sessionOf(document);
+
+/// The next page of the pager (`div.pg a.nxt`) under [root], null on the last page.
+String? spaceNextPageUrlOf(uh.Element? root) => _nextPageUrl(root);
+
+final _cdataRe = RegExp(r'<!\[CDATA\[([\s\S]*)\]\]>');
+
+/// The fragment of the answer [data] to an AJAX request of a list (more broadcasts, the replies of a record): the
+/// `document` the forum's app API carries it in (plugin 2.6.0, a `page` result), else the text out of the forum's own
+/// XML envelope (`<root><![CDATA[…]]></root>`); null for an answer that is none (a `showmessage` of the forum, as a
+/// module switched off or the login prompt; nothing at all).
+String? spaceAjaxFragmentOf(Object? data) {
+  if (tsdmAppWriteResultOf(data) case final api?) {
+    return api.kind == TsdmAppWriteKind.page ? api.documentHtml : null;
+  }
+  final text = tsdmAppAnswerText(data);
+  if (text.trim().isEmpty || text.contains('errorhandle_') || text.contains('id="messagetext"')) {
+    return null;
+  }
+  return _cdataRe.firstMatch(text)?.group(1) ?? text;
 }
 
 /// The first page of the wall of [uid] (of the account in use for 0: a guest is asked to log in); with [cid] only

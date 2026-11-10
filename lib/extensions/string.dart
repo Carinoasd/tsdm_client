@@ -239,6 +239,31 @@ extension ParseUrl on String {
       return const RecognizedRoute(ScreenPaths.spacePokes);
     }
 
+    // The records: home.php?mod=space[&uid=N]&do=doing[&view=…][&doid=M]. A record alone with `doid` (the link of a
+    // reply notice, which also names its owner); a member's own with `uid`; else the lists of the account in use.
+    if (mod == 'space' && queryParameters['do'] == 'doing') {
+      final uid = int.tryParse(queryParameters['uid'] ?? '');
+      final doid = int.tryParse(queryParameters['doid'] ?? '');
+      return RecognizedRoute(
+        ScreenPaths.doing,
+        queryParameters: {
+          if (doid != null && doid > 0) 'doid': '$doid' else if (uid != null && uid > 0) 'uid': '$uid',
+        },
+      );
+    }
+
+    // Following: home.php?mod=follow&do=following|follower[&uid=N] are the members a member follows and their
+    // followers; home.php?mod=follow[&view=…] the broadcasts of the account in use, with `uid` those of a member.
+    if (mod == 'follow') {
+      final uid = int.tryParse(queryParameters['uid'] ?? '');
+      final member = {if (uid != null && uid > 0) 'uid': '$uid'};
+      return switch (queryParameters['do']) {
+        'following' => RecognizedRoute(ScreenPaths.followMembers, queryParameters: member),
+        'follower' => RecognizedRoute(ScreenPaths.followMembers, queryParameters: {...member, 'tab': 'follower'}),
+        _ => RecognizedRoute(ScreenPaths.followFeed, queryParameters: member),
+      };
+    }
+
     // FIXME: Do NOT glob access user profile page by uid.
     if (mod == 'space' && queryParameters['do'] != 'friend') {
       // Access by uid.
