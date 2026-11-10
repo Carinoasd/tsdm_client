@@ -98,6 +98,11 @@ class ScreenPaths {
   /// The forum's rankings.
   static const String ranklist = '/ranklist';
 
+  /// The forum's statistics (`misc.php?mod=stat`).
+  ///
+  /// Query parameters: `url`, the absolute url of the page to show; the first one (基本概况) without it.
+  static const String siteStats = '/siteStats';
+
   /// Common entry of the medal centre, the current account's titles and the title shop.
   static const String medalTitleHub = '/medalTitleHub';
 
@@ -279,7 +284,8 @@ class ScreenPaths {
   /// https://tsdm39.com/home.php?mod=space&uid=xxx&do=friend
   ///
   /// Query parameters: `uid` or `username` of the user; none for the current user. `view=visitor` lists the recent
-  /// visitors of the current user (`home.php?mod=space&do=friend&view=visitor`) instead.
+  /// visitors of the current user (`home.php?mod=space&do=friend&view=visitor`) instead, `view=online` the members
+  /// online now (`home.php?mod=space&do=friend&view=online&type=member`).
   static const String friend = '/friend';
 
   /// The blogs and the albums of a member, a tab each.
@@ -394,6 +400,9 @@ class ScreenPaths {
   /// Page listing the threads the current account follows.
   static const String followedThreads = '/followedThreads';
 
+  /// Page of the forums watched for new threads, the alert keywords and the threads they found.
+  static const String forumWatch = '/forumWatch';
+
   /// Page managing the custom emoji packs.
   static const String customEmojiPacks = '/customEmojiPacks';
 
@@ -421,6 +430,12 @@ class ScreenPaths {
   /// Page of the devices the account in use logged in on (plugin 3.6.0).
   static const String loginDevices = '/loginDevices';
 
+  /// Page of the password, the security question and the email of the account in use.
+  static const String accountSecurity = '/accountSecurity';
+
+  /// Page of the privacy settings of the account in use.
+  static const String privacySettings = '/privacySettings';
+
   /// Page to get app updates.
   static const String update = '/update';
 
@@ -435,6 +450,7 @@ class ScreenPaths {
   /// Query parameters:
   ///
   /// * url: The absolute url of the page, required.
+  /// * guest: `1` to open the page signed out (the sign up and the lost password pages, from the login page).
   static const String inAppBrowser = '/inAppBrowser';
 }
 
@@ -615,6 +631,12 @@ class DialogPaths {
 
   /// Dialog to choose the size and the quality images are uploaded with.
   static const String uploadImageOutput = '/dialog/uploadImageOutput';
+
+  /// Dialog to comment on a floor (点评).
+  static const String postComment = '/dialog/postComment';
+
+  /// Dialog to delete a comment of a floor.
+  static const String postCommentDelete = '/dialog/postCommentDelete';
 }
 
 /// Route path for a screen.

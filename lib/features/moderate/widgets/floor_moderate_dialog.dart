@@ -16,6 +16,7 @@ IconData floorModerateIcon(FloorModerateAction action, {bool undo = false}) => s
   FloorModerateAction.delete => Icons.delete_outline,
   FloorModerateAction.warn => undo ? Icons.report_off_outlined : Icons.report_outlined,
   FloorModerateAction.ban => undo ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+  FloorModerateAction.stick => undo ? Icons.vertical_align_center_outlined : Icons.vertical_align_top_outlined,
 };
 
 /// Name of a floor's operation; [undo] names taking the warning or the hiding back.
@@ -25,26 +26,30 @@ String floorModerateName(BuildContext context, FloorModerateAction action, {bool
     FloorModerateAction.delete => tr.deletePost,
     FloorModerateAction.warn => undo ? tr.unwarn : tr.warn,
     FloorModerateAction.ban => undo ? tr.unban : tr.ban,
+    FloorModerateAction.stick => undo ? context.t.moderateFloorOps.unstick : context.t.moderateFloorOps.stick,
   };
 }
 
-/// The operations offered on a floor: warn, hide, and the deletion of a reply last (not on the [first] floor, whose
-/// deletion is the thread's).
+/// The operations offered on a floor: warn, hide, stick, and the deletion of a reply last (stick and delete not on the
+/// [first] floor: the forum sticks replies only, and the first floor's deletion is the thread's).
 List<FloorModerateAction> floorModerateActionsFor({required bool first}) => [
   FloorModerateAction.warn,
   FloorModerateAction.ban,
+  if (!first) FloorModerateAction.stick,
   if (!first) FloorModerateAction.delete,
 ];
 
 /// Do [action] on floor [pid] of thread [tid] in forum [fid]: the forum's window of it, confirmed by the moderator,
 /// sent once. True once the forum carried it out; [onDone] is then called with the window sent (whether it undid the
-/// warning or the hiding: [FloorModerateForm.undo]).
+/// warning or the hiding: [FloorModerateForm.undo]). [undo] asks a choosable action's window with the undoing chosen
+/// (a floor known stuck).
 Future<bool> showFloorModerateDialog(
   BuildContext context, {
   required FloorModerateAction action,
   required String tid,
   required int fid,
   required String pid,
+  bool undo = false,
   ModerateRepository? repository,
   void Function(FloorModerateForm form)? onDone,
 }) async {
@@ -55,6 +60,7 @@ Future<bool> showFloorModerateDialog(
       tid: tid,
       fid: fid,
       pid: pid,
+      undo: undo,
       repository: repository ?? ModerateRepository.network(),
       onDone: onDone,
     ),
@@ -72,9 +78,13 @@ class FloorModerateDialog extends StatefulWidget {
     required this.fid,
     required this.pid,
     required this.repository,
+    this.undo = false,
     this.onDone,
     super.key,
   });
+
+  /// Ask the window with the undoing chosen, for a choosable action ([FloorModerateAction.choosable]).
+  final bool undo;
 
   /// Called with the window once the forum carried it out, before the dialog pops.
   final void Function(FloorModerateForm form)? onDone;
@@ -109,6 +119,9 @@ class _FloorModerateDialogState extends State<FloorModerateDialog> {
   bool _notify = false;
   final _reason = TextEditingController();
 
+  /// The choice of a choosable action ([FloorModerateAction.choosable]): undoing it; as the window checked it.
+  bool _undoing = false;
+
   @override
   void initState() {
     super.initState();
@@ -127,7 +140,7 @@ class _FloorModerateDialogState extends State<FloorModerateDialog> {
       _error = null;
     });
     final answer = await widget.repository
-        .fetchFloorWindow(widget.action, tid: widget.tid, fid: widget.fid, pid: widget.pid)
+        .fetchFloorWindow(widget.action, tid: widget.tid, fid: widget.fid, pid: widget.pid, undo: widget.undo)
         .run();
     if (!mounted) {
       return;
@@ -138,6 +151,7 @@ class _FloorModerateDialogState extends State<FloorModerateDialog> {
         case Right(value: FloorModerateWindowReady(:final form)):
           _form = form;
           _notify = form.notifyForced;
+          _undoing = form.undo;
         case Right(value: FloorModerateWindowRefused(:final message)):
           _error = message.isNotEmpty ? message : context.t.moderate.failed;
         case Left(:final value):
@@ -157,13 +171,14 @@ class _FloorModerateDialogState extends State<FloorModerateDialog> {
       _sending = true;
       _error = null;
     });
-    final outcome = await widget.repository.submitFloor(form, reason: _reason.text, notify: _notify).run();
+    final sent = form.choosing(undo: _undoing);
+    final outcome = await widget.repository.submitFloor(sent, reason: _reason.text, notify: _notify).run();
     if (!mounted) {
       return;
     }
     switch (outcome) {
       case Right(value: ModerateSucceeded(:final message)):
-        widget.onDone?.call(form);
+        widget.onDone?.call(sent);
         showSnackBar(context: context, message: message.isNotEmpty ? message : context.t.moderate.done);
         Navigator.of(context).pop(true);
       case Right(value: ModerateRefused(:final message)):
@@ -184,7 +199,7 @@ class _FloorModerateDialogState extends State<FloorModerateDialog> {
   @override
   Widget build(BuildContext context) {
     final form = _form;
-    final undo = form?.undo ?? false;
+    final undo = widget.action.choosable ? (form == null ? widget.undo : _undoing) : form?.undo ?? false;
     final danger = widget.action == FloorModerateAction.delete;
     final canSend = form != null && !_sending;
     final tr = context.t.moderate;
@@ -208,6 +223,22 @@ class _FloorModerateDialogState extends State<FloorModerateDialog> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (form != null) ...[
+                      if (widget.action.choosable) ...[
+                        SegmentedButton<bool>(
+                          showSelectedIcon: false,
+                          segments: [
+                            for (final undoing in const [false, true])
+                              ButtonSegment(
+                                value: undoing,
+                                icon: Icon(floorModerateIcon(widget.action, undo: undoing)),
+                                label: Text(floorModerateName(context, widget.action, undo: undoing)),
+                              ),
+                          ],
+                          selected: {_undoing},
+                          onSelectionChanged: _sending ? null : (v) => setState(() => _undoing = v.single),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
                       TextField(
                         controller: _reason,
                         enabled: !_sending,

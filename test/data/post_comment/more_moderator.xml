@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root><![CDATA[<h3 class="psth cm">点评</h3>
+<div class="pstl">
+<div class="psta">
+<img data-src="./data/avatar/noavatar.svg" class="_avt user_avatar">&nbsp;
+<a href="home.php?mod=space&amp;uid=38" class="xi2 xw1">ag_t02</a>
+</div>
+<div class="psti">
+&nbsp;CM測試 ag_t02 點評 &amp; &lt;tag&gt; &quot;q&quot;&nbsp;
+<span class="xg1">
+发表于 <span title="2026-11-10 10:34">15&nbsp;分钟前</span>&nbsp;IP:192.0.2.10:52438&nbsp;<a href="javascript:;" onclick="modaction('delcomment', 14)">删除</a></span>
+</div>
+</div>
+<div class="pstl">
+<div class="psta">
+<img data-src="./data/avatar/noavatar.svg" class="_avt user_avatar">&nbsp;
+<a href="home.php?mod=space&amp;uid=37" class="xi2 xw1">ag_t01</a>
+</div>
+<div class="psti">
+&nbsp;CM測試 ag_t01 點評 &amp; &lt;tag&gt; &quot;q&quot;&nbsp;
+<span class="xg1">
+发表于 <span title="2026-11-10 10:34">15&nbsp;分钟前</span>&nbsp;IP:192.0.2.10:52404&nbsp;<a href="javascript:;" onclick="modaction('delcomment', 13)">删除</a></span>
+</div>
+</div>
+<div class="pstl">
+<div class="psta">
+<img src="https://example.com/img/avatar.gif" class="user_avatar" referrerpolicy="no-referrer" loading="lazy" decoding="async" data-rndavt="./data/avatar/noavatar.svg" data-rndavt-def="./data/avatar/noavatar.svg" onerror="var e=this,s=e.getAttribute(&#039;data-rndavt&#039;),d=e.getAttribute(&#039;data-rndavt-def&#039;),c=e.getAttribute(&#039;src&#039;);if(s&amp;&amp;c!==s&amp;&amp;c!==d){e.setAttribute(&#039;src&#039;,s)}else if(d&amp;&amp;c!==d){e.setAttribute(&#039;src&#039;,d)}else{e.onerror=null}" style="object-fit:cover;">&nbsp;
+<a href="home.php?mod=space&amp;uid=31" class="xi2 xw1">ag_low</a>
+</div>
+<div class="psti">
+&nbsp;CM測試 點評一 [​b]粗[​/b] [​color=#FF0000]紅[​/color] &lt;i&gt;x&lt;/i&gt;&nbsp;
+<span class="xg1">
+发表于 <span title="2026-11-10 10:33">15&nbsp;分钟前</span>&nbsp;IP:192.0.2.10:56634&nbsp;<a href="javascript:;" onclick="modaction('delcomment', 12)">删除</a></span>
+</div>
+</div>
+<div class="pgs mbm cl"><div class="pg"><a href="forum.php?mod=misc&action=commentmore&tid=1234567&pid=11263&amp;page=1" class="prev">&nbsp;&nbsp;</a><a href="forum.php?mod=misc&action=commentmore&tid=1234567&pid=11263&amp;page=1">1</a><strong>2</strong><label><input type="text" name="custompage" class="px" size="2" title="输入页码，按回车快速跳转" value="2" onkeydown="if(event.keyCode==13) {window.location='forum.php?mod=misc&action=commentmore&tid=1234567&pid=11263&amp;page='+this.value;; doane(event);}" /><span title="共 2 页"> / 2 页</span></label></div></div>]]></root>

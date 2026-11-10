@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root><![CDATA[<div class="tm_c">
+        <h3 class="flb">
+        <em id="return_chgquestion">修改安全问题</em>
+        <span>
+<a href="javascript:;" class="flbc" onclick="hideWindow('chgquestion')" title="关闭">关闭</a>
+</span>
+    </h3>
+    <form method="post" autocomplete="off" name="security_verify" id="layerform_L511096" class="cl" onsubmit="ajaxpost('layerform_L511096', 'returnmessage_L511096', 'returnmessage_L511096', 'onerror');return false;" action="home.php?mod=spacecp&amp;ac=account&amp;op=verify&amp;method=chgquestion&amp;idstring=AbCd12&amp;sign=0123456789abcdef&amp;submit=yes&amp;infloat=yes&amp;formhash=f1f2f3f4&amp;layerhash=L511096">
+        <div class="c cl">
+            <input type="hidden" name="formhash" value="f1f2f3f4" />
+            <input type="hidden" name="referer" value="https://forum.test/./" />
+
+            <div class="rfm">
+                <table>
+                    <tr>
+                        <th><span class="rq">*</span><label for="questionidnew">安全提问</label></th>
+                        <td>
+                            <select name="questionidnew" id="questionidnew">
+                                <option value="" selected>保持原有的安全提问和答案</option>
+                                <option value="0">无安全提问</option>
+                                <option value="1">母亲的名字</option>
+                                <option value="2">爷爷的名字</option>
+                                <option value="3">父亲出生的城市</option>
+                                <option value="4">您其中一位老师的名字</option>
+                                <option value="5">您个人计算机的型号</option>
+                                <option value="6">您最喜欢的餐馆名称</option>
+                                <option value="7">驾驶执照最后四位数字</option>
+                            </select>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th><span class="rq">*</span><label for="answernew">回答</label></th>
+                        <td>
+                            <input type="text" name="answernew" id="answernew" class="px" />
+                        </td>
+                    </tr>
+                </table>
+            </div>
+
+            <div class="rfm mbw bw0">
+                <table width="100%">
+                    <tr>
+                        <th>&nbsp;</th>
+                        <td>
+                            <button class="pn pnc" type="submit" name="submit" value="true"><strong>提交</strong></button>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+
+        </div>
+
+    </form>
+</div>]]></root>

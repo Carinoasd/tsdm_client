@@ -3,9 +3,14 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:fpdart/fpdart.dart' show Either, Left, Right;
 import 'package:tsdm_client/exceptions/exceptions.dart';
+import 'package:tsdm_client/features/moderate/models/modcp_members.dart';
 import 'package:tsdm_client/features/moderate/models/modcp_panel.dart';
 import 'package:tsdm_client/features/moderate/repository/modcp_repository.dart';
 import 'package:tsdm_client/features/moderate/repository/moderate_repository.dart';
+import 'package:tsdm_client/features/moderate/view/announcements_page.dart';
+import 'package:tsdm_client/features/moderate/view/forum_rules_page.dart';
+import 'package:tsdm_client/features/moderate/view/member_review_page.dart';
+import 'package:tsdm_client/features/moderate/view/modcp_members_page.dart';
 import 'package:tsdm_client/features/moderate/view/moderate_queue_page.dart';
 import 'package:tsdm_client/features/moderate/view/moderator_log_page.dart';
 import 'package:tsdm_client/features/moderate/view/recycle_bin_page.dart';
@@ -16,8 +21,9 @@ import 'package:tsdm_client/widgets/app_surface.dart';
 /// The moderator's panel: the pages of the forum's moderation panel the app offers, as a grid of tiles.
 ///
 /// Shown to an account of a management group (the "me" page asks its profile); the forum decides what each page
-/// lists or refuses.
-class ModeratorPanelPage extends StatelessWidget {
+/// lists or refuses. The pages the panel's menu links only to the groups allowed to use them (the members, the rules,
+/// the announcements) are shown once the menu says so, all of them when it could not be read.
+class ModeratorPanelPage extends StatefulWidget {
   /// Constructor.
   const ModeratorPanelPage({this.repository, this.queueRepository, super.key});
 
@@ -28,9 +34,49 @@ class ModeratorPanelPage extends StatelessWidget {
   final ModerateRepository? queueRepository;
 
   @override
+  State<ModeratorPanelPage> createState() => _ModeratorPanelPageState();
+}
+
+class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
+  late final ModcpRepository _repository = widget.repository ?? ModcpRepository.network();
+
+  /// The panel's menu; null while it is asked or when it could not be read.
+  ModcpMenu? _menu;
+
+  /// The menu was asked and answered (read or not).
+  bool _asked = false;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadMenu());
+  }
+
+  Future<void> _loadMenu() async {
+    final answer = await _repository.fetchMenu().run();
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _asked = true;
+      _menu = switch (answer) {
+        Right(value: ModcpReady(:final value)) => value,
+        _ => null,
+      };
+    });
+  }
+
+  /// Whether a page the menu gates is shown: once the menu offers it, or when the menu could not be read.
+  bool _offers(bool Function(ModcpMenu menu) offered) => switch (_menu) {
+    final menu? => offered(menu),
+    null => _asked,
+  };
+
+  @override
   Widget build(BuildContext context) {
     final t = context.t;
-    final repository = this.repository ?? ModcpRepository.network();
+    final repository = _repository;
+    final queueRepository = widget.queueRepository;
     final entries = <(Key, IconData, String, Widget Function())>[
       (
         const ValueKey('modcp-queue'),
@@ -55,6 +101,33 @@ class ModeratorPanelPage extends StatelessWidget {
         t.modcp.log,
         () => ModeratorLogPage(repository: repository),
       ),
+      if (_offers((m) => m.canManageMembers))
+        (
+          const ValueKey('modcp-members'),
+          Icons.manage_accounts_outlined,
+          t.modcp.members,
+          () => ModcpMembersPage(repository: repository),
+        ),
+      (
+        const ValueKey('modcp-member-review'),
+        Icons.how_to_reg_outlined,
+        t.modcp.memberReview,
+        () => MemberReviewPage(repository: repository),
+      ),
+      if (_offers((m) => m.canEditForum))
+        (
+          const ValueKey('modcp-rules'),
+          Icons.rule_outlined,
+          t.modcp.rules,
+          () => ForumRulesPage(repository: repository),
+        ),
+      if (_offers((m) => m.canAnnounce))
+        (
+          const ValueKey('modcp-announcements'),
+          Icons.campaign_outlined,
+          t.modcp.announcements,
+          () => AnnouncementsPage(repository: repository),
+        ),
     ];
     final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(

@@ -274,7 +274,8 @@
       "readingStats": "阅读统计",
       "checkinCalendar": "签到日历",
       "ratingStats": "评分统计",
-      "visitors": "最近访客"
+      "visitors": "最近访客",
+      "siteStats": "站点统计"
     }
   },
   "home": {
@@ -357,7 +358,9 @@
         "drafts": "本机草稿",
         "bookmarks": "楼层书签"
       },
-      "loginDevices": "登录设备"
+      "loginDevices": "登录设备",
+      "security": "密码与安全",
+      "privacy": "隐私设置"
     },
     "appearanceSection": {
       "title": "外观",
@@ -405,7 +408,8 @@
         "pinned": "置顶帖",
         "guide": "论坛导读",
         "stats": "论坛动态",
-        "tools": "我的工具"
+        "tools": "我的工具",
+        "online": "在线会员"
       },
       "showShortcutInForumCard": {
         "title": "论坛卡片可跳转",
@@ -608,7 +612,10 @@
         "followedThreadMinutes": "${n} 分钟",
         "quietHours": "静音时段",
         "quietStart": "开始",
-        "quietEnd": "结束"
+        "quietEnd": "结束",
+        "forumNewThread": "版块新帖",
+        "keywordAlert": "关键字提醒",
+        "forumWatch": "新帖与关键字提醒"
       },
       "notificationHideContent": {
         "title": "通知不显示内容",
@@ -971,7 +978,8 @@
       "uid": "UID",
       "email": "邮箱"
     },
-    "signUpHint": "没有账号？点此注册",
+    "signUp": "注册",
+    "lostPassword": "找回密码",
     "perhapsExpired": "登录失败，可能身份已过期，请重新登录"
   },
   "rootPage": {
@@ -1114,6 +1122,12 @@
       "removed": "已取消收藏",
       "failed": "操作失败：$err",
       "needLogin": "请先登录再收藏"
+    },
+    "watch": {
+      "on": "新帖提醒",
+      "off": "关闭新帖提醒",
+      "watched": "已开启新帖提醒",
+      "unwatched": "已关闭新帖提醒"
     }
   },
   "threadPage": {
@@ -1492,6 +1506,11 @@
         "unknownForm": "论坛返回的不是可识别的批准表单，未发送任何内容",
         "unknownAfterSubmit": "已发送批准，但无法识别论坛的回应，请到好友列表确认"
       }
+    },
+    "online": {
+      "title": "在线会员",
+      "empty": "没有在线会员",
+      "subtitle": "${count: int} 位会员"
     }
   },
   "redPacket": {
@@ -2127,7 +2146,39 @@
     "logEmpty": "没有日志",
     "noForums": "没有可管理的版块",
     "switchForum": "切换版块",
-    "keyword": "关键字"
+    "keyword": "关键字",
+    "members": "用户管理",
+    "memberReview": "新会员审核",
+    "rules": "版规",
+    "announcements": "公告",
+    "byName": "用户名",
+    "byUid": "UID",
+    "search": "查找",
+    "lift": "解除禁止",
+    "editMember": "编辑资料",
+    "bio": "自我介绍",
+    "signature": "个人签名",
+    "clearAvatar": "删除头像",
+    "crimes": "违规记录",
+    "ipBan": "禁止 IP",
+    "ip": "IP 地址",
+    "ipBanEmpty": "没有被禁止的 IP",
+    "add": "添加",
+    "delete": "删除",
+    "reject": "否决",
+    "reviewEmpty": "没有待审核的用户",
+    "save": "保存",
+    "subject": "标题",
+    "typeText": "文字",
+    "typeLink": "链接",
+    "startDate": "起始日期",
+    "endDate": "结束日期",
+    "content": "内容",
+    "announcementsEmpty": "没有公告",
+    "newAnnouncement": "添加公告",
+    "editAnnouncement": "编辑公告",
+    "required": "必填",
+    "invalidUid": "UID 须为数字"
   },
   "moderate": {
     "menu": "管理",
@@ -2185,6 +2236,12 @@
     "type": "分类",
     "copy": "复制",
     "repair": "修复主题",
+    "merge": "合并主题",
+    "split": "分割主题",
+    "mergeThread": "主题 ID 或链接",
+    "mergeSelf": "请选择其他主题进行合并",
+    "splitSubject": "新主题标题",
+    "openNewThread": "打开新主题",
     "copyTo": "目标版块",
     "threadType": "目标分类",
     "noType": "无分类",
@@ -2214,6 +2271,14 @@
   },
   "bountyAnswerCard": {
     "title": "最佳答案"
+  },
+  "moderateFloorOps": {
+    "stick": "置顶回复",
+    "unstick": "解除置顶",
+    "stuck": "置顶回复",
+    "removeRate": "撤销评分",
+    "attachments": "附件",
+    "deleteAttachment": "删除附件"
   },
   "bbcodeEditor": {
     "experimentalInfo": "实验性bbcode编辑器",
@@ -2502,7 +2567,9 @@
       "rate": "评分／点评",
       "pm": "私信",
       "system": "系统通知",
-      "followedThread": "追踪的帖子"
+      "followedThread": "追踪的帖子",
+      "forumNewThread": "版块新帖",
+      "keywordAlert": "关键字提醒"
     },
     "channelName": "新提醒",
     "channelDesc": "自动同步消息时收到新提醒",
@@ -3880,6 +3947,33 @@
       "hidden": "追踪的帖子有 ${n} 条新回复"
     }
   },
+  "forumWatch": {
+    "title": "新帖与关键字提醒",
+    "alerts": "提醒",
+    "settings": "设置",
+    "noAlerts": "还没有提醒",
+    "needLogin": "登录后可以使用新帖提醒",
+    "forums": "新帖提醒的版块",
+    "keywords": "关键字",
+    "keyword": "关键字",
+    "add": "添加",
+    "keywordExists": "关键字已存在",
+    "limitReached": "最多 ${forums} 个版块、${keywords} 个关键字",
+    "scope": "关键字范围",
+    "scopeDefault": "新帖提醒的版块和最新主题",
+    "scopeCustom": "自选",
+    "latest": "最新主题",
+    "pickForums": "选择版块",
+    "interval": "检查间隔",
+    "minutes": "${n} 分钟",
+    "notice": {
+      "thread": "${author}：${title}",
+      "forumMany": "${n} 个新主题",
+      "keywordOne": "关键字「${keyword}」",
+      "keywordMany": "${n} 个主题含关键字",
+      "keywordLine": "「${keyword}」${title}"
+    }
+  },
   "customEmoji": {
     "title": "自定义表情包",
     "newPack": "新建表情包",
@@ -3899,6 +3993,22 @@
     "exportFailed": "导出失败",
     "empty": "还没有表情包",
     "count": "${count: int} 张"
+  },
+  "accountSecurityPage": {
+    "title": "密码与安全",
+    "currentPassword": "当前密码",
+    "otherCheck": "论坛要求通过邮箱或手机验证，请在网页中完成",
+    "changed": "修改成功",
+    "passwordChanged": "密码已修改，论坛同时清除了安全提问，请用新密码重新登录",
+    "resultUnknown": "无法确认是否修改成功，请刷新后查看",
+    "required": "不能为空"
+  },
+  "privacySettingsPage": {
+    "title": "隐私设置",
+    "discardTitle": "放弃未保存的修改？",
+    "save": "保存",
+    "saved": "已保存",
+    "saveFailed": "保存失败，请稍后再试"
   },
   "loginDevicesPage": {
     "title": "登录设备",
@@ -3930,6 +4040,10 @@
     "empty": "暂无排行",
     "minutes": "$n 分钟",
     "updated": "更新于 $last · 下次 $next"
+  },
+  "siteStatsPage": {
+    "title": "站点统计",
+    "empty": "没有统计数据"
   },
   "spacePage": {
     "blogs": "日志",
@@ -3977,5 +4091,23 @@
     "unconfirmed": "无法确认结果，请先到列表查看，不要重复发送",
     "sendFailed": "发送失败",
     "identityChanged": "账号已切换，这个页面不会再发送任何内容"
+  },
+  "postComment": {
+    "title": "点评",
+    "menu": "点评",
+    "send": "发表",
+    "more": "更多点评",
+    "delete": "删除",
+    "deleteTitle": "删除点评",
+    "reason": "操作说明",
+    "done": "点评成功",
+    "deleted": "已删除",
+    "refused": "论坛拒绝了这个操作",
+    "unknown": "结果不明，已重新载入",
+    "loadFailed": "载入失败",
+    "accountChanged": "账号已切换，没有发送"
+  },
+  "threadRecommend": {
+    "unknown": "未能确认结果，请重新整理帖子查看。"
   }
 }

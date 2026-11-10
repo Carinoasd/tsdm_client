@@ -1,0 +1,139 @@
+<html><head><script type="text/javascript">var discuz_uid = '31';</script></head><body>
+<div id="ct" class="ct2_a wp cl">
+<div class="mn">
+<div class="bm bw0 mdcp">
+<h1 class="mt">公告</h1>
+<div class="exfm">
+<form method="post" autocomplete="off" action="forum.php?mod=modcp&action=announcement&op=add">
+<input type="hidden" name="formhash" value="f1f2f3f4">
+<input type="hidden" name="id" value="">
+<input type="hidden" name="displayorder" value="">
+<table cellspacing="0" cellpadding="0">
+<tr>
+<th width="15%">标题:</th>
+<td width="35%"><input type="text" name="subject" value="" class="px" /></td>
+<th width="15%">公告类型:</th>
+<td width="35%">
+<span class="ftid">
+<select name="type" id="type" change="changeinput($('type').value)" class="ps">
+<option value="0" selected="selected">文字类型</option>
+<option value="1" >网址链接</option>
+</select>
+</span>
+</td>
+</tr>
+<tr>
+<th width="15%">起始时间:</th>
+<td width="35%" class="hasd">
+<input type="text" onclick="showcalendar(event, this, false)" id="starttime" name="starttime" autocomplete="off" value="2026-11-10" class="px" />
+<a href="javascript:;" class="dpbtn" onclick="showselect(this, 'starttime', 1)">^</a>
+</td>
+<th width="15%">结束时间:</th>
+<td width="35%" class="hasd cl">
+<input type="text" onclick="showcalendar(event, this, false)" id="endtime" name="endtime" autocomplete="off" value="2026-12-10" class="px" />
+<a href="javascript:;" class="dpbtn" onclick="showselect(this, 'endtime', 1)">^</a>
+</td>
+</tr>
+<tr>
+<th>&nbsp;</th>
+<td colspan="3">
+<div class="tedt" id="annomessage_editor" >
+<div class="bar">
+<div class="fpd">
+<a href="javascript:;" title="文字加粗" class="fbld" onclick="seditor_insertunit('anno', '[b]', '[/b]');doane(event);">B</a>
+<a href="javascript:;" title="设置文字颜色" class="fclr" id="annoforecolor" onclick="showColorBox(this.id, 2, 'anno');doane(event);">Color</a>
+<a id="annoimg" href="javascript:;" title="图片" class="fmg" onclick="seditor_menu('anno', 'img');doane(event);">Image</a>
+<a id="annourl" href="javascript:;" title="添加链接" class="flnk" onclick="seditor_menu('anno', 'url');doane(event);">Link</a>
+</div></div>
+<div class="area">
+<textarea name="message[0]" id="annomessage" class="pt"  /></textarea>
+</div>
+</div>
+<input name="message[1]" id="anno_type_url" value="" class="px" style="display:none" />
+</td>
+</tr>
+<tr>
+<th>&nbsp;</th>
+<td colspan="3">
+<button type="submit" name="submit" id="submit" class="pn" value="true"><strong>添加公告</strong></button>
+公告添加完毕，请继续操作
+</td>
+</tr>
+</tbody>
+</table>
+</form>
+</div>
+<h2 class="mtm mbm">公告列表</h2>
+<form method="post" autocomplete="off" action="forum.php?mod=modcp&action=announcement&op=manage">
+<input type="hidden" name="formhash" value="f1f2f3f4">
+<table id="list_announce" cellspacing="0" cellpadding="0" class="dt">
+<thead>
+<tr>
+<th class="c">&nbsp;</th>
+<th>顺序</th>
+<th>作者</th>
+<th>标题</th>
+<th>公告类型</th>
+<th>起始时间</th>
+<th>结束时间</th>
+<th>操作</th>
+</tr>
+</thead><tr >
+<td><input type="checkbox" name="delete[]" class="pc" value="5"  /></td>
+<td><input type="text" name="order[5]" class="px" value="0" size="3"  /></td>
+<td>测试超版</td>
+<td>第二則公告</td>
+<td>文字</td>
+<td>2026-11-10</td>
+<td>2026-12-10</td>
+<td><a href="forum.php?mod=modcp&action=announcement&op=edit&id=5" class="xi2">编辑</a></td>
+</tr>
+<tr disabled>
+<td><input type="checkbox" name="delete[]" class="pc" value="4" disabled /></td>
+<td><input type="text" name="order[4]" class="px" value="0" size="3" disabled /></td>
+<td>测试管理员</td>
+<td>管理員的公告</td>
+<td>链接</td>
+<td>2026-11-10</td>
+<td>-</td>
+<td><a href="forum.php?mod=modcp&action=announcement&op=edit&id=4" class="xi2">编辑</a></td>
+</tr>
+<tr >
+<td><input type="checkbox" name="delete[]" class="pc" value="3"  /></td>
+<td><input type="text" name="order[3]" class="px" value="0" size="3"  /></td>
+<td>测试超版</td>
+<td>測試公告 &amp; &lt;b&gt;</td>
+<td>文字</td>
+<td>2026-11-10</td>
+<td>2026-12-10</td>
+<td><a href="forum.php?mod=modcp&action=announcement&op=edit&id=3" class="xi2">编辑</a></td>
+</tr>
+<tr class="bw0_all">
+<td><label for="chkall" onclick="checkall(this.form)"><input type="checkbox" name="chkall" id="chkall" class="pc" />删?</label></td>
+<td colspan="7">
+<button type="submit" name="submit" id="submit" class="pn" value="true"><strong>提交</strong></button>
+</td>
+</tr>
+</table>
+</form>
+</div>
+</div>
+<div class="appl">
+<div class="tbn">
+<h2 class="mt bbda">论坛管理</h2>
+<ul>
+<li class="cl"><span class="y mtn">0</span><a href="forum.php?mod=modcp&action=home">内部留言</a></li>
+<li class="cl"><span class="y mtn"></span><a href="forum.php?mod=modcp&action=moderate&op=threads">审核</a></li>
+<li><a href="forum.php?mod=modcp&action=plugin&op=base&id=selfrate:modcp_base">自助評分</a></li>
+<li><a href="forum.php?mod=modcp&action=member&op=ban">禁止用户</a></li><li><a href="forum.php?mod=modcp&action=member&op=ipban">禁止 IP</a></li><li><a href="forum.php?mod=modcp&action=forumaccess">用户权限</a></li><li><a href="forum.php?mod=modcp&action=member&op=edit">编辑用户</a></li><li><a href="forum.php?mod=modcp&action=thread&op=thread">主题管理</a></li>
+<li><a href="forum.php?mod=modcp&action=forum&op=recommend&show=all">推荐主题</a></li><li><a href="forum.php?mod=modcp&action=forum&op=editforum">版块编辑</a></li><li class="a"><a href="forum.php?mod=modcp&action=announcement">公告</a></li><li><a href="forum.php?mod=modcp&action=log">管理日志</a></li><li><a href="forum.php?mod=modcp&action=plugin&op=tools&id=cobuyer:entry">售卖帖共同买家</a></li>
+<li><a href="forum.php?mod=modcp&action=plugin&op=tools&id=creditlist:entry">积分名单统计</a></li>
+<li><a href="forum.php?mod=modcp&action=plugin&op=tools&id=ratetrack:entry">评分追踪</a></li>
+<li><a href="forum.php?mod=modcp&action=report">管理举报</a></li>
+<li><a href="forum.php">返回论坛</a></li>
+<li><a href="forum.php?mod=modcp&action=logout">退出</a></li>
+</ul>
+</div>
+</div>
+</div>
+</body></html>

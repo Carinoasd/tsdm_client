@@ -2,10 +2,14 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:fpdart/fpdart.dart' show Left, Right;
+import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/features/moderate/models/moderate_form.dart';
 import 'package:tsdm_client/features/moderate/repository/moderate_repository.dart';
+import 'package:tsdm_client/features/moderate/view/split_thread_page.dart';
+import 'package:tsdm_client/features/thread_link_card/models/thread_link_card_info.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/cached_image/cached_image.dart';
@@ -33,6 +37,8 @@ IconData moderateOperationIcon(ModerateOperation operation) => switch (operation
   ModerateOperation.move => Icons.drive_file_move_outline,
   ModerateOperation.type => Icons.category_outlined,
   ModerateOperation.copy => Icons.copy_all_outlined,
+  ModerateOperation.merge => Icons.merge_type,
+  ModerateOperation.split => Icons.call_split,
   ModerateOperation.repair => Icons.build_outlined,
   ModerateOperation.delete => Icons.delete_outline,
   ModerateOperation.bump => Icons.arrow_upward_outlined,
@@ -54,6 +60,8 @@ String moderateOperationName(BuildContext context, ModerateOperation operation) 
     ModerateOperation.move => tr.move,
     ModerateOperation.type => tr.type,
     ModerateOperation.copy => tr.copy,
+    ModerateOperation.merge => tr.merge,
+    ModerateOperation.split => tr.split,
     ModerateOperation.repair => tr.repair,
     ModerateOperation.delete => tr.delete,
     ModerateOperation.bump => tr.bump,
@@ -62,8 +70,8 @@ String moderateOperationName(BuildContext context, ModerateOperation operation) 
 }
 
 /// The operations offered on a thread: stick, digest, highlight, recommend, stamp and icon, close or open (the one
-/// that changes it: [closed] is the lock beside the title), bump and sink, category, move, copy, repair, and delete
-/// last.
+/// that changes it: [closed] is the lock beside the title), bump and sink, category, move, copy, merge, split, repair,
+/// and delete last.
 List<ModerateOperation> moderateOperationsFor({required bool closed}) => [
   ModerateOperation.stick,
   ModerateOperation.digest,
@@ -77,12 +85,14 @@ List<ModerateOperation> moderateOperationsFor({required bool closed}) => [
   ModerateOperation.type,
   ModerateOperation.move,
   ModerateOperation.copy,
+  ModerateOperation.merge,
+  ModerateOperation.split,
   ModerateOperation.repair,
   ModerateOperation.delete,
 ];
 
 /// The operations offered on several threads at once: both close and open (the threads may be either), bump and sink,
-/// category, and delete last. The stamp, the icon, copy and repair act on one thread only.
+/// category, and delete last. The stamp, the icon, copy, merge, split and repair act on one thread only.
 const List<ModerateOperation> moderateBatchOperations = [
   ModerateOperation.stick,
   ModerateOperation.digest,
@@ -197,6 +207,8 @@ Future<ModerateBatchReport?> showBatchModerateSheet(
 
 /// Offer the management of thread [tid] in forum [fid] to a moderator: pick an operation, fill in the forum's window
 /// of it, send it. Null when nothing was done.
+///
+/// A split picks its floors on a page of its own ([openSplitThreadPage]); once done, the new thread is offered to open.
 Future<ModerateDone?> showThreadModerateSheet(
   BuildContext context, {
   required String tid,
@@ -207,6 +219,37 @@ Future<ModerateDone?> showThreadModerateSheet(
   final operation = await _pickOperation(context, moderateOperationsFor(closed: closed));
   if (operation == null || !context.mounted) {
     return null;
+  }
+  if (operation == ModerateOperation.split) {
+    final split = await openSplitThreadPage(
+      context,
+      tid: tid,
+      fid: fid,
+      repository: repository ?? ModerateRepository.network(),
+    );
+    if (split == null) {
+      return null;
+    }
+    if (context.mounted) {
+      showSnackBar(
+        context: context,
+        message: split.message.isNotEmpty ? split.message : context.t.moderate.done,
+        action: SnackBarAction(
+          label: context.t.moderate.openNewThread,
+          onPressed: () {
+            if (context.mounted) {
+              unawaited(
+                context.pushNamed(
+                  ScreenPaths.threadV1,
+                  queryParameters: {'pid': split.pid, 'appBarTitle': split.subject},
+                ),
+              );
+            }
+          },
+        ),
+      );
+    }
+    return ModerateDone.changed;
   }
   final done = await showDialog<bool>(
     context: context,
@@ -306,6 +349,18 @@ class _ModerateDialogState extends State<ModerateDialog> {
   final _reason = TextEditingController();
   final _recommendTitle = TextEditingController();
 
+  /// The thread to merge, as typed; the thread it names ([moderateMergeTidOf]), and that thread as the forum served
+  /// it, or why not.
+  final _mergeInput = TextEditingController();
+  String? _mergeTid;
+  ThreadLinkCardInfo? _mergeThread;
+  bool _mergeLoading = false;
+  String? _mergeError;
+  Timer? _mergeTimer;
+
+  /// The thread to merge asked last: an earlier answer is dropped.
+  int _mergeAsked = 0;
+
   @override
   void initState() {
     super.initState();
@@ -316,6 +371,8 @@ class _ModerateDialogState extends State<ModerateDialog> {
   void dispose() {
     _reason.dispose();
     _recommendTitle.dispose();
+    _mergeInput.dispose();
+    _mergeTimer?.cancel();
     super.dispose();
   }
 
@@ -414,6 +471,55 @@ class _ModerateDialogState extends State<ModerateDialog> {
     });
   }
 
+  /// The thread to merge typed as [input]: looked up once the typing paused.
+  void _typedMergeThread(String input) {
+    final tid = moderateMergeTidOf(input);
+    if (tid == _mergeTid) {
+      return;
+    }
+    _mergeTimer?.cancel();
+    // Whatever is on its way is for another thread.
+    _mergeAsked++;
+    // The forum merges another thread only: this one is not asked.
+    final self = tid == widget.tid;
+    setState(() {
+      _mergeTid = tid;
+      _mergeThread = null;
+      _mergeError = self ? context.t.moderate.mergeSelf : null;
+      _mergeLoading = tid != null && !self;
+    });
+    if (tid != null && !self) {
+      _mergeTimer = Timer(const Duration(milliseconds: 400), () => _lookUpMergeThread(tid));
+    }
+  }
+
+  /// Ask the forum for the first page of thread [tid], to show its title.
+  Future<void> _lookUpMergeThread(String tid) async {
+    final asked = ++_mergeAsked;
+    setState(() {
+      _mergeLoading = true;
+      _mergeError = null;
+    });
+    final answer = await widget.repository.fetchThreadPage(tid).run();
+    if (!mounted || asked != _mergeAsked) {
+      return;
+    }
+    setState(() {
+      _mergeLoading = false;
+      switch (answer) {
+        case Right(value: final page):
+          _mergeThread = ThreadLinkCardInfo.ofPage(int.parse(tid), page);
+          if (_mergeThread == null) {
+            // The forum's words: no such thread, no permission.
+            final message = page.permissionDeniedMessage?.text?.trim() ?? '';
+            _mergeError = message.isNotEmpty ? message : context.t.general.failedToLoad;
+          }
+        case Left(:final value):
+          _mergeError = _failure(value);
+      }
+    });
+  }
+
   String _failure(AppException e) =>
       e is IdentityChangedException ? context.t.general.accountChangedRetry : context.t.general.failedToLoad;
 
@@ -430,6 +536,7 @@ class _ModerateDialogState extends State<ModerateDialog> {
     recommendTitle: _form?.recommendTitle == null ? null : _recommendTitle.text,
     choice: _choice,
     threadType: _threadType,
+    otherTid: _mergeTid,
   );
 
   /// Several threads are managed together.
@@ -444,7 +551,8 @@ class _ModerateDialogState extends State<ModerateDialog> {
       (_form!.levels.isEmpty || _level != null) &&
       (_form!.choices.isEmpty || _choice != null) &&
       (_operation != ModerateOperation.move || (_moveTo ?? '').isNotEmpty) &&
-      (_operation != ModerateOperation.copy || ((_moveTo ?? '').isNotEmpty && _threadType != null && !_typesLoading));
+      (_operation != ModerateOperation.copy || ((_moveTo ?? '').isNotEmpty && _threadType != null && !_typesLoading)) &&
+      (_operation != ModerateOperation.merge || (_mergeThread != null && !_mergeLoading));
 
   Future<void> _send() async {
     final form = _form;
@@ -659,6 +767,7 @@ class _ModerateDialogState extends State<ModerateDialog> {
         ),
         ..._copyTypeFields(context),
       ],
+      if (_operation == ModerateOperation.merge) ..._mergeFields(context),
       if (_operation == ModerateOperation.move) ...[
         DropdownButtonFormField<String>(
           isExpanded: true,
@@ -707,6 +816,48 @@ class _ModerateDialogState extends State<ModerateDialog> {
           title: Text(tr.notifyAuthor),
           value: _notify || form.notifyForced,
           onChanged: form.notifyForced || _sending ? null : (v) => setState(() => _notify = v ?? false),
+        ),
+    ];
+  }
+
+  /// The thread to merge into this one: its id or link, and the thread found.
+  List<Widget> _mergeFields(BuildContext context) {
+    final thread = _mergeThread;
+    return [
+      TextField(
+        controller: _mergeInput,
+        enabled: !_sending,
+        autofocus: true,
+        decoration: InputDecoration(labelText: context.t.moderate.mergeThread),
+        onChanged: _typedMergeThread,
+      ),
+      if (_mergeLoading)
+        const Padding(padding: EdgeInsets.only(top: 12), child: LinearProgressIndicator())
+      else if (thread != null)
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.article_outlined),
+          title: Text(thread.title, maxLines: 2, overflow: TextOverflow.ellipsis),
+          subtitle: thread.author == null && thread.forumName == null
+              ? null
+              : Text([?thread.author, ?thread.forumName].join(' · '), maxLines: 1, overflow: TextOverflow.ellipsis),
+        )
+      else if (_mergeError != null)
+        Padding(
+          padding: const EdgeInsets.only(top: 12),
+          child: Row(
+            children: [
+              Expanded(
+                child: SelectableText(_mergeError!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+              ),
+              if (_mergeTid != widget.tid)
+                IconButton(
+                  icon: const Icon(Icons.refresh),
+                  tooltip: context.t.general.retry,
+                  onPressed: _sending || _mergeTid == null ? null : () => _lookUpMergeThread(_mergeTid!),
+                ),
+            ],
+          ),
         ),
     ];
   }

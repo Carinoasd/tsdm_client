@@ -447,6 +447,8 @@ void main() {
       expect(ops.sublist(ops.indexOf(ModerateOperation.move)), [
         ModerateOperation.move,
         ModerateOperation.copy,
+        ModerateOperation.merge,
+        ModerateOperation.split,
         ModerateOperation.repair,
         ModerateOperation.delete,
       ]);

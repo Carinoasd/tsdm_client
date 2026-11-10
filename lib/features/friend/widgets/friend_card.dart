@@ -105,6 +105,8 @@ class FriendCard extends StatelessWidget {
                               ),
                           ],
                         ),
+                      // The last activity the web page of the members online prints (no group there).
+                      if (visitTime != null) Text(visitTime, style: secondaryStyle),
                       if (credits != null)
                         AppInfoPill(
                           icon: Icons.stars_outlined,

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root><![CDATA[
+<form method="post" autocomplete="off" id="commentform" action="forum.php?mod=post&amp;action=reply&amp;comment=yes&amp;tid=1234567&amp;pid=11263&amp;extra=&amp;page=1&amp;commentsubmit=yes&amp;infloat=yes" onsubmit="ajaxpost('commentform', 'return_comment', 'return_comment', 'onerror');return false;">
+<div class="f_c">
+<h3 class="flb">
+<em id="return_comment">点评</em>
+<span>
+<a href="javascript:;" class="flbc" onclick="hideWindow('comment')" title="关闭">关闭</a></span>
+</h3>
+<input type="hidden" name="formhash" id="formhash" value="f1f2f3f4" />
+<input type="hidden" name="handlekey" value="comment" />
+<div class="c">
+<div class="tedt">
+<div class="bar cm"><script src="data/cache/seditor.js?UKT" type="text/javascript"></script>
+<div class="fpd">
+<a href="javascript:;" title="文字加粗" class="fbld" onclick="seditor_insertunit('comment', '[b]', '[/b]');doane(event);">B</a>
+<a href="javascript:;" title="设置文字颜色" class="fclr" id="commentforecolor" onclick="showColorBox(this.id, 2, 'comment');doane(event);">Color</a>
+</div><span id="itemdiv"></span>
+</div>
+<div class="area">
+<textarea rows="2" cols="50" name="message" id="commentmessage" onKeyUp="dstrLenCalc(this, 'checklen')" onKeyDown="seditor_ctlent(event, '$(\'commentsubmit\').click();')" class="pt" style="overflow: auto"></textarea>
+</div>
+<script type="text/javascript" reload="1">
+$('commentmessage').focus();
+</script>
+</div>
+<div id="seccheck_comment">
+</div>
+</div>
+</div>
+<div class="o pns cl">
+<button type="submit" id="commentsubmit" class="pn pnc z" value="true" name="commentsubmit" onmouseover="checkpostrule('seccheck_comment', 'ac=reply&infloat=yes&handlekey=comment');this.onmouseover=null"><span>发布</span></button>
+<span class="y">还可输入 <strong id="checklen">200</strong> 个字符</span>
+</div>
+</form>
+
+]]></root>

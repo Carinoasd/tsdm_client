@@ -47,6 +47,7 @@ import 'package:tsdm_client/features/post/models/special_thread_form.dart';
 import 'package:tsdm_client/features/post/repository/post_edit_repository.dart';
 import 'package:tsdm_client/features/post/utils/attachment_upload.dart';
 import 'package:tsdm_client/features/post/utils/discuz_text.dart';
+import 'package:tsdm_client/features/post/utils/edit_attachments.dart';
 import 'package:tsdm_client/features/post/utils/flood_control.dart';
 import 'package:tsdm_client/features/post/utils/image_edits.dart';
 import 'package:tsdm_client/features/post/utils/pasted_image.dart';
@@ -54,6 +55,7 @@ import 'package:tsdm_client/features/post/view/image_upload_edit_page.dart';
 import 'package:tsdm_client/features/post/widgets/activity_dialog.dart';
 import 'package:tsdm_client/features/post/widgets/cron_publish_dialog.dart';
 import 'package:tsdm_client/features/post/widgets/debate_dialog.dart';
+import 'package:tsdm_client/features/post/widgets/edit_attachments_button.dart';
 import 'package:tsdm_client/features/post/widgets/hongbao_dialog.dart';
 import 'package:tsdm_client/features/post/widgets/image_drop_area.dart';
 import 'package:tsdm_client/features/post/widgets/image_upload_button.dart';
@@ -1594,6 +1596,23 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
           ImageUploadButton(
             editsByDefault: context.read<SettingsBloc>().state.settingsMap.editImageBeforeUpload,
             onPicked: (source, {required edit}) async => _pickImages(source, edit: edit),
+          ),
+        // The attachments of the edited post, as the website's edit page lists them, to delete.
+        if ((state.content, editAttachmentsOf(state.content?.postForm), context.read<PostEditBloc>()) case (
+          PostEditContent(:final tid?, :final pid?, :final formHash, :final form?),
+          final attachments,
+          final bloc,
+        ) when attachments.isNotEmpty && widget.editType != PostEditType.newThread)
+          EditAttachmentsButton(
+            attachments: attachments,
+            tid: tid,
+            pid: pid,
+            formHash: formHash,
+            formUid: form.uid,
+            // The answer may come once the editor is gone: nothing to tell then.
+            onDeleted: (aid) {
+              if (!bloc.isClosed) bloc.add(PostEditAttachmentDeleted(aid));
+            },
           ),
         if (state.content?.permList?.isNotEmpty ?? false)
           Badge(

@@ -187,6 +187,12 @@ extension ParseUrl on String {
               queryParameters['uid'] == null &&
               queryParameters['username'] == null)
             'view': 'visitor',
+          // The members online now, the "在线会员" link of the forum's homepage.
+          if (queryParameters['view'] == 'online' &&
+              queryParameters['type'] == 'member' &&
+              queryParameters['uid'] == null &&
+              queryParameters['username'] == null)
+            'view': 'online',
         },
       );
     }
@@ -267,6 +273,14 @@ extension ParseUrl on String {
         queryParameters['subop'] == 'view' &&
         queryParameters['touid'] != null) {
       return RecognizedRoute(ScreenPaths.chatHistory, pathParameters: {'uid': queryParameters['touid']!});
+    }
+
+    // The forum's statistics: misc.php?mod=stat[&op=...], shown in the app's read only page of them.
+    if (mod == 'stat' && uri.path.endsWith('misc.php')) {
+      return RecognizedRoute(
+        ScreenPaths.siteStats,
+        queryParameters: {'url': Uri.parse('$baseUrl/misc.php').replace(queryParameters: queryParameters).toString()},
+      );
     }
 
     // Tags: the threads of one (`misc.php?mod=tag&id=N` or `&name=xx`; the full, paged list is `type=thread`) or the

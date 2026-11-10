@@ -666,7 +666,8 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
     }
   }
 
-  /// Do [action] on floor [post] of the thread in [state] as a moderator; reload the floor's page once done.
+  /// Do [action] on floor [post] of the thread in [state] as a moderator; reload the floor's page once done (the first
+  /// page for a reply stuck or unstuck, where the forum shows the stuck ones).
   Future<void> _moderateFloor(BuildContext context, ThreadState state, Post post, FloorModerateAction action) async {
     final threadBloc = context.read<ThreadBloc>();
     final done = await showFloorModerateDialog(
@@ -675,6 +676,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
       tid: state.tid!,
       fid: state.fid!,
       pid: post.postID,
+      undo: action == FloorModerateAction.stick && post.stuck,
       onDone: action == FloorModerateAction.warn ? (form) => _warnedByMe[post.postID] = !form.undo : null,
     );
     if (!done || threadBloc.isClosed) {
@@ -684,7 +686,8 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
     if (action != FloorModerateAction.delete) {
       _scrollToPidOnReload = post.postID;
     }
-    threadBloc.add(ThreadJumpPageRequested(post.page));
+    // The forum shows stuck replies on the first page.
+    threadBloc.add(ThreadJumpPageRequested(action == FloorModerateAction.stick ? 1 : post.page));
   }
 
   /// Ban the author of floor [post] of the thread in [state] from posting, or lift the ban; reload the floor's page

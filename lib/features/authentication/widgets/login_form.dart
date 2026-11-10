@@ -4,14 +4,15 @@ import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
-import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/features/authentication/bloc/authentication_bloc.dart';
 import 'package:tsdm_client/features/authentication/repository/models/models.dart';
 import 'package:tsdm_client/features/authentication/widgets/captcha_image.dart';
+import 'package:tsdm_client/features/in_app_browser/utils/open_forum_page.dart';
 import 'package:tsdm_client/features/local_notice/notification_permission_prompt.dart';
 import 'package:tsdm_client/features/notification/bloc/auto_notification_cubit.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/utils/logger.dart';
+import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/debounce_buttons.dart';
 
@@ -296,11 +297,20 @@ class _LoginFormState extends State<LoginForm> with LoggerMixin {
               child: Text(state.status == AuthenticationStatus.failure ? context.t.general.retry : tr.login),
             ),
             sizedBoxW12H12,
-            Center(
-              child: TextButton(
-                child: Text(tr.signUpHint, style: const TextStyle(decoration: TextDecoration.underline)),
-                onPressed: () async => context.dispatchAsUrl(signUpPage, external: true),
-              ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                TextButton(
+                  key: const ValueKey('login-sign-up'),
+                  child: Text(tr.signUp),
+                  onPressed: () async => _openSignedOut(context, signUpPage),
+                ),
+                TextButton(
+                  key: const ValueKey('login-lost-password'),
+                  child: Text(tr.lostPassword),
+                  onPressed: () async => _openSignedOut(context, lostPasswordPage),
+                ),
+              ],
             ),
           ],
         ),
@@ -368,5 +378,13 @@ class _LoginFormState extends State<LoginForm> with LoggerMixin {
       },
       child: BlocBuilder<AuthenticationBloc, AuthenticationState>(builder: _buildForm),
     );
+  }
+}
+
+/// Open the forum page [url] signed out: the forum shows the sign up and the lost password pages to a guest only, and
+/// an account may be in use while another one logs in.
+Future<void> _openSignedOut(BuildContext context, String url) async {
+  if (!await openForumPageInBrowser(GoRouter.of(context), url, guest: true) && context.mounted) {
+    showSnackBar(context: context, message: context.t.openInAppPage.browserLaunchFailed, clearPrevious: true);
   }
 }

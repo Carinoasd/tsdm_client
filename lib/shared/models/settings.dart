@@ -223,6 +223,15 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
   /// Minutes between two checks of the followed threads for new replies: 15, 30 or 60.
   followedThreadCheckMinutes<int>(name: 'followedThreadCheckMinutes', type: int, defaultValue: 30),
 
+  /// Announce new threads of the forums the account watches (`ForumWatchConfig`) in system notifications.
+  notifyForumNewThread<bool>(name: 'notifyForumNewThread', type: bool, defaultValue: true),
+
+  /// Announce new threads holding one of the account's alert keywords (`ForumWatchConfig`) in system notifications.
+  notifyKeywordAlert<bool>(name: 'notifyKeywordAlert', type: bool, defaultValue: true),
+
+  /// Minutes between two checks of the watched forums and the alert keywords: 15, 30 or 60.
+  forumWatchCheckMinutes<int>(name: 'forumWatchCheckMinutes', type: int, defaultValue: 30),
+
   /// Do not post system notifications between [notifyQuietStart] and [notifyQuietEnd]; what arrives meanwhile is not announced afterwards.
   notifyQuietHours<bool>(name: 'notifyQuietHours', type: bool, defaultValue: false),
 

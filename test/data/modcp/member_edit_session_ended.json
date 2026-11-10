@@ -1,0 +1,19 @@
+{
+  "ok": 1,
+  "api": 1,
+  "time": 1700000000,
+  "uid": 31,
+  "formhash": "f1f2f3f4",
+  "type": "result",
+  "schema": 13,
+  "kind": "page",
+  "message": "",
+  "message_key": "",
+  "url": "",
+  "handlekey": "",
+  "values": {},
+  "login": 0,
+  "alert": "",
+  "head": "<title>论坛 -  测试论坛 -  Powered by Discuz!</title>\n",
+  "document": "<html><head><script type=\"text/javascript\">var discuz_uid = '31';</script></head><body>\n<div id=\"ct\" class=\"ct2_a wp cl\">\r\n<div class=\"mn\">\r\n<div class=\"bm bw0 mdcp\">\r\n<h1 class=\"mt\">登录管理面板</h1>\r\n<div class=\"mbw\">首次进入管理面板或空闲时间过长, 您输入密码才能进入。如果密码输入错误超过 5 次，管理面板将会锁定 15 分钟。</div>\r\n<form method=\"post\" autocomplete=\"off\" action=\"forum.php?mod=modcp&action=login\" class=\"exfm\">\r\n<input type=\"hidden\" name=\"formhash\" value=\"f1f2f3f4\">\r\n<input type=\"hidden\" name=\"fid\" value=\"\">\r\n<input type=\"hidden\" name=\"submit\" value=\"yes\">\r\n<input type=\"hidden\" name=\"login_panel\" value=\"yes\">\r\n<table cellspacing=\"0\" cellpadding=\"5\">\r\n<tr>\r\n<th width=\"60\">用户名:</th>\r\n<td>测试超版</td>\r\n</tr>\r\n<tr>\r\n<th>密码:</th>\r\n<td><input type=\"password\" name=\"cppwd\" id=\"cppwd\" class=\"px\" /></td>\r\n</tr>\r\n<tr>\r\n<th>&nbsp;</th>\r\n<td><button type=\"submit\" name=\"submit\" id=\"submit\" class=\"pn\" value=\"true\"><strong>提交</strong></button></td>\r\n</tr>\r\n</table>\r\n</form>\r\n</div>\r\n</div>\r\n<div class=\"appl\">\r\n<div class=\"tbn\">\r\n<h2 class=\"mt bbda\">论坛管理</h2>\r\n<ul>\r\n<li class=\"cl\"><span class=\"y mtn\">0</span><a href=\"forum.php?mod=modcp&action=home\">内部留言</a></li>\r\n<li class=\"cl\"><span class=\"y mtn\"></span><a href=\"forum.php?mod=modcp&action=moderate&op=threads\">审核</a></li>\r\n<li><a href=\"forum.php?mod=modcp&action=plugin&op=base&id=selfrate:modcp_base\">自助評分</a></li>\r\n<li><a href=\"forum.php?mod=modcp&action=member&op=ban\">禁止用户</a></li><li><a href=\"forum.php?mod=modcp&action=member&op=ipban\">禁止 IP</a></li><li><a href=\"forum.php?mod=modcp&action=forumaccess\">用户权限</a></li><li><a href=\"forum.php?mod=modcp&action=member&op=edit\">编辑用户</a></li><li><a href=\"forum.php?mod=modcp&action=thread&op=thread\">主题管理</a></li>\r\n<li><a href=\"forum.php?mod=modcp&action=forum&op=recommend&show=all\">推荐主题</a></li><li><a href=\"forum.php?mod=modcp&action=forum&op=editforum\">版块编辑</a></li><li><a href=\"forum.php?mod=modcp&action=announcement\">公告</a></li><li><a href=\"forum.php?mod=modcp&action=log\">管理日志</a></li><li><a href=\"forum.php?mod=modcp&action=plugin&op=tools&id=cobuyer:entry\">售卖帖共同买家</a></li>\r\n<li><a href=\"forum.php?mod=modcp&action=plugin&op=tools&id=creditlist:entry\">积分名单统计</a></li>\r\n<li><a href=\"forum.php?mod=modcp&action=plugin&op=tools&id=ratetrack:entry\">评分追踪</a></li>\r\n<li><a href=\"forum.php?mod=modcp&action=report\">管理举报</a></li>\r\n<li><a href=\"forum.php\">返回论坛</a></li>\r\n<li><a href=\"forum.php?mod=modcp&action=logout\">退出</a></li>\r\n</ul>\r\n</div>\r\n</div>\r\n</div>\n</body></html>\n"
+}
