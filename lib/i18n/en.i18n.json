@@ -2164,7 +2164,7 @@
     "copy": "Copy",
     "repair": "Repair thread",
     "copyTo": "Copy to",
-    "threadType": "Category",
+    "threadType": "Target category",
     "noType": "No category",
     "batch": {
       "selected": "$count selected",

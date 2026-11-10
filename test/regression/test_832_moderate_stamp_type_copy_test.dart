@@ -49,6 +49,13 @@ Object? _data(String name) {
   return name.endsWith('.json') ? jsonDecode(text) : text;
 }
 
+/// The answer [name] with [edit] applied to its window.
+Map<String, dynamic> _edited(String name, String Function(String document) edit) {
+  final page = jsonDecode(jsonEncode(_data(name))) as Map<String, dynamic>;
+  page['document'] = edit(page['document'] as String);
+  return page;
+}
+
 Either<AppException, ModerateWindow> _windowOf(Object? data, ModerateOperation operation, {int fid = _fid}) =>
     ModerateRepository.windowOf(data, operation, tid: _tid, fid: fid, uid: _uid);
 
@@ -173,6 +180,19 @@ void main() {
       expect(set.choices.map((e) => e.label), isNot(contains('当前图标')));
       expect(set.choices.first.value, '');
       expect(set.currentChoice?.value, '10');
+
+      // Selected where the forum lists it first: still the thread's own.
+      final first = _window(
+        _edited(
+          'window_stamplist_set.json',
+          (d) => d
+              .replaceFirst('<option value="10">当前图标', '<option value="10" selected="selected">当前图标')
+              .replaceFirst('<option value="10" selected="selected">热帖', '<option value="10">热帖'),
+        ),
+        ModerateOperation.stamplist,
+      );
+      expect(first.currentChoice?.value, '10');
+      expect(first.currentChoice?.label, '热帖');
     });
 
     test('a window of another action, thread or forum is no window', () {
@@ -203,7 +223,10 @@ void main() {
       );
       expect(
         _windowOf(_data('window_stamp_nopermission_ajax.xml'), ModerateOperation.stamp).getRight().toNullable(),
-        isA<ModerateWindowRefused>().having((e) => e.message, 'message', '抱歉，您没有权限给主题添加图章'),
+        // Without the plugin no message key tells why: offered to retry.
+        isA<ModerateWindowRefused>()
+            .having((e) => e.message, 'message', '抱歉，您没有权限给主题添加图章')
+            .having((e) => e.unavailable, 'unavailable', isFalse),
       );
       // Not a moderator of the forum: may change, asked again.
       expect(

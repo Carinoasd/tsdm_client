@@ -659,13 +659,15 @@ final class ModerateForm {
       if (value == null) {
         continue;
       }
+      // Selected in either place: the thread's own.
+      final selected = option.attributes.containsKey('selected') || choices.any((e) => e.value == value && e.selected);
       choices
         ..removeWhere((e) => e.value == value)
         ..add(
           ModerateChoice(
             value: value,
             label: option.text?.trim() ?? '',
-            selected: option.attributes.containsKey('selected'),
+            selected: selected,
             image: images[value],
           ),
         );

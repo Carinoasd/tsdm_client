@@ -164,7 +164,8 @@ final class ModerateRepository with LoggerMixin {
         return left(IdentityChangedException());
       }
       if (result.kind != TsdmAppWriteKind.page) {
-        // The account's group may not do it (`no_privilege_stampthread`…): asking again changes nothing.
+        // The account's group may not do it (`no_privilege_stampthread`…): asking again changes nothing. The AJAX
+        // fragment of a forum without the plugin has no message key: its refusal is offered to retry.
         return right(ModerateWindowRefused(result.reason, unavailable: result.messageKey.startsWith('no_privilege_')));
       }
       final form = ModerateForm.parse(result.document, operation, tid: tid, fid: fid, uid: uid);

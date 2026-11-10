@@ -300,6 +300,9 @@ class _ModerateDialogState extends State<ModerateDialog> {
   String? _threadType;
   bool _typesLoading = false;
   bool _typesFailed = false;
+
+  /// The categories asked last: an earlier answer is dropped.
+  int _typesAsked = 0;
   final _reason = TextEditingController();
   final _recommendTitle = TextEditingController();
 
@@ -386,6 +389,7 @@ class _ModerateDialogState extends State<ModerateDialog> {
 
   /// Copy to forum [fid]: its categories are loaded, the first chosen as the website's select does.
   Future<void> _pickCopyTarget(String fid) async {
+    final asked = ++_typesAsked;
     setState(() {
       _moveTo = fid;
       _threadTypes = null;
@@ -395,7 +399,7 @@ class _ModerateDialogState extends State<ModerateDialog> {
     });
     final answer = await widget.repository.fetchThreadTypes(int.parse(fid)).run();
     // Another forum picked meanwhile: its own answer counts.
-    if (!mounted || _moveTo != fid) {
+    if (!mounted || asked != _typesAsked) {
       return;
     }
     setState(() {
