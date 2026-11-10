@@ -368,6 +368,7 @@ class _AnnouncementEditPageState extends State<AnnouncementEditPage> {
                   key: const ValueKey('modcp-announcement-subject'),
                   controller: _subject,
                   enabled: !_sending,
+                  onChanged: _tried ? (_) => setState(() {}) : null,
                   decoration: InputDecoration(
                     labelText: tr.subject,
                     errorText: _tried && _subject.text.trim().isEmpty ? tr.required : null,
@@ -410,6 +411,7 @@ class _AnnouncementEditPageState extends State<AnnouncementEditPage> {
                   key: const ValueKey('modcp-announcement-message'),
                   controller: _message,
                   enabled: !_sending,
+                  onChanged: _tried ? (_) => setState(() {}) : null,
                   minLines: _type == AnnouncementType.text ? 4 : 1,
                   maxLines: _type == AnnouncementType.text ? 12 : 1,
                   keyboardType: _type == AnnouncementType.link ? TextInputType.url : TextInputType.multiline,

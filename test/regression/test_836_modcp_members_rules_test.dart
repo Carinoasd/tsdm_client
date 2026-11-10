@@ -532,7 +532,7 @@ void main() {
         message: '改過的內容',
         start: start,
         end: end,
-        today: DateTime(2026, 11, 10),
+        today: DateTime(2026, 11, 9),
       );
       expect(holds('2026-11-11', '2026-12-31'), isTrue);
       expect(holds('2026-11-12', '2026-12-31'), isFalse);

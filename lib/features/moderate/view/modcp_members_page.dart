@@ -180,12 +180,16 @@ class _ModcpMembersPageState extends State<ModcpMembersPage> {
               ButtonSegment(value: true, label: Text(tr.byUid)),
             ],
             selected: {_byUid},
-            onSelectionChanged: (v) => setState(() => _byUid = v.first),
+            onSelectionChanged: (v) => setState(() {
+              _byUid = v.first;
+              _queryError = null;
+            }),
           ),
           const SizedBox(height: 12),
           TextField(
             key: const ValueKey('modcp-member-query'),
             controller: _query,
+            onChanged: _queryError == null ? null : (_) => setState(() => _queryError = null),
             keyboardType: _byUid ? TextInputType.number : TextInputType.text,
             textInputAction: TextInputAction.search,
             onSubmitted: (_) => _search(),

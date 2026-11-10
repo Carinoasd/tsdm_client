@@ -893,7 +893,8 @@ final class AnnouncementForm {
   /// cut to its first line).
   ///
   /// The dates are compared only where the forum keeps them as sent: a start after [today] (an earlier one becomes
-  /// the moment saved), an end after both (an earlier one becomes 30 days after the start).
+  /// the moment saved), an end after both (an earlier one becomes 30 days after the start). A day of margin: the
+  /// forum's today may not be the device's.
   bool holds({
     required String subject,
     required AnnouncementType type,
@@ -903,7 +904,7 @@ final class AnnouncementForm {
     DateTime? today,
   }) {
     final now = today ?? DateTime.now();
-    final day = DateTime(now.year, now.month, now.day);
+    final day = DateTime(now.year, now.month, now.day + 1);
     final sentStart = announcementDate(start);
     final sentEnd = announcementDate(end);
     final keptStart = sentStart != null && sentStart.isAfter(day);
