@@ -1,6 +1,7 @@
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/features/authentication/utils/logged_user_parser.dart';
+import 'package:tsdm_client/features/red_packet/utils/parse_red_packet.dart' show parseFormHash;
 import 'package:tsdm_client/features/space/models/space_models.dart';
 import 'package:universal_html/html.dart' as uh;
 
@@ -135,6 +136,56 @@ SpaceListPage<SpaceBlog> parseSpaceBlogListPage(uh.Document document) {
   return SpaceListPage(items: items, nextPageUrl: _nextPageUrl(document.querySelector('div#ct')), hiddenNote: note);
 }
 
+/// The comments of a blog page or of a wall page, the same list (`home/space_comment_li`):
+///
+/// ```html
+/// <div id="comment_ul" class="xld xlda">
+///   <dl id="comment_7_li" class="bbda cl">
+///     <dd class="m avt"><a href="home.php?mod=space&uid=U"><img src="AVATAR"></a></dd>
+///     <dt><span class="y xw0"><a id="c_7_edit">编辑</a> <a id="c_7_delete">删除</a> <a id="c_7_reply">回复</a></span>
+///       <a href="home.php?mod=space&uid=U" id="author_7">NAME</a> <span class="xg1 xw0">2026-11-9 01:08</span></dt>
+///     <dd id="comment_7">MESSAGE</dd>
+///   </dl>
+/// </div>
+/// ```
+///
+/// The forum prints the delete and reply links to whom may use them; an anonymous comment has the site's anonymous
+/// name as text in place of the author's link.
+List<SpaceBlogComment> _commentsOf(uh.Document document) {
+  final comments = <SpaceBlogComment>[];
+  for (final dl in document.querySelectorAll('div#comment_ul dl[id^="comment_"]')) {
+    final cid = int.tryParse(_digitsRe.firstMatch(dl.id)?.group(0) ?? '');
+    final message = cid == null ? null : dl.querySelector('dd#comment_$cid');
+    final author = dl.querySelector('dt a[id^="author_"]') ?? dl.querySelector('dt > a[href*="mod=space"]');
+    if (cid == null || message == null) {
+      continue;
+    }
+    final avatar = dl.querySelector('dd.m img');
+    final avatarUrl = author == null ? null : avatar?.attributes['src'] ?? avatar?.attributes['data-src'];
+    // A guest's or an anonymous comment has no link, only the name as text.
+    final name = _textOf(author) ?? _ownText(dl.querySelector('dt')) ?? '';
+    comments.add(
+      SpaceBlogComment(
+        cid: cid,
+        author: name,
+        uid: _intOf(_uidRe, author?.attributes['href']),
+        avatarUrl: avatarUrl == null || avatarUrl.isEmpty ? null : spaceAbsoluteUrl(avatarUrl),
+        time: _textOf(dl.querySelector('dt span.xg1')),
+        message: message,
+        canDelete: dl.querySelector('a#c_${cid}_delete') != null,
+        canReply: dl.querySelector('a#c_${cid}_reply') != null,
+      ),
+    );
+  }
+  return comments;
+}
+
+/// The text of [e] itself, not of its children.
+String? _ownText(uh.Element? e) {
+  final s = e?.nodes.whereType<uh.Text>().map((t) => t.text ?? '').join(' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+  return s == null || s.isEmpty ? null : s;
+}
+
 /// A blog with its content and a page of its comments (`home.php?mod=space&uid=N&do=blog&id=M[&page=P]`).
 ///
 /// ```html
@@ -168,28 +219,7 @@ SpaceBlogDetail parseSpaceBlogDetail(uh.Document document) {
   }
   final header = view.querySelector('div.h');
   final category = _textOf(header?.querySelector('p.xg2 a[href*="classid="]'));
-  final comments = <SpaceBlogComment>[];
-  for (final dl in document.querySelectorAll('div#comment_ul dl[id^="comment_"]')) {
-    final cid = int.tryParse(_digitsRe.firstMatch(dl.id)?.group(0) ?? '');
-    final message = cid == null ? null : dl.querySelector('dd#comment_$cid');
-    final author = dl.querySelector('dt a[id^="author_"]') ?? dl.querySelector('dt > a[href*="mod=space"]');
-    if (cid == null || message == null) {
-      continue;
-    }
-    final avatar = dl.querySelector('dd.m img');
-    final avatarUrl = avatar?.attributes['src'] ?? avatar?.attributes['data-src'];
-    comments.add(
-      SpaceBlogComment(
-        cid: cid,
-        // A guest's comment has no link, only the name.
-        author: _textOf(author) ?? _textOf(dl.querySelector('dt')) ?? '',
-        uid: _intOf(_uidRe, author?.attributes['href']),
-        avatarUrl: avatarUrl == null || avatarUrl.isEmpty ? null : spaceAbsoluteUrl(avatarUrl),
-        time: _textOf(dl.querySelector('dt span.xg1')),
-        message: message,
-      ),
-    );
-  }
+  final comments = _commentsOf(document);
   return SpaceBlogDetail(
     title: _textOf(view.querySelector('h1')),
     // Beside the reads ("已有 3 次阅读"): the date, or how long ago ("3 小时前") for a recent one.
@@ -469,3 +499,178 @@ String spaceAlbumListUrl(int uid) => '$baseUrl/home.php?mod=space&uid=$uid&do=al
 
 /// The first page of the pictures of the album [albumId] of [uid].
 String spaceAlbumUrl(int uid, int albumId) => '$baseUrl/home.php?mod=space&uid=$uid&do=album&id=$albumId';
+
+/// The forum's words that a module of the space is switched off ("抱歉，留言板功能尚未开启", `wall_status_off`;
+/// "抱歉，好友功能尚未开启", `friend_status_off`, which the greetings belong to).
+bool spaceModuleSwitchedOff(String? message) => message != null && _switchedOffRe.hasMatch(message);
+
+final _switchedOffRe = RegExp('尚未开启|尚未開啓|尚未開啟');
+
+SpaceSession? _sessionOf(uh.Document document) {
+  final uid = parseLoggedUidFromDocument(document);
+  final formHash = parseFormHash(document);
+  return uid == null || formHash == null || formHash.isEmpty ? null : SpaceSession(uid: uid, formHash: formHash);
+}
+
+/// A page of the wall of a member (`home.php?mod=space&uid=N&do=wall[&cid=C][&page=P]`): the messages, newest first,
+/// twenty a page; with `cid` only that message.
+///
+/// ```html
+/// <form id="quickcommentform_N" action="home.php?mod=spacecp&ac=comment">
+///   <textarea name="message"></textarea>   (a guest: <div class="pt hm">您需要登录后才可以留言 …</div>)
+///   <input type="hidden" name="id" value="N" /><input type="hidden" name="idtype" value="uid" />
+///   <input type="hidden" name="formhash" value="…" />
+/// </form>
+/// <div id="div_main_content"><div id="comment"><div id="comment_ul">…the comments ([_commentsOf])…</div></div>
+///   <div class="pgs cl mtm"><div class="pg">…<a href="…&page=2" class="nxt">下一页</a></div></div></div>
+/// ```
+///
+/// What the forum prints instead (the privacy notice, `wall_status_off`, the login prompt) is the page's [SpaceListPage.message].
+SpaceListPage<SpaceBlogComment> parseSpaceWallPage(uh.Document document) {
+  final form = document.querySelector('form[id^="quickcommentform_"]');
+  final list = document.querySelector('div#div_main_content');
+  if (form == null && list == null) {
+    if (_noticeOf(document) case final notice?) {
+      return SpaceListPage(
+        items: const [],
+        message: notice.message,
+        needLogin: notice.needLogin,
+        passwordRequired: notice.passwordRequired,
+      );
+    }
+    return const SpaceListPage(items: []);
+  }
+  return SpaceListPage(
+    items: _commentsOf(document),
+    nextPageUrl: _nextPageUrl(list ?? document.querySelector('div#ct')),
+    session: _sessionOf(document),
+    canPost: form?.querySelector('textarea[name="message"]') != null,
+  );
+}
+
+/// The poke form (`home.php?mod=spacecp&ac=poke&op=send|reply&uid=N`), or what the forum printed instead (the
+/// member himself, no permission `no_privilege_poke`, `friend_status_off`, the login prompt).
+///
+/// ```html
+/// <form id="pokeform_N" action="home.php?mod=spacecp&ac=poke&op=send&uid=N">
+///   <input type="hidden" name="pokesubmit" value="true" /><input type="hidden" name="formhash" value="…" />
+///   <div class="mbm xs2"><a href="home.php?mod=space&uid=N" class="avt avts"><img …></a> 向 <strong>NAME</strong> 打个招呼:</div>
+///   <ul class="poke cl">
+///     <li><label><input type="radio" name="iconid" value="0" />不用动作</label></li>
+///     <li><label><input type="radio" name="iconid" value="1" /><img alt="cyx" src="static/image/poke/cyx.gif" /> 踩一下</label></li>
+///     <li><label><input type="radio" name="iconid" value="3" checked="checked" /><img … /> 微笑</label></li>
+///   </ul>
+///   <input type="text" name="note" />
+/// </form>
+/// ```
+SpaceFormPage<PokeForm> parsePokeForm(uh.Document document, {required bool reply}) {
+  final form = document.querySelector('form[id^="pokeform_"]');
+  final formHash = form?.querySelector('input[name="formhash"]')?.attributes['value'];
+  final uid = parseLoggedUidFromDocument(document);
+  final targetUid = _intOf(_uidRe, form?.attributes['action']);
+  final icons = <PokeIcon>[];
+  var selected = '';
+  for (final input in form?.querySelectorAll('input[name="iconid"]') ?? const <uh.Element>[]) {
+    final id = input.attributes['value'];
+    if (id == null || id.isEmpty) {
+      continue;
+    }
+    final label = input.parent;
+    final image = label?.querySelector('img')?.attributes['src'];
+    icons.add(
+      PokeIcon(
+        id: id,
+        label: _textOf(label) ?? id,
+        imageUrl: image == null || image.isEmpty ? null : spaceAbsoluteUrl(image),
+      ),
+    );
+    if (input.attributes.containsKey('checked')) {
+      selected = id;
+    }
+  }
+  if (form == null || formHash == null || formHash.isEmpty || targetUid == null || icons.isEmpty) {
+    final notice = _noticeOf(document);
+    return (form: null, message: notice?.message, needLogin: (notice?.needLogin ?? false) || uid == null);
+  }
+  if (uid == null) {
+    return (form: null, message: null, needLogin: true);
+  }
+  return (
+    form: PokeForm(
+      uid: uid,
+      targetUid: targetUid,
+      targetName: _textOf(form.querySelector('div.xs2 strong')),
+      formHash: formHash,
+      icons: icons,
+      selected: selected.isEmpty ? icons.first.id : selected,
+      reply: reply,
+    ),
+    message: null,
+    needLogin: false,
+  );
+}
+
+/// A page of the greetings received (`home.php?mod=spacecp&ac=poke[&page=P]`), the latest of each member.
+///
+/// ```html
+/// <div id="poke_ul" class="xld xlda">
+///   <dl id="poke_31" class="bbda cl">
+///     <dd class="m avt"><a href="home.php?mod=space&uid=31"><img src="AVATAR"></a></dd>
+///     <dt id="poke_td_31"><p class="mbm"><a href="home.php?mod=space&uid=31" class="xi2">NAME</a>:
+///       <span class="xw0"><img alt="wgs" src="static/image/poke/wgs.gif" class="vm" /> 握个手, 说: NOTE&nbsp;
+///         <span class="xg1">11-10 12:06</span></span></p>
+///       <div class="pbn ptm xg1 xw0 cl"><a href="…&op=reply&uid=31…">回打招呼</a> <a href="…&op=ignore&uid=31…">忽略</a></div></dt>
+///   </dl>
+/// </div>
+/// ```
+///
+/// None left is `<div class="emp">还没有新招呼</div>`; what the forum prints instead (`friend_status_off`, the login
+/// prompt) is the page's [SpaceListPage.message].
+SpaceListPage<ReceivedPoke> parseReceivedPokePage(uh.Document document) {
+  final ct = document.querySelector('div#ct');
+  final session = _sessionOf(document);
+  if (ct?.querySelector('ul.tb a[href*="ac=poke"]') == null) {
+    if (_noticeOf(document) case final notice?) {
+      return SpaceListPage(
+        items: const [],
+        message: notice.message,
+        needLogin: notice.needLogin,
+        passwordRequired: notice.passwordRequired,
+      );
+    }
+    return SpaceListPage(items: const [], needLogin: session == null);
+  }
+  final items = <ReceivedPoke>[];
+  for (final dl in ct!.querySelectorAll('div#poke_ul dl[id^="poke_"]')) {
+    final uid = int.tryParse(_digitsRe.firstMatch(dl.id)?.group(0) ?? '');
+    final line = dl.querySelector('dt p.mbm');
+    final name = _textOf(line?.querySelector('a[href*="mod=space"]'));
+    final content = line?.querySelector('span.xw0');
+    if (uid == null || name == null || content == null) {
+      continue;
+    }
+    final time = content.querySelector('span.xg1');
+    final timeText = _textOf(time);
+    time?.remove();
+    final avatar = dl.querySelector('dd.m img');
+    final avatarUrl = avatar?.attributes['src'] ?? avatar?.attributes['data-src'];
+    items.add(
+      ReceivedPoke(
+        uid: uid,
+        username: name,
+        avatarUrl: avatarUrl == null || avatarUrl.isEmpty ? null : spaceAbsoluteUrl(avatarUrl),
+        content: content,
+        time: timeText,
+      ),
+    );
+  }
+  return SpaceListPage(items: items, nextPageUrl: _nextPageUrl(ct), session: session);
+}
+
+/// The first page of the wall of [uid] (of the account in use for 0: a guest is asked to log in); with [cid] only
+/// that message.
+String spaceWallUrl(int uid, {int? cid}) =>
+    '$baseUrl/home.php?mod=space${uid > 0 ? '&uid=$uid' : ''}&do=wall${cid == null ? '' : '&cid=$cid'}';
+
+/// The first page of the greetings received.
+const spacePokeListUrl = '$baseUrl/home.php?mod=spacecp&ac=poke';

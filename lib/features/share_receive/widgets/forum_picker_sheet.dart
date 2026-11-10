@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/shared/models/models.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/show_bottom_sheet.dart';
 
 /// The forums of [groups] a thread can be written in: every forum of every group in the page's order (the favorites
@@ -30,7 +31,7 @@ Future<int?> showForumPickerSheet(BuildContext context, List<ForumGroup> groups)
         for (final forum in forums)
           ListTile(
             key: ValueKey('share-forum-${forum.forumID}'),
-            title: Text(forum.name),
+            title: Text(context.displayText(forum.name)),
             onTap: () => Navigator.of(context).pop(forum.forumID),
           ),
       ],

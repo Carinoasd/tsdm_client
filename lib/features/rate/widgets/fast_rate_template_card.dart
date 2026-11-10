@@ -7,6 +7,7 @@ import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/show_dialog.dart';
 import 'package:tsdm_client/widgets/adaptive_ink_response.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
@@ -37,7 +38,7 @@ class RateScoreChip extends StatelessWidget {
       child: Text.rich(
         TextSpan(
           children: [
-            TextSpan(text: '$name '),
+            TextSpan(text: '${context.displayText(name)} '),
             TextSpan(
               text: '${value > 0 ? "+" : ""}$value',
               style: TextStyle(color: valueColor, fontWeight: FontWeight.bold),

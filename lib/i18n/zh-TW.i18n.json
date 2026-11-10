@@ -262,10 +262,12 @@
     "entries": {
       "myThreads": "我的貼文",
       "favorites": "收藏",
+      "collections": "淘帖",
       "history": "瀏覽紀錄",
       "readLater": "稍後閱讀",
       "drafts": "論壇草稿",
       "localDrafts": "本機草稿",
+      "downloads": "下載管理",
       "bookmarks": "書籤",
       "messages": "私訊",
       "friends": "好友",
@@ -725,7 +727,8 @@
           "detail": "所有帳號共用這個上限，超過時先刪除最久沒看的帖子；每個帖子最多保存 20 頁",
           "value": "${count: int} 個帖子"
         }
-      }
+      },
+      "attachmentDownloadDirectory": "附件下載資料夾"
     },
     "advancedSection": {
       "title": "高級",
@@ -1559,6 +1562,54 @@
     "title": "標籤：$name",
     "cloudTitle": "標籤",
     "empty": "暫無標籤"
+  },
+  "collection": {
+    "title": "淘帖",
+    "tabs": {
+      "recommended": "推薦",
+      "all": "全部",
+      "mine": "我的",
+      "subscribed": "訂閱"
+    },
+    "order": {
+      "dateline": "最新建立",
+      "threadnum": "主題最多",
+      "commentnum": "評論最多",
+      "follownum": "訂閱最多"
+    },
+    "empty": "暫無淘專輯",
+    "noThreads": "還沒有主題",
+    "noComments": "還沒有評論",
+    "create": "建立淘專輯",
+    "edit": "編輯淘專輯",
+    "delete": "刪除淘專輯",
+    "deleteConfirm": "確定刪除「$name」？",
+    "name": "名稱",
+    "description": "簡介",
+    "keywords": "標籤",
+    "save": "儲存",
+    "follow": "訂閱",
+    "unfollow": "取消訂閱",
+    "threads": "主題 $count",
+    "follows": "訂閱 $count",
+    "comments": "評論 $count",
+    "rating": "$rate 分（$count 人）",
+    "creator": "建立者 $name",
+    "teamworkers": "共同維護 $names",
+    "commentsTitle": "評論",
+    "comment": "發表評論",
+    "rated": "已評 $rate 星",
+    "removeThread": "移出淘專輯",
+    "removeConfirm": "將「$subject」移出淘專輯？",
+    "reason": "淘帖理由：$reason",
+    "collect": "淘帖",
+    "collectTitle": "收錄到淘專輯",
+    "collectedIn": "已收錄於",
+    "reasonField": "淘帖理由",
+    "newCollection": "新建淘專輯",
+    "collectSubmit": "收錄",
+    "unknown": "未能確認結果，已重新載入",
+    "accountChanged": "帳號已切換，未送出"
   },
   "ratePostPage": {
     "title": "評分",
@@ -2432,6 +2483,16 @@
     "cannotPlay": "無法播放",
     "loadFailed": "載入失敗",
     "notificationChannel": "音樂播放"
+  },
+  "videoPlayer": {
+    "play": "播放",
+    "speed": "倍速",
+    "mute": "靜音",
+    "unmute": "取消靜音",
+    "cannotPlay": "無法播放",
+    "loadFailed": "載入失敗",
+    "retry": "重試",
+    "open": "開啟"
   },
   "threadVisitHistoryPage": {
     "filterAccount": "依帳號篩選",
@@ -4082,7 +4143,33 @@
     },
     "unconfirmed": "無法確認結果，請先到列表查看，不要重複送出",
     "sendFailed": "送出失敗",
-    "identityChanged": "帳號已切換，這個頁面不會再送出任何內容"
+    "identityChanged": "帳號已切換，這個頁面不會再送出任何內容",
+    "wall": {
+      "title": "留言板",
+      "empty": "還沒有留言",
+      "post": "留言",
+      "reply": "回覆",
+      "replyTo": "回覆 $name",
+      "message": "內容",
+      "delete": "刪除留言",
+      "sent": "已留言",
+      "deleted": "已刪除",
+      "all": "全部留言"
+    },
+    "poke": {
+      "send": "打招呼",
+      "title": "向 $name 打招呼",
+      "note": "說一句",
+      "received": "收到的招呼",
+      "empty": "還沒有新招呼",
+      "greetBack": "回敬",
+      "ignore": "忽略",
+      "ignoreAll": "全部忽略",
+      "ignoreAllConfirm": "忽略收到的全部招呼？",
+      "ignored": "已忽略",
+      "sent": "已送出",
+      "loadFailed": "無法開啟招呼"
+    }
   },
   "postComment": {
     "title": "點評",
@@ -4101,5 +4188,31 @@
   },
   "threadRecommend": {
     "unknown": "未能確認結果，請重新整理帖子查看。"
+  },
+  "attachmentDownload": {
+    "title": "下載管理",
+    "active": "進行中",
+    "failed": "未完成",
+    "completed": "已完成",
+    "empty": "沒有下載",
+    "queued": "等待中",
+    "cancelled": "已取消",
+    "failedGeneric": "下載失敗",
+    "open": "開啟",
+    "share": "分享",
+    "saveAs": "另存",
+    "showInFolder": "開啟資料夾",
+    "delete": "刪除",
+    "retry": "重試",
+    "cancel": "取消",
+    "thread": "來源帖子",
+    "purchase": "購買",
+    "deleteTitle": "刪除下載",
+    "deleteMessage": "同時刪除檔案「$name」",
+    "largeTitle": "正在使用行動網路",
+    "largeMessage": "「$name」大小 $size，確定下載？",
+    "saved": "已存到 $path",
+    "openFailed": "沒有可以開啟此檔案的程式",
+    "threadFallback": "帖子 $tid"
   }
 }

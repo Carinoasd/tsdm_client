@@ -30,10 +30,13 @@ import 'package:tsdm_client/features/profile/utils/parse_profile.dart';
 import 'package:tsdm_client/features/profile/widgets/secondary_title_badge.dart';
 import 'package:tsdm_client/features/profile/widgets/user_group_progress_section.dart';
 import 'package:tsdm_client/features/share_qr/share_qr_dialog.dart';
+import 'package:tsdm_client/features/space/utils/space_switches.dart';
 import 'package:tsdm_client/features/space/view/space_page.dart';
+import 'package:tsdm_client/features/space/widgets/space_social_widgets.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/medal.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/clipboard.dart';
 import 'package:tsdm_client/utils/html/adaptive_color.dart';
 import 'package:tsdm_client/utils/html/html_muncher.dart';
@@ -93,6 +96,7 @@ const List<int> _checkinNextLevelExp = [
 
 enum _ProfileActions {
   viewNotification,
+  pokes,
   checkin,
   viewPoints,
   switchUserGroup,
@@ -102,6 +106,12 @@ enum _ProfileActions {
   editAvatar,
   blockedUsers,
   shareQr,
+}
+
+/// The actions of another member's profile kept in the menu of its app bar, in the order shown.
+enum _MemberActions {
+  /// Greet them (`home.php?mod=spacecp&ac=poke&op=send&uid=N`).
+  poke,
 }
 
 /// Page of user profile.
@@ -191,6 +201,8 @@ class _ProfilePageState extends State<ProfilePage> {
             switch (action) {
               case _ProfileActions.viewNotification:
                 openNoticePageInApp(context);
+              case _ProfileActions.pokes:
+                await context.pushNamed(ScreenPaths.spacePokes);
               case _ProfileActions.checkin:
                 context.read<CheckinBloc>().add(const CheckinRequested());
               case _ProfileActions.viewPoints:
@@ -240,6 +252,17 @@ class _ProfilePageState extends State<ProfilePage> {
                 children: [const NoticeIcon(), sizedBoxPopupMenuItemIconSpacing, Text(context.t.noticePage.title)],
               ),
             ),
+            if (!spaceModulesOff.value.contains(SpaceModule.poke))
+              PopupMenuItem(
+                value: _ProfileActions.pokes,
+                child: Row(
+                  children: [
+                    const Icon(Icons.waving_hand_outlined),
+                    sizedBoxPopupMenuItemIconSpacing,
+                    Text(context.t.spacePage.poke.received),
+                  ],
+                ),
+              ),
             PopupMenuItem(
               enabled: !inCheckin,
               value: _ProfileActions.checkin,
@@ -390,6 +413,40 @@ class _ProfilePageState extends State<ProfilePage> {
         // Local and silent: nothing is sent to the forum.
         if (int.tryParse(widget.uid ?? userProfile.uid ?? '') case final int blockUid)
           UserBlockButton(uid: blockUid, username: userProfile.username ?? widget.username ?? '$blockUid'),
+        // The rest, in a menu: one item per action of [_MemberActions], each offered when the forum may take it.
+        if (int.tryParse(widget.uid ?? userProfile.uid ?? '') case final int memberUid)
+          ValueListenableBuilder(
+            valueListenable: spaceModulesOff,
+            builder: (context, off, _) {
+              final memberActions = [
+                // The forum greets no one oneself (`not_to_their_own_greeted`).
+                if (!off.contains(SpaceModule.poke) && !_isOwnProfile(context, '$memberUid')) _MemberActions.poke,
+              ];
+              if (memberActions.isEmpty) return sizedBoxEmpty;
+              return PopupMenuButton<_MemberActions>(
+                onSelected: (action) async => switch (action) {
+                  _MemberActions.poke => showPokeDialog(context, uid: memberUid, username: userProfile.username),
+                },
+                itemBuilder: (context) => [
+                  for (final action in memberActions)
+                    PopupMenuItem(
+                      value: action,
+                      child: Row(
+                        children: [
+                          Icon(switch (action) {
+                            _MemberActions.poke => Icons.waving_hand_outlined,
+                          }),
+                          sizedBoxPopupMenuItemIconSpacing,
+                          Text(switch (action) {
+                            _MemberActions.poke => context.t.spacePage.poke.send,
+                          }),
+                        ],
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
       ];
     }
 
@@ -727,7 +784,7 @@ class _ProfilePageState extends State<ProfilePage> {
         CachedImage(image, maxWidth: 200, height: profileBadgeHeight, fit: BoxFit.contain),
         sizedBoxW8H8,
         Text(
-          name,
+          context.displayText(name),
           textAlign: TextAlign.start,
           style: TextStyle(color: color, fontWeight: FontWeight.bold),
         ),
@@ -841,29 +898,42 @@ class _ProfilePageState extends State<ProfilePage> {
           ],
         ),
 
-      // The member's blogs and albums, own or another's.
+      // The member's space, own or another's: one row per page, each offered while the forum has its module on.
       if (int.tryParse(widget.uid ?? userProfile.uid ?? '') case final int spaceUid)
-        AppSurface(
-          padding: EdgeInsets.zero,
-          child: Column(
-            children: [
-              for (final (i, (tab, icon, title)) in [
+        ValueListenableBuilder(
+          valueListenable: spaceModulesOff,
+          builder: (context, off, _) {
+            final entries = <(IconData, String, String, Map<String, String>)>[
+              for (final (tab, icon, title) in [
                 (SpaceTab.blog, Icons.article_outlined, context.t.spacePage.blogs),
                 (SpaceTab.album, Icons.photo_library_outlined, context.t.spacePage.albums),
-              ].indexed) ...[
-                if (i > 0) const Divider(height: 1, indent: 16, endIndent: 16),
-                ListTile(
-                  leading: Icon(icon),
-                  title: Text(title),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () async => context.pushNamed(
-                    ScreenPaths.space,
-                    queryParameters: {'uid': '$spaceUid', 'username': ?userProfile.username, 'tab': tab.name},
-                  ),
+                if (!off.contains(SpaceModule.wall))
+                  (SpaceTab.wall, Icons.forum_outlined, context.t.spacePage.wall.title),
+              ])
+                (
+                  icon,
+                  title,
+                  ScreenPaths.space,
+                  {'uid': '$spaceUid', 'username': ?userProfile.username, 'tab': tab.name},
                 ),
-              ],
-            ],
-          ),
+            ];
+            return AppSurface(
+              padding: EdgeInsets.zero,
+              child: Column(
+                children: [
+                  for (final (i, (icon, title, path, query)) in entries.indexed) ...[
+                    if (i > 0) const Divider(height: 1, indent: 16, endIndent: 16),
+                    ListTile(
+                      leading: Icon(icon),
+                      title: Text(title),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () async => context.pushNamed(path, queryParameters: query),
+                    ),
+                  ],
+                ],
+              ),
+            );
+          },
         ),
 
       // Medal centre, own titles and title shop: all meant for the logged user (buy/apply/switch for themselves), so
@@ -910,7 +980,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   .map(
                     (e) => ActionChip(
                       visualDensity: VisualDensity.compact,
-                      label: Text(e.name),
+                      label: Text(context.displayText(e.name)),
                       onPressed: () async => context.pushNamed(ScreenPaths.forum, pathParameters: {'fid': '${e.fid}'}),
                     ),
                   )

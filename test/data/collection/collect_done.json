@@ -1,0 +1,1 @@
+{"ok": 1, "api": 1, "time": 1700000000, "uid": 35, "formhash": "f1f2f3f4", "type": "result", "schema": 13, "kind": "handle", "message": "淘帖成功，主题已经被加入到相应淘专辑中", "message_key": "collection_collect_succ", "url": "https://forum.test/./", "handlekey": "k_collect", "values": {}, "login": 0, "alert": "right"}

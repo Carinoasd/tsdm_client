@@ -3,6 +3,7 @@ import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/date_time.dart';
 import 'package:tsdm_client/features/points/models/models.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/html/html_muncher.dart';
 import 'package:tsdm_client/utils/html/munch_options.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
@@ -56,7 +57,7 @@ class PointsChangeCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      pointsChange.operation,
+                      context.displayText(pointsChange.operation),
                       style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold, color: colorScheme.secondary),
                     ),
                     Text(
@@ -80,7 +81,7 @@ class PointsChangeCard extends StatelessWidget {
             color: colorScheme.surfaceContainerHigh,
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             child: Text(
-              pointsChange.changeMapString,
+              context.displayText(pointsChange.changeMapString),
               style: textTheme.bodyMedium?.copyWith(color: colorScheme.primary, fontWeight: FontWeight.w600),
             ),
           ),

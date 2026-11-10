@@ -6,6 +6,7 @@ import 'package:tsdm_client/features/account_security/view/account_security_page
 import 'package:tsdm_client/features/account_security/view/privacy_settings_page.dart';
 import 'package:tsdm_client/features/achievements/view/achievements_page.dart';
 import 'package:tsdm_client/features/activities/view/activities_page.dart';
+import 'package:tsdm_client/features/attachment_download/view/attachment_downloads_page.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/authentication/view/login_page.dart';
 import 'package:tsdm_client/features/bank/view/bank_page.dart';
@@ -15,6 +16,10 @@ import 'package:tsdm_client/features/chat/view/chat_history_page.dart';
 import 'package:tsdm_client/features/chat/view/chat_page.dart';
 import 'package:tsdm_client/features/checkin/view/auto_checkin_page.dart';
 import 'package:tsdm_client/features/checkin/view/checkin_calendar_page.dart';
+import 'package:tsdm_client/features/collection/models/collection.dart';
+import 'package:tsdm_client/features/collection/view/collection_comments_page.dart';
+import 'package:tsdm_client/features/collection/view/collection_detail_page.dart';
+import 'package:tsdm_client/features/collection/view/collection_list_page.dart';
 import 'package:tsdm_client/features/custom_emoji/view/custom_emoji_packs_page.dart';
 import 'package:tsdm_client/features/editor/utils/mention_suggestions.dart';
 import 'package:tsdm_client/features/editor/view/quick_phrases_page.dart';
@@ -103,6 +108,7 @@ import 'package:tsdm_client/features/space/view/blog_post_page.dart';
 import 'package:tsdm_client/features/space/view/space_album_page.dart';
 import 'package:tsdm_client/features/space/view/space_blog_page.dart';
 import 'package:tsdm_client/features/space/view/space_page.dart';
+import 'package:tsdm_client/features/space/view/space_poke_page.dart';
 import 'package:tsdm_client/features/tag/view/tag_cloud_page.dart';
 import 'package:tsdm_client/features/task_center/view/task_center_page.dart';
 import 'package:tsdm_client/features/thread/v1/view/share_floor_image_page.dart';
@@ -289,15 +295,17 @@ final List<RouteBase> _appRoutes = [
       online: state.uri.queryParameters['view'] == 'online',
     ),
   ),
-  // A member's blogs and albums: home.php?mod=space&uid=N&do=blog|album[&id=M].
+  // A member's blogs, albums and wall: home.php?mod=space&uid=N&do=blog|album|wall[&id=M][&cid=C].
   AppRoute(
     path: ScreenPaths.space,
     builder: (state) => SpacePage(
       uid: int.tryParse(state.uri.queryParameters['uid'] ?? '') ?? 0,
       username: state.uri.queryParameters['username'],
       initialTab: SpaceTab.of(state.uri.queryParameters['tab']),
+      wallCid: int.tryParse(state.uri.queryParameters['cid'] ?? ''),
     ),
   ),
+  AppRoute(path: ScreenPaths.spacePokes, builder: (_) => const SpacePokePage()),
   AppRoute(
     path: ScreenPaths.spaceBlog,
     builder: (state) => SpaceBlogPage(
@@ -320,6 +328,20 @@ final List<RouteBase> _appRoutes = [
     builder: (state) => AlbumUploadPage(albumId: int.tryParse(state.uri.queryParameters['albumId'] ?? '')),
   ),
   AppRoute(path: ScreenPaths.tagCloud, builder: (_) => const TagCloudPage()),
+  AppRoute(
+    path: ScreenPaths.collections,
+    builder: (state) => CollectionListPage(
+      initialTab: CollectionListTab.values.asNameMap()[state.uri.queryParameters['tab']],
+    ),
+  ),
+  AppRoute(
+    path: ScreenPaths.collectionDetail,
+    builder: (state) => CollectionDetailPage(ctid: int.tryParse(state.pathParameters['ctid'] ?? '') ?? 0),
+  ),
+  AppRoute(
+    path: ScreenPaths.collectionComments,
+    builder: (state) => CollectionCommentsPage(ctid: int.tryParse(state.pathParameters['ctid'] ?? '') ?? 0),
+  ),
   AppRoute(
     path: ScreenPaths.latestThread,
     builder: (state) {
@@ -516,6 +538,7 @@ final List<RouteBase> _appRoutes = [
   AppRoute(path: ScreenPaths.readLater, builder: (_) => const ReadLaterPage()),
   AppRoute(path: ScreenPaths.readingStats, builder: (_) => const ReadingStatsPage()),
   AppRoute(path: ScreenPaths.localDrafts, builder: (_) => const LocalDraftPage()),
+  AppRoute(path: ScreenPaths.attachmentDownloads, builder: (_) => const AttachmentDownloadsPage()),
   AppRoute(path: ScreenPaths.followedThreads, builder: (_) => const FollowedThreadsPage()),
   AppRoute(path: ScreenPaths.forumWatch, builder: (_) => const ForumWatchPage()),
   AppRoute(path: ScreenPaths.customEmojiPacks, builder: (_) => const CustomEmojiPacksPage()),

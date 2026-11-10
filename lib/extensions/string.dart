@@ -214,6 +214,31 @@ extension ParseUrl on String {
       }
     }
 
+    // A wall: home.php?mod=space[&uid=N]&do=wall[&cid=C] (the account in use without uid), one message with `cid` (the
+    // link of a wall notice).
+    if (mod == 'space' && queryParameters['do'] == 'wall') {
+      final uid = int.tryParse(queryParameters['uid'] ?? '');
+      final cid = int.tryParse(queryParameters['cid'] ?? '');
+      return RecognizedRoute(
+        ScreenPaths.space,
+        queryParameters: {
+          if (uid != null && uid > 0) 'uid': '$uid',
+          'tab': 'wall',
+          if (cid != null && cid > 0) 'cid': '$cid',
+        },
+      );
+    }
+
+    // Greetings: home.php?mod=spacecp&ac=poke[&op=reply|ignore&uid=N] are the ones received (the links of a poke
+    // notice); a greeting to a member (`op=send&uid=N`) is sent from their profile.
+    if (mod == 'spacecp' && queryParameters['ac'] == 'poke') {
+      final uid = int.tryParse(queryParameters['uid'] ?? '');
+      if (queryParameters['op'] == 'send' && uid != null && uid > 0) {
+        return RecognizedRoute(ScreenPaths.profile, queryParameters: {'uid': '$uid'});
+      }
+      return const RecognizedRoute(ScreenPaths.spacePokes);
+    }
+
     // FIXME: Do NOT glob access user profile page by uid.
     if (mod == 'space' && queryParameters['do'] != 'friend') {
       // Access by uid.
@@ -307,6 +332,27 @@ extension ParseUrl on String {
       }
       if (queryParameters['type'] == null) {
         return const RecognizedRoute(ScreenPaths.tagCloud);
+      }
+    }
+
+    // Collections (淘专辑): one (`mod=collection&action=view&ctid=N`) and its comments (`op=comment`), the lists (no
+    // `action`; `op=all`, `op=my`). The other pages of the collections (edit, invite, the subscribers, the collections
+    // of a thread) stay with the web page.
+    if (mod == 'collection') {
+      final action = queryParameters['action'] ?? '';
+      final op = queryParameters['op'] ?? '';
+      final ctid = forumIntval(queryParameters['ctid']);
+      if (action == 'view' && ctid > 0 && (op.isEmpty || op == 'comment')) {
+        return RecognizedRoute(
+          op.isEmpty ? ScreenPaths.collectionDetail : ScreenPaths.collectionComments,
+          pathParameters: {'ctid': '$ctid'},
+        );
+      }
+      if (action.isEmpty && queryParameters['tid'] == null && const {'', 'all', 'my'}.contains(op)) {
+        return RecognizedRoute(
+          ScreenPaths.collections,
+          queryParameters: {if (op == 'all') 'tab': 'all' else if (op == 'my') 'tab': 'mine'},
+        );
       }
     }
 

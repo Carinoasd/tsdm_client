@@ -7,6 +7,7 @@ import 'package:tsdm_client/extensions/list.dart';
 import 'package:tsdm_client/features/notification/models/models.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/widgets/heroes.dart';
 import 'package:tsdm_client/widgets/quoted_text.dart';
 import 'package:tsdm_client/widgets/single_line_text.dart';
@@ -33,7 +34,7 @@ class NoticeCard extends StatelessWidget {
     final noticeBody = switch (notice.noticeType) {
       NoticeType.reply => Text.rich(
         context.t.noticePage.noticeTab.replyBody(
-          threadTitle: TextSpan(text: notice.noticeThreadTitle ?? '-', style: primaryStyle),
+          threadTitle: TextSpan(text: context.displayText(notice.noticeThreadTitle ?? '-'), style: primaryStyle),
         ),
       ),
       NoticeType.rate || NoticeType.batchRate => Column(
@@ -41,11 +42,14 @@ class NoticeCard extends StatelessWidget {
         children: [
           Text.rich(
             context.t.noticePage.noticeTab.rateBody(
-              threadTitle: TextSpan(text: notice.noticeThreadTitle ?? '-', style: primaryStyle),
+              threadTitle: TextSpan(text: context.displayText(notice.noticeThreadTitle ?? '-'), style: primaryStyle),
               score: TextSpan(text: notice.score ?? '-', style: secondaryStyle),
             ),
           ),
-          if (notice.quotedMessage?.isNotEmpty ?? false) ...[sizedBoxW4H4, QuotedText(notice.quotedMessage ?? '')],
+          if (notice.quotedMessage?.isNotEmpty ?? false) ...[
+            sizedBoxW4H4,
+            QuotedText(context.displayText(notice.quotedMessage ?? '')),
+          ],
           if (notice.taskId != null) sizedBoxW4H4,
           if (notice.taskId != null)
             Text(context.t.noticePage.noticeTab.taskID(taskId: notice.taskId!), style: outlineStyle),
@@ -55,12 +59,12 @@ class NoticeCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Text(context.t.noticePage.noticeTab.mentionBody),
-          QuotedText(notice.quotedMessage ?? ''),
+          QuotedText(context.displayText(notice.quotedMessage ?? '')),
         ].insertBetween(sizedBoxW4H4),
       ),
       NoticeType.invite => Text.rich(
         context.t.noticePage.noticeTab.inviteBody(
-          threadTitle: TextSpan(text: notice.noticeThreadTitle ?? '', style: primaryStyle),
+          threadTitle: TextSpan(text: context.displayText(notice.noticeThreadTitle ?? ''), style: primaryStyle),
         ),
       ),
       NoticeType.newFriend => Text(context.t.noticePage.noticeTab.newFriendBody),

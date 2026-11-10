@@ -124,6 +124,12 @@ class _MePageState extends State<MePage> {
         onTap: () => _open(ScreenPaths.favorite),
       ),
       (
+        key: const ValueKey('me-collections'),
+        icon: Icons.collections_bookmark_outlined,
+        label: tr.collections,
+        onTap: () => _open(ScreenPaths.collections, query: {'tab': 'mine'}),
+      ),
+      (
         key: const ValueKey('me-followed-threads'),
         icon: Icons.notifications_active_outlined,
         label: tr.followedThreads,
@@ -160,6 +166,12 @@ class _MePageState extends State<MePage> {
         icon: Icons.drafts_outlined,
         label: tr.drafts,
         onTap: () => _open(ScreenPaths.myThread, query: {'tab': 'drafts'}),
+      ),
+      (
+        key: const ValueKey('me-downloads'),
+        icon: Icons.download_outlined,
+        label: tr.downloads,
+        onTap: () => _open(ScreenPaths.attachmentDownloads),
       ),
     ];
   }

@@ -262,10 +262,12 @@
     "entries": {
       "myThreads": "我的帖子",
       "favorites": "收藏",
+      "collections": "淘帖",
       "history": "浏览记录",
       "readLater": "稍后阅读",
       "drafts": "论坛草稿",
       "localDrafts": "本机草稿",
+      "downloads": "下载管理",
       "bookmarks": "书签",
       "messages": "私信",
       "friends": "好友",
@@ -725,7 +727,8 @@
           "detail": "所有账号共用这个上限，超过时先删除最久没看的帖子；每个帖子最多保存 20 页",
           "value": "${count: int} 个帖子"
         }
-      }
+      },
+      "attachmentDownloadDirectory": "附件下载文件夹"
     },
     "advancedSection": {
       "title": "高级",
@@ -1559,6 +1562,54 @@
     "title": "标签：$name",
     "cloudTitle": "标签",
     "empty": "暂无标签"
+  },
+  "collection": {
+    "title": "淘帖",
+    "tabs": {
+      "recommended": "推荐",
+      "all": "全部",
+      "mine": "我的",
+      "subscribed": "订阅"
+    },
+    "order": {
+      "dateline": "最新创建",
+      "threadnum": "主题最多",
+      "commentnum": "评论最多",
+      "follownum": "订阅最多"
+    },
+    "empty": "暂无淘专辑",
+    "noThreads": "还没有主题",
+    "noComments": "还没有评论",
+    "create": "创建淘专辑",
+    "edit": "编辑淘专辑",
+    "delete": "删除淘专辑",
+    "deleteConfirm": "确定删除「$name」？",
+    "name": "名称",
+    "description": "简介",
+    "keywords": "标签",
+    "save": "保存",
+    "follow": "订阅",
+    "unfollow": "取消订阅",
+    "threads": "主题 $count",
+    "follows": "订阅 $count",
+    "comments": "评论 $count",
+    "rating": "$rate 分（$count 人）",
+    "creator": "创建人 $name",
+    "teamworkers": "共同维护 $names",
+    "commentsTitle": "评论",
+    "comment": "发表评论",
+    "rated": "已评 $rate 星",
+    "removeThread": "移出淘专辑",
+    "removeConfirm": "将「$subject」移出淘专辑？",
+    "reason": "淘帖理由：$reason",
+    "collect": "淘帖",
+    "collectTitle": "收录到淘专辑",
+    "collectedIn": "已收录于",
+    "reasonField": "淘帖理由",
+    "newCollection": "新建淘专辑",
+    "collectSubmit": "收录",
+    "unknown": "未能确认结果，已重新载入",
+    "accountChanged": "账号已切换，未送出"
   },
   "ratePostPage": {
     "title": "评分",
@@ -2432,6 +2483,16 @@
     "cannotPlay": "无法播放",
     "loadFailed": "加载失败",
     "notificationChannel": "音乐播放"
+  },
+  "videoPlayer": {
+    "play": "播放",
+    "speed": "倍速",
+    "mute": "静音",
+    "unmute": "取消静音",
+    "cannotPlay": "无法播放",
+    "loadFailed": "加载失败",
+    "retry": "重试",
+    "open": "打开"
   },
   "threadVisitHistoryPage": {
     "filterAccount": "按账号筛选",
@@ -4082,7 +4143,33 @@
     },
     "unconfirmed": "无法确认结果，请先到列表查看，不要重复发送",
     "sendFailed": "发送失败",
-    "identityChanged": "账号已切换，这个页面不会再发送任何内容"
+    "identityChanged": "账号已切换，这个页面不会再发送任何内容",
+    "wall": {
+      "title": "留言板",
+      "empty": "还没有留言",
+      "post": "留言",
+      "reply": "回复",
+      "replyTo": "回复 $name",
+      "message": "内容",
+      "delete": "删除留言",
+      "sent": "已留言",
+      "deleted": "已删除",
+      "all": "全部留言"
+    },
+    "poke": {
+      "send": "打招呼",
+      "title": "向 $name 打招呼",
+      "note": "说一句",
+      "received": "收到的招呼",
+      "empty": "还没有新招呼",
+      "greetBack": "回敬",
+      "ignore": "忽略",
+      "ignoreAll": "全部忽略",
+      "ignoreAllConfirm": "忽略收到的全部招呼？",
+      "ignored": "已忽略",
+      "sent": "已发送",
+      "loadFailed": "无法打开招呼"
+    }
   },
   "postComment": {
     "title": "点评",
@@ -4101,5 +4188,31 @@
   },
   "threadRecommend": {
     "unknown": "未能确认结果，请重新整理帖子查看。"
+  },
+  "attachmentDownload": {
+    "title": "下载管理",
+    "active": "进行中",
+    "failed": "未完成",
+    "completed": "已完成",
+    "empty": "没有下载",
+    "queued": "等待中",
+    "cancelled": "已取消",
+    "failedGeneric": "下载失败",
+    "open": "打开",
+    "share": "分享",
+    "saveAs": "另存",
+    "showInFolder": "打开文件夹",
+    "delete": "删除",
+    "retry": "重试",
+    "cancel": "取消",
+    "thread": "来源帖子",
+    "purchase": "购买",
+    "deleteTitle": "删除下载",
+    "deleteMessage": "同时删除文件「$name」",
+    "largeTitle": "正在使用移动网络",
+    "largeMessage": "「$name」大小 $size，确定下载？",
+    "saved": "已保存到 $path",
+    "openFailed": "没有可以打开此文件的应用",
+    "threadFallback": "帖子 $tid"
   }
 }

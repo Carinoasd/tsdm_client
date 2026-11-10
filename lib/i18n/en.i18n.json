@@ -262,10 +262,12 @@
     "entries": {
       "myThreads": "My threads",
       "favorites": "Favorites",
+      "collections": "Collections",
       "history": "History",
       "readLater": "Read later",
       "drafts": "Forum drafts",
       "localDrafts": "Local drafts",
+      "downloads": "Downloads",
       "bookmarks": "Bookmarks",
       "messages": "Messages",
       "friends": "Friends",
@@ -725,7 +727,8 @@
           "detail": "Shared by all accounts; the threads not read for the longest time are deleted first. Each thread keeps at most 20 pages",
           "value": "${count: int} threads"
         }
-      }
+      },
+      "attachmentDownloadDirectory": "Attachment download folder"
     },
     "advancedSection": {
       "title": "Advanced",
@@ -1559,6 +1562,54 @@
     "title": "Tag: $name",
     "cloudTitle": "Tags",
     "empty": "No tags"
+  },
+  "collection": {
+    "title": "Collections",
+    "tabs": {
+      "recommended": "Recommended",
+      "all": "All",
+      "mine": "Mine",
+      "subscribed": "Subscribed"
+    },
+    "order": {
+      "dateline": "Newest",
+      "threadnum": "Most threads",
+      "commentnum": "Most comments",
+      "follownum": "Most subscribers"
+    },
+    "empty": "No collections",
+    "noThreads": "No threads yet",
+    "noComments": "No comments yet",
+    "create": "Create collection",
+    "edit": "Edit collection",
+    "delete": "Delete collection",
+    "deleteConfirm": "Delete \"$name\"?",
+    "name": "Name",
+    "description": "Description",
+    "keywords": "Tags",
+    "save": "Save",
+    "follow": "Subscribe",
+    "unfollow": "Unsubscribe",
+    "threads": "$count threads",
+    "follows": "$count subscribers",
+    "comments": "$count comments",
+    "rating": "$rate ($count ratings)",
+    "creator": "By $name",
+    "teamworkers": "With $names",
+    "commentsTitle": "Comments",
+    "comment": "Comment",
+    "rated": "Rated $rate stars",
+    "removeThread": "Remove from collection",
+    "removeConfirm": "Remove \"$subject\" from the collection?",
+    "reason": "Reason: $reason",
+    "collect": "Collect",
+    "collectTitle": "Add to collections",
+    "collectedIn": "In collections",
+    "reasonField": "Reason",
+    "newCollection": "New collection",
+    "collectSubmit": "Add",
+    "unknown": "Could not confirm the result, reloaded",
+    "accountChanged": "The account changed: nothing was sent"
   },
   "ratePostPage": {
     "title": "Rate",
@@ -2432,6 +2483,16 @@
     "cannotPlay": "Can't play",
     "loadFailed": "Failed to load",
     "notificationChannel": "Music playback"
+  },
+  "videoPlayer": {
+    "play": "Play",
+    "speed": "Speed",
+    "mute": "Mute",
+    "unmute": "Unmute",
+    "cannotPlay": "Can't play",
+    "loadFailed": "Failed to load",
+    "retry": "Retry",
+    "open": "Open"
   },
   "threadVisitHistoryPage": {
     "filterAccount": "Filter by account",
@@ -4082,7 +4143,33 @@
     },
     "unconfirmed": "The result is unknown: check the list before sending again",
     "sendFailed": "Failed to send",
-    "identityChanged": "The account changed: this page sends nothing more"
+    "identityChanged": "The account changed: this page sends nothing more",
+    "wall": {
+      "title": "Wall",
+      "empty": "No messages yet",
+      "post": "Leave a message",
+      "reply": "Reply",
+      "replyTo": "Reply to $name",
+      "message": "Message",
+      "delete": "Delete message",
+      "sent": "Message posted",
+      "deleted": "Deleted",
+      "all": "All messages"
+    },
+    "poke": {
+      "send": "Poke",
+      "title": "Poke $name",
+      "note": "Say something",
+      "received": "Pokes received",
+      "empty": "No new pokes",
+      "greetBack": "Poke back",
+      "ignore": "Ignore",
+      "ignoreAll": "Ignore all",
+      "ignoreAllConfirm": "Ignore all the pokes received?",
+      "ignored": "Ignored",
+      "sent": "Sent",
+      "loadFailed": "Could not open the poke form"
+    }
   },
   "postComment": {
     "title": "Comments",
@@ -4101,5 +4188,31 @@
   },
   "threadRecommend": {
     "unknown": "Could not confirm the result: refresh the thread to see it."
+  },
+  "attachmentDownload": {
+    "title": "Downloads",
+    "active": "In progress",
+    "failed": "Unfinished",
+    "completed": "Completed",
+    "empty": "No downloads",
+    "queued": "Waiting",
+    "cancelled": "Cancelled",
+    "failedGeneric": "Download failed",
+    "open": "Open",
+    "share": "Share",
+    "saveAs": "Save as",
+    "showInFolder": "Open folder",
+    "delete": "Delete",
+    "retry": "Retry",
+    "cancel": "Cancel",
+    "thread": "Source thread",
+    "purchase": "Buy",
+    "deleteTitle": "Delete download",
+    "deleteMessage": "The file \"$name\" is deleted too",
+    "largeTitle": "On mobile data",
+    "largeMessage": "\"$name\" is $size. Download it?",
+    "saved": "Saved to $path",
+    "openFailed": "No app can open this file",
+    "threadFallback": "Thread $tid"
   }
 }

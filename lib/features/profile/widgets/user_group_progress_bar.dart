@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:tsdm_client/features/profile/models/user_group_progress.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 
 /// The progress towards the next user group: the current group, the next one and the bar between them, the credits
 /// the member has and the credits missing under it.
@@ -22,7 +23,7 @@ class UserGroupProgressBar extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: Text(progress.mainGroupName, maxLines: 1, overflow: TextOverflow.ellipsis),
+              child: Text(context.displayText(progress.mainGroupName), maxLines: 1, overflow: TextOverflow.ellipsis),
             ),
             const SizedBox(width: 8),
             Flexible(

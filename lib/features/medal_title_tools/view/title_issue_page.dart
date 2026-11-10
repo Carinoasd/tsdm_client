@@ -10,6 +10,7 @@ import 'package:tsdm_client/features/medal_title_tools/widgets/common.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 
@@ -111,7 +112,7 @@ class _TitleIssuePageState extends State<TitleIssuePage> {
               : tr.issueConfirmRevoke(titles: _chosen.length, users: members.length),
         ),
         sizedBoxW8H8,
-        Text(_chosen.map((id) => '「${names[id] ?? '#$id'}」').join()),
+        Text(_chosen.map((id) => '「${context.displayText(names[id] ?? '#$id')}」').join()),
         sizedBoxW8H8,
         Text(members.join('、'), style: Theme.of(context).textTheme.bodySmall),
       ],
@@ -201,7 +202,7 @@ class _TitleIssuePageState extends State<TitleIssuePage> {
                             for (final id in _chosen)
                               InputChip(
                                 label: Text(
-                                  '${info.titles.where((t) => t.id == id).firstOrNull?.name ?? '#$id'} #$id',
+                                  '${context.displayText(info.titles.where((t) => t.id == id).firstOrNull?.name ?? '#$id')} #$id',
                                 ),
                                 onDeleted: _busy ? null : () => setState(() => _chosen.remove(id)),
                               ),
@@ -233,7 +234,7 @@ class _TitleIssuePageState extends State<TitleIssuePage> {
                                 dense: true,
                                 value: _chosen.contains(t.id),
                                 secondary: ToolsImage(t.imageUrl, width: 74, height: 40),
-                                title: Text(t.name),
+                                title: Text(context.displayText(t.name)),
                                 subtitle: Text('#${t.id}${t.enabled ? '' : ' · ${tr.issueDisabled}'}'),
                                 onChanged: _busy
                                     ? null
@@ -287,7 +288,9 @@ class _TitleIssuePageState extends State<TitleIssuePage> {
                         for (final l in info.logs)
                           ListTile(
                             dense: true,
-                            title: Text('${l.grant ? tr.issueGrant : tr.issueRevoke} · ${l.title}'),
+                            title: Text(
+                              '${l.grant ? tr.issueGrant : tr.issueRevoke} · ${context.displayText(l.title)}',
+                            ),
                             subtitle: Text(
                               [
                                 tr.issueLogLine(by: l.by, to: l.to.isEmpty ? 'UID ${l.toUid}' : l.to),

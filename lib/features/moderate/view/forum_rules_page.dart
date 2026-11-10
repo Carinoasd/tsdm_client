@@ -8,6 +8,7 @@ import 'package:tsdm_client/features/moderate/models/modcp_panel.dart';
 import 'package:tsdm_client/features/moderate/repository/modcp_repository.dart';
 import 'package:tsdm_client/features/moderate/widgets/modcp_widgets.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 
@@ -95,7 +96,7 @@ class _ForumRulesPageState extends State<ForumRulesPage> {
             for (final forum in _forums)
               ListTile(
                 key: ValueKey('modcp-switch-forum-${forum.fid}'),
-                title: Text(forum.name),
+                title: Text(context.displayText(forum.name)),
                 selected: forum.fid == current,
                 trailing: forum.fid == current ? const Icon(Icons.check) : null,
                 onTap: () => Navigator.of(context).pop(forum),
@@ -177,7 +178,7 @@ class _ForumRulesPageState extends State<ForumRulesPage> {
                   ListTile(
                     key: ValueKey('modcp-forum-${forum.fid}'),
                     leading: const Icon(Icons.forum_outlined),
-                    title: Text(forum.name),
+                    title: Text(context.displayText(forum.name)),
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () => _pick(forum.fid),
                   ),
@@ -206,7 +207,7 @@ class _ForumRulesPageState extends State<ForumRulesPage> {
           if (!rules.editable && rules.note.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 12),
-              child: Text(rules.note, style: TextStyle(color: theme.colorScheme.error)),
+              child: Text(context.displayText(rules.note), style: TextStyle(color: theme.colorScheme.error)),
             ),
           if (rules.editable) ...[
             const SizedBox(height: 16),

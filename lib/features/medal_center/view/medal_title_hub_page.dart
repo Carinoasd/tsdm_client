@@ -13,6 +13,7 @@ import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 
 /// Common entry of the medal centre, the titles of the current account and the title shop.
@@ -114,9 +115,11 @@ class _CurrentTitleCard extends StatelessWidget {
                 text = '';
               } else {
                 text = switch (state.status) {
-                  CurrentTitleStatus.success => state.title?.name ?? tr.noTitle,
+                  CurrentTitleStatus.success =>
+                    state.title == null ? tr.noTitle : context.displayText(state.title!.name),
                   CurrentTitleStatus.failure => tr.loadFailed,
-                  CurrentTitleStatus.initial || CurrentTitleStatus.loading => state.title?.name ?? '',
+                  CurrentTitleStatus.initial ||
+                  CurrentTitleStatus.loading => context.displayText(state.title?.name ?? ''),
                 };
               }
               return Text(text, style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant));

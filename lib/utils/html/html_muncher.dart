@@ -10,6 +10,8 @@ import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/extensions/universal_html.dart';
 import 'package:tsdm_client/extensions/uri.dart';
+import 'package:tsdm_client/features/attachment_download/utils/attachment_protocol.dart';
+import 'package:tsdm_client/features/attachment_download/widgets/attachment_download_actions.dart';
 import 'package:tsdm_client/features/audio_player/utils/audio_attachment.dart';
 import 'package:tsdm_client/features/audio_player/widgets/netease_play.dart';
 import 'package:tsdm_client/features/audio_player/widgets/post_audio_card.dart';
@@ -24,6 +26,8 @@ import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
 import 'package:tsdm_client/features/thread_link_card/repository/thread_link_card_repository.dart';
 import 'package:tsdm_client/features/thread_link_card/utils/thread_link.dart';
 import 'package:tsdm_client/features/thread_link_card/widgets/thread_link_card.dart';
+import 'package:tsdm_client/features/video_player/models/post_video.dart';
+import 'package:tsdm_client/features/video_player/widgets/post_video_player.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 // The style the author gave a post: css, colors in the theme
@@ -507,6 +511,9 @@ final class _Muncher with LoggerMixin {
 
   /// Index in [_netdisk] of the link to put chips under next.
   int _netdiskCursor = 0;
+
+  /// The name and size printed with each attachment link (by its absolute address), for the download it starts.
+  final _attachmentLinks = <String, ({String filename, String? sizeText})>{};
 
   /// The element munched by [munchElement], where the folds a post made itself are looked for ([_hiddenContent]).
   uh.Element? _root;
@@ -2085,6 +2092,12 @@ final class _Muncher with LoggerMixin {
       await showEmailBottomSheet(context: context, address: url.substring('mailto:'.length));
       return;
     }
+    // An attachment downloads in the app.
+    if (isAttachmentDownloadUrl(url)) {
+      final link = _attachmentLinks[url];
+      await downloadAttachment(context, url, filename: link?.filename, sizeText: link?.sizeText);
+      return;
+    }
     await context.dispatchAsUrl(url);
   }
 
@@ -2112,6 +2125,9 @@ final class _Muncher with LoggerMixin {
     }
 
     final url = element.attributes['href']!;
+    if (isAttachmentDownloadUrl(url)) {
+      _attachmentLinks[url.prependHost()] = attachmentLinkInfoOf(element);
+    }
     // Flag indicating only has <img> inside the <a> node.
     // <a href="xxx"><img src="xxx"></a>
     //
@@ -2610,13 +2626,37 @@ final class _Muncher with LoggerMixin {
   List<InlineSpan>? _buildIgnoreJsOp(uh.Element element) {
     final attachment = PostAudioAttachment.of(element, apple: isIOS || isMacOS);
     if (attachment == null) {
+      // A video attachment is a player of it ([PostVideoPlayer]).
+      if (PostVideo.attachmentOf(element) case final video?) {
+        return _munchBlock(
+          element,
+          deferBreak: false,
+          () => [
+            textWidgetSpan(PostVideoPlayer(video, onOpen: () async => _openUrl(video.url.toString()))),
+            emptySpan,
+          ],
+        );
+      }
       return _munch(element);
     }
     return _munchBlock(
       element,
       deferBreak: false,
       () => [
-        textWidgetSpan(PostAudioCard(attachment, onDownload: () async => _openUrl(attachment.url))),
+        textWidgetSpan(
+          PostAudioCard(
+            attachment,
+            onDownload: () async {
+              options.onUrlLaunched?.call();
+              await downloadAttachment(
+                context,
+                attachment.url,
+                filename: attachment.filename,
+                sizeText: attachment.sizeText,
+              );
+            },
+          ),
+        ),
         emptySpan,
       ],
     );

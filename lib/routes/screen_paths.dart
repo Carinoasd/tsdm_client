@@ -27,6 +27,15 @@ class ScreenPaths {
   /// Cloud of the forum's tags.
   static const String tagCloud = '/tags';
 
+  /// The forum's collections (淘专辑): forum.php?mod=collection. Query parameter `tab`: a `CollectionListTab` name.
+  static const String collections = '/collections';
+
+  /// A collection: forum.php?mod=collection&action=view&ctid=N.
+  static const String collectionDetail = '/collections/:ctid';
+
+  /// The comments of a collection: forum.php?mod=collection&action=view&op=comment&ctid=N.
+  static const String collectionComments = '/collections/:ctid/comments';
+
   /// Homepage: "https://www.tsdm39.com/forum.php"
   ///
   /// Only the very first part of page.
@@ -288,11 +297,12 @@ class ScreenPaths {
   /// online now (`home.php?mod=space&do=friend&view=online&type=member`).
   static const String friend = '/friend';
 
-  /// The blogs and the albums of a member, a tab each.
+  /// The blogs, the albums and the wall of a member, a tab each.
   ///
-  /// https://tsdm39.com/home.php?mod=space&uid=xxx&do=blog
+  /// https://tsdm39.com/home.php?mod=space&uid=xxx&do=blog, https://tsdm39.com/home.php?mod=space&uid=xxx&do=wall
   ///
-  /// Query parameters: `uid`, the member; `username` for the title; `tab`, `blog` (default) or `album`.
+  /// Query parameters: `uid`, the member (none for the account in use); `username` for the title; `tab`, `blog`
+  /// (default), `album` or `wall`; `cid`, the one message of the wall to show first.
   static const String space = '/space';
 
   /// A blog with its comments: https://tsdm39.com/home.php?mod=space&uid=xxx&do=blog&id=yyy
@@ -312,6 +322,9 @@ class ScreenPaths {
   ///
   /// Query parameters: `albumId`, the album chosen first.
   static const String spaceAlbumUpload = '/space/albumUpload';
+
+  /// The greetings received: https://tsdm39.com/home.php?mod=spacecp&ac=poke
+  static const String spacePokes = '/space/pokes';
 
   /// Page to show "Latest thread" on web side.
   ///
@@ -396,6 +409,9 @@ class ScreenPaths {
 
   /// Page listing the drafts kept on this device for the current account.
   static const String localDrafts = '/localDrafts';
+
+  /// Page listing the attachment downloads of the current account.
+  static const String attachmentDownloads = '/attachmentDownloads';
 
   /// Page listing the threads the current account follows.
   static const String followedThreads = '/followedThreads';

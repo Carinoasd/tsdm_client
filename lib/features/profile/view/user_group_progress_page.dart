@@ -8,6 +8,7 @@ import 'package:tsdm_client/features/profile/models/user_group_progress.dart';
 import 'package:tsdm_client/features/profile/repository/user_group_progress_repository.dart';
 import 'package:tsdm_client/features/profile/widgets/user_group_progress_bar.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/retry_button.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/indicator.dart';
@@ -52,7 +53,7 @@ class _UserGroupProgressPageState extends State<UserGroupProgressPage> {
                         ? tier.gid == progress.currentGid
                         : tier.name == progress.mainGroupName,
                     selectedTileColor: colorScheme.primaryContainer.withValues(alpha: 0.4),
-                    title: Text(tier.name),
+                    title: Text(context.displayText(tier.name)),
                     trailing: Text(tier.creditsFrom < 0 ? '—' : '${tier.creditsFrom}'),
                   ),
               ],
@@ -68,7 +69,7 @@ class _UserGroupProgressPageState extends State<UserGroupProgressPage> {
                     context.t.userGroupProgress.extraGroups,
                     padding: edgeInsetsL16T12R16B12,
                   ),
-                  for (final name in progress.extraGroups) SectionListTile(title: Text(name)),
+                  for (final name in progress.extraGroups) SectionListTile(title: Text(context.displayText(name))),
                 ],
               ),
             ),

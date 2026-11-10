@@ -1,0 +1,21 @@
+{
+  "ok": 1,
+  "api": 1,
+  "time": 1700000000,
+  "uid": 33,
+  "formhash": "f1f2f3f4",
+  "type": "result",
+  "schema": 13,
+  "kind": "handle",
+  "message": "已发送，测试会员乙下次访问时会收到通知",
+  "message_key": "poke_success",
+  "url": "https://forum.test/./",
+  "handlekey": "propokehk_35",
+  "values": {
+    "username": "测试会员乙",
+    "uid": "35",
+    "from": ""
+  },
+  "login": 0,
+  "alert": "right"
+}

@@ -50,6 +50,13 @@ void androidOnNetworkMeteredChanged(void Function({required bool metered}) onCha
       },
     );
 
+const _methodOpenAttachment = 'openAttachment';
+
+/// Open the downloaded attachment at [path] (in the app's `attachments` folder) in the app that views its type on
+/// Android. Returns false when no app views it.
+Future<bool> androidOpenFile(String path) async =>
+    await _mainChannel.invokeMethod<bool>(_methodOpenAttachment, {'path': path}) ?? false;
+
 const _methodHasSystemBiometricPrompt = 'hasSystemBiometricPrompt';
 
 /// Whether Android draws the biometric prompt itself (Android 9+); before that the app lock offers the PIN only.

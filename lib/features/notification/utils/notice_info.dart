@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:tsdm_client/constants/url.dart';
+import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/features/blocking/utils/forum_url.dart';
 import 'package:tsdm_client/features/notification/models/models.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
@@ -371,3 +372,30 @@ String noticePlainTextOfHtml(String html) {
 }
 
 String _collapse(String text) => text.replaceAll(RegExp(r'\s+'), ' ').trim();
+
+/// Where a tap on a notice with [info] and the html [body] goes: the floor or thread it links; the message of a wall
+/// notice (the link of its body, `home.php?mod=space&uid=N&do=wall&cid=C`); the greetings received for a poke
+/// notice; else the profile of the user of a friend notice (or of a wall notice without its link). Null when there is
+/// nowhere to go.
+String? noticeTapUrlOf(NoticeInfo info, String body) {
+  if (info.target case final target?) {
+    return target.url;
+  }
+  if (info.kind == NoticeKind.wall) {
+    final href = parseHtmlDocument(
+      '<html><body>$body</body></html>',
+    ).querySelector('a[href*="do=wall"]')?.attributes['href'];
+    if (href != null && href.isNotEmpty) {
+      return href.prependHost();
+    }
+  }
+  if (info.kind == NoticeKind.poke) {
+    return '$baseUrl/home.php?mod=spacecp&ac=poke';
+  }
+  final authorId = info.authorId;
+  if (authorId != null &&
+      (info.kind == NoticeKind.friend || info.kind == NoticeKind.friendRequest || info.kind == NoticeKind.wall)) {
+    return '$baseUrl/home.php?mod=space&uid=$authorId';
+  }
+  return null;
+}

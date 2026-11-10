@@ -16,6 +16,7 @@ import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/retry_button.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/cached_image/cached_image.dart';
@@ -158,7 +159,7 @@ class _MedalCenterPageState extends State<MedalCenterPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    medal.name,
+                    context.displayText(medal.name),
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
                   ),
                   sizedBoxW12H12,
@@ -207,7 +208,7 @@ class _MedalCenterPageState extends State<MedalCenterPage> {
                         sizedBoxW12H12,
                         Expanded(
                           child: Text(
-                            medal.name,
+                            context.displayText(medal.name),
                             style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
                           ),
                         ),
@@ -217,7 +218,9 @@ class _MedalCenterPageState extends State<MedalCenterPage> {
                     AppInsetBlock(
                       outlined: true,
                       child: Text(
-                        confirmText?.isNotEmpty ?? false ? confirmText! : tr.purchaseConfirm(name: medal.name),
+                        confirmText?.isNotEmpty ?? false
+                            ? context.displayText(confirmText!)
+                            : tr.purchaseConfirm(name: context.displayText(medal.name)),
                       ),
                     ),
                   ],
@@ -263,7 +266,11 @@ class _MedalCenterPageState extends State<MedalCenterPage> {
       }),
     );
     if (action.disabledReason?.isNotEmpty ?? false) {
-      return Tooltip(message: action.disabledReason, triggerMode: TooltipTriggerMode.tap, child: button);
+      return Tooltip(
+        message: context.displayText(action.disabledReason!),
+        triggerMode: TooltipTriggerMode.tap,
+        child: button,
+      );
     }
     return button;
   }
@@ -286,20 +293,23 @@ class _MedalCenterPageState extends State<MedalCenterPage> {
         shape: const Border(),
         tilePadding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
         leading: _image(medal.imageUrl),
-        title: Text(medal.name, style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+        title: Text(
+          context.displayText(medal.name),
+          style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+        ),
         subtitle: Text(
-          medal.method.isEmpty ? tr.notProvided : medal.method,
+          medal.method.isEmpty ? tr.notProvided : context.displayText(medal.method),
           style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
         ),
         childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
         expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (medal.description.isNotEmpty) ...[
-            Text(medal.description, style: textTheme.bodyMedium),
+            Text(context.displayText(medal.description), style: textTheme.bodyMedium),
             sizedBoxW8H8,
           ],
           if (medal.accountStatus != null) ...[
-            AppNoticeBanner(message: medal.accountStatus!, icon: Icons.person_outline),
+            AppNoticeBanner(message: context.displayText(medal.accountStatus!), icon: Icons.person_outline),
             sizedBoxW8H8,
           ],
           AppInsetBlock(
@@ -319,7 +329,7 @@ class _MedalCenterPageState extends State<MedalCenterPage> {
                           child: Icon(Icons.chevron_right, size: 16, color: colorScheme.primary),
                         ),
                         sizedBoxW4H4,
-                        Expanded(child: Text(detail)),
+                        Expanded(child: Text(context.displayText(detail))),
                       ],
                     ),
                   ),
@@ -342,7 +352,10 @@ class _MedalCenterPageState extends State<MedalCenterPage> {
                 Icon(Icons.info_outline, size: 16, color: colorScheme.error),
                 sizedBoxW4H4,
                 Expanded(
-                  child: Text(reason, style: textTheme.bodySmall?.copyWith(color: colorScheme.error)),
+                  child: Text(
+                    context.displayText(reason),
+                    style: textTheme.bodySmall?.copyWith(color: colorScheme.error),
+                  ),
                 ),
               ],
             ),
@@ -395,7 +408,7 @@ class _MedalCenterPageState extends State<MedalCenterPage> {
                 for (final category in catalog!.categories)
                   DropdownMenuItem(
                     value: category.url,
-                    child: Text(category.name, overflow: TextOverflow.ellipsis),
+                    child: Text(context.displayText(category.name), overflow: TextOverflow.ellipsis),
                   ),
               ],
               onChanged: (url) {
