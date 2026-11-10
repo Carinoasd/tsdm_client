@@ -1,0 +1,1 @@
+{"ok": 1, "api": 1, "time": 1700000000, "uid": 35, "formhash": "f1f2f3f4", "type": "result", "schema": 13, "kind": "handle", "message": "成功取消订阅淘专辑", "message_key": "collection_unfollow_succ", "url": "https://forum.test/./", "handlekey": "followcollection", "values": {"status": "2"}, "login": 0, "alert": "info"}

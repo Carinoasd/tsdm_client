@@ -1,0 +1,1 @@
+{"ok": 1, "api": 1, "time": 1700000000, "uid": 35, "formhash": "f1f2f3f4", "type": "result", "schema": 13, "kind": "handle", "message": "新建淘专辑成功，即将进入淘专辑页面", "message_key": "collection_create_succ", "url": "forum.php?mod=collection&action=view&ctid=3", "handlekey": "createcollection", "values": {"ctid": "3", "title": "CL測試 甲專輯"}, "login": 0, "alert": "right"}

@@ -310,6 +310,27 @@ extension ParseUrl on String {
       }
     }
 
+    // Collections (淘专辑): one (`mod=collection&action=view&ctid=N`) and its comments (`op=comment`), the lists (no
+    // `action`; `op=all`, `op=my`). The other pages of the collections (edit, invite, the subscribers, the collections
+    // of a thread) stay with the web page.
+    if (mod == 'collection') {
+      final action = queryParameters['action'] ?? '';
+      final op = queryParameters['op'] ?? '';
+      final ctid = forumIntval(queryParameters['ctid']);
+      if (action == 'view' && ctid > 0 && (op.isEmpty || op == 'comment')) {
+        return RecognizedRoute(
+          op.isEmpty ? ScreenPaths.collectionDetail : ScreenPaths.collectionComments,
+          pathParameters: {'ctid': '$ctid'},
+        );
+      }
+      if (action.isEmpty && queryParameters['tid'] == null && const {'', 'all', 'my'}.contains(op)) {
+        return RecognizedRoute(
+          ScreenPaths.collections,
+          queryParameters: {if (op == 'all') 'tab': 'all' else if (op == 'my') 'tab': 'mine'},
+        );
+      }
+    }
+
     if (mod == null && queryParameters.containsKey('gid')) {
       return RecognizedRoute(ScreenPaths.forumGroup, pathParameters: {'gid': queryParameters['gid']!});
     }

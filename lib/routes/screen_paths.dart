@@ -27,6 +27,15 @@ class ScreenPaths {
   /// Cloud of the forum's tags.
   static const String tagCloud = '/tags';
 
+  /// The forum's collections (淘专辑): forum.php?mod=collection. Query parameter `tab`: a `CollectionListTab` name.
+  static const String collections = '/collections';
+
+  /// A collection: forum.php?mod=collection&action=view&ctid=N.
+  static const String collectionDetail = '/collections/:ctid';
+
+  /// The comments of a collection: forum.php?mod=collection&action=view&op=comment&ctid=N.
+  static const String collectionComments = '/collections/:ctid/comments';
+
   /// Homepage: "https://www.tsdm39.com/forum.php"
   ///
   /// Only the very first part of page.
