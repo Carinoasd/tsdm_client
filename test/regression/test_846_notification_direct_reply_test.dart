@@ -754,6 +754,16 @@ void main() {
       expect(plugin.shade.keys.map((e) => e.$1).toSet(), {other.id, localNoticeIdOf(1000)});
     });
 
+    test('the accounts announced changed: the same target is not shown twice', () async {
+      final storage = _storage();
+      final plugin = _Plugin();
+      final before = await post(plugin, storage, pmFrom(1000));
+      final after = await post(plugin, storage, pmFrom(1000), account: named);
+      expect(after.id, before.id);
+      expect(plugin.shade, hasLength(1));
+      expect(plugin.shade.keys.single.$2, directReplyTag(1000, '1000:m:1000'));
+    });
+
     test('an action carrying another target than its notification was made for is never sent', () async {
       final storage = _storage();
       final plugin = _Plugin();

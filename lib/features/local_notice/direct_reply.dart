@@ -5,7 +5,6 @@ import 'package:fpdart/fpdart.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/features/app_lock/repository/app_lock_store.dart';
 import 'package:tsdm_client/features/chat/repository/chat_repository.dart';
-import 'package:tsdm_client/features/forum_watch/utils/forum_watch_notice.dart';
 import 'package:tsdm_client/features/local_notice/keys.dart';
 import 'package:tsdm_client/features/local_notice/show.dart';
 import 'package:tsdm_client/features/notification/models/models.dart';
@@ -41,6 +40,9 @@ const _resultIdBase = 0x50000000;
 const _resultIdMask = 0x07FFFFFF;
 const _resultConversationBit = 0x08000000;
 
+/// Base of [directReplyNoticeIdOf]. The request codes of the actions' PendingIntents (`id * 16` as a Java int) only
+/// tell the ids apart by their low 28 bits: these notifications are the only ones carrying an action, so they can not
+/// share one with another kind. Giving an action to any other notification needs a request code apart from these.
 const _pinnedIdBase = 0x60000000;
 const _pinnedIdMask = 0x0FFFFFFF;
 
@@ -100,7 +102,8 @@ final class DirectReplyPins {
   /// Name of the setting.
   static const settingsKey = 'directReplyPinnedNotices';
 
-  /// How long an id stays given to its target after its last notification.
+  /// How long an id stays given to its target after its last notification. A reply typed in a notification older than
+  /// that is not sent ([holds] says no): the text goes to the app.
   static const keepFor = Duration(days: 7);
 
   Future<Map<String, ({String key, int at})>> _read() async {
@@ -173,7 +176,11 @@ Future<void> replaceDirectReplySlot(
   for (final n in shown) {
     final nid = n.id;
     final ntag = n.tag;
-    if (nid != null && ntag != null && ntag.startsWith(prefix) && !(nid == id && ntag == tag)) {
+    // Of this slot, or under the same id with another tag (the same target announced in another slot before the
+    // accounts announced changed).
+    final replaced =
+        ntag != null && (ntag.startsWith(prefix) || (tag != null && nid == id && ntag.startsWith(_tagPrefix)));
+    if (nid != null && replaced && !(nid == id && ntag == tag)) {
       await plugin.cancel(id: nid, tag: ntag);
     }
   }
@@ -273,16 +280,9 @@ final class DirectReplyRequest {
   /// not one of the auto sync (a watched forum's, a followed thread's) or a payload naming no account or no floor or
   /// conversation.
   static DirectReplyRequest? of(NotificationResponse response) {
-    // Only the notifications of the auto sync carry the action ([isLocalNoticeId] already leaves the others out); the
-    // new threads of a watched forum and the keyword alerts never do, said once more on purpose.
-    // Only the notifications offering it carry the action, each under the id of its target
-    // ([directReplyNoticeIdOf]); the new threads of a watched forum and the keyword alerts never do, said once more on
-    // purpose.
+    // Only the notifications offering it carry the action, each under the id of its target ([directReplyNoticeIdOf]).
     final id = response.id;
-    if (response.actionId != directReplyActionId ||
-        id == null ||
-        !isDirectReplyNoticeId(id) ||
-        isForumWatchNoticeId(id)) {
+    if (response.actionId != directReplyActionId || id == null || !isDirectReplyNoticeId(id)) {
       return null;
     }
     final message = response.input?.trim() ?? '';

@@ -381,9 +381,8 @@ Future<void> showLocalNotification(
               .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
               ?.areNotificationsEnabled()
         : null;
-    final id = account != null && account.named ? localNoticeIdOf(account.uid) : localNoticeId;
     talker.info(
-      'push local notification id=$id channel=${noticeCategoryOfInfo(info).channelId} enabled=$enabled: ${info.runtimeType}',
+      'push local notification channel=${noticeCategoryOfInfo(info).channelId} enabled=$enabled: ${info.runtimeType}',
     );
     await showLocalNotificationWith(
       plugin: flnp,
@@ -459,6 +458,8 @@ Future<void> showLocalNotificationWith({
   if (shown != null) {
     await replaceDirectReplySlot(plugin, slot: slot, sharedId: content.id, id: id, tag: tag, shown: shown);
   }
+  // The target stays out of the log (the tag names it): only whether this one offers the direct reply.
+  talker.debug('posting auto sync notification id=$id reply=${tag != null}');
   final nd = buildLocalNotificationDetails(
     channelName: noticeChannelName(translations, category),
     category: category,

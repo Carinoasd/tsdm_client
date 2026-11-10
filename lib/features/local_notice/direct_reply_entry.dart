@@ -146,7 +146,15 @@ Future<void> _handle(DirectReplyRequest request) async {
         enabled: () => directReplyEnabled(storage),
         locked: appLocked,
         clientOf: runtime.clientOf,
-        pinned: () => DirectReplyPins(storage).holds(request.noticeId, request.targetKey),
+        pinned: () async {
+          try {
+            return await DirectReplyPins(storage).holds(request.noticeId, request.targetKey);
+          } on Object catch (e, st) {
+            // Not known to hold it: nothing is sent, the text goes to the app.
+            talker.handle(e, st, 'direct reply: pins unreadable');
+            return false;
+          }
+        },
       );
     } on Object catch (e, st) {
       talker.handle(e, st, 'direct reply: failed before sending');
