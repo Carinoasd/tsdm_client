@@ -2152,7 +2152,9 @@
     "content": "Content",
     "announcementsEmpty": "No announcements",
     "newAnnouncement": "New announcement",
-    "editAnnouncement": "Edit announcement"
+    "editAnnouncement": "Edit announcement",
+    "required": "Required",
+    "invalidUid": "UID must be a number"
   },
   "moderate": {
     "menu": "Moderate",

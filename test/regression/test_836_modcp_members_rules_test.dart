@@ -524,6 +524,23 @@ void main() {
       expect((await edit('announcement_edit.html')).getRight().toNullable(), isA<ModcpWriteRefused>());
     });
 
+    test('the dates compared where the forum keeps them as sent', () {
+      final form = parseAnnouncementForm(parseHtmlDocument(_text('announcement_edit_after.html')), id: 5, uid: _uid)!;
+      bool holds(String start, String end) => form.holds(
+        subject: '第二則公告（改）',
+        type: AnnouncementType.text,
+        message: '改過的內容',
+        start: start,
+        end: end,
+        today: DateTime(2026, 11, 10),
+      );
+      expect(holds('2026-11-11', '2026-12-31'), isTrue);
+      expect(holds('2026-11-12', '2026-12-31'), isFalse);
+      expect(holds('2026-11-11', '2027-01-31'), isFalse);
+      // A start not after today, an end before the start: the forum sets its own.
+      expect(holds('2026-11-01', '2026-11-05'), isTrue);
+    });
+
     test('deleted: no longer listed', () async {
       final forum = _Forum({}, postAnswer: (_, _) => _ok(_text('announcement_delete_result.html')));
       final list = _announcements('announcement_add_result.html');
@@ -642,6 +659,36 @@ void main() {
       // Still listed by the fixture: told not done.
       expect(find.text(t.modcp.notDone(count: 1)), findsOneWidget);
       expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('rules not told saved: read again, what was typed kept', (tester) async {
+      final forum = _Forum(
+        {'op=editforum': 'rules_editable.html', 'op=editforum&fid=9': 'rules_editable.html'},
+        postAnswer: (_, _) => _ok(_text('rules_editable.html')),
+      );
+      await _pumpPage(tester, ForumRulesPage(repository: forum.repository()));
+      await tester.enterText(find.byKey(const ValueKey('modcp-rules')), '新的规则');
+      await tester.tap(find.byKey(const ValueKey('modcp-rules-save')));
+      await tester.pumpAndSettle();
+      expect(forum.posts, hasLength(1));
+      expect(find.text(t.moderate.batch.unknown), findsOneWidget);
+      // Read again by the forum's id, the text typed still there.
+      expect(forum.gets.last, endsWith('op=editforum&fid=9'));
+      expect(find.text('新的规则'), findsOneWidget);
+    });
+
+    testWidgets("a profile not saved (the panel's login): read again, what was typed kept", (tester) async {
+      final forum = _Forum(
+        {'op=edit&uid=101': 'member_edit.html'},
+        postAnswer: (_, _) => _ok(_data('member_edit_session_ended.json')),
+      );
+      await _pumpPage(tester, MemberEditPage(memberUid: 101, repository: forum.repository()));
+      await tester.enterText(find.byKey(const ValueKey('modcp-edit-signature')), '新签名');
+      await tester.tap(find.byKey(const ValueKey('modcp-edit-save')));
+      await tester.pumpAndSettle();
+      expect(forum.posts, hasLength(1));
+      expect(forum.gets, hasLength(2));
+      expect(find.text('新签名'), findsOneWidget);
     });
 
     testWidgets('locked rules: read only, the forum note, no saving', (tester) async {

@@ -37,6 +37,9 @@ class _ForumRulesPageState extends State<ForumRulesPage> {
 
   final _rules = TextEditingController();
 
+  /// The forum whose rules the editor holds (as read, or as typed since); 0 for none.
+  int _filled = 0;
+
   @override
   void initState() {
     super.initState();
@@ -62,7 +65,16 @@ class _ForumRulesPageState extends State<ForumRulesPage> {
         if (value.forums.isNotEmpty) {
           _forums = value.forums;
         }
-        _rules.text = value.rules;
+        if (value.fid > 0) {
+          // The forum the panel chose: asked by its id from now on.
+          _fid = value.fid;
+        }
+        // What was typed is kept when the same forum is read again (a save not done, the panel's login); locked rules
+        // are always the forum's.
+        if (value.fid != _filled || !value.editable) {
+          _rules.text = value.rules;
+          _filled = value.fid;
+        }
       }
     });
   }
@@ -106,7 +118,11 @@ class _ForumRulesPageState extends State<ForumRulesPage> {
     }
     setState(() => _sending = false);
     showSnackBar(context: context, message: modcpOutcomeText(context, outcome));
-    // What the forum keeps now (or its login when the session ended).
+    if (modcpDone(outcome)) {
+      // What the forum keeps now.
+      _filled = 0;
+    }
+    // Read again (its login when the session ended); what was typed stays unless it was saved.
     await _load();
   }
 

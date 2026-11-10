@@ -231,6 +231,9 @@ class _AnnouncementEditPageState extends State<AnnouncementEditPage> {
   /// The fields hold the form read (or what was typed since).
   bool _filled = false;
 
+  /// Saving was tried with a field left empty: the empty ones are marked.
+  bool _tried = false;
+
   @override
   void initState() {
     super.initState();
@@ -316,6 +319,7 @@ class _AnnouncementEditPageState extends State<AnnouncementEditPage> {
 
   Future<void> _save(AnnouncementForm form) async {
     if (_subject.text.trim().isEmpty || _message.text.trim().isEmpty) {
+      setState(() => _tried = true);
       return;
     }
     FocusScope.of(context).unfocus();
@@ -364,7 +368,10 @@ class _AnnouncementEditPageState extends State<AnnouncementEditPage> {
                   key: const ValueKey('modcp-announcement-subject'),
                   controller: _subject,
                   enabled: !_sending,
-                  decoration: InputDecoration(labelText: tr.subject),
+                  decoration: InputDecoration(
+                    labelText: tr.subject,
+                    errorText: _tried && _subject.text.trim().isEmpty ? tr.required : null,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 SegmentedButton<AnnouncementType>(
@@ -408,6 +415,7 @@ class _AnnouncementEditPageState extends State<AnnouncementEditPage> {
                   keyboardType: _type == AnnouncementType.link ? TextInputType.url : TextInputType.multiline,
                   decoration: InputDecoration(
                     labelText: _type == AnnouncementType.link ? tr.typeLink : tr.content,
+                    errorText: _tried && _message.text.trim().isEmpty ? tr.required : null,
                     border: const OutlineInputBorder(),
                   ),
                 ),

@@ -33,6 +33,7 @@ class _ModcpMembersPageState extends State<ModcpMembersPage> {
 
   final _query = TextEditingController();
   bool _byUid = false;
+  String? _queryError;
 
   /// The last query asked, asked again after a change.
   ModcpMemberQuery? _asked;
@@ -79,7 +80,11 @@ class _ModcpMembersPageState extends State<ModcpMembersPage> {
     }
     final uid = int.tryParse(text) ?? 0;
     if (_byUid && uid <= 0) {
+      setState(() => _queryError = context.t.modcp.invalidUid);
       return;
+    }
+    if (_queryError != null) {
+      setState(() => _queryError = null);
     }
     await _lookup(_byUid ? ModcpMemberQuery.uid(uid) : ModcpMemberQuery.name(text), menu);
   }
@@ -111,6 +116,10 @@ class _ModcpMembersPageState extends State<ModcpMembersPage> {
     });
   }
 
+  void _openIpBans() => unawaited(
+    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => IpBanPage(repository: widget.repository))),
+  );
+
   Future<void> _reload() async {
     final query = _asked;
     final menu = _ready;
@@ -132,11 +141,7 @@ class _ModcpMembersPageState extends State<ModcpMembersPage> {
               key: const ValueKey('modcp-ipban'),
               tooltip: tr.ipBan,
               icon: const Icon(Icons.public_off_outlined),
-              onPressed: () => unawaited(
-                Navigator.of(context).push(
-                  MaterialPageRoute<void>(builder: (_) => IpBanPage(repository: widget.repository)),
-                ),
-              ),
+              onPressed: _openIpBans,
             ),
         ],
       ),
@@ -153,7 +158,17 @@ class _ModcpMembersPageState extends State<ModcpMembersPage> {
   Widget _body(BuildContext context, ModcpMenu menu) {
     final tr = context.t.modcp;
     if (!menu.canBanMember && !menu.canEditMember) {
-      return AppStateView(icon: Icons.person_off_outlined, message: context.t.general.noPermission);
+      return AppStateView(
+        icon: Icons.person_off_outlined,
+        message: context.t.general.noPermission,
+        action: menu.canBanIp
+            ? FilledButton.tonal(
+                key: const ValueKey('modcp-ipban-open'),
+                onPressed: _openIpBans,
+                child: Text(tr.ipBan),
+              )
+            : null,
+      );
     }
     return AppCenteredList(
       builder: (context, padding, _) => ListView(
@@ -176,6 +191,7 @@ class _ModcpMembersPageState extends State<ModcpMembersPage> {
             onSubmitted: (_) => _search(),
             decoration: InputDecoration(
               labelText: _byUid ? tr.byUid : tr.byName,
+              errorText: _queryError,
               suffixIcon: IconButton(
                 key: const ValueKey('modcp-member-search'),
                 tooltip: tr.search,
@@ -485,6 +501,9 @@ class _MemberEditPageState extends State<MemberEditPage> {
   bool _clearAvatar = false;
   bool _sending = false;
 
+  /// The fields hold the window read (or what was typed since).
+  bool _filled = false;
+
   @override
   void initState() {
     super.initState();
@@ -514,7 +533,9 @@ class _MemberEditPageState extends State<MemberEditPage> {
         Right(value: ModcpRefused(:final message)) => Right(ModcpRefused(message)),
         Left(:final value) => Left(value),
       };
-      if (_answer case Right(value: ModcpReady(value: final form))) {
+      // Filled in once: read again after the panel's login, what was typed is kept.
+      if (_answer case Right(value: ModcpReady(value: final form)) when !_filled) {
+        _filled = true;
         _bio.text = form.bio;
         _signature.text = form.signature;
         _clearAvatar = false;

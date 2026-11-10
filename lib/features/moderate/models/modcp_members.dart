@@ -891,11 +891,39 @@ final class AnnouncementForm {
 
   /// Whether this form holds what was sent: the [subject], the [type] and the [message] as the forum keeps them (a link
   /// cut to its first line).
-  bool holds({required String subject, required AnnouncementType type, required String message}) =>
-      this.subject.trim() == subject.trim() &&
-      this.type == type &&
-      modcpNormalized(this.message) ==
-          modcpNormalized(type == AnnouncementType.link ? message.split('\n').first : message);
+  ///
+  /// The dates are compared only where the forum keeps them as sent: a start after [today] (an earlier one becomes
+  /// the moment saved), an end after both (an earlier one becomes 30 days after the start).
+  bool holds({
+    required String subject,
+    required AnnouncementType type,
+    required String message,
+    String start = '',
+    String end = '',
+    DateTime? today,
+  }) {
+    final now = today ?? DateTime.now();
+    final day = DateTime(now.year, now.month, now.day);
+    final sentStart = announcementDate(start);
+    final sentEnd = announcementDate(end);
+    final keptStart = sentStart != null && sentStart.isAfter(day);
+    final keptEnd = sentEnd != null && sentEnd.isAfter(day) && (sentStart == null || sentEnd.isAfter(sentStart));
+    return this.subject.trim() == subject.trim() &&
+        this.type == type &&
+        modcpNormalized(this.message) ==
+            modcpNormalized(type == AnnouncementType.link ? message.split('\n').first : message) &&
+        (!keptStart || announcementDate(this.start) == sentStart) &&
+        (!keptEnd || announcementDate(this.end) == sentEnd);
+  }
+}
+
+/// A date of an announcement as the forum prints it (`2026-12-1`) or the app sends it (`2026-12-01`); null for none.
+DateTime? announcementDate(String text) {
+  final match = RegExp(r'^(\d{4})-(\d{1,2})-(\d{1,2})$').firstMatch(text.trim());
+  if (match == null) {
+    return null;
+  }
+  return DateTime(int.parse(match.group(1)!), int.parse(match.group(2)!), int.parse(match.group(3)!));
 }
 
 AnnouncementForm? _announcementForm(uh.Element? form, {required int uid}) {

@@ -2152,7 +2152,9 @@
     "content": "内容",
     "announcementsEmpty": "没有公告",
     "newAnnouncement": "添加公告",
-    "editAnnouncement": "编辑公告"
+    "editAnnouncement": "编辑公告",
+    "required": "必填",
+    "invalidUid": "UID 须为数字"
   },
   "moderate": {
     "menu": "管理",

@@ -203,7 +203,7 @@ class ModcpPickCard extends StatelessWidget {
   /// Picked.
   final bool picked;
 
-  /// Pick or unpick; null when it can not be (no box shown when [onTap] is null too, else a box disabled).
+  /// Pick or unpick; null when it can not be (its box shown disabled).
   final ValueChanged<bool>? onChanged;
 
   /// Open it; picking it when null.

@@ -484,7 +484,7 @@ final class ModcpRepository with LoggerMixin {
         switch (await fetchAnnouncement(form.id).run()) {
           case Right(value: ModcpReady(:final value)):
             return right(
-              value.holds(subject: subject, type: type, message: message)
+              value.holds(subject: subject, type: type, message: message, start: start, end: end)
                   ? const ModcpWriteDone()
                   : const ModcpWriteRefused(''),
             );
