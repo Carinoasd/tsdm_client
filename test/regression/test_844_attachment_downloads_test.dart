@@ -261,9 +261,9 @@ void main() {
       expect(File(done.path!).readAsStringSync(), 'zip bytes');
       expect(done.received, 9);
       expect(done.finishedAt, isNotNull);
-      // No part file left.
+      // No part file left, nor its empty folder.
       expect(dir.listSync().map((e) => e.path.split('/').last), ['测试 歌曲.mp3']);
-      expect(parts.listSync(), isEmpty);
+      expect(parts.existsSync(), isFalse);
       expect(rowOf(31).single['status'], 'completed');
       expect(rows.containsKey(AttachmentDownloadStore.rowKeyOf(35)), isFalse);
     });
@@ -295,7 +295,7 @@ void main() {
       ]);
       // Nothing saved: no file, no part file.
       expect(dir.listSync(), isEmpty);
-      expect(parts.listSync(), isEmpty);
+      expect(parts.existsSync(), isFalse);
     });
 
     test('a redirect to the purchase fails with it', () async {
@@ -388,7 +388,7 @@ void main() {
       await manager.cancel(31, item.id);
       await _until(manager, () => manager.find(31, item.id)?.status == AttachmentDownloadStatus.cancelled);
       expect(dir.listSync(), isEmpty);
-      expect(parts.listSync(), isEmpty);
+      expect(parts.existsSync(), isFalse);
       expect(attachmentDownloadActionsOf(manager.find(31, item.id)!).first.kind, AttachmentDownloadActionKind.retry);
 
       fetcher.gate = null;

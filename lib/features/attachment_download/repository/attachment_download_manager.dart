@@ -315,7 +315,7 @@ final class AttachmentDownloadManager extends ChangeNotifier with LoggerMixin {
     }
   }
 
-  // The part files live apart from the downloads folder (shown as they are on Windows), in the app's temporary folder.
+  // The part files live in their own folder on the volume of the downloads, see `attachmentPartDirectory`.
   String _partPath(Directory dir, AttachmentDownload item) => p.join(dir.path, '${item.id}.part');
 
   Future<void> _deletePart(AttachmentDownload item) async {
@@ -359,6 +359,7 @@ final class AttachmentDownloadManager extends ChangeNotifier with LoggerMixin {
         } finally {
           _reserved.remove(target.path);
         }
+        await _dropIfEmpty(part.parent);
         item = item.copyWith(path: target.path, filename: p.basename(target.path));
       }
     } on DioException catch (e) {
@@ -382,6 +383,9 @@ final class AttachmentDownloadManager extends ChangeNotifier with LoggerMixin {
         if (part != null && part.existsSync()) {
           await part.delete();
         }
+        if (part != null) {
+          await _dropIfEmpty(part.parent);
+        }
       } on FileSystemException {
         // Left for the next load.
       }
@@ -393,6 +397,17 @@ final class AttachmentDownloadManager extends ChangeNotifier with LoggerMixin {
       notifyListeners();
     }
     _queue();
+  }
+
+  /// Delete the part folder [dir] once nothing is in it (no empty folder left in the user's downloads folder).
+  static Future<void> _dropIfEmpty(Directory dir) async {
+    try {
+      if (dir.existsSync() && dir.listSync().isEmpty) {
+        await dir.delete();
+      }
+    } on FileSystemException {
+      // Another download is writing there.
+    }
   }
 
   /// Move [part] to [target]: a rename, a copy when they are on different volumes (a copy cut short leaves nothing).
