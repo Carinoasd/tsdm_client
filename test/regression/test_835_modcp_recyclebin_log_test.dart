@@ -357,6 +357,19 @@ void main() {
       expect(outcome.getRight().toNullable(), isA<RecycleBinUnknown>());
     });
 
+    test('a later page that can not be read again, an item still listed before it: not done', () async {
+      final forum = _Forum({}, postAnswer: (_, _) => _ok(_withNextPage(_text('recyclebin_restore_result.html'))));
+      final bin = _bin('recyclebin_threads.html', RecycleBinKind.threads);
+      final outcome = await forum.repository().submitRecycleBin(bin, RecycleBinAction.delete, [
+        '9202823',
+        '1234567',
+      ], lastPage: 2).run();
+      expect(
+        outcome.getRight().toNullable(),
+        isA<RecycleBinNotDone>().having((e) => e.remaining, 'remaining', ['9202823']),
+      );
+    });
+
     test('the panel failing (its session ended: an error page) is a failure, never sent again', () async {
       final forum = _Forum({}, postAnswer: (_, _) => (statusCode: 503, data: 'System Error'));
       final bin = _bin('recyclebin_threads.html', RecycleBinKind.threads);

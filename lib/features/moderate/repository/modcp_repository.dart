@@ -180,8 +180,14 @@ final class ModcpRepository with LoggerMixin {
             case Left(value: IdentityChangedException()):
               return left(IdentityChangedException());
             default:
-              // Sent and answered, but what the later pages hold is not known: not told done.
-              return right(const RecycleBinUnknown());
+              // Sent and answered, but what the later pages hold is not known: not told done. Those still listed on
+              // the pages read were not done whatever the others hold.
+              final known = ids.where(listed.contains).toList();
+              return right(
+                known.isEmpty
+                    ? const RecycleBinUnknown()
+                    : RecycleBinNotDone(done: ids.length - known.length, remaining: known),
+              );
           }
         }
     }
