@@ -32,7 +32,10 @@ Future<ModerateSplitDone?> openSplitThreadPage(
 String splitFloorExcerpt(Post post) {
   final bbcode = post.messageBbcode;
   final text = bbcode != null
-      ? bbcode.replaceAll(RegExp(r'\[/?[a-zA-Z*][^\[\]]*\]'), ' ')
+      ? bbcode
+            // Somebody else's words, a picture's url: none of the floor's own text.
+            .replaceAll(RegExp(r'\[(quote|img)(=[^\]]*)?\][\s\S]*?\[/\1\]', caseSensitive: false), ' ')
+            .replaceAll(RegExp(r'\[/?[a-zA-Z*][^\[\]]*\]'), ' ')
       : parseHtmlDocument('<div>${post.data}</div>').body?.text ?? '';
   return text.replaceAll(RegExp(r'\s+'), ' ').trim();
 }
@@ -71,6 +74,9 @@ class _SplitThreadPageState extends State<SplitThreadPage> {
   int _totalPages = 1;
   bool _pageLoading = false;
   String? _pageError;
+
+  /// A floor loaded had no number (the web page's first floor may print 楼主): it is not listed, and stays.
+  bool _unnumbered = false;
 
   /// The floors picked, by number.
   final _picked = <int>{};
@@ -140,7 +146,9 @@ class _SplitThreadPageState extends State<SplitThreadPage> {
           for (final post in info.postList) {
             // A floor without a number can not be named to the forum; a floor seen on an earlier page (replies
             // posted meanwhile push floors onward) is listed once.
-            if ((post.postFloor ?? 0) > 0 && !_floors.any((e) => e.postID == post.postID)) {
+            if ((post.postFloor ?? 0) <= 0) {
+              _unnumbered = true;
+            } else if (!_floors.any((e) => e.postID == post.postID)) {
               _floors.add(post);
             }
           }
@@ -154,7 +162,7 @@ class _SplitThreadPageState extends State<SplitThreadPage> {
   }
 
   /// Every floor of the thread would be split off: the forum takes it and leaves the thread without a floor.
-  bool get _takesEveryFloor => !_hasMore && _floors.every((e) => _picked.contains(e.postFloor));
+  bool get _takesEveryFloor => !_hasMore && !_unnumbered && _floors.every((e) => _picked.contains(e.postFloor));
 
   bool get _canSplit => _form != null && _picked.isNotEmpty && !_takesEveryFloor;
 

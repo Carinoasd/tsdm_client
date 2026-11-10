@@ -480,13 +480,15 @@ class _ModerateDialogState extends State<ModerateDialog> {
     _mergeTimer?.cancel();
     // Whatever is on its way is for another thread.
     _mergeAsked++;
+    // The forum merges another thread only: this one is not asked.
+    final self = tid == widget.tid;
     setState(() {
       _mergeTid = tid;
       _mergeThread = null;
-      _mergeError = null;
-      _mergeLoading = tid != null;
+      _mergeError = self ? context.t.moderate.mergeSelf : null;
+      _mergeLoading = tid != null && !self;
     });
-    if (tid != null) {
+    if (tid != null && !self) {
       _mergeTimer = Timer(const Duration(milliseconds: 400), () => _lookUpMergeThread(tid));
     }
   }
@@ -848,11 +850,12 @@ class _ModerateDialogState extends State<ModerateDialog> {
               Expanded(
                 child: SelectableText(_mergeError!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
               ),
-              IconButton(
-                icon: const Icon(Icons.refresh),
-                tooltip: context.t.general.retry,
-                onPressed: _sending || _mergeTid == null ? null : () => _lookUpMergeThread(_mergeTid!),
-              ),
+              if (_mergeTid != widget.tid)
+                IconButton(
+                  icon: const Icon(Icons.refresh),
+                  tooltip: context.t.general.retry,
+                  onPressed: _sending || _mergeTid == null ? null : () => _lookUpMergeThread(_mergeTid!),
+                ),
             ],
           ),
         ),

@@ -2188,6 +2188,7 @@
     "merge": "合并主题",
     "split": "分割主题",
     "mergeThread": "主题 ID 或链接",
+    "mergeSelf": "请选择其他主题进行合并",
     "splitSubject": "新主题标题",
     "openNewThread": "打开新主题",
     "copyTo": "目标版块",

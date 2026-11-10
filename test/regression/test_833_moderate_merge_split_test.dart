@@ -84,7 +84,7 @@ ThreadPageInfo _threadPage(
       {
         'pid': pid,
         'position': floor,
-        'first': floor == 1 ? 1 : 0,
+        'first': floor <= 1 ? 1 : 0,
         'authorid': 40 + floor,
         'author': author,
         'dateline': 1700000000 + floor,
@@ -341,6 +341,16 @@ void main() {
     test('the floor shown without its markup', () {
       final page = _threadPage([(1, 101, '甲', '首楼[b]加粗[/b]\n[url=https://forum.test]链接[/url]  文字')]);
       expect(splitFloorExcerpt(page.postList.single), '首楼 加粗 链接 文字');
+      // A quote and a picture are none of the floor's own text.
+      final quoted = _threadPage([
+        (
+          1,
+          101,
+          '甲',
+          '[quote]别人说的[/quote]我的回复[img]https://forum.test/a.png[/img][IMG=10,10]https://forum.test/b.png[/IMG]',
+        ),
+      ]);
+      expect(splitFloorExcerpt(quoted.postList.single), '我的回复');
     });
   });
 
@@ -411,6 +421,22 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('先前的主题'), findsNothing);
       expect(find.text('后来的主题'), findsOneWidget);
+    });
+
+    testWidgets('this thread itself: said so, not looked up, nothing to send', (tester) async {
+      final asked = <(String, int)>[];
+      final repo = _repo(
+        _data('window_merge.json'),
+        asked: asked,
+        pages: (tid, page) async => right(_threadPage([(1, 201, '乙', '本帖')], tid: tid)),
+      );
+      await _openDialog(tester, ModerateOperation.merge, repo);
+      await tester.enterText(find.byType(TextField).first, _tid);
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pumpAndSettle();
+      expect(find.text(t.moderate.mergeSelf), findsOneWidget);
+      expect(asked, isEmpty);
+      expect(tester.widget<TextButton>(find.widgetWithText(TextButton, t.general.ok)).onPressed, isNull);
     });
 
     testWidgets('a thread the forum does not serve: its words, nothing to send', (tester) async {
@@ -533,6 +559,18 @@ void main() {
       await tester.tap(find.widgetWithText(CheckboxListTile, '乙'));
       await tester.pumpAndSettle();
       expect(tester.widget<TextButton>(ok).onPressed, isNotNull);
+    });
+
+    testWidgets('a first floor without a number stays: every numbered floor may go', (tester) async {
+      final repo = _repo(
+        _data('window_split.json'),
+        pages: (tid, page) async => right(_threadPage([(0, 101, '甲', '楼主'), (2, 102, '乙', '第二楼')])),
+      );
+      await open(tester, repo);
+      expect(find.byType(CheckboxListTile), findsOneWidget);
+      await tester.tap(find.widgetWithText(CheckboxListTile, '乙'));
+      await tester.pumpAndSettle();
+      expect(tester.widget<TextButton>(find.widgetWithText(TextButton, t.general.ok)).onPressed, isNotNull);
     });
 
     testWidgets('refused by the forum: its words, the title kept', (tester) async {

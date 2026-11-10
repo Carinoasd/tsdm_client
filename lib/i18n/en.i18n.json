@@ -2188,6 +2188,7 @@
     "merge": "Merge thread",
     "split": "Split thread",
     "mergeThread": "Thread ID or link",
+    "mergeSelf": "Pick another thread",
     "splitSubject": "New thread title",
     "openNewThread": "Open new thread",
     "copyTo": "Copy to",
