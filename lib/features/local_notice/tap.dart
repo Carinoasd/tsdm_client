@@ -9,9 +9,8 @@ import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
-import 'package:tsdm_client/features/local_draft/models/local_draft.dart';
 import 'package:tsdm_client/features/local_draft/repository/local_draft_store.dart';
-import 'package:tsdm_client/features/local_notice/direct_reply.dart';
+import 'package:tsdm_client/features/local_notice/direct_reply_drafts.dart';
 import 'package:tsdm_client/features/local_notice/keys.dart';
 import 'package:tsdm_client/features/multi_user/bloc/switch_user_bloc.dart';
 import 'package:tsdm_client/features/multi_user/utils/switch_account.dart';
@@ -217,8 +216,9 @@ Future<({LocalNoticeAccountStep step, String? top, LocalNoticeTapAction? action}
   const notOpened = (step: LocalNoticeAccountStep.notSwitched, top: null, action: null);
   if (uid != null && target != null) {
     // A reply typed in a notification that was not sent: its text is the account's draft of the floor or the
-    // conversation, whatever is opened next.
-    await keepDirectReplyDraft(uid, target);
+    // conversation, whatever is opened next. Kept once: the failing isolate wrote it down, and it may have been moved
+    // into the drafts already ([keepDirectReplyDraftOfTap]).
+    await keepDirectReplyDraftOfTap(uid, target);
     if (!context.mounted) {
       return notOpened;
     }
@@ -395,7 +395,9 @@ bool openLocalNoticeTarget(BuildContext context, LocalNoticeTarget target) {
 }
 
 /// Keep the text of a reply typed in a notification that was not sent ([LocalNoticeTarget.draft]) as the local draft
-/// of account [uid] for the floor or the conversation of [target], so the editor opened next offers it.
+/// of account [uid] for the floor or the conversation of [target], so the editor opened next offers it: the text of
+/// the payload alone ([keepFailedReplyDraft]). A tap goes through [keepDirectReplyDraftOfTap], which keeps the failure
+/// the failing isolate wrote down instead, and nothing when that one was kept already.
 ///
 /// Written here, in the app's isolate, and not by the isolate that tried to send it: the app's draft store keeps the
 /// drafts it read in memory and would write over a file changed behind it. A draft of the same target holding other
@@ -406,34 +408,14 @@ Future<void> keepDirectReplyDraft(int uid, LocalNoticeTarget target, {LocalDraft
   if (draft == null || drafts == null) {
     return;
   }
-  final tid = target.tid;
-  final pid = target.pid;
-  final peer = target.peerUid;
-  final LocalDraftKey key;
-  if (tid != null && pid != null) {
-    key = LocalDraftKey.floorReply('$tid', '$pid');
-  } else if (peer != null) {
-    key = LocalDraftKey.message('$peer');
-  } else {
-    return;
-  }
-  final at = now ?? DateTime.now();
-  final existing = await drafts.load(uid, key);
-  if (existing != null) {
-    if (existing.body == draft) {
-      return;
-    }
-    drafts.save(uid, existing.withKey(key.backupAt(existing.updatedAt.millisecondsSinceEpoch)));
-  }
-  drafts.save(
+  await keepFailedReplyDraft(
+    drafts,
     uid,
-    LocalDraft(
-      key: key,
-      body: draft,
-      updatedAt: at,
-      tid: tid == null ? null : '$tid',
-      replyAction: tid != null && pid != null ? directReplyActionUrl(tid: tid, pid: pid) : null,
-      maybeSent: target.maybeSent,
-    ),
+    tid: target.tid,
+    pid: target.pid,
+    peer: target.peerUid,
+    text: draft,
+    at: now ?? DateTime.now(),
+    maybeSent: target.maybeSent,
   );
 }

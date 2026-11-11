@@ -555,7 +555,11 @@ final class DirectReplyRequest {
 
   /// Payload of the notification telling it was not sent: as [payload], carrying the text ([LocalNoticeTarget.draft])
   /// so a tap keeps it as the draft of the floor or the conversation.
-  String get failedPayload => LocalNoticeKeys.withTarget(
+  String get failedPayload => failedPayloadOf();
+
+  /// [failedPayload] naming the failure [draftEvent] the text was kept under for the app
+  /// ([LocalNoticeTarget.draftEvent]); [maybeSent] for a reply that may have reached the forum.
+  String failedPayloadOf({String? draftEvent, bool maybeSent = false}) => LocalNoticeKeys.withTarget(
     LocalNoticeKeys.openNotificationOf(uid),
     LocalNoticeTarget(
       nid: target.nid,
@@ -563,21 +567,13 @@ final class DirectReplyRequest {
       pid: target.pid,
       peerUid: target.peerUid,
       draft: message,
+      maybeSent: maybeSent,
+      draftEvent: draftEvent,
     ),
   );
 
   /// [failedPayload] of a reply that may have reached the forum: the draft kept from it says so.
-  String get unconfirmedPayload => LocalNoticeKeys.withTarget(
-    LocalNoticeKeys.openNotificationOf(uid),
-    LocalNoticeTarget(
-      nid: target.nid,
-      tid: target.tid,
-      pid: target.pid,
-      peerUid: target.peerUid,
-      draft: message,
-      maybeSent: true,
-    ),
-  );
+  String get unconfirmedPayload => failedPayloadOf(maybeSent: true);
 }
 
 /// How a direct reply went.
@@ -723,11 +719,14 @@ typedef DirectReplyOutcomeContent = ({int id, String title, String body, String 
 /// Sent: "已回复" and the text, quiet, gone after a few seconds; a tap opens the floor or the conversation. Not sent:
 /// the reason (the forum's words) under "回复未发送", and a tap opens the floor's reply page or the conversation with the
 /// text kept as its draft.
+///
+/// [draftEvent] is the id the text of a reply not sent was kept under for the app ([LocalNoticeTarget.draftEvent]).
 DirectReplyOutcomeContent directReplyOutcomeContentOf(
   Translations translations,
   DirectReplyRequest request,
-  DirectReplyOutcome outcome,
-) {
+  DirectReplyOutcome outcome, {
+  String? draftEvent,
+}) {
   final tr = translations.localNotification.directReply;
   return switch (outcome) {
     DirectReplySent() => (
@@ -741,7 +740,7 @@ DirectReplyOutcomeContent directReplyOutcomeContentOf(
       id: request.resultNoticeId,
       title: tr.failed,
       body: reason,
-      payload: request.failedPayload,
+      payload: request.failedPayloadOf(draftEvent: draftEvent),
       sent: false,
     ),
     // The words of the chat page for a message whose result is unknown; the draft kept from it says it may be sent.
@@ -749,7 +748,7 @@ DirectReplyOutcomeContent directReplyOutcomeContentOf(
       id: request.resultNoticeId,
       title: tr.unconfirmed,
       body: translations.chatPage.maybeSent,
-      payload: request.unconfirmedPayload,
+      payload: request.failedPayloadOf(draftEvent: draftEvent, maybeSent: true),
       sent: false,
     ),
   };
@@ -773,14 +772,15 @@ NoticeCategory _outcomeCategoryOf(DirectReplyRequest request) =>
 const directReplySentShownFor = Duration(seconds: 4);
 
 /// Post the notification telling [outcome] of [request] through [plugin], in the channel of replies or of private
-/// messages.
+/// messages; [draftEvent] as for [directReplyOutcomeContentOf].
 Future<void> showDirectReplyOutcome({
   required FlutterLocalNotificationsPlugin plugin,
   required Translations translations,
   required DirectReplyRequest request,
   required DirectReplyOutcome outcome,
+  String? draftEvent,
 }) async {
-  final content = directReplyOutcomeContentOf(translations, request, outcome);
+  final content = directReplyOutcomeContentOf(translations, request, outcome, draftEvent: draftEvent);
   final category = _outcomeCategoryOf(request);
   await plugin.show(
     id: content.id,
