@@ -1149,6 +1149,7 @@
   "threadPage": {
     "title": "帖子",
     "sendReplyHint": "回复",
+    "floorReplyHint": "回复楼层",
     "multiQuote": {
       "selected": "已选 $count/$max",
       "reply": "引用回复",
