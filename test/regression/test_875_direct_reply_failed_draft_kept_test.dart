@@ -84,7 +84,8 @@ void main() {
     _tr = await AppLocale.zhCn.build();
   });
 
-  // First of the file, before any group sets the log up: the failing isolate whose log could not be set up.
+  // First of the file, before any group sets the log up: the failing isolate whose log could not be set up. Relies on
+  // the order of declaration (no randomized ordering).
   test('no log set up and a directory that can not be written: no id, never an error', () async {
     expect(() => talker, throwsA(isA<Error>()), reason: 'not set up yet in this test');
     final file = File('${dir.path}/not_a_dir')..writeAsStringSync('');

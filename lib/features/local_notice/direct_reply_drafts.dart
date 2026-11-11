@@ -446,7 +446,9 @@ Future<void> keepDirectReplyDraftOfTap(
     at: now ?? DateTime.now(),
     maybeSent: target.maybeSent,
   );
-  // Its file, if it is still there (it could not be moved now), is not moved again later.
+  // Its file, if it is still there (it could not be moved now), is not moved again later. Outside the queue of the
+  // collects on purpose: one moving the same file meanwhile keeps the same text, which [keepFailedReplyDraft] leaves
+  // alone; changing that rule needs this marked inside the queue.
   await box?.markHandled(event!);
 }
 
