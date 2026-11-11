@@ -121,12 +121,14 @@ class MainActivityImpl: AudioServiceFragmentActivity() {
      *
      * * the task was swiped away from the recents while the background service or the player kept the process, then
      *   the app is opened again;
-     * * the process was started without an activity (the background service at boot or after an update, the reply
-     *   typed in a notification): every engine made in the process brings the audio service's plugin, which binds
-     *   the audio service, which makes this engine and runs `main()` in it.
+     * * the audio service was created without an activity and made this engine: bound by the Bluetooth stack when it
+     *   starts, or by the audio service's plugin of another engine of the process (the background service at boot or
+     *   after an update, the reply typed in a notification).
      *
-     * That Dart asked for its launch link, share, shortcut and notification long ago (with no activity nobody answered)
-     * and will not ask again: what this activity was launched with is pushed to it, see [pushLaunchToRunningDart].
+     * In the first case that Dart asked for its launch link, share, shortcut and notification long ago and will not
+     * ask again: what this activity was launched with is pushed to it, see [pushLaunchToRunningDart]. In the second
+     * its `main()` waits for this activity (`waitForAndroidActivity` in `lib/utils/android_activity.dart`) and does
+     * not listen yet: what it does not take is kept for the questions it asks once it starts.
      */
     private var engineRanBefore = false
 
