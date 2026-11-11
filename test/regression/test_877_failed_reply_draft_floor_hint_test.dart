@@ -273,6 +273,26 @@ void main() {
     });
   }
 
+  testWidgets('the floor picked on the page first: its hint, not asked again', (tester) async {
+    await pumpBar(tester, _failedReply(hint: '回覆樓層'), onPage: {});
+    controller
+      ..replyAction = _floorAction
+      ..setHintText('回覆 Bob #2');
+    await _settle(tester);
+    expect(controller.draftKey, 'floor:9600001:9700002');
+    final inSheet = find.descendant(
+      of: find.byType(BottomSheet),
+      matching: find.byKey(const ValueKey('draft-offer-restore')),
+    );
+    expect(inSheet, findsOneWidget, reason: 'its own draft offered in the editor');
+    await tester.tap(inSheet);
+    await _settle(tester);
+    expect(find.text('回覆 Bob #2'), findsOneWidget);
+    expect(find.text('回覆樓層'), findsNothing);
+    expect(await storedHint(tester), '回覆 Bob #2');
+    await _unpump(tester);
+  });
+
   testWidgets('no page to ask (a notice): the generic hint', (tester) async {
     await pumpBar(tester, _failedReply());
     await restore(tester);
