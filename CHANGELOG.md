@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [1.54.1] - 2026-11-12
+
+### Fixed
+
+- Android：开机后或 App 更新后第一次打开，首页显示「更新失败」、像是没有登录，要按重试才恢复（1.53.0 起）。
+- Android 通知栏直接回复没有发出去时，输入的文字当下就存成草稿；把「回复未发送」的通知划掉或清除，文字也不会丢。
+
 ## [1.54.0] - 2026-11-10
 
 ### Added
