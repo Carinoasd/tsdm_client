@@ -64,7 +64,7 @@ void main() {
       expect(result, isNull);
       expect(toldWaiting, 1);
       await tester.pump(const Duration(milliseconds: 500));
-      expect(asked, 1, reason: 'asked again on a change or every two seconds, not in between');
+      expect(asked, 1, reason: 'asked again on a change or two seconds later, not in between');
 
       there = true;
       lifecycle.add(null);
@@ -130,15 +130,46 @@ void main() {
       lifecycle.add(null);
       await tester.pump();
       await tester.pump(const Duration(seconds: 2));
+      expect(asked, 3);
       // Gone to the background again before the third.
       inFront = false;
-      await tester.pump(const Duration(seconds: 2));
+      lifecycle.add(null);
+      await tester.pump();
       inFront = true;
-      await tester.pump(const Duration(seconds: 2));
+      lifecycle.add(null);
+      await tester.pump();
       await tester.pump(const Duration(seconds: 2));
       expect(result, isNull);
       await tester.pump(const Duration(seconds: 2));
       expect(result?.answered, isFalse);
+    });
+
+    testWidgets('with nothing in front it asks less and less often, and at once again when the lifecycle changes', (
+      tester,
+    ) async {
+      start();
+      await tester.pump();
+      // After 2, 4, 8 and 16 seconds, then every 30.
+      await tester.pump(const Duration(seconds: 14));
+      expect(asked, 4);
+      await tester.pump(const Duration(seconds: 16));
+      expect(asked, 5);
+      await tester.pump(const Duration(seconds: 29));
+      expect(asked, 5);
+      await tester.pump(const Duration(seconds: 1));
+      expect(asked, 6);
+      await tester.pump(const Duration(hours: 1));
+      expect(asked, 6 + 120, reason: 'two questions a minute, days long if it takes that');
+
+      lifecycle.add(null);
+      await tester.pump();
+      expect(asked, 6 + 120 + 1);
+      // From the short time again.
+      await tester.pump(const Duration(seconds: 4));
+      expect(asked, 6 + 120 + 2);
+      there = true;
+      await tester.pump(const Duration(seconds: 30));
+      expect(result?.answered, isTrue);
     });
   });
 
@@ -169,14 +200,21 @@ void main() {
     });
   });
 
+  // These read the sources: what they guard cannot run in a test. A failure after a refactoring that keeps the
+  // behaviour told in each `reason` means the test is to follow the new text, not the other way round.
   group('the sources', () {
     test('main() waits before it starts anything of the app', () {
       final source = File('lib/main.dart').readAsStringSync();
-      final boot = source.substring(source.indexOf('Future<void> _boot(List<String> args) async {'));
+      final start = source.indexOf('Future<void> _boot(List<String> args) async {');
+      expect(start, isNonNegative, reason: 'the body of main() is read from _boot');
+      final boot = source.substring(start);
       final wait = boot.indexOf('await waitForAndroidActivity();');
-      expect(wait, isNonNegative);
-      // The log first: the wait is told in it.
-      expect(boot.indexOf('await initLogger();'), lessThan(wait));
+      expect(wait, isNonNegative, reason: 'main() must wait for the Android activity before it starts the app');
+      expect(
+        boot.indexOf('await initLogger();'),
+        allOf(isNonNegative, lessThan(wait)),
+        reason: 'the log is opened first: the wait is told in it',
+      );
       for (final later in [
         'await initProviders();',
         'await AppLockCubit.load();',
@@ -185,13 +223,18 @@ void main() {
         'await initAudioPlayer();',
         'runApp(',
       ]) {
-        expect(boot.indexOf(later), greaterThan(wait), reason: '$later needs the activity or follows what does');
+        expect(
+          boot.indexOf(later),
+          greaterThan(wait),
+          reason: '$later calls the channels of the activity, or follows what does: after the wait',
+        );
       }
     });
 
     test('the activity sets the main channel up when it attaches, and answers the question asked', () {
       final source = File('android/app/src/main/kotlin/kzs/th000/tsdm_client/MainActivity.kt').readAsStringSync();
       final start = source.indexOf('override fun configureFlutterEngine(flutterEngine: FlutterEngine)');
+      expect(start, isNonNegative, reason: 'the activity configures its engine in configureFlutterEngine');
       final configure = source.substring(start, source.indexOf('\n    }\n', start));
       expect(
         configure,
@@ -201,10 +244,23 @@ void main() {
             r'it\.setMethodCallHandler \{ call, result -> handleMainChannelCall\(call, result\) \}',
           ),
         ),
+        reason:
+            'the wait ends when the main channel answers: its handler must be set when the activity attaches to the '
+            'engine (before its lifecycle is told), nowhere that runs without an activity',
       );
-      expect(source, contains('const val MAIN_CHANNEL = "kzs.th000.tsdm_client/mainChannel"'));
-      expect(source, contains('const val IS_ACTIVE_NETWORK_METERED = "isActiveNetworkMetered"'));
-      expect(source, contains('IS_ACTIVE_NETWORK_METERED -> {'));
+      expect(
+        source,
+        contains('const val MAIN_CHANNEL = "kzs.th000.tsdm_client/mainChannel"'),
+        reason: 'the channel asked by androidActivityAttached()',
+      );
+      expect(
+        source,
+        allOf(
+          contains('const val IS_ACTIVE_NETWORK_METERED = "isActiveNetworkMetered"'),
+          contains('IS_ACTIVE_NETWORK_METERED -> {'),
+        ),
+        reason: 'the method asked by androidActivityAttached(): answered, with no effect',
+      );
     });
   });
 }
