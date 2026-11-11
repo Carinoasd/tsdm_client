@@ -222,6 +222,16 @@ Future<void> _handle(NotificationResponse response) async {
 /// have been), and wake the app if it runs: the id it was kept under, null when there was nothing to keep or it could
 /// not be written.
 Future<String?> _keepForApp(DirectReplyRequest request, DirectReplyOutcome outcome) async {
+  try {
+    return await _keepForAppOrThrow(request, outcome);
+  } on Object catch (e) {
+    // The notification telling it was not sent comes first: it carries the text all the same.
+    debugPrint('direct reply: the text was not kept for the app: $e');
+    return null;
+  }
+}
+
+Future<String?> _keepForAppOrThrow(DirectReplyRequest request, DirectReplyOutcome outcome) async {
   final maybeSent = switch (outcome) {
     DirectReplySent() => null,
     DirectReplyNotSent() => false,

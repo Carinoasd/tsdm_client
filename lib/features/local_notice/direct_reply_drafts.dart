@@ -102,7 +102,7 @@ final class DirectReplyDraftInbox {
       await temp.rename(file.path);
       return id;
     } on Object catch (e) {
-      talker.warning('direct reply: the text was not kept for the app: $e');
+      _warn('direct reply: the text was not kept for the app: $e');
       return null;
     }
   }
@@ -115,8 +115,25 @@ final class DirectReplyDraftInbox {
     try {
       return _file(await _directory(), '$id.done').existsSync();
     } on Object catch (e) {
-      talker.warning('direct reply: inbox not read: $e');
+      _warn('direct reply: inbox not read: $e');
       return false;
+    }
+  }
+
+  /// Mark the failure [id] as kept ([handled]): its text was kept from the payload of a tap while its file could not be
+  /// moved, the next [collect] deletes the file instead of moving it once more (a draft sent or deleted since would
+  /// come back). Never throws.
+  Future<void> markHandled(String id) async {
+    if (!validId(id)) {
+      return;
+    }
+    try {
+      final dir = await _directory();
+      if (dir.existsSync()) {
+        await _file(dir, '$id.done').writeAsString('', flush: true);
+      }
+    } on Object catch (e) {
+      _warn('direct reply: inbox not marked: $e');
     }
   }
 
@@ -135,7 +152,7 @@ final class DirectReplyDraftInbox {
       final oldest = now.subtract(keepFor);
       final pending = <_Pending>[];
       final done = <String>{};
-      final files = dir.listSync().whereType<File>().toList();
+      final files = await dir.list().where((e) => e is File).cast<File>().toList();
       for (final file in files) {
         final name = file.uri.pathSegments.last;
         if (name.endsWith('.done')) {
@@ -169,7 +186,7 @@ final class DirectReplyDraftInbox {
           }
           final item = validId(id) ? _Pending.parse(id, await file.readAsString()) : null;
           if (item == null) {
-            talker.warning('direct reply: inbox file not read, deleted');
+            _warn('direct reply: inbox file not read, deleted');
             await file.delete();
             continue;
           }
@@ -179,7 +196,7 @@ final class DirectReplyDraftInbox {
           }
           pending.add(item..file = file);
         } on Object catch (e) {
-          talker.warning('direct reply: inbox file skipped: $e');
+          _warn('direct reply: inbox file skipped: $e');
         }
       }
       pending.sort((a, b) => a.at.compareTo(b.at));
@@ -194,7 +211,7 @@ final class DirectReplyDraftInbox {
       try {
         onDevice = await accounts?.call();
       } on Object catch (e) {
-        talker.warning('direct reply: accounts not read, inbox left for later: $e');
+        _warn('direct reply: accounts not read, inbox left for later: $e');
         return moved;
       }
       for (final item in pending) {
@@ -216,11 +233,11 @@ final class DirectReplyDraftInbox {
           await _file(dir, '${item.id}.done').writeAsString('', flush: true);
           await item.file.delete();
         } on Object catch (e) {
-          talker.warning('direct reply: inbox item not moved, left for later: $e');
+          _warn('direct reply: inbox item not moved, left for later: $e');
         }
       }
     } on Object catch (e) {
-      talker.warning('direct reply: inbox not read: $e');
+      _warn('direct reply: inbox not read: $e');
     }
     return moved;
   }
@@ -337,6 +354,20 @@ Future<void> keepFailedReplyDraft(
   await store.load(uid, key);
 }
 
+/// Log [message] without ever throwing: in the failing isolate the log may be what could not be set up (`talker` is
+/// then not set), and the notification telling the reply was not sent must still be posted.
+void _warn(String message, {bool info = false}) {
+  try {
+    if (info) {
+      talker.info(message);
+    } else {
+      talker.warning(message);
+    }
+  } on Object {
+    debugPrint(message);
+  }
+}
+
 /// The end of the queue of [collectDirectReplyDrafts]: one at a time in the app's isolate.
 Future<void> _collecting = Future<void>.value();
 
@@ -357,11 +388,11 @@ Future<List<String>> collectDirectReplyDrafts({
     try {
       final moved = await (inbox ?? DirectReplyDraftInbox()).collect(drafts, accounts: accounts ?? _savedAccounts);
       if (moved.isNotEmpty) {
-        talker.info('direct reply: ${moved.length} unsent text(s) kept as drafts');
+        _warn('direct reply: ${moved.length} unsent text(s) kept as drafts', info: true);
       }
       done.complete(moved);
     } on Object catch (e, st) {
-      talker.handle(e, st, 'direct reply: collecting the unsent texts failed');
+      _warn('direct reply: collecting the unsent texts failed: $e\n$st');
       done.complete(const []);
     }
   });
@@ -391,12 +422,15 @@ Future<void> keepDirectReplyDraftOfTap(
     return;
   }
   final event = target.draftEvent;
+  final DirectReplyDraftInbox? box;
   if (event != null && DirectReplyDraftInbox.validId(event) && event.startsWith('$uid-')) {
-    final box = inbox ?? DirectReplyDraftInbox();
+    box = inbox ?? DirectReplyDraftInbox();
     await collectDirectReplyDrafts(inbox: box, store: store, accounts: accounts);
     if (await box.handled(event)) {
       return;
     }
+  } else {
+    box = null;
   }
   final drafts = store ?? LocalDraftStore.app;
   if (drafts == null) {
@@ -412,6 +446,8 @@ Future<void> keepDirectReplyDraftOfTap(
     at: now ?? DateTime.now(),
     maybeSent: target.maybeSent,
   );
+  // Its file, if it is still there (it could not be moved now), is not moved again later.
+  await box?.markHandled(event!);
 }
 
 /// Wake the app's isolate ([watchDirectReplyDrafts]) after a failure was kept: the app in front sees no resume. Nothing
@@ -420,7 +456,7 @@ void tellAppOfDirectReplyDraft(String id) {
   try {
     IsolateNameServer.lookupPortByName(DirectReplyDraftInbox.portName)?.send(id);
   } on Object catch (e) {
-    talker.warning('direct reply: the app was not told of the kept text: $e');
+    _warn('direct reply: the app was not told of the kept text: $e');
   }
 }
 
@@ -441,7 +477,7 @@ void watchDirectReplyDrafts() {
     port.listen((_) => unawaited(collectDirectReplyDrafts()));
     _port = port;
   } on Object catch (e) {
-    talker.warning('direct reply: no port for the kept texts, collected at resume only: $e');
+    _warn('direct reply: no port for the kept texts, collected at resume only: $e');
   }
   unawaited(collectDirectReplyDrafts());
 }

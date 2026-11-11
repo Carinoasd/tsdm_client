@@ -402,6 +402,7 @@ bool openLocalNoticeTarget(BuildContext context, LocalNoticeTarget target) {
 /// Written here, in the app's isolate, and not by the isolate that tried to send it: the app's draft store keeps the
 /// drafts it read in memory and would write over a file changed behind it. A draft of the same target holding other
 /// text is moved aside first (listed, never lost). Nothing without a draft, a store or a target.
+@visibleForTesting
 Future<void> keepDirectReplyDraft(int uid, LocalNoticeTarget target, {LocalDraftStore? store, DateTime? now}) async {
   final draft = target.draft;
   final drafts = store ?? LocalDraftStore.app;
