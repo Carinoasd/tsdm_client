@@ -25,6 +25,7 @@ import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/providers.dart';
 import 'package:tsdm_client/shared/providers/proxy_provider/proxy_provider.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/models/database/connection/native.dart';
+import 'package:tsdm_client/utils/android_activity.dart';
 import 'package:tsdm_client/utils/app_language.dart';
 import 'package:tsdm_client/utils/platform.dart';
 import 'package:tsdm_client/utils/tray_helper.dart';
@@ -38,6 +39,10 @@ Future<void> _boot(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await initLogger();
+
+  // Android can start the engine with no activity (the audio service made it): nothing below runs before one is
+  // there, its channels are needed from the first request on.
+  await waitForAndroidActivity();
 
   // Widget errors never reach the zone handler: the framework catches them itself and, in a release build, shows a
   // plain grey box in place of the failing subtree with nothing in the exported log. Record them so a report of

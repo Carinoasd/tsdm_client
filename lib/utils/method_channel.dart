@@ -36,6 +36,21 @@ const _methodIsActiveNetworkMetered = 'isActiveNetworkMetered';
 Future<bool> androidActiveNetworkMetered() async =>
     await _mainChannel.invokeMethod<bool>(_methodIsActiveNetworkMetered) ?? true;
 
+/// Whether the Android activity set the main channel up, which it does when it attaches to the engine
+/// (`MainActivityImpl.configureFlutterEngine`): without an activity nothing answers on it. See
+/// `waitForAndroidActivity`.
+Future<bool> androidActivityAttached() async {
+  try {
+    await _mainChannel.invokeMethod<bool>(_methodIsActiveNetworkMetered);
+    return true;
+  } on MissingPluginException {
+    return false;
+  } on PlatformException {
+    // An answer, whatever it says.
+    return true;
+  }
+}
+
 const _methodNetworkMeteredChanged = 'networkMeteredChanged';
 
 /// Let Android tell [onChanged] whether the default network is metered each time it changes (a `NetworkCallback` of
