@@ -16,7 +16,7 @@
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/Carinoasd/tsdm_client" alt="license"/></a>
 </p>
 
-## Latest update: 1.54.0 (2026-11-10)
+## Latest update: 1.54.1 (2026-11-12)
 
 - Downloads: attachments download inside the app, with a download manager on the Me page (progress, cancel, retry, open, share).
 - Threads: support/oppose a thread, floor comments, collections, share as QR code; custom emoji packs in the reply box.
@@ -25,9 +25,10 @@
 - Home and Me: members online, site statistics.
 - Account: password and security, privacy settings; sign-up and password recovery from the login page.
 - Moderators: highlight, recommend, stamp, merge, split and more per thread; moderator panel (moderation queue, recycle bin, moderator log, member management, forum rules, announcements).
-- Android build number 168, installs over earlier releases and test builds.
+- 1.54.1 fixes: on Android the home page showed "update failed" the first time the app was opened after a reboot or an app update; a reply typed in a notification that was not sent is saved as a draft right away.
+- Android build number 169, installs over earlier releases and test builds.
 
-[Download 1.54.0](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.54.0) · [Full changelog](./CHANGELOG.md)
+[Download 1.54.1](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.54.1) · [Full changelog](./CHANGELOG.md)
 
 ## What it is
 

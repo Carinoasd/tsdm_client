@@ -16,7 +16,7 @@
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/Carinoasd/tsdm_client" alt="license"/></a>
 </p>
 
-## 最新更新：1.54.0（2026-11-10）
+## 最新更新：1.54.1（2026-11-12）
 
 - 下载：附件改在 App 内下载，「我的」页新增下载管理（进度、取消、重试、打开、分享）。
 - 帖子互动：主题「支持／踩」、楼层点评、淘帖、分享为二维码；回复框可选自定义表情包。
@@ -25,9 +25,10 @@
 - 首页与我的：在线会员、站点统计。
 - 账号：密码与安全、隐私设置；登录页的注册与找回密码入口。
 - 版主：高亮、推荐、图章、合并、分割等单帖管理；版主面板（审核、回收站、版主日志、用户管理、版规、公告）。
-- Android 构建编号为 168，可直接覆盖之前的正式版与测试版。
+- 1.54.1 修正：Android 开机或更新后第一次打开首页显示「更新失败」；通知栏直接回复没发出去时文字当下存成草稿。
+- Android 构建编号为 169，可直接覆盖之前的正式版与测试版。
 
-[下载 1.54.0](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.54.0) · [完整更新日志](./CHANGELOG.md)
+[下载 1.54.1](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.54.1) · [完整更新日志](./CHANGELOG.md)
 
 ## 这是什么
 
