@@ -254,6 +254,15 @@ void main() {
       await _unpump(tester);
     });
 
+    testWidgets("$where: a draft kept with the generic hint, its floor on the page now: the floor's", (tester) async {
+      await pumpBar(tester, _failedReply(hint: '回覆樓層'), onPage: {'9700002': ('Bob', 2)});
+      await restore(tester, inEditor: inEditor);
+      expect(find.text('回覆 Bob #2'), findsOneWidget);
+      expect(find.text('回覆樓層'), findsNothing);
+      expect(await storedHint(tester), '回覆 Bob #2');
+      await _unpump(tester);
+    });
+
     testWidgets('$where: a draft kept with its hint shows its own', (tester) async {
       await pumpBar(tester, _failedReply(hint: '回覆 Bob #2'), onPage: {'9700002': ('Dave', 7)});
       await restore(tester, inEditor: inEditor);

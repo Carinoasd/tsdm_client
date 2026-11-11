@@ -2252,8 +2252,8 @@ final class ReplyBarController with LoggerMixin {
     _state!._setHintText(hintText);
   }
 
-  /// The hint of the reply to floor `pid` as the page shows its floors ([floorReplyHint]), null when the floor is not
-  /// on it: the hint a floor's draft kept without one is restored with.
+  /// The hint of the reply to floor `pid` among the floors the page has loaded ([floorReplyHint]), null when it is not
+  /// among them. Used to restore the hint of a floor's draft kept without one.
   String? Function(String pid)? floorHintOf;
 
   /// Function to call when [setHintText] called.

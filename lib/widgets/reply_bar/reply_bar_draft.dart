@@ -346,23 +346,26 @@ final class _ReplyDraftSession {
   }
 
   /// The hint [draft] (just taken, [takeOffer]) is restored with: its own; for a floor's draft kept without one (a
-  /// reply of a notification that failed, `keepFailedReplyDraft`), the floor's as the page shows it
-  /// ([ReplyBarController.floorHintOf]), else [generic]. A hint found so is kept in the target, the draft is written
-  /// with it from now on. Null for a draft of no floor, or of a floor the bar did not take.
+  /// reply of a notification that failed, `keepFailedReplyDraft`) or with only the [generic] one, the floor's: as the
+  /// target knows it (the floor picked on the page), else as the page shows it ([ReplyBarController.floorHintOf]), else
+  /// [generic]. A hint found so is kept in the target, the draft is written with it from now on. Null for a draft of
+  /// no floor, or of a floor the bar did not take.
   String? restoredHint(LocalDraft draft, {required String generic}) {
     if (draft.key.kind != LocalDraftKind.floorReply) {
       return null;
     }
+    bool specific(String? hint) => hint != null && hint.isNotEmpty && hint != generic;
     final own = draft.hint;
-    if (own != null && own.isNotEmpty) {
+    if (specific(own)) {
       return own;
     }
     final target = _target;
     final pid = draft.key.pid;
     if (target == null || target.key != draft.key || pid == null) {
-      return null;
+      return own != null && own.isNotEmpty ? own : null;
     }
-    final found = _controller.floorHintOf?.call(pid);
+    final picked = target.hint;
+    final found = specific(picked) ? picked : _controller.floorHintOf?.call(pid);
     final hint = found != null && found.isNotEmpty ? found : generic;
     _target = _ReplyDraftTarget(
       uid: target.uid,
