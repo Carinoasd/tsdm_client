@@ -61,6 +61,10 @@ class LocalNoticeKeys {
         _ => null,
       },
       maybeSent: query['ms'] == '1',
+      draftEvent: switch (query['fe']) {
+        final String event when event.isNotEmpty => event,
+        _ => null,
+      },
     );
     return target.isEmpty ? null : target;
   }
@@ -114,6 +118,7 @@ final class LocalNoticeTarget {
     this.watchAlerts = false,
     this.draft,
     this.maybeSent = false,
+    this.draftEvent,
   });
 
   /// Notice to mark as read.
@@ -144,6 +149,11 @@ final class LocalNoticeTarget {
   /// draft kept from it says so.
   final bool maybeSent;
 
+  /// The id the failing isolate kept [draft] under for the app (`DirectReplyDraftInbox`), null when it could not
+  /// keep it (or the notification is of an older version): a tap keeps [draft] once, never again after the app moved
+  /// that failure into the drafts.
+  final String? draftEvent;
+
   /// Nothing to open.
   bool get isEmpty => tid == null && pid == null && peerUid == null && fid == null && !watchAlerts;
 
@@ -158,6 +168,7 @@ final class LocalNoticeTarget {
     if (watchAlerts) 'wa=1',
     if (draft case final draft?) 'draft=${Uri.encodeQueryComponent(draft)}',
     if (maybeSent) 'ms=1',
+    if (draftEvent case final event?) 'fe=${Uri.encodeQueryComponent(event)}',
   ].join('&');
 
   @override
@@ -171,10 +182,11 @@ final class LocalNoticeTarget {
       other.fid == fid &&
       other.watchAlerts == watchAlerts &&
       other.draft == draft &&
-      other.maybeSent == maybeSent;
+      other.maybeSent == maybeSent &&
+      other.draftEvent == draftEvent;
 
   @override
-  int get hashCode => Object.hash(nid, tid, pid, peerUid, lastPost, fid, watchAlerts, draft, maybeSent);
+  int get hashCode => Object.hash(nid, tid, pid, peerUid, lastPost, fid, watchAlerts, draft, maybeSent, draftEvent);
 
   @override
   String toString() => 'LocalNoticeTarget(${LocalNoticeKeys.loggable(toQuery())})';

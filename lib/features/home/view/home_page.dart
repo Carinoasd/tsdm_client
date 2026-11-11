@@ -9,6 +9,7 @@ import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/features/home/cubit/home_cubit.dart';
 import 'package:tsdm_client/features/home/widgets/widgets.dart';
 import 'package:tsdm_client/features/local_notice/callback.dart';
+import 'package:tsdm_client/features/local_notice/direct_reply_drafts.dart';
 import 'package:tsdm_client/features/local_notice/keys.dart';
 import 'package:tsdm_client/features/local_notice/stream.dart';
 import 'package:tsdm_client/features/local_notice/tap.dart';
@@ -16,6 +17,7 @@ import 'package:tsdm_client/features/root/bloc/root_location_cubit.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/page_stack.dart';
 import 'package:tsdm_client/utils/logger.dart';
+import 'package:tsdm_client/utils/platform.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 
 const _drawerWidth = 250.0;
@@ -164,6 +166,10 @@ class _HomePageState extends State<HomePage> with LoggerMixin {
     super.initState();
     rootLocationSub = localNoticeStream.stream.listen(_onLocalNoticeStreamEvent);
     WidgetsBinding.instance.addPostFrameCallback(_consumeLaunchPayload);
+    if (isAndroid) {
+      // Replies typed in a notification that were not sent: their texts become drafts as soon as the app runs.
+      watchDirectReplyDrafts();
+    }
   }
 
   @override

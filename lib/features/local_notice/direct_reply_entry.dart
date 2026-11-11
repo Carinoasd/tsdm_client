@@ -7,6 +7,7 @@ import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/features/background_sync/background_isolate.dart';
 import 'package:tsdm_client/features/background_sync/background_sync_tick.dart';
 import 'package:tsdm_client/features/local_notice/direct_reply.dart';
+import 'package:tsdm_client/features/local_notice/direct_reply_drafts.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
@@ -182,13 +183,28 @@ Future<void> _handle(NotificationResponse response) async {
       _recent.remove(key);
     }
     talker.info('direct reply: ${outcome.runtimeType}');
+    // Not sent: the text is kept for the app right now, before anything is shown, whatever becomes of the
+    // notification telling it.
+    final draftEvent = await _keepForApp(request, outcome);
     // The input of the notification stops "sending" as the outcome appears.
     await replied?.seal(t, payload: request.payload, told: repliedNoticeToldOf(t, request, outcome));
     try {
-      await showDirectReplyOutcome(plugin: runtime.plugin, translations: t, request: request, outcome: outcome);
+      await showDirectReplyOutcome(
+        plugin: runtime.plugin,
+        translations: t,
+        request: request,
+        outcome: outcome,
+        draftEvent: draftEvent,
+      );
     } on Object catch (e) {
       talker.warning('direct reply: showing the outcome failed, once more: $e');
-      await showDirectReplyOutcome(plugin: runtime.plugin, translations: t, request: request, outcome: outcome);
+      await showDirectReplyOutcome(
+        plugin: runtime.plugin,
+        translations: t,
+        request: request,
+        outcome: outcome,
+        draftEvent: draftEvent,
+      );
     }
   } on Object catch (e, st) {
     talker.handle(e, st, 'direct reply: failed');
@@ -200,6 +216,40 @@ Future<void> _handle(NotificationResponse response) async {
     await replied?.remove();
     await logSink.flush();
   }
+}
+
+/// Keep the text of [request] for the app ([DirectReplyDraftInbox]) when [outcome] says it was not sent (or may not
+/// have been), and wake the app if it runs: the id it was kept under, null when there was nothing to keep or it could
+/// not be written.
+Future<String?> _keepForApp(DirectReplyRequest request, DirectReplyOutcome outcome) async {
+  try {
+    return await _keepForAppOrThrow(request, outcome);
+  } on Object catch (e) {
+    // The notification telling it was not sent comes first: it carries the text all the same.
+    debugPrint('direct reply: the text was not kept for the app: $e');
+    return null;
+  }
+}
+
+Future<String?> _keepForAppOrThrow(DirectReplyRequest request, DirectReplyOutcome outcome) async {
+  final maybeSent = switch (outcome) {
+    DirectReplySent() => null,
+    DirectReplyNotSent() => false,
+    DirectReplyUnconfirmed() => true,
+  };
+  if (maybeSent == null) {
+    return null;
+  }
+  final id = await DirectReplyDraftInbox().put(
+    uid: request.uid,
+    target: request.target,
+    text: request.message,
+    maybeSent: maybeSent,
+  );
+  if (id != null) {
+    tellAppOfDirectReplyDraft(id);
+  }
+  return id;
 }
 
 /// The notification telling [request] (of [response], null when it is no reply to send) was not sent, when nothing
@@ -223,11 +273,13 @@ Future<void> _showUnsent(NotificationResponse response, DirectReplyRequest? requ
       debugPrint('direct reply: closing the notification failed: $e');
     }
     if (request != null) {
+      final outcome = DirectReplyNotSent(t.localNotification.directReply.error);
       await showDirectReplyOutcome(
         plugin: plugin,
         translations: t,
         request: request,
-        outcome: DirectReplyNotSent(t.localNotification.directReply.error),
+        outcome: outcome,
+        draftEvent: await _keepForApp(request, outcome),
       );
     }
     await replied?.remove();
