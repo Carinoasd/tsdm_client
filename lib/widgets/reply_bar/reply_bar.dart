@@ -423,11 +423,11 @@ class _ReplyBarWrapperState extends State<ReplyBar> {
       return;
     }
     controller.text = draft.body;
+    final hint = _drafts.restoredHint(draft, generic: context.t.threadPage.floorReplyHint);
     _drafts
       ..setCollapsed(draft.body, delta: draft.delta)
       ..saver.flush();
-    final hint = draft.hint;
-    if (draft.key.kind == LocalDraftKind.floorReply && hint != null && hint.isNotEmpty) {
+    if (hint != null) {
       widget.controller.setHintText(hint);
     } else {
       unawaited(showEditor());
@@ -1370,8 +1370,8 @@ final class _ReplyBarState extends State<_ReplyBar> with LoggerMixin {
       delta: draft.delta,
       parse: getIt.get<SettingsRepository>().currentSettings.enableEditorBBCodeParser,
     );
-    final hint = draft.hint;
-    if (draft.key.kind == LocalDraftKind.floorReply && hint != null && hint.isNotEmpty) {
+    final hint = _drafts.restoredHint(draft, generic: context.t.threadPage.floorReplyHint);
+    if (hint != null) {
       widget.controller.setHintText(hint);
     }
     _drafts.saver.flush();
@@ -2011,6 +2011,10 @@ class _CurrentAccountLabel extends StatelessWidget {
   }
 }
 
+/// The hint of the reply to floor [floor] of [author] ("回复 Bob #5"), shown above the reply text.
+String floorReplyHint(BuildContext context, String author, int? floor) =>
+    '${context.t.threadPage.sendReplyHint} $author ${floor == null ? "" : "#$floor"}';
+
 /// Controller of [ReplyBar].
 ///
 /// Used to fill parameters and update state.
@@ -2247,6 +2251,10 @@ final class ReplyBarController with LoggerMixin {
     }
     _state!._setHintText(hintText);
   }
+
+  /// The hint of the reply to floor `pid` as the page shows its floors ([floorReplyHint]), null when the floor is not
+  /// on it: the hint a floor's draft kept without one is restored with.
+  String? Function(String pid)? floorHintOf;
 
   /// Function to call when [setHintText] called.
   ///

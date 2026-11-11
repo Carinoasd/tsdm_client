@@ -1149,6 +1149,7 @@
   "threadPage": {
     "title": "Thread",
     "sendReplyHint": "Reply...",
+    "floorReplyHint": "Reply to a floor",
     "multiQuote": {
       "selected": "$count/$max selected",
       "reply": "Reply with quotes",

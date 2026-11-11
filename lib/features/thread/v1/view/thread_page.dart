@@ -1988,11 +1988,17 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
 
     _replyBarController
       ..replyAction = replyAction
-      ..setHintText(
-        '${context.t.threadPage.sendReplyHint} ${user.name} '
-        '${postFloor == null ? "" : "#$postFloor"}',
-      )
+      ..setHintText(floorReplyHint(context, user.name, postFloor))
       ..requestFocus();
+  }
+
+  /// The hint of the reply to floor [pid] when it is among the floors loaded ([ReplyBarController.floorHintOf]).
+  String? _floorHintOf(String pid) {
+    if (!mounted) {
+      return null;
+    }
+    final post = _threadBloc?.state.postList.firstWhereOrNull((e) => e.postID == pid);
+    return post == null ? null : floorReplyHint(context, post.author.name, post.postFloor);
   }
 
   /// Reply to the thread on side [stand] of the debate (the debate card's "加入正方／反方"): the reply bar with the side
@@ -2309,6 +2315,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
   @override
   void initState() {
     super.initState();
+    _replyBarController.floorHintOf = _floorHintOf;
     _searchController.addListener(_onSearchEdited);
     _multiQuote.addListener(_onMultiQuoteChanged);
     _listScrollController.addListener(_checkReadToEnd);
