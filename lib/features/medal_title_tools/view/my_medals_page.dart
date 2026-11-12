@@ -92,7 +92,7 @@ class _MyMedalsPageState extends State<MyMedalsPage> {
               names: newlyHidden
                   .take(10)
                   .map((m) => context.t.general.quoted(text: context.displayText(m.name)))
-                  .join(' '),
+                  .join(context.t.general.quotedSeparator),
             ),
           ),
         ],

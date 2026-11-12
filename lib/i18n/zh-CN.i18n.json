@@ -167,7 +167,8 @@
     "clauseSeparator": "；",
     "labelValue": "$label：$value",
     "quoted": "「$text」",
-    "withNote": "$text（$note）"
+    "withNote": "$text（$note）",
+    "quotedSeparator": ""
   },
   "loadState": {
     "loading": "正在加载…",

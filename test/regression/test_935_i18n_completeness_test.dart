@@ -7,7 +7,8 @@
 /// * The string literals of `lib/` holding Chinese are the ones of the allowlist
 ///   (`test/data/i18n/cjk_literal_allowlist.txt`): the forum's own words the parsers look for, the texts the app sends
 ///   to the forum, names. A new one fails: a text for the screen goes to the i18n files; one that has to stay in code
-///   is added to the allowlist, under the heading saying why. `UPDATE_CJK_ALLOWLIST=1` appends the new ones.
+///   is added to the allowlist, under the heading saying why. An entry no longer in `lib/` fails too, so the list does
+///   not let the same literal back in unseen. `UPDATE_CJK_ALLOWLIST=1` appends the new ones and drops the gone ones.
 library;
 
 import 'dart:convert';
@@ -32,7 +33,7 @@ Map<String, Object?> _flatten(Map<String, Object?> node, [String prefix = '']) =
       '$prefix$key': value,
 };
 
-final _paramRe = RegExp(r'(?<!\\)\$\{?([A-Za-z_][A-Za-z0-9_]*)|@:([A-Za-z0-9_.]+)');
+final _paramRe = RegExp(r'(?<!\\)\$\{?([A-Za-z_][A-Za-z0-9_]*)|@:([A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+)*)');
 
 /// The parameters and links of [value], over every form of a text with forms.
 Set<String> _params(Object? value) => switch (value) {
@@ -67,15 +68,15 @@ void main() {
     }
   });
 
-  test('lib gains no Chinese string literal', () {
+  test('lib gains no Chinese string literal and the allowlist holds no gone one', () {
     final found = cjkLiteralsUnder(Directory('lib')).map(cjkLiteralEntry).toList();
     final allowFile = File(_allowlistPath);
-    final allowed = allowFile
-        .readAsLinesSync()
-        .where((l) => l.isNotEmpty && !l.startsWith('#'))
-        .fold(<String, int>{}, (m, l) => m..update(l, (n) => n + 1, ifAbsent: () => 1));
+    final lines = allowFile.readAsLinesSync();
+    final left = <String, int>{};
+    for (final l in lines.where((l) => l.isNotEmpty && !l.startsWith('#'))) {
+      left.update(l, (n) => n + 1, ifAbsent: () => 1);
+    }
     final added = <String>[];
-    final left = Map.of(allowed);
     for (final e in found) {
       final n = left[e] ?? 0;
       if (n > 0) {
@@ -84,8 +85,21 @@ void main() {
         added.add(e);
       }
     }
-    if (added.isNotEmpty && Platform.environment['UPDATE_CJK_ALLOWLIST'] == '1') {
-      allowFile.writeAsStringSync('${added.join('\n')}\n', mode: FileMode.append);
+    final gone = [
+      for (final MapEntry(:key, :value) in left.entries) ...List.filled(value, key),
+    ];
+    if ((added.isNotEmpty || gone.isNotEmpty) && Platform.environment['UPDATE_CJK_ALLOWLIST'] == '1') {
+      final drop = Map.of(left);
+      final kept = <String>[];
+      for (final l in lines) {
+        final n = drop[l] ?? 0;
+        if (n > 0) {
+          drop[l] = n - 1;
+        } else {
+          kept.add(l);
+        }
+      }
+      allowFile.writeAsStringSync('${[...kept, ...added].join('\n')}\n');
       return;
     }
     expect(
@@ -93,8 +107,10 @@ void main() {
       isEmpty,
       reason:
           'Chinese string literals not in $_allowlistPath. Move a text shown on screen to lib/i18n (all three '
-          'languages); add one that has to stay in code to the allowlist, one line each:\n${added.join('\n')}',
+          'languages); add one that has to stay in code to the allowlist under the heading saying why, one line '
+          'each:\n${added.join('\n')}',
     );
+    expect(gone, isEmpty, reason: 'Allowlist entries no longer in lib/, remove these lines:\n${gone.join('\n')}');
   });
 }
 

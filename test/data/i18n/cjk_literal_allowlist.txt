@@ -1,5 +1,5 @@
 # lib/ 內含中文的字串字面值允許清單（test/regression/test_935_i18n_completeness_test.dart 讀取）。
-# 一行一個：<路徑><Tab><原始碼字面值>；# 開頭是註解。畫面文字請放進 lib/i18n 三語，不要加到這裡。
+# 一行一個：<路徑><Tab><原始碼字面值>，字面值裡的反斜線寫成 \\、換行寫成 \n、Tab 寫成 \t；# 開頭是註解。畫面文字請放進 lib/i18n 三語，不要加到這裡。
 
 # == 論壇原文的比對與解析：網頁與插件回應裡的字、RegExp、比對用常數
 lib/extensions/string.dart	' -  天使动漫论坛 - 梦开始的地方  -  Powered by Discuz!'

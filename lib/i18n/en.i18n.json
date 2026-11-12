@@ -167,7 +167,8 @@
     "clauseSeparator": "; ",
     "labelValue": "$label: $value",
     "quoted": "\"$text\"",
-    "withNote": "$text ($note)"
+    "withNote": "$text ($note)",
+    "quotedSeparator": " "
   },
   "loadState": {
     "loading": "Loading…",
@@ -2522,7 +2523,7 @@
     "saveScopeFloor": "This floor",
     "saveScopePage": "This page",
     "saveAllDone": "Saved ${saved: int}, failed ${failed: int}",
-    "saveAllCancelled": "Cancelled, saved ${saved: int}",
+    "saveAllCancelled": "Canceled, saved ${saved: int}",
     "failedToOpenInBrowser": "Failed to open the browser"
   },
   "init": {
@@ -2864,7 +2865,7 @@
       "installing": "Opening the Android installer…",
       "permissionRequired": "Android requires permission to install updates from this app. Open settings, enable “Allow from this source”, then return here and tap Retry installation.",
       "installerOpened": "The Android installer has opened. Complete or cancel installation there; opening it does not mean the update is installed.",
-      "cancelled": "Download cancelled.",
+      "cancelled": "Download canceled.",
       "install": "Install update",
       "retryInstall": "Retry installation",
       "openPermissionSettings": "Open installation settings",
@@ -3519,7 +3520,7 @@
       "openInBrowser": "Open on the website",
       "browserFailed": "Could not open the browser",
       "busy": "Another website blocklist action is still running. Please wait",
-      "stale": "The account or the page changed; this action was cancelled and nothing was sent.",
+      "stale": "The account or the page changed; this action was canceled and nothing was sent.",
       "staleUnconfirmed": "The account changed while the change was being sent. The request may have reached the forum, but the result could not be checked: switch back to that account and reload the list before trying again.",
       "failure": {
         "network": "Network error, nothing was changed",
@@ -4406,7 +4407,7 @@
     "completed": "Completed",
     "empty": "No downloads",
     "queued": "Waiting",
-    "cancelled": "Cancelled",
+    "cancelled": "Canceled",
     "failedGeneric": "Download failed",
     "open": "Open",
     "share": "Share",

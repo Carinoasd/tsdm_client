@@ -232,7 +232,11 @@ class _MedalGrantPageState extends State<MedalGrantPage> {
       content: [
         Text(tr.grantSummary(users: users.length, medals: _chosen.length, give: give, skip: skip)),
         sizedBoxW8H8,
-        Text(_chosen.map((m) => context.t.general.quoted(text: context.displayText(names[m] ?? '#$m'))).join(' ')),
+        Text(
+          _chosen
+              .map((m) => context.t.general.quoted(text: context.displayText(names[m] ?? '#$m')))
+              .join(context.t.general.quotedSeparator),
+        ),
         sizedBoxW8H8,
         Text(
           users

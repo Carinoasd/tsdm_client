@@ -82,7 +82,9 @@ class _TitleExchangePageState extends State<TitleExchangePage> {
           AppNoticeBanner(
             tone: AppNoticeTone.warning,
             message: tr.exchangeConsumeConfirm(
-              medals: t.medals.map((m) => context.t.general.quoted(text: context.displayText(m.name))).join(' '),
+              medals: t.medals
+                  .map((m) => context.t.general.quoted(text: context.displayText(m.name)))
+                  .join(context.t.general.quotedSeparator),
             ),
           ),
         ],
