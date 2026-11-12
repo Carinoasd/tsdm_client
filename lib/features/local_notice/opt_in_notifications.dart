@@ -181,8 +181,22 @@ final class SystemNotificationGate {
       getIt.get<SettingsRepository>().currentSettings.systemNotificationsOptIn;
 
   /// Whether the plugin was initialized and the notifications allowed during this run, opt-in platforms only.
+  ///
+  /// Not whether notifications are posted now ([posts]): it stays true when the user turns them off again (the plugin
+  /// stays initialized), which is what the tap of a notification that started the app needs
+  /// (`rememberNotificationLaunch`).
   bool get ready => _ready;
   bool _ready = false;
+
+  /// Whether the plugin was initialized during this run: it is initialized once, whatever the switch does after.
+  bool _initialized = false;
+
+  Future<bool> _initialize(OptInNoticePlugin plugin) async {
+    if (!_initialized) {
+      _initialized = await plugin.initialize();
+    }
+    return _initialized;
+  }
 
   /// Whether notifications are posted now: always on [NoticePlatform.alwaysPosts], on the opt-in platforms when
   /// turned on and [ready].
@@ -193,8 +207,10 @@ final class SystemNotificationGate {
   bool switchOn({required bool enabled}) => platform.optIn && _ready && enabled;
 
   /// At boot, with the setting [enabled]: initialize the plugin without asking anything and check that the
-  /// notifications are still allowed. When they are not (taken back in the system settings, no notification service
-  /// any more) the setting is turned off with [turnOff], so it does not stay on while nothing can be posted.
+  /// notifications are still allowed. iOS, macOS: when they are not (taken back in the system settings) the setting is
+  /// turned off with [turnOff], so it does not stay on while nothing can be posted. Linux: a notification service not
+  /// answering yet (the desktop still starting) only leaves this run not [ready], the switch showing off
+  /// ([switchOn]); the next boot tries again.
   ///
   /// Does nothing at all off the opt-in platforms or with the setting off: the plugin is not initialized. Failures are
   /// logged and swallowed, the boot must not stop on an optional feature.
@@ -208,13 +224,13 @@ final class SystemNotificationGate {
     }
     var ok = false;
     try {
-      ok = await plugin.initialize() && await plugin.permitted();
+      ok = await _initialize(plugin) && await plugin.permitted();
     } on Object catch (e, st) {
       talker.handle(e, st, 'opt-in notifications boot failed');
     }
     _ready = ok;
     talker.info('opt-in notifications at boot: ${platform.name} ready=$ok');
-    if (!ok) {
+    if (!ok && platform.darwin) {
       try {
         await turnOff?.call();
       } on Object catch (e, st) {
@@ -223,7 +239,8 @@ final class SystemNotificationGate {
     }
   }
 
-  /// The user turned the switch on: initialize the plugin and ask the permission now, the first time it is asked.
+  /// The user turned the switch on: initialize the plugin (once per run) and ask the permission now, the first time it
+  /// is asked.
   ///
   /// [OptInNoticeResult.granted] makes [ready] true; the caller saves the setting after it. Anything else leaves the
   /// notifications off. Off the opt-in platforms: [OptInNoticeResult.unavailable], nothing asked.
@@ -232,7 +249,7 @@ final class SystemNotificationGate {
       return OptInNoticeResult.unavailable;
     }
     try {
-      if (!await plugin.initialize()) {
+      if (!await _initialize(plugin)) {
         _ready = false;
         return OptInNoticeResult.unavailable;
       }
@@ -282,6 +299,20 @@ Future<OptInNoticeResult> turnOnAppSystemNotifications() => turnOnSystemNotifica
   plugin: FlnpOptInNoticePlugin(platform: systemNotificationGate.platform),
   save: ({required on}) => getIt.get<SettingsRepository>().setValue(SettingsKeys.systemNotificationsOptIn, on),
 );
+
+/// The user turned the switch off: saved, and the notifications already shown taken back so nothing of the switch is
+/// left over (only when this run initialized the plugin; otherwise none were posted by it).
+Future<void> turnOffAppSystemNotifications() async {
+  await getIt.get<SettingsRepository>().setValue(SettingsKeys.systemNotificationsOptIn, false);
+  if (!systemNotificationGate.ready) {
+    return;
+  }
+  try {
+    await flnp.cancelAll();
+  } on Object catch (e, st) {
+    talker.handle(e, st, 'taking back notifications failed');
+  }
+}
 
 /// [SystemNotificationGate.boot] of the app, called once at boot after the settings are loaded.
 Future<void> bootAppSystemNotifications() => systemNotificationGate.boot(

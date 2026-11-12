@@ -788,9 +788,8 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
   /// iOS, macOS, Linux: turn the system notifications on (asking the permission now) or off. Not allowed or not
   /// available: the switch stays off and a short message says why.
   Future<void> _toggleSystemNotifications(BuildContext context, {required bool enable}) async {
-    final settings = getIt.get<SettingsRepository>();
     if (!enable) {
-      await settings.setValue(SettingsKeys.systemNotificationsOptIn, false);
+      await turnOffAppSystemNotifications();
       return;
     }
     final tr = context.t.settingsPage.behaviorSection.systemNotifications;

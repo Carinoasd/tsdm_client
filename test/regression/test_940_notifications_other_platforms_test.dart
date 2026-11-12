@@ -242,12 +242,34 @@ void main() {
         expect(gate.posts, isTrue);
       });
 
-      test('${p.name}: not allowed any more, the setting is turned off', () async {
-        final gate = SystemNotificationGate(platform: p, enabled: () => true);
-        var turnedOff = false;
-        await gate.boot(enabled: true, plugin: _FakeOptIn(stillAllowed: false), turnOff: () async => turnedOff = true);
-        expect(turnedOff, isTrue);
-        expect(gate.posts, isFalse);
+      test(
+        '${p.name}: not allowed any more, the setting is turned off (iOS, macOS) or this run only (Linux)',
+        () async {
+          final gate = SystemNotificationGate(platform: p, enabled: () => true);
+          var turnedOff = false;
+          await gate.boot(
+            enabled: true,
+            plugin: _FakeOptIn(stillAllowed: false),
+            turnOff: () async => turnedOff = true,
+          );
+          // Linux: a notification service not answering yet (the desktop still starting) is tried again next boot.
+          expect(turnedOff, p.darwin, reason: p.name);
+          expect(gate.posts, isFalse);
+          expect(gate.switchOn(enabled: true), isFalse);
+        },
+      );
+
+      test('${p.name}: the plugin is initialized once per run, whatever the switch does after', () async {
+        var on = true;
+        final gate = SystemNotificationGate(platform: p, enabled: () => on);
+        final plugin = _FakeOptIn();
+        await gate.boot(enabled: true, plugin: plugin);
+        on = false;
+        expect(await gate.enable(plugin), OptInNoticeResult.granted);
+        on = true;
+        expect(await gate.enable(plugin), OptInNoticeResult.granted);
+        expect(plugin.calls.where((c) => c == 'initialize'), hasLength(1));
+        expect(gate.posts, isTrue);
       });
     }
   });
