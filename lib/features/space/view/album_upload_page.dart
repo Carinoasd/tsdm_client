@@ -15,6 +15,7 @@ import 'package:tsdm_client/features/space/repository/space_write_repository.dar
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/load_failure.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
@@ -138,11 +139,13 @@ class _AlbumUploadPageState extends State<AlbumUploadPage> {
         setState(() => _paths.retainWhere((p) => state.refused.any((e) => e.path == p)));
         showSnackBar(
           context: context,
-          message:
-              state.message ?? (state.refused.isEmpty || state.pending > 0 ? tr.sendFailed : tr.albumUpload.noneTaken),
+          message: context.displayTextOr(
+            state.message,
+            state.refused.isEmpty || state.pending > 0 ? tr.sendFailed : tr.albumUpload.noneTaken,
+          ),
         );
       case SpaceWriteStatus.unconfirmed:
-        showSnackBar(context: context, message: state.message ?? tr.unconfirmed);
+        showSnackBar(context: context, message: context.displayTextOr(state.message, tr.unconfirmed));
       case _:
         break;
     }
@@ -257,7 +260,7 @@ class _AlbumUploadPageState extends State<AlbumUploadPage> {
             initialValue: album,
             decoration: InputDecoration(labelText: tr.album),
             items: [
-              for (final e in form.albums) DropdownMenuItem(value: e.value, child: Text(e.label)),
+              for (final e in form.albums) DropdownMenuItem(value: e.value, child: Text(context.displayText(e.label))),
               DropdownMenuItem(value: _newAlbum, child: Text(tr.newAlbum)),
             ],
             onChanged: enabled ? (v) => setState(() => _album = v) : null,
@@ -275,7 +278,9 @@ class _AlbumUploadPageState extends State<AlbumUploadPage> {
               DropdownButtonFormField<String>(
                 initialValue: privacy.any((e) => e.value == _privacy) ? _privacy : privacy.first.value,
                 decoration: InputDecoration(labelText: tr.privacy),
-                items: [for (final e in privacy) DropdownMenuItem(value: e.value, child: Text(e.label))],
+                items: [
+                  for (final e in privacy) DropdownMenuItem(value: e.value, child: Text(context.displayText(e.label))),
+                ],
                 onChanged: enabled ? (v) => setState(() => _privacy = v ?? '0') : null,
               ),
             ],

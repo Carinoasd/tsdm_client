@@ -18,6 +18,7 @@ import 'package:tsdm_client/features/space/widgets/space_social_widgets.dart';
 import 'package:tsdm_client/features/space/widgets/space_widgets.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/load_failure.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/failure_view.dart';
@@ -407,7 +408,11 @@ class _SpaceListViewState<T> extends State<SpaceListView<T>> with AutomaticKeepA
           if (note != null)
             Padding(
               padding: edgeInsetsL12T4R12B4,
-              child: Text(note, style: Theme.of(context).textTheme.bodySmall, textAlign: TextAlign.center),
+              child: Text(
+                context.displayText(note),
+                style: Theme.of(context).textTheme.bodySmall,
+                textAlign: TextAlign.center,
+              ),
             ),
           ?widget.footer,
           footer,

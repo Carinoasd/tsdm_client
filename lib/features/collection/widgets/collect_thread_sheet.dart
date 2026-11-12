@@ -12,6 +12,7 @@ import 'package:tsdm_client/features/collection/widgets/collection_dialogs.dart'
 import 'package:tsdm_client/features/collection/widgets/collection_tiles.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/show_bottom_sheet.dart';
 import 'package:tsdm_client/widgets/indicator.dart';
 
@@ -84,7 +85,7 @@ class _CollectThreadSheetState extends State<CollectThreadSheet> {
         case Left(:final value):
           _form = null;
           _refusal = switch (value) {
-            CollectionRefused(:final message) => message,
+            CollectionRefused(:final message) => context.displayText(message),
             CollectionAccountChanged() => context.t.collection.accountChanged,
             _ => context.t.collection.unknown,
           };
@@ -176,7 +177,7 @@ class _CollectThreadSheetState extends State<CollectThreadSheet> {
               key: ValueKey('collect-choice-${choice.ctid}'),
               contentPadding: EdgeInsets.zero,
               value: _picked.contains(choice.ctid),
-              title: Text(choice.name),
+              title: Text(context.displayText(choice.name)),
               onChanged: _sending
                   ? null
                   : (v) => setState(() => (v ?? false) ? _picked.add(choice.ctid) : _picked.remove(choice.ctid)),

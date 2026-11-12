@@ -79,7 +79,7 @@ class _TaskCenterPageState extends State<TaskCenterPage> with SingleTickerProvid
 
   Widget _result(TaskCenterState state, TranslationsTaskCenterEn tr) {
     final result = state.result!;
-    final name = state.resultName;
+    final name = context.displayText(state.resultName);
     final (text, tone, icon) = switch (result.outcome) {
       TaskActionOutcome.applied => (tr.applied(name: name), AppNoticeTone.info, Icons.check_circle_outline),
       TaskActionOutcome.rewarded => (tr.rewarded(name: name), AppNoticeTone.info, Icons.redeem_outlined),
@@ -98,7 +98,7 @@ class _TaskCenterPageState extends State<TaskCenterPage> with SingleTickerProvid
         tone: tone,
         icon: icon,
         title: message != null ? text : null,
-        message: message ?? text,
+        message: context.displayTextOr(message, text),
         selectable: message != null,
         actions: [
           IconButton(
@@ -224,7 +224,7 @@ class _TaskCenterPageState extends State<TaskCenterPage> with SingleTickerProvid
             children: [
               if (result != null && state.resultTab == tab) _result(state, tr),
               if (list.message case final message?)
-                AppStateView(icon: Icons.task_alt, message: message, scrollable: false)
+                AppStateView(icon: Icons.task_alt, message: context.displayText(message), scrollable: false)
               else if (tasks.isEmpty)
                 AppStateView(icon: Icons.task_alt, message: tr.empty, scrollable: false),
               for (var row = 0; row < appRowCount(tasks.length, columns); row++)

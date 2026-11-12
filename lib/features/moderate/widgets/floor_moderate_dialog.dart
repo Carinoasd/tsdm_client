@@ -7,6 +7,7 @@ import 'package:tsdm_client/features/moderate/models/moderate_form.dart';
 import 'package:tsdm_client/features/moderate/models/moderate_posts.dart';
 import 'package:tsdm_client/features/moderate/repository/moderate_repository.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/custom_alert_dialog.dart';
@@ -153,7 +154,7 @@ class _FloorModerateDialogState extends State<FloorModerateDialog> {
           _notify = form.notifyForced;
           _undoing = form.undo;
         case Right(value: FloorModerateWindowRefused(:final message)):
-          _error = message.isNotEmpty ? message : context.t.moderate.failed;
+          _error = message.isNotEmpty ? context.displayText(message) : context.t.moderate.failed;
         case Left(:final value):
           _error = value is IdentityChangedException
               ? context.t.general.accountChangedRetry
@@ -179,12 +180,15 @@ class _FloorModerateDialogState extends State<FloorModerateDialog> {
     switch (outcome) {
       case Right(value: ModerateSucceeded(:final message)):
         widget.onDone?.call(sent);
-        showSnackBar(context: context, message: message.isNotEmpty ? message : context.t.moderate.done);
+        showSnackBar(
+          context: context,
+          message: message.isNotEmpty ? context.displayText(message) : context.t.moderate.done,
+        );
         Navigator.of(context).pop(true);
       case Right(value: ModerateRefused(:final message)):
         setState(() {
           _sending = false;
-          _error = message.isNotEmpty ? message : context.t.moderate.failed;
+          _error = message.isNotEmpty ? context.displayText(message) : context.t.moderate.failed;
         });
       case Left(:final value):
         setState(() {
@@ -253,7 +257,8 @@ class _FloorModerateDialogState extends State<FloorModerateDialog> {
                                   enabled: !_sending,
                                   onSelected: (v) => _reason.text = v,
                                   itemBuilder: (_) => [
-                                    for (final r in form.reasons) PopupMenuItem(value: r, child: Text(r)),
+                                    for (final r in form.reasons)
+                                      PopupMenuItem(value: r, child: Text(context.displayText(r))),
                                   ],
                                 ),
                         ),

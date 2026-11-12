@@ -6,6 +6,7 @@ import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/features/moderate/models/remove_rate.dart';
 import 'package:tsdm_client/features/moderate/repository/floor_ops_repository.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/custom_alert_dialog.dart';
@@ -88,7 +89,7 @@ class _RemoveRateDialogState extends State<RemoveRateDialog> {
           _notify = form.notifyForced;
           _checked.removeWhere((id) => !form.entries.any((e) => e.logId == id));
         case Right(value: RemoveRateWindowRefused(:final message)):
-          _error = message.isNotEmpty ? message : context.t.moderate.failed;
+          _error = message.isNotEmpty ? context.displayText(message) : context.t.moderate.failed;
         case Left(:final value):
           _error = value is IdentityChangedException
               ? context.t.general.accountChangedRetry
@@ -114,12 +115,15 @@ class _RemoveRateDialogState extends State<RemoveRateDialog> {
     }
     switch (outcome) {
       case Right(value: FloorOpSucceeded(:final message)):
-        showSnackBar(context: context, message: message.isNotEmpty ? message : context.t.moderate.done);
+        showSnackBar(
+          context: context,
+          message: message.isNotEmpty ? context.displayText(message) : context.t.moderate.done,
+        );
         Navigator.of(context).pop(true);
       case Right(value: FloorOpRefused(:final message)):
         setState(() {
           _sending = false;
-          _error = message.isNotEmpty ? message : context.t.moderate.failed;
+          _error = message.isNotEmpty ? context.displayText(message) : context.t.moderate.failed;
         });
       case Left(:final value):
         setState(() {
@@ -144,14 +148,14 @@ class _RemoveRateDialogState extends State<RemoveRateDialog> {
       title: Row(
         children: [
           Expanded(child: Text(entry.username, maxLines: 1, overflow: TextOverflow.ellipsis)),
-          Text(entry.credit, style: textTheme.labelLarge?.copyWith(color: colorScheme.primary)),
+          Text(context.displayText(entry.credit), style: textTheme.labelLarge?.copyWith(color: colorScheme.primary)),
         ],
       ),
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(entry.time, style: textTheme.labelSmall?.copyWith(color: colorScheme.outline)),
-          if (entry.reason.isNotEmpty) Text(entry.reason),
+          if (entry.reason.isNotEmpty) Text(context.displayText(entry.reason)),
         ],
       ),
     );

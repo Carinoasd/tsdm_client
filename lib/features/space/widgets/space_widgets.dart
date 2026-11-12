@@ -60,7 +60,7 @@ class SpaceBlogCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  blog.title,
+                  context.displayText(blog.title),
                   style: theme.textTheme.titleMedium,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
@@ -69,7 +69,7 @@ class SpaceBlogCard extends StatelessWidget {
               if (blog.privacy != null) ...[
                 sizedBoxW8H8,
                 Tooltip(
-                  message: blog.privacy,
+                  message: context.displayText(blog.privacy!),
                   child: Icon(Icons.lock_outline, size: 18, color: theme.colorScheme.outline),
                 ),
               ],
@@ -91,7 +91,7 @@ class SpaceBlogCard extends StatelessWidget {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               if (blog.time != null) Text(blog.time!, style: outline),
-              if (blog.category != null) Text(blog.category!, style: outline),
+              if (blog.category != null) Text(context.displayText(blog.category!), style: outline),
               if (blog.views != null) SpaceCount(Icons.visibility_outlined, blog.views!),
               if (blog.replies != null) SpaceCount(Icons.chat_bubble_outline, blog.replies!),
             ],
@@ -136,7 +136,7 @@ class SpaceAlbumTile extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    album.name,
+                    context.displayText(album.name),
                     style: theme.textTheme.titleSmall,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,

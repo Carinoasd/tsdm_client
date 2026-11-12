@@ -4,6 +4,7 @@ import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/features/collection/models/collection.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 
 /// The counts of a collection as pills: threads, subscribers, comments, each with its name as the tooltip.
@@ -67,13 +68,13 @@ class CollectionSummaryCard extends StatelessWidget {
                 Icon(Icons.circle, size: 8, color: theme.colorScheme.primary),
                 sizedBoxW8H8,
               ],
-              Expanded(child: Text(c.name, style: theme.textTheme.titleMedium)),
+              Expanded(child: Text(context.displayText(c.name), style: theme.textTheme.titleMedium)),
             ],
           ),
           if (c.description.isNotEmpty) ...[
             sizedBoxW4H4,
             Text(
-              c.description,
+              context.displayText(c.description),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
@@ -92,7 +93,8 @@ class CollectionSummaryCard extends StatelessWidget {
               ),
               if (c.creatorName.isNotEmpty) AppInfoPill(icon: Icons.person_outline, label: c.creatorName),
               if (c.lastUpdate.isNotEmpty) AppInfoPill(icon: Icons.update, label: c.lastUpdate),
-              for (final keyword in c.keywords) AppInfoPill(icon: Icons.sell_outlined, label: keyword),
+              for (final keyword in c.keywords)
+                AppInfoPill(icon: Icons.sell_outlined, label: context.displayText(keyword)),
             ],
           ),
         ],
@@ -128,11 +130,11 @@ class CollectionThreadTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(t.subject, style: theme.textTheme.titleSmall),
+                Text(context.displayText(t.subject), style: theme.textTheme.titleSmall),
                 if (t.reason.isNotEmpty) ...[
                   sizedBoxW4H4,
                   Text(
-                    context.t.collection.reason(reason: t.reason),
+                    context.t.collection.reason(reason: context.displayText(t.reason)),
                     style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
                   ),
                 ],

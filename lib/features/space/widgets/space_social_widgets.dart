@@ -10,6 +10,7 @@ import 'package:tsdm_client/features/space/utils/space_switches.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/show_dialog.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
@@ -27,10 +28,10 @@ SpaceSocialRepository spaceSocialRepositoryOf(BuildContext context) {
 bool showSpaceWriteResult(BuildContext context, SpaceWriteResult result, {required String done}) {
   final tr = context.t.spacePage;
   final message = switch (result.outcome) {
-    SpaceWriteOutcome.done => result.message ?? done,
-    SpaceWriteOutcome.rejected => result.message ?? tr.sendFailed,
+    SpaceWriteOutcome.done => context.displayTextOr(result.message, done),
+    SpaceWriteOutcome.rejected => context.displayTextOr(result.message, tr.sendFailed),
     SpaceWriteOutcome.unconfirmed => tr.unconfirmed,
-    SpaceWriteOutcome.loginRequired => result.message ?? context.t.general.needLogin,
+    SpaceWriteOutcome.loginRequired => context.displayTextOr(result.message, context.t.general.needLogin),
     SpaceWriteOutcome.identityChanged => tr.identityChanged,
   };
   showSnackBar(context: context, message: message);
@@ -77,7 +78,7 @@ Future<bool> deleteWallMessage(
   final confirmed = await showQuestionDialog(
     context: context,
     title: tr.delete,
-    message: comment.message.text?.trim() ?? '',
+    message: context.displayText(comment.message.text?.trim() ?? ''),
     dangerous: true,
   );
   if (!(confirmed ?? false) || !context.mounted) return false;
@@ -102,7 +103,7 @@ Future<bool> showPokeDialog(BuildContext context, {required int uid, String? use
       form = load.form!;
     case SpaceFormLoadKind.denied:
       if (spaceModuleSwitchedOff(load.message)) markSpaceModuleOff(SpaceModule.poke);
-      showSnackBar(context: context, message: load.message!);
+      showSnackBar(context: context, message: context.displayText(load.message!));
       return false;
     case SpaceFormLoadKind.loginRequired:
       showSnackBar(context: context, message: context.t.general.needLogin);
@@ -236,7 +237,7 @@ class _PokeDialogState extends State<_PokeDialog> {
                   avatar: icon.imageUrl == null
                       ? null
                       : Image(image: CachedImageProvider(icon.imageUrl!), width: 20, height: 20),
-                  label: Text(icon.label),
+                  label: Text(context.displayText(icon.label)),
                   selected: icon.id == _iconId,
                   onSelected: (_) => setState(() => _iconId = icon.id),
                 ),

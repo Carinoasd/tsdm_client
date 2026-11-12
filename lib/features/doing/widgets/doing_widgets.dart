@@ -18,6 +18,7 @@ import 'package:tsdm_client/features/space/widgets/space_social_widgets.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/html/html_muncher.dart';
 import 'package:tsdm_client/utils/load_failure.dart';
 import 'package:tsdm_client/utils/show_dialog.dart';
@@ -122,7 +123,7 @@ Future<bool> deleteDoing(BuildContext context, {required SpaceSession session, r
   final confirmed = await showQuestionDialog(
     context: context,
     title: tr.deleteDoing,
-    message: doing.content.text?.replaceAll(RegExp(r'\s+'), ' ').trim() ?? '',
+    message: context.displayText(doing.content.text?.replaceAll(RegExp(r'\s+'), ' ').trim() ?? ''),
     dangerous: true,
   );
   if (!(confirmed ?? false) || !context.mounted) return false;
@@ -329,7 +330,7 @@ class _DoingRepliesSheetState extends State<DoingRepliesSheet> {
     final confirmed = await showQuestionDialog(
       context: context,
       title: tr.deleteReply,
-      message: comment.message.text?.replaceAll(RegExp(r'\s+'), ' ').trim() ?? '',
+      message: context.displayText(comment.message.text?.replaceAll(RegExp(r'\s+'), ' ').trim() ?? ''),
       dangerous: true,
     );
     if (!(confirmed ?? false) || !mounted) return;

@@ -13,6 +13,7 @@ import 'package:tsdm_client/features/space/repository/space_write_repository.dar
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/load_failure.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
@@ -102,9 +103,9 @@ class _BlogPostPageState extends State<BlogPostPage> {
         showSnackBar(context: context, message: tr.blogEdit.done);
         context.pop(true);
       case SpaceWriteStatus.rejected:
-        showSnackBar(context: context, message: state.message ?? tr.sendFailed);
+        showSnackBar(context: context, message: context.displayTextOr(state.message, tr.sendFailed));
       case SpaceWriteStatus.unconfirmed:
-        showSnackBar(context: context, message: state.message ?? tr.unconfirmed);
+        showSnackBar(context: context, message: context.displayTextOr(state.message, tr.unconfirmed));
       case _:
         break;
     }
@@ -140,7 +141,8 @@ class _BlogPostPageState extends State<BlogPostPage> {
             decoration: InputDecoration(labelText: tr.category),
             items: [
               DropdownMenuItem(child: Text(tr.noCategory)),
-              for (final e in form.categories) DropdownMenuItem(value: e.value, child: Text(e.label)),
+              for (final e in form.categories)
+                DropdownMenuItem(value: e.value, child: Text(context.displayText(e.label))),
               DropdownMenuItem(value: _newCategory, child: Text(tr.newCategory)),
             ],
             onChanged: enabled ? (v) => setState(() => _category = v) : null,
@@ -160,7 +162,8 @@ class _BlogPostPageState extends State<BlogPostPage> {
               decoration: InputDecoration(labelText: tr.systemCategory),
               items: [
                 const DropdownMenuItem(child: Text('—')),
-                for (final e in form.systemCategories) DropdownMenuItem(value: e.value, child: Text(e.label)),
+                for (final e in form.systemCategories)
+                  DropdownMenuItem(value: e.value, child: Text(context.displayText(e.label))),
               ],
               onChanged: enabled ? (v) => setState(() => _systemCategory = v) : null,
             ),
@@ -170,7 +173,9 @@ class _BlogPostPageState extends State<BlogPostPage> {
             DropdownButtonFormField<String>(
               initialValue: privacy.any((e) => e.value == _privacy) ? _privacy : privacy.first.value,
               decoration: InputDecoration(labelText: tr.privacy),
-              items: [for (final e in privacy) DropdownMenuItem(value: e.value, child: Text(e.label))],
+              items: [
+                for (final e in privacy) DropdownMenuItem(value: e.value, child: Text(context.displayText(e.label))),
+              ],
               onChanged: enabled ? (v) => setState(() => _privacy = v ?? '0') : null,
             ),
           ],

@@ -16,6 +16,7 @@ import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/data_saver_mode.dart';
 import 'package:tsdm_client/shared/providers/cookie_provider/cookie_provider.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/network_usage.dart';
 import 'package:tsdm_client/utils/platform.dart';
 import 'package:tsdm_client/utils/show_dialog.dart';
@@ -130,7 +131,7 @@ class AttachmentDownloadView extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final failed = item.status == AttachmentDownloadStatus.failed || item.status == AttachmentDownloadStatus.cancelled;
     final message = switch (item.status) {
-      AttachmentDownloadStatus.failed => item.message ?? tr.failedGeneric,
+      AttachmentDownloadStatus.failed => context.displayTextOr(item.message, tr.failedGeneric),
       AttachmentDownloadStatus.cancelled => tr.cancelled,
       _ => null,
     };
@@ -156,7 +157,10 @@ class AttachmentDownloadView extends StatelessWidget {
             ),
           if (item.notice != null) ...[
             const SizedBox(height: 8),
-            Text(item.notice!, style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant)),
+            Text(
+              context.displayText(item.notice!),
+              style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+            ),
           ],
           const SizedBox(height: 16),
           Wrap(

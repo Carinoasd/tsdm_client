@@ -7,6 +7,7 @@ import 'package:tsdm_client/features/moderate/models/moderate_form.dart';
 import 'package:tsdm_client/features/moderate/repository/moderate_repository.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/shared/models/models.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/custom_alert_dialog.dart';
 import 'package:universal_html/parsing.dart';
@@ -105,7 +106,7 @@ class _SplitThreadPageState extends State<SplitThreadPage> {
         case Right(value: ModerateWindowRefused(:final message, :final unavailable)):
           _unavailable = unavailable;
           _windowError = message.isNotEmpty
-              ? message
+              ? context.displayText(message)
               : unavailable
               ? context.t.moderate.unavailable
               : context.t.moderate.failed;
@@ -154,7 +155,7 @@ class _SplitThreadPageState extends State<SplitThreadPage> {
           }
         case Right(value: final info):
           final message = info.permissionDeniedMessage?.text?.trim() ?? '';
-          _pageError = message.isNotEmpty ? message : context.t.general.failedToLoad;
+          _pageError = message.isNotEmpty ? context.displayText(message) : context.t.general.failedToLoad;
         case Left(:final value):
           _pageError = _failure(value);
       }
@@ -265,7 +266,7 @@ class _SplitThreadPageState extends State<SplitThreadPage> {
                 Text('#$floor', style: Theme.of(context).textTheme.labelMedium),
               ],
             ),
-            subtitle: Text(splitFloorExcerpt(post), maxLines: 2, overflow: TextOverflow.ellipsis),
+            subtitle: Text(context.displayText(splitFloorExcerpt(post)), maxLines: 2, overflow: TextOverflow.ellipsis),
           );
         },
       ),
@@ -327,7 +328,7 @@ class _SplitDialogState extends State<_SplitDialog> {
       case Right(value: ModerateRefused(:final message)):
         setState(() {
           _sending = false;
-          _error = message.isNotEmpty ? message : context.t.moderate.failed;
+          _error = message.isNotEmpty ? context.displayText(message) : context.t.moderate.failed;
         });
       case Left(:final value):
         setState(() {
@@ -376,7 +377,9 @@ class _SplitDialogState extends State<_SplitDialog> {
                         icon: const Icon(Icons.arrow_drop_down),
                         enabled: !_sending,
                         onSelected: (v) => _reason.text = v,
-                        itemBuilder: (_) => [for (final r in form.reasons) PopupMenuItem(value: r, child: Text(r))],
+                        itemBuilder: (_) => [
+                          for (final r in form.reasons) PopupMenuItem(value: r, child: Text(context.displayText(r))),
+                        ],
                       ),
               ),
             ),

@@ -120,15 +120,16 @@ class _MagicCenterPageState extends State<MagicCenterPage> {
   }
 
   Widget _result(MagicOperationResult result, TranslationsMagicCenterEn tr) {
+    final name = context.displayText(result.name);
     final (String text, AppNoticeTone tone, IconData icon) = switch (result.kind) {
       MagicResultKind.succeeded => (
-        result.buy ? tr.bought(name: result.name) : tr.used(name: result.name),
+        result.buy ? tr.bought(name: name) : tr.used(name: name),
         AppNoticeTone.info,
         Icons.check_circle_outline,
       ),
-      MagicResultKind.rejected => (tr.rejected(name: result.name), AppNoticeTone.error, Icons.block_outlined),
+      MagicResultKind.rejected => (tr.rejected(name: name), AppNoticeTone.error, Icons.block_outlined),
       MagicResultKind.login => (context.t.general.needLogin, AppNoticeTone.error, Icons.login),
-      MagicResultKind.unknown => (tr.unknown(name: result.name), AppNoticeTone.warning, Icons.help_outline),
+      MagicResultKind.unknown => (tr.unknown(name: name), AppNoticeTone.warning, Icons.help_outline),
     };
     final message = result.message;
     return Padding(

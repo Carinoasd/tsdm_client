@@ -725,7 +725,7 @@ Widget modcpErrorView(
   VoidCallback? onRetry,
 }) {
   final message = switch (answer) {
-    Right(value: ModcpRefused(:final message)) when message.isNotEmpty => message,
+    Right(value: ModcpRefused(:final message)) when message.isNotEmpty => context.displayText(message),
     Left(value: IdentityChangedException()) => context.t.general.accountChangedRetry,
     Right(value: ModcpRefused()) => context.t.moderate.failed,
     _ => context.t.general.failedToLoad,

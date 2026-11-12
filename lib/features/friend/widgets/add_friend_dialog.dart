@@ -4,6 +4,7 @@ import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/features/friend/models/add_friend.dart';
 import 'package:tsdm_client/features/friend/repository/friend_repository.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 
@@ -32,7 +33,7 @@ Future<void> showAddFriendDialog(
       showSnackBar(context: context, message: tr.failed);
       return;
     case Right(value: AddFriendRefused(:final message)):
-      showSnackBar(context: context, message: message);
+      showSnackBar(context: context, message: context.displayText(message));
       return;
     case Right(value: final AddFriendForm f):
       form = f;
@@ -54,7 +55,9 @@ Future<void> showAddFriendDialog(
     context: context,
     message: switch (result) {
       Left() => tr.failed,
-      Right(:final value) => value.message,
+      // The app's own words when the forum said nothing (see parseAddFriendResult) stay as they are.
+      Right(:final value) when value.message == tr.sent || value.message == tr.failed => value.message,
+      Right(:final value) => context.displayText(value.message),
     },
   );
 }
@@ -133,7 +136,7 @@ class _AddFriendDialogState extends State<AddFriendDialog> {
                 for (final group in widget.form.groups)
                   DropdownMenuItem(
                     value: group.gid,
-                    child: Text(group.name, overflow: TextOverflow.ellipsis),
+                    child: Text(context.displayText(group.name), overflow: TextOverflow.ellipsis),
                   ),
               ],
               onChanged: (v) => setState(() => gid = v ?? gid),

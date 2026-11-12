@@ -7,6 +7,7 @@ import 'package:tsdm_client/features/moderate/models/member_ban.dart';
 import 'package:tsdm_client/features/moderate/models/moderate_posts.dart';
 import 'package:tsdm_client/features/moderate/repository/moderate_repository.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/custom_alert_dialog.dart';
@@ -102,7 +103,7 @@ class _MemberBanDialogState extends State<MemberBanDialog> {
         case Right(value: MemberBanNeedsLogin(:final formHash)):
           _loginFormHash = formHash;
         case Right(value: MemberBanWindowRefused(:final message)):
-          _error = message.isNotEmpty ? message : context.t.moderate.failed;
+          _error = message.isNotEmpty ? context.displayText(message) : context.t.moderate.failed;
         case Left(:final value):
           _error = _failure(value, context.t.general.failedToLoad);
       }
@@ -133,7 +134,7 @@ class _MemberBanDialogState extends State<MemberBanDialog> {
       case Right(value: ModeratePanelRefused(:final message)):
         setState(() {
           _sending = false;
-          _error = message.isNotEmpty ? message : context.t.moderate.failed;
+          _error = message.isNotEmpty ? context.displayText(message) : context.t.moderate.failed;
         });
       case Left(value: IdentityChangedException()):
         setState(() {
@@ -161,12 +162,15 @@ class _MemberBanDialogState extends State<MemberBanDialog> {
     }
     switch (outcome) {
       case Right(value: MemberBanDone(:final message)):
-        showSnackBar(context: context, message: message.isNotEmpty ? message : context.t.moderate.done);
+        showSnackBar(
+          context: context,
+          message: message.isNotEmpty ? context.displayText(message) : context.t.moderate.done,
+        );
         Navigator.of(context).pop(true);
       case Right(value: MemberBanRefused(:final message)):
         setState(() {
           _sending = false;
-          _error = message.isNotEmpty ? message : context.t.moderate.failed;
+          _error = message.isNotEmpty ? context.displayText(message) : context.t.moderate.failed;
         });
       case Right(value: MemberBanUnknown()):
         // The window as it is now tells: the member's state turned over, it was done; otherwise it is asked again

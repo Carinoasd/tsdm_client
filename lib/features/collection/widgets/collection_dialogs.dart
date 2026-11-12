@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/features/collection/utils/collection_answer.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/custom_alert_dialog.dart';
@@ -21,11 +22,11 @@ Future<bool> reportCollectionOutcome(BuildContext context, CollectionOutcome out
   switch (outcome) {
     case CollectionDone(:final message):
       if (message.isNotEmpty) {
-        showSnackBar(context: context, message: message);
+        showSnackBar(context: context, message: context.displayText(message));
       }
       return true;
     case CollectionRefused(:final message):
-      showSnackBar(context: context, message: message);
+      showSnackBar(context: context, message: context.displayText(message));
     case CollectionNeedLogin():
       unawaited(context.pushNamed(ScreenPaths.login));
     case CollectionAccountChanged():

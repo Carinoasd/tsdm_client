@@ -10,6 +10,7 @@ import 'package:tsdm_client/features/friend/models/approve_friend.dart';
 import 'package:tsdm_client/features/friend/repository/approve_friend_repository.dart';
 import 'package:tsdm_client/features/notification/bloc/notification_bloc.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
@@ -100,12 +101,18 @@ Future<void> showApproveFriendDialog(
     case Left(:final value):
       showSnackBar(context: messengerContext, message: approveFriendFailureText(messengerContext, value));
     case Right(value: AddFriendResult(success: true, :final message)):
-      showSnackBar(context: messengerContext, message: message.isEmpty ? tr.approved : message);
+      showSnackBar(
+        context: messengerContext,
+        message: message.isEmpty ? tr.approved : messengerContext.displayText(message),
+      );
       if (notifications != null && !notifications.isClosed) {
         notifications.add(const NotificationUpdateAllRequested());
       }
     case Right(value: AddFriendResult(:final message)):
-      showSnackBar(context: messengerContext, message: message.isEmpty ? tr.refused : message);
+      showSnackBar(
+        context: messengerContext,
+        message: message.isEmpty ? tr.refused : messengerContext.displayText(message),
+      );
   }
 }
 
@@ -284,7 +291,7 @@ class _ApproveFriendDialogState extends State<ApproveFriendDialog> with LoggerMi
               for (final group in form.groups)
                 DropdownMenuItem(
                   value: group.gid,
-                  child: Text(group.name, overflow: TextOverflow.ellipsis),
+                  child: Text(context.displayText(group.name), overflow: TextOverflow.ellipsis),
                 ),
             ],
             onChanged: _submitting ? null : (v) => setState(() => _gid = v ?? _gid),

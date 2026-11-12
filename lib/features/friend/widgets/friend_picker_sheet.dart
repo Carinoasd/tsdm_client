@@ -11,6 +11,7 @@ import 'package:tsdm_client/features/friend/models/models.dart';
 import 'package:tsdm_client/features/root/view/root_page.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/show_bottom_sheet.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/heroes.dart';
@@ -116,7 +117,7 @@ class _FriendPickerSheetState extends State<FriendPickerSheet> {
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(appInnerRadius)),
             leading: HeroUserAvatar(username: friend.username, avatarUrl: friend.avatarUrl, disableHero: true),
             title: Text(friend.username, style: const TextStyle(fontWeight: FontWeight.w600)),
-            subtitle: friend.groupName == null ? null : Text(friend.groupName!),
+            subtitle: friend.groupName == null ? null : Text(context.displayText(friend.groupName!)),
             trailing: Icon(Icons.chevron_right, color: colorScheme.outline),
             onTap: () => Navigator.of(context).pop(friend),
           );

@@ -162,7 +162,7 @@ class _QueueListState extends State<_QueueList> with AutomaticKeepAliveClientMix
         _pages.clear();
         _loginFormHash = formHash;
       case Right(value: ModerateQueueRefused(:final message)):
-        _error = message.isNotEmpty ? message : context.t.moderate.failed;
+        _error = message.isNotEmpty ? context.displayText(message) : context.t.moderate.failed;
       case Left(:final value):
         _error = value is IdentityChangedException
             ? context.t.general.accountChangedRetry
@@ -340,12 +340,15 @@ class _QueueActionDialogState extends State<_QueueActionDialog> {
     }
     switch (outcome) {
       case Right(value: ModerateSucceeded(:final message)):
-        showSnackBar(context: context, message: message.isNotEmpty ? message : context.t.moderate.done);
+        showSnackBar(
+          context: context,
+          message: message.isNotEmpty ? context.displayText(message) : context.t.moderate.done,
+        );
         Navigator.of(context).pop(true);
       case Right(value: ModerateRefused(:final message)) when message.isNotEmpty:
         setState(() {
           _sending = false;
-          _error = message;
+          _error = context.displayText(message);
         });
       case Right(value: ModerateRefused()):
         showSnackBar(context: context, message: context.t.moderate.failed);

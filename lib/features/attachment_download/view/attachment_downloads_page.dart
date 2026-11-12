@@ -9,6 +9,7 @@ import 'package:tsdm_client/features/attachment_download/widgets/attachment_down
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/authentication/repository/models/models.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/indicator.dart';
 
@@ -71,14 +72,16 @@ class _AttachmentDownloadsPageState extends State<AttachmentDownloadsPage> {
       AttachmentDownloadStatus.completed => (Icons.insert_drive_file_outlined, colorScheme.primary),
       AttachmentDownloadStatus.failed || AttachmentDownloadStatus.cancelled => (Icons.error_outline, colorScheme.error),
     };
-    final thread = item.threadTitle ?? (item.tid == null ? null : tr.threadFallback(tid: item.tid!));
+    final thread = item.threadTitle != null
+        ? context.displayText(item.threadTitle!)
+        : (item.tid == null ? null : tr.threadFallback(tid: item.tid!));
     final info = [
       attachmentDownloadSizeLine(context, item),
       ?thread,
       (item.finishedAt ?? item.createdAt).yyyyMMDDHHMM(),
     ].where((e) => e.isNotEmpty).join(' · ');
     final failure = switch (item.status) {
-      AttachmentDownloadStatus.failed => item.message ?? tr.failedGeneric,
+      AttachmentDownloadStatus.failed => context.displayTextOr(item.message, tr.failedGeneric),
       AttachmentDownloadStatus.cancelled => tr.cancelled,
       _ => null,
     };
