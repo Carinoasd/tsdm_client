@@ -85,6 +85,23 @@ final class RecentEmojiStore with LoggerMixin {
     }
     final codes = [code, ..._recent.value.where((e) => e != code)].take(maxCount).toList();
     _recent.value = codes;
+    _save();
+  }
+
+  /// Forget [code] (a saved image deleted, or removed from the list by hand).
+  ///
+  /// The file is read first: a code still being read from it would otherwise come back once read.
+  Future<void> remove(String code) async {
+    await load();
+    if (!_recent.value.contains(code)) {
+      return;
+    }
+    _recent.value = _recent.value.where((e) => e != code).toList();
+    _save();
+  }
+
+  /// Write the list in the background, after the writes asked before.
+  void _save() {
     final source = _file;
     if (source == null) {
       return;

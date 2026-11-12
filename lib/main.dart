@@ -13,6 +13,7 @@ import 'package:tsdm_client/features/admin_tools/repository/admin_repository.dar
 import 'package:tsdm_client/features/app_lock/cubit/app_lock_cubit.dart';
 import 'package:tsdm_client/features/app_lock/widgets/app_lock_gate.dart';
 import 'package:tsdm_client/features/audio_player/audio_player_init.dart';
+import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/background_sync/background_sync_controller.dart';
 import 'package:tsdm_client/features/local_notice/callback.dart';
 import 'package:tsdm_client/features/local_notice/direct_reply_entry.dart';
@@ -73,8 +74,10 @@ Future<void> _boot(List<String> args) async {
   final appLock = await AppLockCubit.load();
   getIt.registerSingleton(appLock, dispose: (c) async => c.close());
   WidgetsBinding.instance.addObserver(AppLockBackGuard(appLock));
-  // The admin token of the forum's admin actions is dropped whenever the app locks: the password is asked again.
-  AdminSession.instance.dropOnLock(appLock.stream.map((s) => s.locked));
+  // The admin token of the forum's admin actions is ended when the app locks, after a while in the background and
+  // before the account in use changes: the password is asked again.
+  AdminSessionGuard(logout: () => AdminRepository.network().logout()).start(appLock.stream.map((s) => s.locked));
+  AuthenticationRepository.beforeIdentityChange = AdminRepository.logoutBeforeIdentityChange;
 
   final settings = getIt.get<SettingsRepository>().currentSettings;
   // App-wide, see BackgroundSyncController; registered on every platform so the settings page can look it up.

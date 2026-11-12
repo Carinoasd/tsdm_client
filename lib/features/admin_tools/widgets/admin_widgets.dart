@@ -7,6 +7,7 @@ import 'package:tsdm_client/features/admin_tools/repository/admin_repository.dar
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
+import 'package:tsdm_client/widgets/app_surface.dart';
 
 /// What to tell about an admin answer that is not the page or the result: the forum's refusal, or why the request
 /// gave nothing.
@@ -294,9 +295,12 @@ class _AdminLoginDialogState extends State<AdminLoginDialog> {
   }
 }
 
-/// Holds the admin session while the page is open ([AdminSession.acquire]); the token is ended when the last admin
-/// page closes.
-mixin AdminSessionLease<T extends StatefulWidget> on State<T> {
+/// What an admin page shares: the second login asked again when the forum asks it, and whether the account may post
+/// the page's action ([loadAdminWritable]).
+///
+/// The token is not ended when the page closes: it is kept as long as the forum keeps it ([AdminSession]), so another
+/// admin page opened next does not ask the password again.
+mixin AdminPageSession<T extends StatefulWidget> on State<T> {
   /// The repository the page sends with.
   AdminRepository get adminRepository;
 
@@ -304,17 +308,58 @@ mixin AdminSessionLease<T extends StatefulWidget> on State<T> {
   Future<bool> reauth(AdminLoginInfo login) async =>
       mounted && await showAdminLoginDialog(context, adminRepository, login);
 
-  @override
-  void initState() {
-    super.initState();
-    adminRepository.session.acquire();
+  /// Known writable (`write` 1): the submit button is shown only then.
+  bool adminWritable = false;
+
+  /// What the account may use could not be asked: the page shows the failure and a retry instead of its form.
+  bool adminAccessFailed = false;
+
+  /// Whether the account may post [action]: [given] when the page was told, else [ask] (the kept access by default).
+  Future<void> loadAdminWritable(String action, {bool? given, Future<AdminAccess?> Function()? ask}) async {
+    if (given != null) {
+      adminWritable = given;
+      return;
+    }
+    if (adminAccessFailed) setState(() => adminAccessFailed = false);
+    final access =
+        await (ask ?? () => AdminAccessCache.check(adminRepository.currentUid, repository: adminRepository))();
+    if (!mounted) return;
+    setState(() {
+      adminAccessFailed = access == null;
+      adminWritable = access?.canWrite(action) ?? false;
+    });
   }
 
+  /// The failure shown when what the account may use could not be asked, with [onRetry].
+  Widget adminAccessFailure(BuildContext context, VoidCallback onRetry) => AppStateView(
+    key: const ValueKey('admin-access-failed'),
+    icon: Icons.error_outline,
+    error: true,
+    message: context.t.general.failedToLoad,
+    action: TextButton(onPressed: onRetry, child: Text(context.t.general.retry)),
+  );
+}
+
+/// Ends the admin token by hand ([AdminRepository.logout]); shown while one is kept for the account in use.
+class AdminLogoutButton extends StatelessWidget {
+  /// Constructor.
+  const AdminLogoutButton({required this.repository, super.key});
+
+  /// The repository whose session it ends.
+  final AdminRepository repository;
+
   @override
-  void dispose() {
-    adminRepository.session.release(adminRepository.logout);
-    super.dispose();
-  }
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: repository.session,
+    builder: (context, _) => repository.session.holds(repository.currentUid)
+        ? IconButton(
+            key: const ValueKey('admin-logout'),
+            icon: const Icon(Icons.lock_outline),
+            tooltip: context.t.adminTools.logout,
+            onPressed: () => unawaited(repository.logout()),
+          )
+        : const SizedBox.shrink(),
+  );
 }
 
 /// A member of an admin page: the username, the UID and the main group.

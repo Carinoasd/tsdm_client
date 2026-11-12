@@ -8,8 +8,8 @@ import 'package:tsdm_client/features/report_handling/view/report_handling_page.d
 /// Handling reports for an account that may read the admin API's reports (`adminreport`): those of the whole forum
 /// first, with the panel's one forum at a time ([panel]) beside them when the forum offers its page.
 ///
-/// Holds the admin session while open, so the second login asked here (a dialog) is the one the other admin pages
-/// use, and the token is ended once the last of them closes.
+/// The second login asked here (a dialog) is the one the other admin pages use: the token is kept as long as the forum
+/// keeps it ([AdminSession]).
 class AdminReportPage extends StatefulWidget {
   /// Constructor.
   const AdminReportPage({required this.writable, this.panel, this.repository, super.key});
@@ -27,7 +27,7 @@ class AdminReportPage extends StatefulWidget {
   State<AdminReportPage> createState() => _AdminReportPageState();
 }
 
-class _AdminReportPageState extends State<AdminReportPage> with AdminSessionLease {
+class _AdminReportPageState extends State<AdminReportPage> with AdminPageSession {
   @override
   late final AdminRepository adminRepository = widget.repository ?? AdminRepository.network();
 

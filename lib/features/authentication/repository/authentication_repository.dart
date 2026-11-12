@@ -95,6 +95,20 @@ class AuthenticationRepository with LoggerMixin {
 
   void _changedIdentity() => _identityEpoch++;
 
+  /// Run right before the session this device acts with is replaced (a switch, a login with the password, a logout, a
+  /// removal of the account in use), while requests still go as the account in use: what is bound to that account on
+  /// the forum is ended with it (the admin token, see `AdminRepository.logoutBeforeIdentityChange`). Set once by the
+  /// app; bounded by the hook itself, a failure changes nothing.
+  static Future<void> Function()? beforeIdentityChange;
+
+  Future<void> _beforeIdentityChange() async {
+    try {
+      await beforeIdentityChange?.call();
+    } on Object catch (e) {
+      warning('before the identity change: $e');
+    }
+  }
+
   /// Run [action], a read-check-write of the identity this device acts as (the global cookie, the stored rows of the
   /// accounts, the account named in the settings and [currentUser]), after every such write started before it.
   ///
@@ -264,6 +278,7 @@ class AuthenticationRepository with LoggerMixin {
       }
       // Here we get complete user info.
       final userInfo = resultEither.unwrap();
+      await _beforeIdentityChange();
       _changedIdentity();
       // First combine user info and cookie together.
       await cookie.updateUserInfo(userInfo);
@@ -424,6 +439,7 @@ class AuthenticationRepository with LoggerMixin {
       warning('logout of uid ${"$target".obscured(4)} asked, the account in use changed meanwhile: nothing done');
       return left(IdentityChangedException());
     }
+    await _beforeIdentityChange();
     final user = effectiveCurrentUser;
     final netClient = _currentUserClientFactory(
       UserLoginInfo(username: user?.uid == target ? user?.username : null, uid: target),
@@ -528,6 +544,7 @@ class AuthenticationRepository with LoggerMixin {
   }
 
   Future<void> _forgetCurrentUser() async {
+    await _beforeIdentityChange();
     _changedIdentity();
     // Resolve the account before the provider forgets it.
     final uid = effectiveCurrentUid;
@@ -594,6 +611,7 @@ class AuthenticationRepository with LoggerMixin {
         warning('switch to uid ${"${userInfo.uid}".obscured(4)}: its saved login was removed meanwhile');
         return left(LoginInvalidCredentialException());
       }
+      await _beforeIdentityChange();
       _changedIdentity();
       if (!await getIt.get<CookieProvider>().loadCookieFromStorage(parsedUserInfo)) {
         return left(LoginInvalidCredentialException());

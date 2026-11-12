@@ -404,7 +404,7 @@ void main() {
       expect(forum.of('adminreport', 'GET'), hasLength(2));
     });
 
-    testWidgets('the panel offers it to a read-only admin of the reports; the page holds the session', (tester) async {
+    testWidgets('the panel offers it to a read-only admin of the reports', (tester) async {
       final forum = _forum();
       await _pump(
         tester,
@@ -419,7 +419,6 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('modcp-report')));
       await tester.pumpAndSettle();
       expect(find.byType(AdminReportPage), findsOneWidget);
-      expect(forum.session.leases, 2);
       expect(tester.widget<Checkbox>(find.byKey(const ValueKey('report-pick-171'))).onChanged, isNull);
     });
   });

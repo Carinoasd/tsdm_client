@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -123,7 +124,34 @@ class _EmojiPanelState extends State<EmojiPanel> with TickerProviderStateMixin {
     return _tabs!;
   }
 
-  Widget _emojiTile(String code, {String? tooltip}) {
+  /// Offer to remove [code] from the recent ones, in a menu at the tile long pressed ([context]).
+  Future<void> _offerRemoveRecent(BuildContext context, String code) async {
+    final box = context.findRenderObject() as RenderBox?;
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox?;
+    if (box == null || overlay == null) {
+      return;
+    }
+    final rect = RelativeRect.fromRect(
+      box.localToGlobal(Offset.zero, ancestor: overlay) & box.size,
+      Offset.zero & overlay.size,
+    );
+    final remove = await showMenu<bool>(
+      context: context,
+      position: rect,
+      items: [
+        PopupMenuItem(
+          key: const ValueKey('emoji-panel-remove-recent'),
+          value: true,
+          child: Text(context.t.bbcodeEditor.emoji.removeRecent),
+        ),
+      ],
+    );
+    if (remove ?? false) {
+      await RecentEmojiStore.app?.remove(code);
+    }
+  }
+
+  Widget _emojiTile(String code, {bool recent = false}) {
     final Widget child;
     if (isCustomImageBBCode(code)) {
       final url = parseCustomImageInput(code) ?? '';
@@ -138,20 +166,23 @@ class _EmojiPanelState extends State<EmojiPanel> with TickerProviderStateMixin {
           : ClipOval(child: Image.memory(bytes, fit: BoxFit.cover, gaplessPlayback: true));
     }
     return Tooltip(
-      message: tooltip ?? code,
+      message: code,
       child: Material(
         type: MaterialType.transparency,
-        child: InkWell(
-          key: ValueKey('emoji-panel-$code'),
-          borderRadius: BorderRadius.circular(appInnerRadius),
-          onTap: () => _pick(code),
-          child: Padding(padding: const EdgeInsets.all(3), child: child),
+        child: Builder(
+          builder: (context) => InkWell(
+            key: ValueKey('emoji-panel-$code'),
+            borderRadius: BorderRadius.circular(appInnerRadius),
+            onTap: () => _pick(code),
+            onLongPress: recent ? () => unawaited(_offerRemoveRecent(context, code)) : null,
+            child: Padding(padding: const EdgeInsets.all(3), child: child),
+          ),
         ),
       ),
     );
   }
 
-  Widget _grid(List<String> codes) => GridView.builder(
+  Widget _grid(List<String> codes, {bool recent = false}) => GridView.builder(
     padding: edgeInsetsL12T8R12B8,
     gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
       maxCrossAxisExtent: 48,
@@ -160,7 +191,7 @@ class _EmojiPanelState extends State<EmojiPanel> with TickerProviderStateMixin {
       mainAxisExtent: 48,
     ),
     itemCount: codes.length,
-    itemBuilder: (context, index) => _emojiTile(codes[index]),
+    itemBuilder: (context, index) => _emojiTile(codes[index], recent: recent),
   );
 
   Widget _hint(BuildContext context, IconData icon, String message) => Center(
@@ -188,8 +219,9 @@ class _EmojiPanelState extends State<EmojiPanel> with TickerProviderStateMixin {
     }
     return ValueListenableBuilder<List<String>>(
       valueListenable: store.recent,
-      builder: (context, codes, _) =>
-          codes.isEmpty ? _hint(context, Icons.history_outlined, context.t.bbcodeEditor.emoji.noRecent) : _grid(codes),
+      builder: (context, codes, _) => codes.isEmpty
+          ? _hint(context, Icons.history_outlined, context.t.bbcodeEditor.emoji.noRecent)
+          : _grid(codes, recent: true),
     );
   }
 

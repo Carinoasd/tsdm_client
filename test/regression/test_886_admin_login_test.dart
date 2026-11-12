@@ -287,32 +287,26 @@ void main() {
       expect(forum.of('admin', 'POST'), hasLength(1));
     });
 
-    test('the last admin page left logs out; the token of another account is never logged out', () async {
+    test('the token is dropped before the logout is sent; the token of another account is never logged out', () async {
       final forum = FakeAdminForum({
         'GET:admin': [adminFixture('admin_member_manager')],
-        'POST:admin': [
-          {'ok': 1, 'type': 'admin', 'op': 'logout'},
-        ],
       });
+      forum.answers['POST:admin'] = [
+        (AdminRequest r) {
+          expect(forum.session.holds(96), isFalse, reason: 'no page can use it while the logout is on its way');
+          expect(r.headers[adminTokenHeader], _token);
+          return {'ok': 1, 'type': 'admin', 'op': 'logout'};
+        },
+      ];
       final repo = forum.repository();
       forum.session.keep(96, _token);
-      forum.session
-        ..acquire()
-        ..acquire()
-        ..release(repo.logout);
-      await pumpEventQueue();
-      expect(forum.of('admin', 'POST'), isEmpty);
-      forum.session.release(repo.logout);
-      await pumpEventQueue();
+      await repo.logout();
       expect(forum.of('admin', 'POST'), hasLength(1));
       expect(forum.session.tokenFor(96), isNull);
 
-      forum.session
-        ..keep(96, _token)
-        ..acquire();
+      forum.session.keep(96, _token);
       forum.uid = 35;
-      forum.session.release(repo.logout);
-      await pumpEventQueue();
+      await repo.logout();
       expect(forum.of('admin', 'POST'), hasLength(1), reason: 'switched: dropped here, not sent with 35');
       expect(forum.session.holds(96), isFalse);
     });
@@ -332,18 +326,18 @@ void main() {
       expect(forum.session.tokenFor(96), 'new-token-0000');
     });
 
-    test('the app lock locking drops the token', () async {
-      final session = AdminSession()..keep(96, _token);
+    test('the app lock locking ends the token', () async {
+      var logouts = 0;
+      final guard = AdminSessionGuard(logout: () async => logouts++);
       final lock = StreamController<bool>();
-      final sub = session.dropOnLock(lock.stream);
+      guard.watchLock(lock.stream);
       lock.add(false);
       await Future<void>.delayed(Duration.zero);
-      expect(session.holds(96), isTrue);
+      expect(logouts, 0);
       lock.add(true);
       await Future<void>.delayed(Duration.zero);
-      expect(session.holds(96), isFalse);
-      await sub.cancel();
-      await lock.close();
+      expect(logouts, 1);
+      await guard.dispose();
     });
   });
 

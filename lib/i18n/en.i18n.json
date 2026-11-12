@@ -2273,6 +2273,7 @@
     "pending": "Awaiting moderation",
     "notesCount": "Notes",
     "forumsCount": "Forums",
+    "unlock": "Enter panel password",
     "toSupermod": "Super moderators",
     "toModerator": "Moderators",
     "days": "Days kept",
@@ -2444,7 +2445,8 @@
       "downloading": "Downloading emoji (about 10 MB), this may take a while…",
       "loadingAssets": "Loading bundled emoji…",
       "recent": "Recent",
-      "noRecent": "Emojis you use show up here"
+      "noRecent": "Emojis you use show up here",
+      "removeRecent": "Remove from recent"
     },
     "url": {
       "title": "Insert link",
@@ -4448,6 +4450,7 @@
     "question": "Security question",
     "answer": "Answer",
     "verify": "Verify",
+    "logout": "End admin verification",
     "wrongPassword": "Wrong password, ${n} tries left",
     "needQuestion": "Answer the security question",
     "lockedFor": "Too many tries, try again in ${time}",
