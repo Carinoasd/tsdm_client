@@ -763,7 +763,7 @@ void main() {
             for (final sheet in sheets)
               for (final content in _content()) find.descendant(of: sheet, matching: content),
           ]);
-          if (_widest([for (final sheet in sheets) find.descendant(of: sheet, matching: find.byType(Material))]) > 0) {
+          if (sheets.any((sheet) => sheet.evaluate().isNotEmpty)) {
             expect(rows, greaterThan(widest / 2), reason: 'the rows of the sheet');
           }
           await tester.pumpWidget(const SizedBox.shrink());
