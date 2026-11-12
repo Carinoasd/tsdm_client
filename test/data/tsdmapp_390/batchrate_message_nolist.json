@@ -1,0 +1,9 @@
+{
+  "ok": 0,
+  "error": "message",
+  "message": "您沒有檢視批次紀錄的權限。",
+  "message_key": "",
+  "login": 0,
+  "uid": 31,
+  "form": "batchrate"
+}

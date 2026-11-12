@@ -1,0 +1,9 @@
+{
+  "ok": 0,
+  "error": "message",
+  "message": "樓層寫法看不懂：「abc」。請寫成 3~5 10 15~20 這樣（空白或逗號分隔，範圍用 ~，最多 50 段）。",
+  "message_key": "",
+  "login": 0,
+  "uid": 31,
+  "form": "batchrate"
+}

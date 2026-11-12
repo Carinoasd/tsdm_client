@@ -11,6 +11,9 @@ import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/list.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/authentication/widgets/account_reload_scope.dart';
+import 'package:tsdm_client/features/batch_rate/models/batch_rate.dart';
+import 'package:tsdm_client/features/batch_rate/utils/batch_rate_access.dart';
+import 'package:tsdm_client/features/batch_rate/view/batch_rate_confirm_page.dart';
 import 'package:tsdm_client/features/blocking/utils/block_filter.dart';
 import 'package:tsdm_client/features/favorite/utils/forum_favorite_action.dart';
 import 'package:tsdm_client/features/forum/bloc/forum_bloc.dart';
@@ -126,6 +129,49 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
   /// The threads picked in the thread tab (tids), null when not picking.
   Set<String>? _picked;
 
+  /// Rating the threads picked in a batch (the batch rate plugin, tsdmapp 3.9.0), asked once picking starts; with the
+  /// account and forum it was asked for.
+  ({String key, BatchRateInfo info})? _batchRate;
+
+  /// Ask whether the threads picked may be rated in a batch, once per account and forum (kept a while).
+  void _askBatchRate(BuildContext context) {
+    final uid = context.readOrNull<AuthenticationRepository>()?.effectiveCurrentUid;
+    final fid = int.tryParse(widget.fid);
+    if (uid == null || fid == null || _batchRate?.key == '$uid:$fid') {
+      return;
+    }
+    final key = '$uid:$fid';
+    final auth = context.read<AuthenticationRepository>();
+    BatchRateAccess.check(uid, fid: fid, stillCurrent: () => auth.effectiveCurrentUid == uid).then((info) {
+      if (mounted && info != null && info.offersList && _moderatorAsked == key) {
+        setState(() => _batchRate = (key: key, info: info));
+      }
+    }).ignore();
+  }
+
+  /// Rate the threads picked in a batch: the confirmation.
+  Future<void> _batchRatePicked(BuildContext context, ForumState state, BatchRateInfo info) async {
+    final picked = _picked;
+    if (picked == null) {
+      return;
+    }
+    final tids = [
+      for (final thread in _pickable(context, state))
+        if (picked.contains(thread.threadID)) ?int.tryParse(thread.threadID),
+    ];
+    if (tids.isEmpty) {
+      return;
+    }
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => BatchRateConfirmPage(
+          info: info,
+          selection: BatchRateSelection.threads(fid: info.fid, tids: tids),
+        ),
+      ),
+    );
+  }
+
   void _stopPicking() {
     if (_picked != null) {
       setState(() => _picked = null);
@@ -196,6 +242,13 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
               ? null
               : () => setState(() => _picked = {...picked, for (final e in pickable) e.threadID}),
         ),
+        if (_batchRate case (:final key, :final info) when key == _moderatorAsked)
+          IconButton(
+            key: const ValueKey('forum-batch-rate'),
+            icon: const Icon(Icons.thumbs_up_down_outlined),
+            tooltip: context.t.batchRate.title,
+            onPressed: count == 0 ? null : () async => _batchRatePicked(context, state, info),
+          ),
         IconButton(
           icon: const Icon(Icons.admin_panel_settings_outlined),
           tooltip: context.t.moderate.menu,
@@ -213,7 +266,13 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
       return NormalThreadCard(thread);
     }
     if (picked == null) {
-      return NormalThreadCard(thread, onStartPicking: () => setState(() => _picked = {thread.threadID}));
+      return NormalThreadCard(
+        thread,
+        onStartPicking: () {
+          _askBatchRate(context);
+          setState(() => _picked = {thread.threadID});
+        },
+      );
     }
     return Row(
       children: [

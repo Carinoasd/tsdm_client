@@ -1,0 +1,207 @@
+{
+  "ok": 1,
+  "api": 1,
+  "time": 1700000000,
+  "uid": 31,
+  "formhash": "f1f2f3f4",
+  "type": "batchrate_batch",
+  "schema": 34,
+  "batch": {
+    "batchid": 51,
+    "uid": 32,
+    "username": "ag_admin",
+    "fid": 2,
+    "forum": "测试版块",
+    "tid": 1019,
+    "mode": 3,
+    "mode_text": "樓層範圍 2～9",
+    "floors": "2~",
+    "conds": [
+      "精灵 ≥ 5"
+    ],
+    "scores": [
+      {
+        "id": 1,
+        "title": "威望",
+        "score": 1
+      }
+    ],
+    "reason": "活動獎勵",
+    "exclude": [
+      "gl_dave"
+    ],
+    "antispam": {
+      "rated": 0,
+      "same": 1
+    },
+    "total": 8,
+    "applied": 2,
+    "skipped": 6,
+    "pending": 0,
+    "status": 1,
+    "status_text": "完成",
+    "dateline": 1792211668,
+    "can_continue": 0,
+    "can_undo": 1,
+    "can_undo_item": 1
+  },
+  "items": [
+    {
+      "itemid": 2187,
+      "tid": 1019,
+      "pid": 37,
+      "position": 2,
+      "subject": "",
+      "authorid": 5,
+      "author": "gl_bob",
+      "status": "skip_credit",
+      "status_text": "本帖精灵合計 0，未達「精灵 ≥ 5」，跳過",
+      "mult": 1,
+      "url": "forum.php?mod=redirect&goto=findpost&ptid=1019&pid=37",
+      "can_undo": 0,
+      "undo_uid": 0,
+      "undo_dateline": 0
+    },
+    {
+      "itemid": 2188,
+      "tid": 1019,
+      "pid": 38,
+      "position": 3,
+      "subject": "",
+      "authorid": 6,
+      "author": "gl_carol",
+      "status": "applied",
+      "status_text": "已評分",
+      "mult": 1,
+      "url": "forum.php?mod=redirect&goto=findpost&ptid=1019&pid=38",
+      "can_undo": 1,
+      "undo_uid": 0,
+      "undo_dateline": 0
+    },
+    {
+      "itemid": 2189,
+      "tid": 1019,
+      "pid": 39,
+      "position": 4,
+      "subject": "",
+      "authorid": 7,
+      "author": "gl_dave",
+      "status": "skip_excluded",
+      "status_text": "已排除：gl_dave",
+      "mult": 1,
+      "url": "forum.php?mod=redirect&goto=findpost&ptid=1019&pid=39",
+      "can_undo": 0,
+      "undo_uid": 0,
+      "undo_dateline": 0
+    },
+    {
+      "itemid": 2190,
+      "tid": 1019,
+      "pid": 40,
+      "position": 5,
+      "subject": "",
+      "authorid": 6,
+      "author": "gl_carol",
+      "status": "skip_same_author",
+      "status_text": "同人已評第 3 樓，跳過",
+      "mult": 1,
+      "url": "forum.php?mod=redirect&goto=findpost&ptid=1019&pid=40",
+      "can_undo": 0,
+      "undo_uid": 0,
+      "undo_dateline": 0
+    },
+    {
+      "itemid": 2191,
+      "tid": 1019,
+      "pid": 41,
+      "position": 6,
+      "subject": "",
+      "authorid": 8,
+      "author": "gl_erin",
+      "status": "skip_credit",
+      "status_text": "本帖精灵合計 2，未達「精灵 ≥ 5」，跳過",
+      "mult": 1,
+      "url": "forum.php?mod=redirect&goto=findpost&ptid=1019&pid=41",
+      "can_undo": 0,
+      "undo_uid": 0,
+      "undo_dateline": 0
+    },
+    {
+      "itemid": 2192,
+      "tid": 1019,
+      "pid": 43,
+      "position": 7,
+      "subject": "",
+      "authorid": 10,
+      "author": "ps_v2",
+      "status": "applied",
+      "status_text": "已評分",
+      "mult": 1,
+      "url": "forum.php?mod=redirect&goto=findpost&ptid=1019&pid=43",
+      "can_undo": 1,
+      "undo_uid": 0,
+      "undo_dateline": 0
+    },
+    {
+      "itemid": 2193,
+      "tid": 1019,
+      "pid": 45,
+      "position": 8,
+      "subject": "",
+      "authorid": 11,
+      "author": "ps_v3",
+      "status": "skip_credit",
+      "status_text": "本帖精灵合計 0，未達「精灵 ≥ 5」，跳過",
+      "mult": 1,
+      "url": "forum.php?mod=redirect&goto=findpost&ptid=1019&pid=45",
+      "can_undo": 0,
+      "undo_uid": 0,
+      "undo_dateline": 0
+    },
+    {
+      "itemid": 2194,
+      "tid": 1019,
+      "pid": 46,
+      "position": 9,
+      "subject": "",
+      "authorid": 12,
+      "author": "ps_v4",
+      "status": "skip_credit",
+      "status_text": "本帖精灵合計 0，未達「精灵 ≥ 5」，跳過",
+      "mult": 1,
+      "url": "forum.php?mod=redirect&goto=findpost&ptid=1019&pid=46",
+      "can_undo": 0,
+      "undo_uid": 0,
+      "undo_dateline": 0
+    }
+  ],
+  "run": 0,
+  "chunk": 50,
+  "forms": {
+    "run": {
+      "url": "plugin.php?id=batchrate:run",
+      "method": "POST",
+      "fields": {
+        "formhash": "f1f2f3f4"
+      },
+      "batch_field": "batchid"
+    },
+    "undo_item": {
+      "url": "plugin.php?id=batchrate:list&bract=undo_item",
+      "method": "POST",
+      "fields": {
+        "formhash": "f1f2f3f4"
+      },
+      "item_field": "itemid"
+    },
+    "undo_batch": {
+      "url": "plugin.php?id=batchrate:list&bract=undo_batch",
+      "method": "POST",
+      "fields": {
+        "formhash": "f1f2f3f4"
+      },
+      "batch_field": "batchid"
+    },
+    "result_url": "plugin.php?id=batchrate:rate&brmode=result&batchid=51"
+  }
+}

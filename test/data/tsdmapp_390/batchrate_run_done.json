@@ -1,0 +1,22 @@
+{
+  "ok": 1,
+  "api": 1,
+  "time": 1700000000,
+  "uid": 31,
+  "formhash": "f1f2f3f4",
+  "type": "result",
+  "schema": 13,
+  "kind": "handle",
+  "message": "",
+  "message_key": "",
+  "url": "",
+  "handlekey": "batchrate_run",
+  "values": {
+    "done": "4",
+    "total": "4",
+    "remaining": "0",
+    "finished": "1"
+  },
+  "login": 0,
+  "alert": "right"
+}

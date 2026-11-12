@@ -1,0 +1,17 @@
+{
+  "ok": 0,
+  "api": 1,
+  "time": 1700000000,
+  "uid": 31,
+  "formhash": "f1f2f3f4",
+  "type": "result",
+  "schema": 13,
+  "kind": "handle",
+  "message": "您不是本版塊的版主或管理員，無法撤回。",
+  "message_key": "",
+  "url": "",
+  "handlekey": "batchrate_run",
+  "values": {},
+  "login": 0,
+  "alert": "error"
+}

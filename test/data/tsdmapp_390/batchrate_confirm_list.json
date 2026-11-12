@@ -1,0 +1,122 @@
+{
+  "ok": 1,
+  "api": 1,
+  "time": 1700000000,
+  "uid": 31,
+  "formhash": "f1f2f3f4",
+  "type": "batchrate_confirm",
+  "schema": 33,
+  "mode": 1,
+  "fid": 2,
+  "forum": "测试版块",
+  "tid": 0,
+  "floors": "",
+  "total": 3,
+  "apply": 3,
+  "multsum": 3,
+  "chunks": 1,
+  "credits": [
+    {
+      "id": 6,
+      "title": "精灵",
+      "unit": "",
+      "min": -20,
+      "max": 100,
+      "score": 0,
+      "cond": ""
+    }
+  ],
+  "quota": [],
+  "reason": {
+    "value": "",
+    "required": 0
+  },
+  "notify": {
+    "checked": 0,
+    "forced": 0
+  },
+  "antispam": {
+    "locked": 0,
+    "rated": 0,
+    "same": 0,
+    "rated_overridden": 0
+  },
+  "exclude": "",
+  "errors": [],
+  "blocked": 0,
+  "items": [
+    {
+      "itemid": 0,
+      "tid": 9202952,
+      "pid": 11736,
+      "position": 1,
+      "subject": "VD測試 影片與音樂",
+      "authorid": 32,
+      "author": "ag_admin",
+      "status": "pending",
+      "status_text": "會評分",
+      "mult": 1,
+      "url": "forum.php?mod=redirect&goto=findpost&ptid=9202952&pid=11736"
+    },
+    {
+      "itemid": 0,
+      "tid": 9202810,
+      "pid": 11250,
+      "position": 1,
+      "subject": "预览素材：葬送的芙莉莲 第二季 01-04 网盘合集",
+      "authorid": 35,
+      "author": "ag_low2",
+      "status": "pending",
+      "status_text": "會評分",
+      "mult": 1,
+      "url": "forum.php?mod=redirect&goto=findpost&ptid=9202810&pid=11250"
+    },
+    {
+      "itemid": 0,
+      "tid": 1019,
+      "pid": 36,
+      "position": 1,
+      "subject": "【pollshare 測試】最喜歡的角色票選",
+      "authorid": 7,
+      "author": "gl_dave",
+      "status": "pending",
+      "status_text": "會評分",
+      "mult": 1,
+      "url": "forum.php?mod=redirect&goto=findpost&ptid=1019&pid=36"
+    }
+  ],
+  "submit": {
+    "url": "plugin.php?id=batchrate:rate",
+    "method": "POST",
+    "fields": {
+      "formhash": "f1f2f3f4",
+      "brmode": "1",
+      "fid": "2",
+      "tid": "0",
+      "tids": "9202952,9202810,1019",
+      "pids": "",
+      "floors": ""
+    },
+    "mode_field": "brmode",
+    "modes": {
+      "list": 1,
+      "check": 2,
+      "range": 3
+    },
+    "fid_field": "fid",
+    "tid_field": "tid",
+    "tids_field": "tids",
+    "pids_field": "pids",
+    "floors_field": "floors",
+    "recalc_field": "recalc",
+    "submit_field": "ratesubmit",
+    "score_field": "score{id}",
+    "reason_field": "reason",
+    "notify_field": "sendreasonpm",
+    "exclude_field": "exclude",
+    "rated_field": "as_rated",
+    "same_field": "as_same",
+    "cond_field": "cond[{id}]",
+    "mult_field": "mult[{pid}]"
+  }
+}

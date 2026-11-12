@@ -1,0 +1,76 @@
+{
+  "ok": 1,
+  "api": 1,
+  "time": 1700000000,
+  "uid": 31,
+  "formhash": "f1f2f3f4",
+  "type": "batchrate_batch",
+  "schema": 34,
+  "batch": {
+    "batchid": 52,
+    "uid": 31,
+    "username": "ag_mid",
+    "fid": 2,
+    "forum": "测试版块",
+    "tid": 1019,
+    "mode": 3,
+    "mode_text": "樓層範圍 2～9",
+    "floors": "2~9",
+    "conds": [],
+    "scores": [
+      {
+        "id": 6,
+        "title": "精灵",
+        "score": 5
+      }
+    ],
+    "reason": "x",
+    "exclude": [
+      "gl_dave"
+    ],
+    "antispam": {
+      "rated": 1,
+      "same": 1
+    },
+    "total": 4,
+    "applied": 0,
+    "skipped": 2,
+    "pending": null,
+    "status": 0,
+    "status_text": "處理中",
+    "dateline": 1700000000,
+    "can_continue": 1,
+    "can_undo": 0,
+    "can_undo_item": 1
+  },
+  "items": null,
+  "run": 1,
+  "chunk": 50,
+  "forms": {
+    "run": {
+      "url": "plugin.php?id=batchrate:run",
+      "method": "POST",
+      "fields": {
+        "formhash": "f1f2f3f4"
+      },
+      "batch_field": "batchid"
+    },
+    "undo_item": {
+      "url": "plugin.php?id=batchrate:list&bract=undo_item",
+      "method": "POST",
+      "fields": {
+        "formhash": "f1f2f3f4"
+      },
+      "item_field": "itemid"
+    },
+    "undo_batch": {
+      "url": "plugin.php?id=batchrate:list&bract=undo_batch",
+      "method": "POST",
+      "fields": {
+        "formhash": "f1f2f3f4"
+      },
+      "batch_field": "batchid"
+    },
+    "result_url": "plugin.php?id=batchrate:rate&brmode=result&batchid=52"
+  }
+}
