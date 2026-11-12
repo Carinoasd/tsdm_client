@@ -172,9 +172,33 @@ void main() {
       ]) {
         expect(ModcpNoteAddForm.parse({...add, ...bad}), isNull, reason: '$bad');
       }
+      // The fixed fields never choose the page nor the operation: the panel reads them over the URL's.
+      for (final fields in [
+        {'formhash': 'f', 'op': 'addnote', 'submit': 'true', 'mod': 'post'},
+        {'formhash': 'f', 'op': 'addnote', 'submit': 'true', 'action': 'member'},
+        {'formhash': 'f', 'op': 'delete', 'submit': 'true'},
+        {'formhash': 'f', 'submit': 'true'},
+        {'formhash': 'f', 'op': 'addnote', 'do': 'x'},
+      ]) {
+        expect(ModcpNoteAddForm.parse({...add, 'fields': fields}), isNull, reason: '$fields');
+      }
       final delete = _fixture('modcp_home')['delete'] as Map<String, dynamic>;
-      expect(ModcpIdsForm.parse({...delete, 'ids_field': 'delete'}, action: 'home'), isNull);
-      expect(ModcpIdsForm.parse(delete, action: 'forumaccess'), isNull);
+      expect(
+        ModcpIdsForm.parse(
+          {
+            ...delete,
+            'fields': {'formhash': 'f', 'op': 'addnote', 'notlistsubmit': 'yes'},
+          },
+          action: 'home',
+          expect: const {'op': 'delete'},
+        ),
+        isNull,
+      );
+      expect(
+        ModcpIdsForm.parse({...delete, 'ids_field': 'delete'}, action: 'home', expect: const {'op': 'delete'}),
+        isNull,
+      );
+      expect(ModcpIdsForm.parse(delete, action: 'forumaccess', expect: const {'op': 'delete'}), isNull);
     });
 
     test('the fixed fields never carry those the app fills', () {

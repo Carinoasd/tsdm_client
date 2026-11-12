@@ -28,6 +28,9 @@ bool _isPage(Map<String, dynamic> json, String type, int schema) =>
 /// The name of a field the panel reads: `name`, `name[]` or `name[key]`.
 final _fieldName = RegExp(r'^[A-Za-z_][A-Za-z0-9_]*(\[[A-Za-z0-9_]*\])?$');
 
+/// The fields choosing the page the panel draws: never taken from an answer but as expected.
+const _guarded = {'mod', 'action', 'op', 'do'};
+
 /// The bare name of field [field] (`delete[]` → `delete`).
 String _bare(String field) => field.contains('[') ? field.substring(0, field.indexOf('[')) : field;
 
@@ -39,13 +42,16 @@ final class ModcpPanelForm {
 
   /// The form [json] (`url`, `fields`) of the panel's page [action] (and [op] when given); null unless it is sent to
   /// that page of this forum, its query no more than [query] allows, its fixed fields of the panel's shape. The fixed
-  /// fields never carry those the app fills ([filled]: bare names).
+  /// fields never carry those the app fills ([filled]: bare names), nor choose the page: the panel reads the body's
+  /// fields over the URL's (Discuz merges `$_POST` into `$_GET`), so `mod` and `action` are refused there, and `op`,
+  /// `do` (and the others of [expect]) must be exactly what [expect] gives.
   static ModcpPanelForm? parse(
     Object? json, {
     required String action,
     String? op,
     Set<String> query = const {},
     Set<String> filled = const {},
+    Map<String, String> expect = const {},
   }) {
     if (json is! Map) {
       return null;
@@ -66,10 +72,17 @@ final class ModcpPanelForm {
         q.keys.any((k) => !{'mod', 'action', if (op != null) 'op', ...query}.contains(k))) {
       return null;
     }
+    final given = (fields as Map?) ?? const {};
+    if (expect.entries.any((e) => _str(given[e.key]) != e.value || !given.containsKey(e.key))) {
+      return null;
+    }
     final fixed = <String, String>{};
-    for (final MapEntry(:key, :value) in ((fields as Map?) ?? const {}).entries) {
+    for (final MapEntry(:key, :value) in given.entries) {
       final name = '$key';
       if (!_fieldName.hasMatch(name) || value is Map || value is List) {
+        return null;
+      }
+      if (_guarded.contains(_bare(name)) && !expect.containsKey(name)) {
         return null;
       }
       if (!filled.contains(_bare(name))) {
@@ -246,6 +259,7 @@ final class ModcpNoteAddForm {
       json,
       action: 'home',
       filled: {_bare(message), _bare(supermod), _bare(moderator), _bare(days)},
+      expect: const {'op': 'addnote'},
     );
     if (form == null) {
       return null;
@@ -302,7 +316,13 @@ final class ModcpIdsForm {
   const ModcpIdsForm({required this.form, required this.idsField});
 
   /// The form [json] of page [action] (and [op]); null when it is not one to use.
-  static ModcpIdsForm? parse(Object? json, {required String action, String? op, Set<String> filled = const {}}) {
+  static ModcpIdsForm? parse(
+    Object? json, {
+    required String action,
+    required Map<String, String> expect,
+    String? op,
+    Set<String> filled = const {},
+  }) {
     if (json is! Map) {
       return null;
     }
@@ -310,7 +330,7 @@ final class ModcpIdsForm {
     if (ids == null) {
       return null;
     }
-    final form = ModcpPanelForm.parse(json, action: action, op: op, filled: {_bare(ids), ...filled});
+    final form = ModcpPanelForm.parse(json, action: action, op: op, filled: {_bare(ids), ...filled}, expect: expect);
     return form == null ? null : ModcpIdsForm(form: form, idsField: ids);
   }
 
@@ -385,7 +405,7 @@ ModcpHome? modcpHomeFromApi(Map<String, dynamic> json) {
           ),
     ],
     addForm: ModcpNoteAddForm.parse(json['add']),
-    deleteForm: ModcpIdsForm.parse(json['delete'], action: 'home'),
+    deleteForm: ModcpIdsForm.parse(json['delete'], action: 'home', expect: const {'op': 'delete'}),
     messageKey: _str(json['message_key']),
   );
 }
@@ -416,7 +436,13 @@ final class ModcpSearchForm {
     if (fid == null || fid.contains('[')) {
       return null;
     }
-    final form = ModcpPanelForm.parse(json, action: 'thread', op: op, filled: {fid, ...conditions});
+    final form = ModcpPanelForm.parse(
+      json,
+      action: 'thread',
+      op: op,
+      filled: {fid, ...conditions},
+      expect: const {'do': 'search'},
+    );
     return form == null ? null : ModcpSearchForm(form: form, fidField: fid);
   }
 
@@ -673,6 +699,8 @@ bool _isModerateForm(Map<dynamic, dynamic> json, int fid) {
   final q = uri.queryParameters;
   return uri.origin == Uri.parse(baseUrl).origin &&
       uri.path == '/forum.php' &&
+      uri.fragment.isEmpty &&
+      q.keys.every(const {'mod', 'action', 'fid', 'infloat', 'nopost'}.contains) &&
       q['mod'] == 'topicadmin' &&
       q['action'] == 'moderate' &&
       q['fid'] == '$fid' &&
@@ -794,7 +822,7 @@ final class ModcpPostDeleteForm {
   const ModcpPostDeleteForm({required this.ids, required this.noCreditField});
 
   /// The `delete` of an answer; null when it is not one to use.
-  static ModcpPostDeleteForm? parse(Object? json) {
+  static ModcpPostDeleteForm? parse(Object? json, {required int fid}) {
     if (json is! Map) {
       return null;
     }
@@ -802,7 +830,13 @@ final class ModcpPostDeleteForm {
     if (noCredit == null) {
       return null;
     }
-    final ids = ModcpIdsForm.parse(json, action: 'thread', op: 'post', filled: {_bare(noCredit)});
+    final ids = ModcpIdsForm.parse(
+      json,
+      action: 'thread',
+      op: 'post',
+      filled: {_bare(noCredit)},
+      expect: {'do': 'delete', 'fid': '$fid'},
+    );
     return ids == null ? null : ModcpPostDeleteForm(ids: ids, noCreditField: noCredit);
   }
 
@@ -943,7 +977,7 @@ ModcpPostPage? modcpPostFromApi(Map<String, dynamic> json) {
     allowDelete: json['allow_delete'] == 1,
     search: ModcpSearchForm.parse(json['search'], op: 'post', conditions: ModcpPostQuery.all),
     listUrl: _listUrl(json['list_url'], action: 'thread', op: 'post'),
-    deleteForm: ModcpPostDeleteForm.parse(json['delete']),
+    deleteForm: ModcpPostDeleteForm.parse(json['delete'], fid: fid > 0 ? fid : 0),
     messageKey: _str(json['message_key']),
   );
 }
@@ -1057,6 +1091,7 @@ final class ModcpAccessForm {
       json,
       action: 'forumaccess',
       filled: {fid, user, restore, for (final f in denyFields.values) _bare(f)},
+      expect: const {'op': ''},
     );
     if (form == null) {
       return null;

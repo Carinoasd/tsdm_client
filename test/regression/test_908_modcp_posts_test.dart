@@ -62,6 +62,10 @@ ModcpPagesRepository _repo({
 
   Future<Either<AppException, ({int statusCode, Object? data})>> post(String url, Map<String, String> body) async {
     posted?.add((url, body));
+    if (url.contains('action=login')) {
+      // The panel's login: it sends the account on to the panel.
+      return right((statusCode: 302, data: null));
+    }
     return right((statusCode: 200, data: reply ?? _deleted()));
   }
 
@@ -148,15 +152,25 @@ void main() {
 
     test('a deletion form sent elsewhere, or of another shape, is never used', () {
       final delete = _fixture('modcp_post_fid2')['delete'] as Map<String, dynamic>;
-      expect(ModcpPostDeleteForm.parse(delete), isNotNull);
+      expect(ModcpPostDeleteForm.parse(delete, fid: 2), isNotNull);
+      expect(ModcpPostDeleteForm.parse(delete, fid: 6), isNull);
       for (final bad in [
         {'url': 'forum.php?mod=modcp&action=thread&op=thread'},
         {'url': 'forum.php?mod=modcp&action=recyclebin&op=post'},
         {'url': 'https://evil.test/forum.php?mod=modcp&action=thread&op=post'},
         {'ids_field': 'delete'},
         {'nocredit_field': 'no credit'},
+        {
+          'fields': {'formhash': 'f', 'fid': '2', 'do': 'delete', 'deletesubmit': 'true', 'mod': 'post'},
+        },
+        {
+          'fields': {'formhash': 'f', 'fid': '2', 'do': 'search', 'deletesubmit': 'true'},
+        },
+        {
+          'fields': {'formhash': 'f', 'fid': '2', 'do': 'delete', 'action': 'report'},
+        },
       ]) {
-        expect(ModcpPostDeleteForm.parse({...delete, ...bad}), isNull, reason: '$bad');
+        expect(ModcpPostDeleteForm.parse({...delete, ...bad}, fid: 2), isNull, reason: '$bad');
       }
     });
 
@@ -308,6 +322,41 @@ void main() {
       expect(find.text('Deleted 1 posts'), findsOneWidget);
       expect(find.byKey(const ValueKey('modcp-post-16018')), findsNothing);
       expect(find.byKey(const ValueKey('modcp-post-16017')), findsOneWidget);
+    });
+
+    testWidgets("the panel's password asked during a search: the same search run again once logged in", (tester) async {
+      final asked = <String>[];
+      var login = true;
+      await pump(
+        tester,
+        _repo(
+          asked: asked,
+          answer: (url) {
+            if (!url.contains('do=search')) {
+              return _fixture('modcp_post_fid2');
+            }
+            if (login) {
+              login = false;
+              return {
+                ..._fixture('modcp_report_login'),
+                'uid': 33,
+                'head': "<script>var discuz_uid = '33';</script>",
+              };
+            }
+            return _fixture('modcp_post_search');
+          },
+        ),
+      );
+      await tester.enterText(find.byKey(const ValueKey('modcp-posts-users')), 'member_a');
+      await tester.tap(find.byKey(const ValueKey('modcp-posts-search')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'pw');
+      await tester.tap(find.byType(FilledButton));
+      await tester.pumpAndSettle();
+      final searches = asked.where((u) => u.contains('do=search')).toList();
+      expect(searches.length, 2);
+      expect(searches.last, searches.first);
+      expect(find.byKey(const ValueKey('modcp-post-16018')), findsOneWidget);
     });
 
     testWidgets('no deletion offered without the permission', (tester) async {

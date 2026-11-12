@@ -149,13 +149,17 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
     }
   }
 
+  /// The first page asked last: an earlier answer is dropped.
+  int _homeGeneration = 0;
+
   /// What waits on the panel's first page.
   Future<void> _loadHome() async {
     if (!_modcpPages.contains('home')) {
       return;
     }
+    final generation = ++_homeGeneration;
     final answer = await _pages.fetchHome().run();
-    if (mounted) {
+    if (mounted && generation == _homeGeneration) {
       setState(() {
         _home = switch (answer) {
           Right(value: ModcpReady(:final value)) => value,

@@ -40,8 +40,11 @@ class _ModcpPostsPageState extends State<ModcpPostsPage> {
   /// The forum searched, 0 for all the account's.
   int _fid = 0;
 
-  /// The conditions searched last, null before a search.
-  Map<String, String>? _searched;
+  /// The forum and the conditions searched last, null before a search.
+  ({int fid, Map<String, String> conditions})? _searched;
+
+  /// The page read last: its search form is what is asked again once the panel's password was given.
+  ModcpPostPage? _last;
 
   final _users = TextEditingController();
   final _keywords = TextEditingController();
@@ -98,6 +101,7 @@ class _ModcpPostsPageState extends State<ModcpPostsPage> {
     _loading = false;
     _answer = answer;
     if (answer case Right(value: ModcpReady(:final value))) {
+      _last = value;
       final listed = {for (final p in value.posts) p.pid};
       _picked.retainWhere(listed.contains);
       if (!_filled) {
@@ -128,18 +132,20 @@ class _ModcpPostsPageState extends State<ModcpPostsPage> {
     }
     FocusScope.of(context).unfocus();
     setState(_picked.clear);
-    _searched = {...conditions};
-    await _ask(() => widget.repository.searchPosts(shown, _fid, conditions).run());
+    final fid = _fid;
+    _searched = (fid: fid, conditions: {...conditions});
+    await _ask(() => widget.repository.searchPosts(shown, fid, conditions).run());
   }
 
-  /// What is shown, asked again: the search run again (the panel's session may have lost it).
+  /// What was shown last, asked again: the search run again as it was sent (the panel's session may have lost it, or
+  /// asked its password meanwhile).
   Future<void> _reload() async {
-    final shown = _shown;
+    final last = _last;
     final searched = _searched;
-    if (shown != null && searched != null) {
-      return _ask(() => widget.repository.searchPosts(shown, _fid, searched).run());
+    if (last != null && searched != null) {
+      return _ask(() => widget.repository.searchPosts(last, searched.fid, searched.conditions).run());
     }
-    return _ask(() => widget.repository.fetchPosts(fid: _fid).run());
+    return _ask(() => widget.repository.fetchPosts(fid: searched?.fid ?? 0).run());
   }
 
   Future<void> _delete(ModcpPostPage shown) async {

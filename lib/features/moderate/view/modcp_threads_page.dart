@@ -54,6 +54,9 @@ class _ModcpThreadsPageState extends State<ModcpThreadsPage> {
   /// A forum was chosen by hand: the only one is not chosen again without asking.
   bool _picking = false;
 
+  /// The page read last: what is asked again once the panel's password was given.
+  ModcpThreadPage? _last;
+
   final _picked = <int>{};
   int _generation = 0;
 
@@ -69,11 +72,13 @@ class _ModcpThreadsPageState extends State<ModcpThreadsPage> {
   };
 
   /// Ask [request] and show its answer; [accept] tells whether a page read is the one asked (a search answered with
-  /// the whole forum is not its results).
+  /// the whole forum is not its results). [searching] are the conditions asked: kept once its results are shown, or
+  /// when the panel asks its password first (run again once logged in).
   Future<void> _ask(
     Future<Either<AppException, ModcpAnswer<ModcpThreadPage>>> Function() request, {
     bool Function(ModcpThreadPage page)? accept,
     VoidCallback? onRejected,
+    Map<String, String>? searching,
   }) async {
     final generation = ++_generation;
     setState(() => _loading = true);
@@ -99,13 +104,19 @@ class _ModcpThreadsPageState extends State<ModcpThreadsPage> {
     setState(() {
       _loading = false;
       _answer = answer;
-      if (answer case Right(value: ModcpReady(:final value))) {
-        if (value.forums.isNotEmpty) _forums = value.forums;
-        _fid = value.fid;
-        _page = value.page;
-        final listed = {for (final t in value.threads) t.tid};
-        _picked.retainWhere(listed.contains);
-        if (!value.isSearch) _conditions = null;
+      switch (answer) {
+        case Right(value: ModcpReady(:final value)):
+          _last = value;
+          if (value.forums.isNotEmpty) _forums = value.forums;
+          _fid = value.fid;
+          _page = value.page;
+          final listed = {for (final t in value.threads) t.tid};
+          _picked.retainWhere(listed.contains);
+          _conditions = value.isSearch ? (searching ?? _conditions) : null;
+        case Right(value: ModcpNeedsLogin()) when searching != null:
+          _conditions = searching;
+        default:
+          break;
       }
     });
     if (answer case Right(
@@ -121,30 +132,31 @@ class _ModcpThreadsPageState extends State<ModcpThreadsPage> {
     return _ask(() => widget.repository.fetchThreads(fid: fid, page: page).run());
   }
 
-  /// What is shown, asked again: the search run again (the panel's session may have lost it), or the forum's page.
+  /// What was shown last, asked again: the search run again (the panel's session may have lost it, or asked its
+  /// password meanwhile), or the forum's page.
   Future<void> _reload() async {
     final conditions = _conditions;
-    final shown = _shown;
-    if (conditions != null && shown != null && !shown.needForum) {
-      return _search(shown, conditions);
+    final last = _last;
+    if (conditions != null && last != null && !last.needForum) {
+      return _search(last, conditions);
     }
     return _ask(() => widget.repository.fetchThreads(fid: _fid, page: _page).run());
   }
 
-  Future<void> _search(ModcpThreadPage shown, Map<String, String> conditions) =>
-      _ask(
-        () => widget.repository.searchThreads(shown, conditions).run(),
-        accept: (page) => page.isSearch,
-        onRejected: () => showSnackBar(context: context, message: context.t.modcpPages.needCondition),
-      ).then((_) {
-        if (_shown?.isSearch ?? false) {
-          _conditions = conditions;
-        }
-      });
+  Future<void> _search(ModcpThreadPage shown, Map<String, String> conditions) => _ask(
+    () => widget.repository.searchThreads(shown, conditions).run(),
+    accept: (page) => page.isSearch,
+    onRejected: () => showSnackBar(context: context, message: context.t.modcpPages.needCondition),
+    searching: conditions,
+  );
 
   Future<void> _goTo(ModcpThreadPage shown, int page) {
     if (shown.isSearch) {
-      return _ask(() => widget.repository.fetchThreadResults(shown, page).run(), accept: (p) => p.isSearch);
+      return _ask(
+        () => widget.repository.fetchThreadResults(shown, page).run(),
+        accept: (p) => p.isSearch,
+        onRejected: () => showSnackBar(context: context, message: context.t.general.failedToLoad),
+      );
     }
     return _open(shown.fid, page: page);
   }

@@ -143,6 +143,15 @@ void main() {
         {'url': 'forum.php?mod=modcp&action=forumaccess&op=delete'},
         {'user_field': 'new user'},
         {
+          'fields': {'formhash': 'f', 'op': 'delete', 'addsubmit': 'true'},
+        },
+        {
+          'fields': {'formhash': 'f', 'addsubmit': 'true'},
+        },
+        {
+          'fields': {'formhash': 'f', 'op': '', 'addsubmit': 'true', 'mod': 'member'},
+        },
+        {
           'deny_fields': {...deny}..remove('postimage'),
         },
         {

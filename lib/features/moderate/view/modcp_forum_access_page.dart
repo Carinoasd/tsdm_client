@@ -41,6 +41,9 @@ class _ModcpForumAccessPageState extends State<ModcpForumAccessPage> {
   bool _picking = false;
   int _generation = 0;
 
+  /// The page read last: its search is what is asked again once the panel's password was given.
+  ModcpAccessPage? _last;
+
   @override
   void initState() {
     super.initState();
@@ -80,6 +83,7 @@ class _ModcpForumAccessPageState extends State<ModcpForumAccessPage> {
     _loading = false;
     _answer = answer;
     if (answer case Right(value: ModcpReady(:final value))) {
+      _last = value;
       if (value.forums.isNotEmpty) _forums = value.forums;
       _fid = value.fid;
       _page = value.page;
@@ -88,7 +92,13 @@ class _ModcpForumAccessPageState extends State<ModcpForumAccessPage> {
 
   Future<void> _open(int fid, {int page = 1}) => _ask(() => widget.repository.fetchAccess(fid: fid, page: page).run());
 
-  Future<void> _reload() => _open(_fid, page: _page);
+  /// What was shown last, asked again: the member looked up looked up again.
+  Future<void> _reload() {
+    if (_last case final last? when last.keyword.isNotEmpty && !last.needForum) {
+      return _ask(() => widget.repository.searchAccess(last, last.keyword).run());
+    }
+    return _open(_fid, page: _page);
+  }
 
   Future<void> _switchForum(ModcpAccessPage shown) async {
     final picked = await showModcpForumSwitch(context, _forums, shown.fid);
@@ -243,7 +253,8 @@ class _ModcpForumAccessPageState extends State<ModcpForumAccessPage> {
             child: AppCenteredList(
               builder: (context, padding, _) => ListView.separated(
                 padding: padding.copyWith(top: 8, bottom: 88),
-                itemCount: shown.entries.length + 1,
+                // A member looked up is listed on one page: the pages are the whole list's.
+                itemCount: shown.entries.length + (shown.keyword.isEmpty ? 1 : 0),
                 separatorBuilder: (_, _) => appListSeparator,
                 itemBuilder: (context, index) => index == shown.entries.length
                     ? ToolsPager(

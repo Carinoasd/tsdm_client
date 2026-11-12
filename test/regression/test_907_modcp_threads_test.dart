@@ -37,8 +37,9 @@ ModcpPagesRepository _repo({Object? Function(String url)? answer, List<String>? 
     return right((statusCode: 200, data: answer?.call(url) ?? _fixture('modcp_thread_fid2')));
   }
 
+  // The panel's login: it sends the account on to the panel.
   Future<Either<AppException, ({int statusCode, Object? data})>> post(String url, Map<String, String> body) async =>
-      right((statusCode: 200, data: null));
+      right((statusCode: 302, data: null));
 
   return ModcpPagesRepository(
     panel: ModcpRepository(get: get, post: post, currentUid: () => 33),
@@ -147,6 +148,27 @@ void main() {
       );
       expect(ModcpSearchForm.parse({...search, 'fid_field': 'fid[]'}, op: 'thread', conditions: {}), isNull);
       expect(_read({...json, 'list_url': 'forum.php?mod=modcp&action=report&do=list'}).listUrl, isNull);
+      // The fixed fields never choose the page: the panel reads them over the URL's.
+      for (final fields in [
+        {'do': 'search', 'submit': 'true', 'mod': 'post'},
+        {'do': 'search', 'submit': 'true', 'action': 'report'},
+        {'do': 'delete', 'submit': 'true'},
+        {'submit': 'true'},
+        {'do': 'search', 'op': 'post'},
+      ]) {
+        expect(
+          ModcpSearchForm.parse({...search, 'fields': fields}, op: 'thread', conditions: ModcpThreadQuery.all),
+          isNull,
+          reason: '$fields',
+        );
+      }
+      expect(
+        _read({
+          ...json,
+          'moderate': {...moderate, 'url': '${moderate['url']}&action2=x'},
+        }).canModerate,
+        isFalse,
+      );
     });
 
     test('a search needs a condition: the type "all" is none', () {
@@ -274,6 +296,45 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Stick'), findsOneWidget);
       expect(find.text('Recommend'), findsNothing);
+    });
+
+    testWidgets("the panel's password asked during a search: the search is run again once logged in", (tester) async {
+      final asked = <String>[];
+      var login = true;
+      await pump(
+        tester,
+        _repo(
+          asked: asked,
+          answer: (url) {
+            if (!url.contains('do=search')) {
+              return _fixture('modcp_thread_fid2');
+            }
+            if (login) {
+              login = false;
+              return {
+                ..._fixture('modcp_report_login'),
+                'uid': 33,
+                'head': "<script>var discuz_uid = '33';</script>",
+              };
+            }
+            return _fixture('modcp_thread_search');
+          },
+        ),
+      );
+      await tester.tap(find.byKey(const ValueKey('modcp-threads-search')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const ValueKey('modcp-threads-users')), 'member_a');
+      await tester.tap(find.byKey(const ValueKey('modcp-threads-search-submit')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'pw');
+      await tester.tap(find.byType(FilledButton));
+      await tester.pumpAndSettle();
+      final searches = asked.where((u) => u.contains('do=search')).toList();
+      expect(searches.length, 2);
+      expect(Uri.parse(searches.last).queryParameters, containsPair('users', 'member_a'));
+      expect(find.byKey(const ValueKey('modcp-thread-9202952')), findsNothing);
+      expect(find.byKey(const ValueKey('modcp-thread-9203132')), findsOneWidget);
+      expect(find.byKey(const ValueKey('modcp-threads-clear-search')), findsOneWidget);
     });
 
     testWidgets('no management form: the threads only open', (tester) async {
