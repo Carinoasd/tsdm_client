@@ -22,11 +22,6 @@ const assetsLicensePath = './assets/text/LICENSE';
 /// Dart logo
 const assetDartLogoPath = './assets/images/dart.svg';
 
-/// F-Droid logo
-///
-/// ref: https://gitlab.com/fdroid/artwork/-/blob/master/fdroid-logo-2015/fdroid-logo.svg
-const assetsFDroidLogoPath = './assets/images/fdroid-logo.svg';
-
 /// Path of all emoji related asset.
 const assetEmojiDir = './assets/images/emoji/';
 
