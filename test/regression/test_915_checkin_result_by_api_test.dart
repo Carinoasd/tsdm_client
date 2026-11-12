@@ -155,6 +155,17 @@ void main() {
       expect(await _run(forum), isA<CheckinResultOtherError>());
     });
 
+    test('the day turned while the answer was waited for: the checkin recorded since the post is the one', () async {
+      // Posted at 23:59:5x: the answer after the wait is of the next day, the checkin of the post is `last_time`.
+      final nextDay = {..._notChecked(), 'time': 1700000012, 'last_time': 1700000003};
+      final forum = _Forum(before: _ok(_before), after: [_ok(nextDay)], post: _postWith('打卡完成'));
+      expect(await _run(forum), isA<CheckinResultSuccess>());
+      // A checkin of the day before the post is not the one.
+      final older = {...nextDay, 'last_time': 1699999990};
+      final none = _Forum(before: _ok(_before), after: [_ok(older)], post: _postWith('打卡完成'));
+      expect(await _run(none), isA<CheckinResultOtherError>());
+    });
+
     test('"too soon" after the post is waited for, then the state decides', () async {
       final forum = _Forum(
         before: _ok(_before),

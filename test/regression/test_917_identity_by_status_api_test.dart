@@ -73,9 +73,17 @@ enum _Status {
 /// tokens in [dead] and for a deleted cookie. The logout answers [logoutText] and deletes the auth cookie unless
 /// [keepsCookie].
 final class _Forum implements HttpClientAdapter {
-  _Forum({this.status = _Status.api, this.logoutText = '您已退出站点，现在将以游客身份转入退出前页面', this.keepsCookie = false});
+  _Forum({
+    this.status = _Status.api,
+    this.logoutText = '您已退出站点，现在将以游客身份转入退出前页面',
+    this.keepsCookie = false,
+    this.statusUidBeforeLogout,
+  });
 
   final _Status status;
+
+  /// The uid `status` names before the logout, whatever the session (a cookie of another account), when set.
+  final int? statusUidBeforeLogout;
   final String logoutText;
   final bool keepsCookie;
   final dead = <String>{};
@@ -91,7 +99,13 @@ final class _Forum implements HttpClientAdapter {
     if (q['id'] == 'tsdmapp:api') {
       asked.add('${q['action']}');
       return switch (status) {
-        _Status.api => _json({'ok': 1, 'api': 1, 'version': '3.9.0', 'uid': user?.uid ?? 0, 'formhash': 'a1b2c3d4'}),
+        _Status.api => _json({
+          'ok': 1,
+          'api': 1,
+          'version': '3.9.0',
+          'uid': asked.any((e) => e.startsWith('logout')) ? user?.uid ?? 0 : statusUidBeforeLogout ?? user?.uid ?? 0,
+          'formhash': 'a1b2c3d4',
+        }),
         _Status.none => _html(user == null ? _guestPage : _authedPage(user)),
         _Status.busy => ResponseBody.fromString(
           jsonEncode({'ok': 0, 'error': 'busy', 'retry_after': 30}),
@@ -225,6 +239,14 @@ void main() {
       expect((await auth.logout().run()).getLeft().toNullable(), isA<LogoutFailedException>());
       expect(await rows(), [1000, 1001], reason: 'nothing removed');
       expect(auth.effectiveCurrentUid, 1000);
+    });
+
+    test('with the API naming another account than the one logged out: the settings page, as before', () async {
+      final forum = _Forum(statusUidBeforeLogout: 1001);
+      final auth = authWith(forum);
+      expect((await auth.logout().run()).isRight(), isTrue);
+      expect(forum.asked, ['status', 'spacecp', 'logout 0a0b0c0d', 'status'], reason: 'its hash is not used');
+      expect(await rows(), [1001]);
     });
 
     test('with the API: a guest session before the logout: the saved login removed, nothing posted', () async {

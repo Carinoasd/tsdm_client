@@ -429,7 +429,7 @@ class AuthenticationRepository with LoggerMixin {
       UserLoginInfo(username: user?.uid == target ? user?.username : null, uid: target),
     );
     // The forum's app API tells the account of the session and its form hash (`status`); the settings page is read
-    // only when it does not (no plugin, a failed or busy request).
+    // only when it does not (no plugin, a failed or busy request) or names another account.
     final String formHash;
     final served = await _statusIdentityOf(netClient);
     if (served != null && served.uid == 0) {
@@ -437,9 +437,10 @@ class AuthenticationRepository with LoggerMixin {
       await _forgetCurrentUser();
       return rightVoid();
     }
-    if (served case (uid: > 0, formHash: final String hash)) {
+    if (served case (:final uid, formHash: final String hash) when uid == target) {
       formHash = hash;
     } else {
+      // No API, no hash, or the session of another account than the one logged out: the settings page, as before.
       final respEither = await netClient.get(_checkAuthUrl).run();
       if (respEither.isLeft()) {
         return left(respEither.unwrapErr());

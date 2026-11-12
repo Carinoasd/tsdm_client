@@ -293,11 +293,15 @@ final class PollCreateRepository with LoggerMixin {
     // (`post_newthread_mod_succeed`), or published (`post_newthread_succeed`, verified by its target as always). A
     // refusal's key (`post_flood_ctrl`…) and an answer without one are read below as the forum's page.
     if (apiResult != null && !apiResult.login) {
+      // The thread: the url the forum goes on to, else the link of its message.
+      String? tid() =>
+          threadTidOf(apiResult.url) ??
+          threadTidOf(apiResult.document.querySelector('#messagetext p.alert_btnleft a[href]')?.attributes['href']);
       switch (apiResult.messageKey) {
         case 'post_newthread_mod_succeed':
-          return PollCreateResult(PollCreateOutcome.moderated, tid: threadTidOf(apiResult.url));
+          return PollCreateResult(PollCreateOutcome.moderated, tid: tid());
         case 'post_newthread_succeed':
-          return _verify(threadTidOf(apiResult.url));
+          return _verify(tid());
       }
     }
 
