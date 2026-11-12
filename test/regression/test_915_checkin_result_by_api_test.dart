@@ -164,6 +164,16 @@ void main() {
       final older = {...nextDay, 'last_time': 1699999990};
       final none = _Forum(before: _ok(_before), after: [_ok(older)], post: _postWith('打卡完成'));
       expect(await _run(none), isA<CheckinResultOtherError>());
+      // Without the forum's clock before the post, only `checked_today` tells.
+      final noClock = _Forum(before: _ok({..._before}..remove('time')), after: [_ok(nextDay)], post: _postWith('打卡完成'));
+      expect(await _run(noClock), isA<CheckinResultOtherError>());
+      // The clock as text is read as well.
+      final textClock = _Forum(
+        before: _ok({..._before, 'time': '1700000000'}),
+        after: [_ok(nextDay)],
+        post: _postWith('x'),
+      );
+      expect(await _run(textClock), isA<CheckinResultSuccess>());
     });
 
     test('"too soon" after the post is waited for, then the state decides', () async {

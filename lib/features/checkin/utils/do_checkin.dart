@@ -155,7 +155,12 @@ Future<CheckinResult> _postCheckin(
   // What the forum's app API says now decides (the check-in plugin's answer has no language key: its float window
   // is a `page`): the words of the answer only tell why when it did not check in. Without the API (an older plugin,
   // no checkin plugin, a failed read) the words decide, as before.
-  if (await _checkinStateAfterPost(netClient, askedAt: askedAt is int ? askedAt : null) case final state?) {
+  final askedTime = switch (askedAt) {
+    final int n => n,
+    final String text => int.tryParse(text),
+    _ => null,
+  };
+  if (await _checkinStateAfterPost(netClient, askedAt: askedTime) case final state?) {
     return _resultByState(state, checkInResult, apiResult, checkInResp.data);
   }
 
@@ -185,9 +190,9 @@ Future<CheckinResult> _postCheckin(
 /// The plugin takes one call of an action per account every few seconds and `checkin` was just asked before the
 /// post: the answer "too soon" is waited for ([TsdmAppApi.askWaiting]). An answer "not logged in" is a state too.
 ///
-/// Checked in is also a checkin recorded (`last_time`) at or after the post, which the forum's day may have left
-/// behind while the answer was waited for (a checkin posted at 23:59:5x): at or after [askedAt], the clock of the
-/// answer read before the post, else within the minute before this answer.
+/// Checked in is also a checkin recorded (`last_time`) at or after [askedAt], the clock of the answer read before the
+/// post: the forum's day may have turned while the answer was waited for (a checkin posted at 23:59:5x). Without that
+/// clock only `checked_today` tells (a checkin of another device just before the post is never taken for this one).
 Future<({bool checkedToday, bool openNow, bool loggedOut})?> _checkinStateAfterPost(
   NetClientProvider netClient, {
   int? askedAt,
@@ -197,9 +202,7 @@ Future<({bool checkedToday, bool openNow, bool loggedOut})?> _checkinStateAfterP
     return (checkedToday: false, openNow: false, loggedOut: true);
   }
   final lastTime = answer?['last_time'];
-  final now = answer?['time'];
-  final since = askedAt ?? (now is int ? now - 60 : null);
-  final recorded = lastTime is int && lastTime > 0 && since != null && lastTime >= since;
+  final recorded = lastTime is int && lastTime > 0 && askedAt != null && lastTime >= askedAt;
   return switch (checkinStateOf(answer)) {
     (:final checkedToday, :final openNow) => (
       checkedToday: checkedToday || recorded,
