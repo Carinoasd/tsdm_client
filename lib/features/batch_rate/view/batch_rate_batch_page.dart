@@ -42,6 +42,10 @@ class _BatchRateBatchViewState extends State<BatchRateBatchView> {
   /// Taking the batch back: how many floors so far.
   int? _undoing;
 
+  /// Where the batch is read again: [BatchRateBatchView.url], then its detail once a rate was taken back (the plugin
+  /// answers the result of a batch with nothing rated any more with a sentence, not the batch).
+  late String? _url = widget.url;
+
   @override
   void initState() {
     super.initState();
@@ -56,7 +60,7 @@ class _BatchRateBatchViewState extends State<BatchRateBatchView> {
   }
 
   Future<void> _load() async {
-    final url = widget.url;
+    final url = _url;
     if (url == null) {
       return;
     }
@@ -149,6 +153,7 @@ class _BatchRateBatchViewState extends State<BatchRateBatchView> {
       if (reply case BatchRateAnswered(value: final step) when step.ok) {
         // The quota of the moderator came back: the entries read it again.
         BatchRateAccess.forget(page.uid, fid: page.batch.fid);
+        _url = BatchRateRepository.detailUrlOf(page.batch.batchId) ?? _url;
       }
     } on IdentityChangedException {
       message = context.t.general.accountChangedRetry;
@@ -193,6 +198,10 @@ class _BatchRateBatchViewState extends State<BatchRateBatchView> {
         }
         if (reply case BatchRateAnswered(value: final step) when step.ok) {
           setState(() => _undoing = (_undoing ?? 0) + step.done);
+          // Something was taken back (or all of it was already): the result may now be the plugin's sentence.
+          if (step.done > 0 || step.finished) {
+            _url = BatchRateRepository.detailUrlOf(page.batch.batchId) ?? _url;
+          }
           if (step.finished) {
             BatchRateAccess.forget(page.uid, fid: page.batch.fid);
             message = tr.undone;
@@ -290,7 +299,7 @@ class _BatchRateBatchViewState extends State<BatchRateBatchView> {
       body: page == null
           ? ToolsStateView(onRetry: _load, failed: _failed, message: _message)
           : ToolsBody(
-              onRefresh: widget.url == null ? null : _load,
+              onRefresh: _url == null ? null : _load,
               children: [
                 _head(page),
                 sizedBoxW12H12,

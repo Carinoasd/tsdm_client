@@ -187,6 +187,44 @@ void main() {
       expect(gets, 2);
     });
 
+    testWidgets('taken back as a whole from the result: its detail read, no more taking back', (tester) async {
+      final answers = <Object?>[_fixture('batchrate_undo_batch_step'), _fixture('batchrate_undo_batch_done')];
+      final gets = <String>[];
+      final undone = _fixture('batchrate_detail_undone');
+      await _pump(
+        tester,
+        BatchRateBatchView(
+          url: '$baseUrl/plugin.php?id=batchrate:rate&brmode=result&batchid=10',
+          repository: BatchRateRepository(
+            ask: (_) async => null,
+            get: (url) async {
+              gets.add(url);
+              if (url.contains('brmode=result')) {
+                // A batch with nothing rated any more: the plugin's sentence, not the batch.
+                return gets.length == 1 ? _fixture('batchrate_detail') : _fixture('batchrate_message_result_none');
+              }
+              return {
+                ...undone,
+                'batch': {...undone['batch'] as Map<String, dynamic>, 'batchid': 10},
+              };
+            },
+            post: (_, _) async => answers.removeAt(0),
+            currentUid: () => 31,
+          ),
+        ),
+      );
+      expect(find.byKey(const ValueKey('batch-rate-undo-668')), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('batch-rate-undo-batch')));
+      await tester.pumpAndSettle();
+      await _confirm(tester);
+      expect(gets.last, '$_list&bract=detail&batchid=10');
+      expect(find.text('本批沒有任何項目被評分（可能都已評過或被跳過），仍保留批次紀錄以供追查。'), findsNothing);
+      expect(find.text('#10 · 已整批撤回'), findsOneWidget);
+      expect(find.byKey(const ValueKey('batch-rate-undo-batch')), findsNothing);
+      expect(find.textContaining('Take back'), findsNothing);
+      expect(find.text('Taken back'), findsOneWidget);
+    });
+
     testWidgets('a batch still running is run on from its detail', (tester) async {
       var runs = 0;
       await _pump(
