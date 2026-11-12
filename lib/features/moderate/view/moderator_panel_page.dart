@@ -56,7 +56,7 @@ enum _PanelGroup {
   rewards(Icons.redeem_outlined),
 
   /// The forum's admin actions on members: credits, user groups, cleaning up a spammer.
-  site(Icons.admin_panel_settings_outlined)
+  site(Icons.shield_outlined)
   ;
 
   const _PanelGroup(this.icon);
