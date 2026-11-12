@@ -19,6 +19,7 @@ import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/html/html_muncher.dart';
 import 'package:tsdm_client/utils/show_dialog.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
@@ -197,7 +198,7 @@ Future<void> showFollowDialog(BuildContext context, {required int uid, String? u
       break;
     case SpaceFormLoadKind.denied:
       if (spaceModuleSwitchedOff(load.message)) markSpaceModuleOff(SpaceModule.follow);
-      showSnackBar(context: context, message: load.message!);
+      showSnackBar(context: context, message: context.displayText(load.message!));
       return;
     case SpaceFormLoadKind.loginRequired:
       showSnackBar(context: context, message: context.t.general.needLogin);
@@ -420,7 +421,12 @@ class FollowUserTile extends StatelessWidget {
                   ],
                 ),
                 if (user.recentNote case final String note)
-                  Text(note, style: theme.textTheme.bodySmall, maxLines: 1, overflow: TextOverflow.ellipsis),
+                  Text(
+                    context.displayText(note),
+                    style: theme.textTheme.bodySmall,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 if (user.followerCount != null && user.followingCount != null)
                   Text(
                     tr.counts(followers: user.followerCount!, following: user.followingCount!),
@@ -472,7 +478,8 @@ class FollowFeedCard extends StatelessWidget {
     final thread = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (feed.threadTitle case final String title) Text(title, style: theme.textTheme.titleSmall),
+        if (feed.threadTitle case final String title)
+          Text(context.displayText(title), style: theme.textTheme.titleSmall),
         if (feed.content case final content?) ...[
           sizedBoxW4H4,
           // The beginning of the thread only: a long one is cut, the thread itself is a tap away.
@@ -492,7 +499,8 @@ class FollowFeedCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  [?feed.origin, if (feed.forumName != null) '#${feed.forumName}'].join(' '),
+                  // The origin names the author: only the forum's name is converted.
+                  [?feed.origin, if (feed.forumName case final forum?) '#${context.displayText(forum)}'].join(' '),
                   style: outline,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -607,7 +615,7 @@ Future<bool> showRelayDialog(BuildContext context, {required SpaceSession sessio
   if (tid == null) return false;
   final choice = await showDialog<({String note, bool reply})>(
     context: context,
-    builder: (_) => _RelayDialog(title: feed.threadTitle ?? tr.relay),
+    builder: (_) => _RelayDialog(title: context.displayTextOr(feed.threadTitle, tr.relay)),
   );
   if (choice == null || !context.mounted) return false;
   final result = await followWriteRepositoryOf(context).relay(session, tid, choice.note, reply: choice.reply);
@@ -697,7 +705,7 @@ Future<bool> deleteFollowFeed(BuildContext context, {required SpaceSession sessi
   final confirmed = await showQuestionDialog(
     context: context,
     title: tr.deleteFeed,
-    message: feed.note?.text?.trim() ?? feed.threadTitle ?? '',
+    message: context.displayText(feed.note?.text?.trim() ?? feed.threadTitle ?? ''),
     dangerous: true,
   );
   if (!(confirmed ?? false) || !context.mounted) return false;

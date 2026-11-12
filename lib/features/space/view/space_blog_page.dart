@@ -72,7 +72,7 @@ class _SpaceBlogPageState extends State<SpaceBlogPage> {
               spacing: 12,
               children: [
                 if (blog.time != null) Text(blog.time!, style: outline),
-                if (blog.category != null) Text(blog.category!, style: outline),
+                if (blog.category != null) Text(context.displayText(blog.category!), style: outline),
               ],
             ),
           ],

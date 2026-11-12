@@ -198,7 +198,11 @@ class _ReportHandlingPageState extends State<ReportHandlingPage> {
         for (final item in items)
           Padding(
             padding: const EdgeInsets.only(bottom: 4),
-            child: Text(item.lines.firstOrNull ?? '#${item.id}', maxLines: 2, overflow: TextOverflow.ellipsis),
+            child: Text(
+              item.lines.isEmpty ? '#${item.id}' : _reportLine(item.lines.first),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
       ],
     );
@@ -221,6 +225,17 @@ class _ReportHandlingPageState extends State<ReportHandlingPage> {
       return;
     }
     await _reload();
+  }
+
+  /// A report `reporter : reason` as the user chose to see it: the reason converted, the reporter's name as it is.
+  ///
+  /// The forum joins the reporter and the reason with ` : ` in the report's `message`; a line without it is converted
+  /// whole.
+  String _reportLine(String line) {
+    final at = line.indexOf(' : ');
+    return at < 0
+        ? context.displayText(line)
+        : '${line.substring(0, at + 3)}${context.displayText(line.substring(at + 3))}';
   }
 
   String _resolutionReward(ReportResolution r) =>
@@ -349,11 +364,11 @@ class _ReportHandlingPageState extends State<ReportHandlingPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          for (final line in item.lines) Text(line, style: theme.textTheme.bodyMedium),
+                          for (final line in item.lines) Text(_reportLine(line), style: theme.textTheme.bodyMedium),
                           if (item.excerpt.isNotEmpty)
                             Padding(
                               padding: const EdgeInsets.only(top: 6),
-                              child: Text(item.excerpt, style: theme.textTheme.bodySmall),
+                              child: Text(context.displayText(item.excerpt), style: theme.textTheme.bodySmall),
                             ),
                           if (!item.opensInApp && item.link != null)
                             Padding(

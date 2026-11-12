@@ -5,6 +5,7 @@ import 'package:tsdm_client/extensions/date_time.dart';
 import 'package:tsdm_client/features/friend/models/models.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/html/adaptive_color.dart';
 import 'package:tsdm_client/utils/html/css_parser.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
@@ -95,7 +96,7 @@ class FriendCard extends StatelessWidget {
                             if (groupName != null)
                               Flexible(
                                 child: Text(
-                                  groupName,
+                                  context.displayText(groupName),
                                   style: secondaryStyle?.copyWith(
                                     color: _color(context, friend.groupColor) ?? secondaryStyle.color,
                                   ),

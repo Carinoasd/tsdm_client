@@ -788,11 +788,13 @@ void main() {
         final result = parseAddFriendResult(answer);
         expect(result.success, isTrue);
         expect(result.message, '好友请求已发送，请等待对方验证');
+        expect(result.fromForum, isTrue);
       }
       for (final answer in [_json('friend_again'), _orig('friend_again').body]) {
         final result = parseAddFriendResult(answer);
         expect(result.success, isFalse);
         expect(result.message, '正在等待验证');
+        expect(result.fromForum, isTrue);
       }
     });
 
@@ -806,11 +808,26 @@ void main() {
       expect(refused.message, t.friendPage.addFriend.failed);
       expect(parseAddFriendResult({..._json('reply_redirect'), 'ok': 0}).message, t.friendPage.addFriend.failed);
       expect(parseAddFriendResult(_handle('friend_again', {...bare, 'login': 1})).message, t.general.needLogin);
+      // The app's own words in the place of the forum's: shown as they are, never converted for the Chinese display.
+      expect(
+        [
+          sent,
+          refused,
+          parseAddFriendResult(_handle('friend_again', {...bare, 'login': 1})),
+        ].map((e) => e.fromForum),
+        [
+          false,
+          false,
+          false,
+        ],
+      );
       final window = parseAddFriendForm(_handle('friend_again', bare));
       expect(window, isA<AddFriendRefused>().having((e) => e.message, 'message', t.friendPage.addFriend.failed));
+      expect((window as AddFriendRefused).fromForum, isFalse);
       // A page without a form and without text: the app's words, not the decoded answer.
       final empty = parseAddFriendForm(_page('<root><![CDATA[<div></div>]]></root>'));
       expect(empty, isA<AddFriendRefused>().having((e) => e.message, 'message', t.friendPage.addFriend.failed));
+      expect((empty as AddFriendRefused).fromForum, isFalse);
       for (final result in [sent, refused]) {
         expect(result.message, isNot(anyOf('handle', 'message', 'redirect', 'page')));
       }

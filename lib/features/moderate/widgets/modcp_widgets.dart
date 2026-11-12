@@ -7,6 +7,7 @@ import 'package:tsdm_client/features/moderate/repository/modcp_repository.dart';
 import 'package:tsdm_client/features/moderate/view/moderator_panel_page.dart';
 import 'package:tsdm_client/features/moderate/widgets/moderate_panel_login.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/custom_alert_dialog.dart';
 
@@ -59,10 +60,10 @@ String modcpOutcomeText(BuildContext context, Either<AppException, ModcpWriteOut
   final t = context.t;
   return switch (outcome) {
     Right(value: ModcpWriteDone(:final count)) when count > 1 => t.modcp.done(count: count),
-    Right(value: ModcpWriteDone(:final message)) when message.isNotEmpty => message,
+    Right(value: ModcpWriteDone(:final message)) when message.isNotEmpty => context.displayText(message),
     Right(value: ModcpWriteDone()) => t.moderate.done,
     Right(value: ModcpWriteNotDone(:final remaining)) => t.modcp.notDone(count: remaining.length),
-    Right(value: ModcpWriteRefused(:final message)) when message.isNotEmpty => message,
+    Right(value: ModcpWriteRefused(:final message)) when message.isNotEmpty => context.displayText(message),
     Right(value: ModcpWriteUnknown()) => t.moderate.batch.unknown,
     Left(value: IdentityChangedException()) => t.general.accountChangedRetry,
     _ => t.moderate.failed,

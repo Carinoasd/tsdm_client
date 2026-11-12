@@ -12,6 +12,7 @@ import 'package:tsdm_client/features/collection/widgets/collection_pager.dart';
 import 'package:tsdm_client/features/collection/widgets/collection_tiles.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/show_dialog.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/failure_view.dart';
@@ -148,7 +149,7 @@ class _CollectionDetailPageState extends State<CollectionDetailPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(detail.name, style: theme.textTheme.titleLarge),
+          Text(context.displayText(detail.name), style: theme.textTheme.titleLarge),
           if (detail.description.isNotEmpty) ...[sizedBoxW8H8, SelectableText(detail.description)],
           sizedBoxW12H12,
           Wrap(
@@ -162,7 +163,8 @@ class _CollectionDetailPageState extends State<CollectionDetailPage> {
                 follows: detail.followCount,
                 comments: detail.commentCount,
               ),
-              for (final keyword in detail.keywords) AppInfoPill(icon: Icons.sell_outlined, label: keyword),
+              for (final keyword in detail.keywords)
+                AppInfoPill(icon: Icons.sell_outlined, label: context.displayText(keyword)),
             ],
           ),
           if (detail.creator case final creator?) ...[
@@ -284,7 +286,7 @@ class _CollectionDetailPageState extends State<CollectionDetailPage> {
         }
         return Scaffold(
           appBar: AppBar(
-            title: Text(detail?.name ?? context.t.collection.title),
+            title: Text(detail == null ? context.t.collection.title : context.displayText(detail.name)),
             actions: [
               if (detail != null && detail.canManage)
                 PopupMenuButton<_Menu>(

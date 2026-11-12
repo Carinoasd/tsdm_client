@@ -10,6 +10,7 @@ import 'package:tsdm_client/features/collection/widgets/collection_dialogs.dart'
 import 'package:tsdm_client/features/collection/widgets/collection_pager.dart';
 import 'package:tsdm_client/features/collection/widgets/collection_tiles.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/failure_view.dart';
 import 'package:tsdm_client/widgets/indicator.dart';
@@ -179,7 +180,9 @@ class _CollectionCommentsPageState extends State<CollectionCommentsPage> {
           );
         }
         return Scaffold(
-          appBar: AppBar(title: Text(page?.name ?? context.t.collection.commentsTitle)),
+          appBar: AppBar(
+            title: Text(page == null ? context.t.collection.commentsTitle : context.displayText(page.name)),
+          ),
           body: SafeArea(bottom: false, child: body),
         );
       },

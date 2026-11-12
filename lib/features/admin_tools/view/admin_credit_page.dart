@@ -237,7 +237,7 @@ class _AdminCreditPageState extends State<AdminCreditPage> with AdminSessionLeas
   }
 
   String _creditLine(AdminCreditInfo info, Map<int, int> credits) => [
-    for (final c in info.credits) '${context.displayText(c.title)} ${credits[c.id] ?? 0}${c.unit}',
+    for (final c in info.credits) '${context.displayText(c.title)} ${credits[c.id] ?? 0}${context.displayText(c.unit)}',
   ].join(' · ');
 
   @override
@@ -304,7 +304,7 @@ class _AdminCreditPageState extends State<AdminCreditPage> with AdminSessionLeas
                                 inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^[+-]?\d*'))],
                                 decoration: InputDecoration(
                                   labelText: context.displayText(c.title),
-                                  suffixText: c.unit.isEmpty ? null : c.unit,
+                                  suffixText: c.unit.isEmpty ? null : context.displayText(c.unit),
                                   border: const OutlineInputBorder(),
                                 ),
                               ),
@@ -365,7 +365,7 @@ class _AdminCreditPageState extends State<AdminCreditPage> with AdminSessionLeas
                           [
                             for (final c in info.credits)
                               if (result.changed[c.id] case final v?)
-                                '${context.displayText(c.title)} ${v > 0 ? '+' : ''}$v${c.unit}',
+                                '${context.displayText(c.title)} ${v > 0 ? '+' : ''}$v${context.displayText(c.unit)}',
                           ].join(' · '),
                         ),
                         for (final m in result.members)

@@ -17,6 +17,7 @@ import 'package:tsdm_client/features/space/utils/parse_space.dart';
 import 'package:tsdm_client/features/space/widgets/space_widgets.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/load_failure.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/failure_view.dart';
@@ -123,7 +124,7 @@ class _SpaceAlbumPageState extends State<SpaceAlbumPage> {
                 final photo = state.items[index];
                 return Semantics(
                   button: true,
-                  label: photo.title,
+                  label: photo.title == null ? null : context.displayText(photo.title!),
                   child: GestureDetector(
                     onTap: () async => _open(context, state.items, index),
                     child: ClipRRect(
@@ -192,7 +193,7 @@ class _SpaceAlbumPageState extends State<SpaceAlbumPage> {
               child: _grid(context, state),
             ),
           };
-          final title = state.title ?? widget.name ?? context.t.spacePage.albums;
+          final title = context.displayTextOr(state.title ?? widget.name, context.t.spacePage.albums);
           final count = state.totalCount;
           return Scaffold(
             appBar: AppBar(

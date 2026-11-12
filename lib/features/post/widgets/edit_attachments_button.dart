@@ -5,6 +5,7 @@ import 'package:tsdm_client/features/moderate/models/remove_rate.dart';
 import 'package:tsdm_client/features/moderate/repository/floor_ops_repository.dart';
 import 'package:tsdm_client/features/post/utils/edit_attachments.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/show_dialog.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 
@@ -147,7 +148,10 @@ class _AttachmentListState extends State<_AttachmentList> {
           Navigator.of(context).pop();
         }
       case Right(value: FloorOpRefused(:final message)):
-        showSnackBar(context: context, message: message.isNotEmpty ? message : context.t.moderate.failed);
+        showSnackBar(
+          context: context,
+          message: message.isNotEmpty ? context.displayText(message) : context.t.moderate.failed,
+        );
       case Left(:final value):
         showSnackBar(
           context: context,

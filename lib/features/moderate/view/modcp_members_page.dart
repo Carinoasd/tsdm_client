@@ -237,7 +237,9 @@ class _ModcpMembersPageState extends State<ModcpMembersPage> {
           child: ListTile(
             key: ValueKey('modcp-member-${edit.memberUid}'),
             title: Text(edit.username),
-            subtitle: Text(['UID ${edit.memberUid}', if (_refusal.isNotEmpty) _refusal].join(' · ')),
+            subtitle: Text(
+              ['UID ${edit.memberUid}', if (_refusal.isNotEmpty) context.displayText(_refusal)].join(' · '),
+            ),
             trailing: TextButton(
               key: const ValueKey('modcp-member-edit'),
               onPressed: () => _openEdit(edit.memberUid),
@@ -247,13 +249,13 @@ class _ModcpMembersPageState extends State<ModcpMembersPage> {
         );
       case Right(value: ModcpReady(value: ModcpMemberLookup(:final note))) when note.isNotEmpty:
         return Text(
-          note,
+          context.displayText(note),
           textAlign: TextAlign.center,
           style: TextStyle(color: theme.colorScheme.error),
         );
       case Right(value: ModcpRefused(:final message)) when message.isNotEmpty:
         return Text(
-          message,
+          context.displayText(message),
           textAlign: TextAlign.center,
           style: TextStyle(color: theme.colorScheme.error),
         );

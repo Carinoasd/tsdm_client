@@ -12,6 +12,7 @@ import 'package:tsdm_client/features/red_packet/widgets/daily_red_packet_button.
 import 'package:tsdm_client/features/settings/widgets/support_development_dialog.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/hour_ticker.dart';
 
@@ -517,7 +518,7 @@ class HomeOnlineCard extends StatelessWidget {
   /// The lines under the title: the page's own, else the numbers.
   List<String> _lines(BuildContext context) {
     if (summary.isNotEmpty) {
-      return summary;
+      return summary.map(context.displayText).toList();
     }
     final online = this.online;
     if (online == null) {

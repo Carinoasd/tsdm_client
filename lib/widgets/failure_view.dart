@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/clipboard.dart';
 import 'package:tsdm_client/utils/load_failure.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
@@ -22,7 +23,7 @@ const ValueKey<String> failureDetailsKey = ValueKey('failure-details');
 /// The words telling [failure]: what went wrong in one sentence (the title) and what to do about it (the hint, null
 /// when the title says it all).
 ///
-/// A message of the forum ([LoadFailureKind.forumMessage]) is its own title, as the forum wrote it.
+/// A message of the forum ([LoadFailureKind.forumMessage]) is its own title, in the script the user chose to see.
 ({String title, String? hint}) failureTexts(BuildContext context, LoadFailure failure) {
   final tr = context.t.loadState.failure;
   final seconds = failure.retryAfterSeconds;
@@ -40,7 +41,10 @@ const ValueKey<String> failureDetailsKey = ValueKey('failure-details');
     LoadFailureKind.closed => (title: tr.closed.title, hint: tr.closed.hint),
     LoadFailureKind.needLogin => (title: tr.needLogin.title, hint: tr.needLogin.hint),
     LoadFailureKind.noPermission => (title: tr.noPermission.title, hint: tr.noPermission.hint),
-    LoadFailureKind.forumMessage => (title: failure.message ?? tr.unknown.title, hint: null),
+    LoadFailureKind.forumMessage => (
+      title: failure.message == null ? tr.unknown.title : context.displayText(failure.message!),
+      hint: null,
+    ),
     LoadFailureKind.accountChanged => (title: tr.accountChanged.title, hint: tr.accountChanged.hint),
     LoadFailureKind.unknown => (title: tr.unknown.title, hint: tr.unknown.hint),
   };
@@ -215,7 +219,7 @@ class _FailureViewState extends State<FailureView> {
     final forumWords =
         widget.message ??
         (failure.kind != LoadFailureKind.forumMessage && failure.message != null
-            ? SelectableText(failure.message!, style: textTheme.bodyMedium)
+            ? SelectableText(context.displayText(failure.message!), style: textTheme.bodyMedium)
             : null);
     final details = failure.details;
     final retry = widget.onRetry == null

@@ -148,4 +148,7 @@ extension ChineseDisplayX on BuildContext {
 
   /// [text] as the user chose to see it.
   String displayText(String text) => ChineseDisplay.instance.convert(chineseDisplayMode, text);
+
+  /// The forum's [text] as the user chose to see it; the app's own [fallback] when the forum said nothing.
+  String displayTextOr(String? text, String fallback) => text == null ? fallback : displayText(text);
 }

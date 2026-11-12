@@ -255,7 +255,7 @@ class _BatchRateBatchViewState extends State<BatchRateBatchView> {
           Text('${b.username} · ${toolsDateTime(b.dateline)}', style: textTheme.bodySmall),
           if (scores.isNotEmpty) Text(scores),
           if (b.conds.isNotEmpty) Text(b.conds.map(context.displayText).join('  ')),
-          if (b.reason.isNotEmpty) Text(b.reason),
+          if (b.reason.isNotEmpty) Text(context.displayText(b.reason)),
           sizedBoxW4H4,
           Text(
             b.pending != null && b.pending! > 0

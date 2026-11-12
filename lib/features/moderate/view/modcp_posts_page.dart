@@ -356,7 +356,7 @@ class _ModcpPostsPageState extends State<ModcpPostsPage> {
         if (post.message.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 4),
-            child: Text(post.message, maxLines: 4, overflow: TextOverflow.ellipsis),
+            child: Text(context.displayText(post.message), maxLines: 4, overflow: TextOverflow.ellipsis),
           ),
         const SizedBox(height: 4),
         modcpMutedLine(context, [

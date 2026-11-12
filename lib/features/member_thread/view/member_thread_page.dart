@@ -15,6 +15,8 @@ import 'package:tsdm_client/features/my_thread/repository/my_thread_repository.d
 import 'package:tsdm_client/features/need_login/view/need_login_page.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_converter.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/load_failure.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/card/thread_card/thread_card.dart';
@@ -124,12 +126,17 @@ class _MemberThreadPageState extends State<MemberThreadPage> with SingleTickerPr
         // The forum's own explanation (no such member, the forum closed), as it wrote it, or another page than the
         // list.
         final message = list.message;
-        return FailureView(
-          failure: message == null || message.isEmpty
-              ? LoadFailure(LoadFailureKind.forumMessage, message: context.t.memberThreadPage.notList)
-              : LoadFailure.fromMessage(message),
-          onRetry: () => _cubit.load(tab),
-        );
+        if (message == null || message.isEmpty) {
+          // The app's own words in the place of the forum's: shown as they are, not converted.
+          return ChineseDisplayHost(
+            mode: ChineseDisplayMode.off,
+            child: FailureView(
+              failure: LoadFailure(LoadFailureKind.forumMessage, message: context.t.memberThreadPage.notList),
+              onRetry: () => _cubit.load(tab),
+            ),
+          );
+        }
+        return FailureView(failure: LoadFailure.fromMessage(message), onRetry: () => _cubit.load(tab));
       case MemberThreadStatus.failed:
         return FailureView(failure: list.failure, onRetry: () => _cubit.load(tab));
       case MemberThreadStatus.success:

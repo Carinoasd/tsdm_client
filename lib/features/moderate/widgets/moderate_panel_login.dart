@@ -3,6 +3,7 @@ import 'package:fpdart/fpdart.dart' show Left, Right;
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/features/moderate/models/moderate_posts.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 
 /// The moderation panel's password, asked when the forum asks it again; sent once per tap through [login] and kept
@@ -57,7 +58,7 @@ class _ModeratePanelLoginViewState extends State<ModeratePanelLoginView> {
         _password.clear();
         setState(() {
           _sending = false;
-          _error = message.isNotEmpty ? message : context.t.moderate.failed;
+          _error = message.isNotEmpty ? context.displayText(message) : context.t.moderate.failed;
         });
       case Left(value: IdentityChangedException()):
         setState(() {

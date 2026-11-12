@@ -13,6 +13,7 @@ import 'package:tsdm_client/features/moderate/widgets/thread_admin_dialogs.dart'
 import 'package:tsdm_client/features/thread_link_card/models/thread_link_card_info.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/cached_image/cached_image.dart';
@@ -222,9 +223,13 @@ Future<ModerateBatchReport?> showBatchModerateSheet(
             for (final (tid, failure) in failed)
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                title: Text(titles[tid] ?? tid, maxLines: 2, overflow: TextOverflow.ellipsis),
+                title: Text(
+                  titles[tid] == null ? tid : context.displayText(titles[tid]!),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
                 subtitle: SelectableText(switch (failure.kind) {
-                  ModerateBatchFailure.refused when failure.message.isNotEmpty => failure.message,
+                  ModerateBatchFailure.refused when failure.message.isNotEmpty => context.displayText(failure.message),
                   ModerateBatchFailure.accountChanged => context.t.general.accountChangedRetry,
                   ModerateBatchFailure.unknown => context.t.moderate.batch.unknown,
                   _ => context.t.moderate.failed,
@@ -460,7 +465,7 @@ class _ModerateDialogState extends State<ModerateDialog> {
           case Right(value: ModerateBatchWindowRefused(:final message, :final unavailable)):
             _unavailable = unavailable;
             _error = message.isNotEmpty
-                ? message
+                ? context.displayText(message)
                 : unavailable
                 ? context.t.moderate.unavailable
                 : context.t.moderate.failed;
@@ -482,7 +487,7 @@ class _ModerateDialogState extends State<ModerateDialog> {
         case Right(value: ModerateWindowRefused(:final message, :final unavailable)):
           _unavailable = unavailable;
           _error = message.isNotEmpty
-              ? message
+              ? context.displayText(message)
               : unavailable
               ? context.t.moderate.unavailable
               : context.t.moderate.failed;
@@ -576,7 +581,7 @@ class _ModerateDialogState extends State<ModerateDialog> {
           if (_mergeThread == null) {
             // The forum's words: no such thread, no permission.
             final message = page.permissionDeniedMessage?.text?.trim() ?? '';
-            _mergeError = message.isNotEmpty ? message : context.t.general.failedToLoad;
+            _mergeError = message.isNotEmpty ? context.displayText(message) : context.t.general.failedToLoad;
           }
         case Left(:final value):
           _mergeError = _failure(value);
@@ -640,12 +645,15 @@ class _ModerateDialogState extends State<ModerateDialog> {
     }
     switch (outcome) {
       case Right(value: ModerateSucceeded(:final message)):
-        showSnackBar(context: context, message: message.isNotEmpty ? message : context.t.moderate.done);
+        showSnackBar(
+          context: context,
+          message: message.isNotEmpty ? context.displayText(message) : context.t.moderate.done,
+        );
         Navigator.of(context).pop(true);
       case Right(value: ModerateRefused(:final message)):
         setState(() {
           _sending = false;
-          _error = message.isNotEmpty ? message : context.t.moderate.failed;
+          _error = message.isNotEmpty ? context.displayText(message) : context.t.moderate.failed;
         });
       case Left(:final value):
         setState(() {
@@ -761,7 +769,7 @@ class _ModerateDialogState extends State<ModerateDialog> {
             for (final level in form.levels)
               if (_offersLevel(level))
                 ChoiceChip(
-                  label: Text(level.label),
+                  label: Text(context.displayText(level.label)),
                   selected: _level == level.value,
                   onSelected: _sending ? null : (_) => setState(() => _level = level.value),
                 ),
@@ -876,7 +884,9 @@ class _ModerateDialogState extends State<ModerateDialog> {
                     icon: const Icon(Icons.arrow_drop_down),
                     enabled: !_sending,
                     onSelected: (v) => _reason.text = v,
-                    itemBuilder: (_) => [for (final r in form.reasons) PopupMenuItem(value: r, child: Text(r))],
+                    itemBuilder: (_) => [
+                      for (final r in form.reasons) PopupMenuItem(value: r, child: Text(context.displayText(r))),
+                    ],
                   ),
           ),
         ),
@@ -909,10 +919,14 @@ class _ModerateDialogState extends State<ModerateDialog> {
         ListTile(
           contentPadding: EdgeInsets.zero,
           leading: const Icon(Icons.article_outlined),
-          title: Text(thread.title, maxLines: 2, overflow: TextOverflow.ellipsis),
+          title: Text(context.displayText(thread.title), maxLines: 2, overflow: TextOverflow.ellipsis),
           subtitle: thread.author == null && thread.forumName == null
               ? null
-              : Text([?thread.author, ?thread.forumName].join(' · '), maxLines: 1, overflow: TextOverflow.ellipsis),
+              : Text(
+                  [?thread.author, if (thread.forumName case final forum?) context.displayText(forum)].join(' · '),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
         )
       else if (_mergeError != null)
         Padding(
@@ -936,7 +950,7 @@ class _ModerateDialogState extends State<ModerateDialog> {
 
   /// A stamp, icon or category: its picture when it has one, and its name (none for the empty category).
   Widget _choiceLabel(BuildContext context, ModerateChoice choice) {
-    final label = Text(choice.label.isEmpty ? context.t.moderate.noType : choice.label);
+    final label = Text(choice.label.isEmpty ? context.t.moderate.noType : context.displayText(choice.label));
     final image = choice.image;
     if (image == null) {
       return label;
@@ -1024,7 +1038,7 @@ class _ModerateDialogState extends State<ModerateDialog> {
         items.add(
           DropdownMenuItem(
             enabled: false,
-            child: Text(group!, style: Theme.of(context).textTheme.labelMedium),
+            child: Text(context.displayText(group!), style: Theme.of(context).textTheme.labelMedium),
           ),
         );
       }
@@ -1033,7 +1047,7 @@ class _ModerateDialogState extends State<ModerateDialog> {
           value: forum.value,
           child: Padding(
             padding: EdgeInsets.only(left: 12.0 + forum.depth * 12),
-            child: Text(forum.label, overflow: TextOverflow.ellipsis),
+            child: Text(context.displayText(forum.label), overflow: TextOverflow.ellipsis),
           ),
         ),
       );
