@@ -89,9 +89,5 @@
 	<true/>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Unlock the app with Face ID.</string>
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>audio</string>
-	</array>
 </dict>
 </plist>

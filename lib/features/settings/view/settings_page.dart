@@ -26,6 +26,7 @@ import 'package:tsdm_client/features/background_sync/background_sync_controller.
 import 'package:tsdm_client/features/checkin/models/models.dart';
 import 'package:tsdm_client/features/in_app_browser/utils/link_routing.dart';
 import 'package:tsdm_client/features/local_notice/notification_permission_prompt.dart';
+import 'package:tsdm_client/features/local_notice/opt_in_notifications.dart';
 import 'package:tsdm_client/features/local_notice/show.dart';
 import 'package:tsdm_client/features/notification/bloc/auto_notification_cubit.dart';
 import 'package:tsdm_client/features/notification/models/models.dart';
@@ -770,10 +771,44 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
     );
   }
 
+  /// Whether system notifications are posted, from [state] so the page follows the switch: always on Android and
+  /// Windows, on iOS, macOS and Linux once turned on.
+  bool _postsNotifications(SettingsState state) =>
+      alwaysPostsNotifications || systemNotificationGate.switchOn(enabled: state.settingsMap.systemNotificationsOptIn);
+
   Future<void> _applyBackgroundSyncSettings(BuildContext context) async {
     final result = await getIt.get<BackgroundSyncController>().applySettings(getIt.get<SettingsRepository>());
     if (result != BackgroundSyncApplyResult.failed || !context.mounted) return;
     showSnackBar(context: context, message: context.t.backgroundService.startFailed);
+  }
+
+  /// Set while the system notifications of iOS, macOS or Linux are being turned on (the system may be asking).
+  bool _turningOnSystemNotifications = false;
+
+  /// iOS, macOS, Linux: turn the system notifications on (asking the permission now) or off. Not allowed or not
+  /// available: the switch stays off and a short message says why.
+  Future<void> _toggleSystemNotifications(BuildContext context, {required bool enable}) async {
+    if (!enable) {
+      await turnOffAppSystemNotifications();
+      return;
+    }
+    final tr = context.t.settingsPage.behaviorSection.systemNotifications;
+    setState(() => _turningOnSystemNotifications = true);
+    final OptInNoticeResult result;
+    try {
+      result = await turnOnAppSystemNotifications();
+    } finally {
+      if (mounted) setState(() => _turningOnSystemNotifications = false);
+    }
+    if (!context.mounted) return;
+    switch (result) {
+      case OptInNoticeResult.granted:
+        break;
+      case OptInNoticeResult.denied:
+        showSnackBar(context: context, message: tr.denied);
+      case OptInNoticeResult.unavailable:
+        showSnackBar(context: context, message: tr.unavailable);
+    }
   }
 
   Future<void> _toggleBackgroundSync(BuildContext context, {required bool enable}) async {
@@ -972,6 +1007,17 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
             }
           },
         ),
+        // iOS, macOS, Linux: off by default, the permission asked when turned on.
+        if (systemNotificationGate.platform.optIn)
+          SectionSwitchListTile(
+            key: const ValueKey('system-notifications-opt-in'),
+            secondary: const Icon(Icons.notifications_outlined),
+            title: Text(tr.systemNotifications.title),
+            value: systemNotificationGate.switchOn(enabled: state.settingsMap.systemNotificationsOptIn),
+            onChanged: _turningOnSystemNotifications
+                ? null
+                : (v) async => _toggleSystemNotifications(context, enable: v),
+          ),
         if (isAndroid) const AndroidPermissionTiles(),
         if (isAndroid)
           SectionSwitchListTile(
@@ -981,8 +1027,8 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
             value: state.settingsMap.enableBackgroundMessageService,
             onChanged: (v) async => _toggleBackgroundSync(context, enable: v),
           ),
-        // Only where the auto sync posts system notifications: nothing would change elsewhere.
-        if (autoSyncPostsNotifications)
+        // Only where the other accounts are polled too (Android, Windows): nothing would change elsewhere.
+        if (alwaysPostsNotifications)
           SectionSwitchListTile(
             key: const ValueKey('background-sync-all-accounts'),
             secondary: const Icon(Icons.switch_account_outlined),
@@ -1003,7 +1049,7 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
             onChanged: (v) async => _toggleBackgroundSyncAllAccounts(context, enable: v),
           ),
         // What the system notifications show, on the lock screen too.
-        if (autoSyncPostsNotifications)
+        if (_postsNotifications(state))
           SectionSwitchListTile(
             key: const ValueKey('notification-hide-content'),
             secondary: const Icon(Icons.visibility_off_outlined),
@@ -1612,7 +1658,8 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
                 await copyToClipboard(context, path);
               },
             ),
-            if (isAndroid)
+            // Android, and iOS / macOS / Linux once their notifications are on.
+            if (isAndroid || systemNotificationGate.switchOn(enabled: state.settingsMap.systemNotificationsOptIn))
               SectionListTile(
                 leading: const Icon(Icons.notification_add_outlined),
                 title: Text(tr.testNotification.title),
@@ -1794,7 +1841,7 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
           _buildBehaviorSection(context, state),
           UploadImageSettingsGroup(state.settingsMap),
           _buildNoticeSyncSection(context, state),
-          if (autoSyncPostsNotifications) _buildNoticeCategoriesSection(context, state),
+          if (_postsNotifications(state)) _buildNoticeCategoriesSection(context, state),
           _buildStorageSection(context, state),
           _buildAdvanceSection(context, state),
           _buildBackupSection(context, state),

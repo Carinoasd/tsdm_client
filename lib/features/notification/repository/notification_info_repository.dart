@@ -2,10 +2,10 @@ import 'dart:math' as math;
 
 import 'package:rxdart/rxdart.dart';
 import 'package:tsdm_client/features/blocking/repository/user_block_repository.dart';
+import 'package:tsdm_client/features/local_notice/show.dart';
 import 'package:tsdm_client/features/notification/bloc/notification_state_cubit.dart';
 import 'package:tsdm_client/features/notification/models/models.dart';
 import 'package:tsdm_client/utils/logger.dart';
-import 'package:tsdm_client/utils/platform.dart';
 
 /// Whether the unread hints from a page header (the notice count and the personal message flag) may be merged into
 /// the badge of account [currentUid] while the local block list is [blockList].
@@ -32,11 +32,14 @@ final class NotificationInfoRepository with LoggerMixin {
   /// Constructor.
   ///
   /// [localNotifications] tells whether this platform shows the local notifications of the auto sync, see
-  /// [updateAutoSyncInfo]; the platform decides by default, tests set it.
+  /// [updateAutoSyncInfo]; tests set it. By default it is asked at each result ([autoSyncPostsNotifications]): always
+  /// on Android and Windows, on iOS, macOS and Linux once the user turned the notifications on.
   NotificationInfoRepository({bool? localNotifications})
-    : _localNotifications = localNotifications ?? (isAndroid || isWindows);
+    : _localNotifications = localNotifications == null
+          ? (() => autoSyncPostsNotifications)
+          : (() => localNotifications);
 
-  final bool _localNotifications;
+  final bool Function() _localNotifications;
 
   final _controller = BehaviorSubject<NotificationStateInfo>();
   final _autoSyncController = BehaviorSubject<NotificationAutoSyncInfo>();
@@ -93,11 +96,10 @@ final class NotificationInfoRepository with LoggerMixin {
 
   /// Update the latest received notice status in last auto sync notice action.
   ///
-  /// Platform gate: Android and Windows both deliver local notifications when new
-  /// notices arrive from the auto sync. Other desktop platforms (Linux / macOS)
-  /// currently do not push local notifications, so they are skipped.
+  /// Platform gate: Android and Windows deliver local notifications when new notices arrive from the auto sync; iOS,
+  /// macOS and Linux only once the user turned them on. Elsewhere the result is skipped.
   void updateAutoSyncInfo(NotificationAutoSyncInfo info) {
-    if (!_localNotifications) {
+    if (!_localNotifications()) {
       return;
     }
     // Counts only: the info carries the notice / message text shown in the push notification.

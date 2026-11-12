@@ -638,6 +638,12 @@
       "notificationDirectReply": {
         "title": "通知列直接回覆"
       },
+      "systemNotifications": {
+        "title": "系統通知",
+        "denied": "未允許通知",
+        "unavailable": "這台裝置沒有可用的通知服務",
+        "open": "開啟"
+      },
       "notificationPermission": {
         "title": "通知權限",
         "detail": "自動同步需要此權限才能把新提醒、訊息和公共訊息顯示為系統通知",
