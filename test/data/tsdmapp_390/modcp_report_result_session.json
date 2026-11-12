@@ -1,0 +1,19 @@
+{
+  "ok": 1,
+  "api": 1,
+  "time": 1700000000,
+  "uid": 33,
+  "formhash": "f1f2f3f4",
+  "type": "result",
+  "schema": 13,
+  "kind": "page",
+  "message": "",
+  "message_key": "",
+  "url": "",
+  "handlekey": "",
+  "values": {},
+  "login": 0,
+  "alert": "",
+  "head": "<script type=\"text/javascript\">var discuz_uid = '33';</script>",
+  "document": "<form method=\"post\" autocomplete=\"off\" action=\"forum.php?mod=modcp&action=login\" class=\"exfm\">\r\n<input type=\"hidden\" name=\"formhash\" value=\"f1f2f3f4\">\r\n<input type=\"hidden\" name=\"fid\" value=\"2\">\r\n<input type=\"hidden\" name=\"submit\" value=\"yes\">\r\n<input type=\"hidden\" name=\"login_panel\" value=\"yes\">\r\n<table cellspacing=\"0\" cellpadding=\"5\">\r\n<tr>\r\n<th width=\"60\">用户名:</th>\r\n<td>ag_area</td>\r\n</tr>\r\n<tr>\r\n<th>密码:</th>\r\n<td><input type=\"password\" name=\"cppwd\" id=\"cppwd\" class=\"px\" /></td>\r\n</tr>\r\n<tr>\r\n<th>&nbsp;</th>\r\n<td><button type=\"submit\" name=\"submit\" id=\"submit\" class=\"pn\" value=\"true\"><strong>提交</strong></button></td>\r\n</tr>\r\n</table>\r\n</form>"
+}

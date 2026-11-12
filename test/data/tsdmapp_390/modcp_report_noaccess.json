@@ -1,0 +1,8 @@
+{
+  "ok": 0,
+  "error": "message",
+  "message": "抱歉，您没有权限访问管理面板，请重新登录站点，然后重试",
+  "login": 0,
+  "uid": 31,
+  "message_key": "admin_cpanel_noaccess"
+}

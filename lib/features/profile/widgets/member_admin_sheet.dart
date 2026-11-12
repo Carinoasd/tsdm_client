@@ -6,6 +6,7 @@ import 'package:tsdm_client/features/admin_tools/models/admin_models.dart';
 import 'package:tsdm_client/features/admin_tools/repository/admin_repository.dart';
 import 'package:tsdm_client/features/medal_title_tools/repository/medal_title_tools_repository.dart';
 import 'package:tsdm_client/features/medal_title_tools/utils/staff_access.dart';
+import 'package:tsdm_client/features/moderate/utils/panel_tools_access.dart';
 import 'package:tsdm_client/features/profile/utils/management_group.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
@@ -49,11 +50,33 @@ Future<AdminAccess?> memberAdminAccessOf(
   return access == null || access.memberActions.isEmpty ? null : access;
 }
 
+/// Whether the account [uid] may send backgrounds to other members ([PanelToolsAccess]); false when it may not, is
+/// not of a management group or the forum could not tell. Asked only for an account of a management group, as
+/// [memberAdminToolsOf].
+Future<bool> memberBackgroundGrantOf(
+  int uid, {
+  required Future<bool?> Function() isManager,
+  bool Function()? stillCurrent,
+  Future<PanelTools?> Function()? check,
+}) async {
+  if (await ManagementGroupCache.check(uid, isManager) != true) {
+    return false;
+  }
+  final can = await (check ?? () => PanelToolsAccess.check(uid, stillCurrent: stillCurrent))();
+  return can?.background ?? false;
+}
+
 /// One admin operation on a member: an icon, a label and the page it opens with the member's UID brought in.
 typedef MemberAdminItem = ({Key key, IconData icon, String label, String path});
 
-/// The admin operations [can] and [admin] offer on a member, in the order shown. Add new operations here.
-List<MemberAdminItem> memberAdminItems(BuildContext context, StaffTools can, {AdminAccess? admin}) {
+/// The admin operations [can] offers on a member, in the order shown: sending backgrounds when [background], and the
+/// forum's admin actions [admin] lets the account read. Add new operations here.
+List<MemberAdminItem> memberAdminItems(
+  BuildContext context,
+  StaffTools can, {
+  bool background = false,
+  AdminAccess? admin,
+}) {
   final tr = context.t.medalTitleTools;
   final at = context.t.adminTools;
   return [
@@ -70,6 +93,13 @@ List<MemberAdminItem> memberAdminItems(BuildContext context, StaffTools can, {Ad
         icon: Icons.verified_outlined,
         label: tr.issueTitle,
         path: ScreenPaths.titleIssue,
+      ),
+    if (background)
+      (
+        key: const ValueKey('member-admin-background-grant'),
+        icon: Icons.wallpaper_outlined,
+        label: context.t.backgroundGrant.title,
+        path: ScreenPaths.backgroundGrant,
       ),
     if (admin?.canRead(AdminActions.credit) ?? false)
       (
@@ -100,9 +130,10 @@ Future<void> showMemberAdminSheet(
   BuildContext context, {
   required int uid,
   required StaffTools can,
+  bool background = false,
   AdminAccess? admin,
 }) {
-  final items = memberAdminItems(context, can, admin: admin);
+  final items = memberAdminItems(context, can, background: background, admin: admin);
   final router = GoRouter.of(context);
   return showModalBottomSheet<void>(
     context: context,

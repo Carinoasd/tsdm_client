@@ -136,6 +136,11 @@ class ScreenPaths {
   /// Banning a spammer and clearing their posts, for administrators (app API admin actions).
   static const String adminBan = '/adminBan';
 
+  /// Sending backgrounds of the background shop plugin (app API `bggrant`).
+  ///
+  /// Query parameters: `uid`, the member the list starts with.
+  static const String backgroundGrant = '/backgroundGrant';
+
   /// Community bank balances, records and current-account transactions.
   static const String bank = '/bank';
 

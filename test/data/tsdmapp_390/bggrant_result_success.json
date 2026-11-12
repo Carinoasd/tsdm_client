@@ -1,0 +1,17 @@
+{
+  "ok": 1,
+  "api": 1,
+  "time": 1700000000,
+  "uid": 31,
+  "formhash": "f1f2f3f4",
+  "type": "result",
+  "schema": 13,
+  "kind": "message",
+  "message": "已发放给 1 位会员，到期 2026-11-19 23:59；图片 1209-1.jpg；找不到的 UID 999999",
+  "message_key": "",
+  "url": "",
+  "handlekey": "",
+  "values": {},
+  "login": 0,
+  "alert": "right"
+}

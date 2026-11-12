@@ -1,0 +1,64 @@
+{
+  "ok": 1,
+  "api": 1,
+  "time": 1700000000,
+  "uid": 70,
+  "formhash": "f1f2f3f4",
+  "checknewpm": "",
+  "type": "modcp_report",
+  "schema": 28,
+  "timeoffset": 8,
+  "fid": 2,
+  "forum": "公告与新手报到",
+  "forums": [
+    {
+      "fid": 2,
+      "name": "公告与新手报到"
+    },
+    {
+      "fid": 9,
+      "name": "手游情报站"
+    },
+    {
+      "fid": 25,
+      "name": "周边交易区"
+    }
+  ],
+  "need_forum": 0,
+  "reward": {
+    "enabled": 1,
+    "credit": {
+      "id": 2,
+      "title": "天使币",
+      "unit": ""
+    },
+    "min": -3,
+    "max": 3,
+    "options": [
+      3,
+      2,
+      1,
+      0,
+      -1,
+      -2,
+      -3
+    ]
+  },
+  "page": 1,
+  "perpage": 20,
+  "count": 0,
+  "pages": 1,
+  "reports": [],
+  "submit": {
+    "url": "forum.php?mod=modcp&action=report&fid=2",
+    "method": "POST",
+    "fields": {
+      "formhash": "f1f2f3f4",
+      "reportsubmit": "true"
+    },
+    "ids_field": "reportids[]",
+    "uid_field": "reportuids[{id}]",
+    "credit_field": "creditsvalue[{id}]",
+    "msg_field": "msg[{id}]"
+  }
+}

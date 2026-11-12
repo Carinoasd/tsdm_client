@@ -271,6 +271,11 @@ void main() {
         ],
       );
       expect(memberAdminItems(ctx, (grant: false, issue: false), admin: AdminAccess.off), isEmpty);
+      expect(
+        memberAdminItems(ctx, (grant: false, issue: false), background: true, admin: founder).map((e) => e.path),
+        [ScreenPaths.backgroundGrant, ScreenPaths.adminCredit, ScreenPaths.adminGroup, ScreenPaths.adminBan],
+        reason: 'the background grant and the admin actions together',
+      );
       expect(memberAdminItems(ctx, (grant: false, issue: true)).map((e) => e.path), [ScreenPaths.titleIssue]);
     });
   });

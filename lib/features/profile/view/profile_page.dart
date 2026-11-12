@@ -138,6 +138,9 @@ class _ProfilePageState extends State<ProfilePage> {
   /// The admin tools the account may use on another member; null for everyone else and until known.
   StaffTools? _adminTools;
 
+  /// The account may send backgrounds to another member (shown with [_adminTools]).
+  bool _backgroundGrant = false;
+
   /// The forum's admin actions the account may use on another member; null for everyone else and until known.
   AdminAccess? _adminAccess;
 
@@ -160,16 +163,21 @@ class _ProfilePageState extends State<ProfilePage> {
     }
 
     bool stillCurrent() => auth?.currentUser?.uid == uid;
-    final can = await memberAdminToolsOf(uid, stillCurrent: stillCurrent, isManager: isManager);
-    // The management group is kept by now: an ordinary member stops here without another request.
-    final admin = await memberAdminAccessOf(uid, stillCurrent: stillCurrent, isManager: isManager);
-    final staff = can != null && (can.grant || can.issue) ? can : null;
+    final (can, background, admin) = await (
+      memberAdminToolsOf(uid, stillCurrent: stillCurrent, isManager: isManager),
+      memberBackgroundGrantOf(uid, stillCurrent: stillCurrent, isManager: isManager),
+      memberAdminAccessOf(uid, stillCurrent: stillCurrent, isManager: isManager),
+    ).wait;
+    if (!mounted || !((can?.grant ?? false) || (can?.issue ?? false) || background || admin != null)) {
+      return;
+    }
     // The account in use may have changed while the forum answered.
-    if (!mounted || (staff == null && admin == null) || !stillCurrent()) {
+    if (!stillCurrent()) {
       return;
     }
     setState(() {
-      _adminTools = staff ?? (grant: false, issue: false);
+      _adminTools = can ?? (grant: false, issue: false);
+      _backgroundGrant = background;
       _adminAccess = admin;
     });
   }
@@ -496,7 +504,13 @@ class _ProfilePageState extends State<ProfilePage> {
                     label: tr.adminMenu,
                     placement: OverflowPlacement.menuOnly,
                     onPressed: () => unawaited(
-                      showMemberAdminSheet(context, uid: memberUid, can: _adminTools!, admin: _adminAccess),
+                      showMemberAdminSheet(
+                        context,
+                        uid: memberUid,
+                        can: _adminTools!,
+                        background: _backgroundGrant,
+                        admin: _adminAccess,
+                      ),
                     ),
                   ),
                 if (others && !off.contains(SpaceModule.poke))
