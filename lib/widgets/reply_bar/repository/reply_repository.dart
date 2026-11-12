@@ -87,6 +87,9 @@ final class ReplyRepository with LoggerMixin {
   /// `errorhandle_<handlekey>('<message>', {...})` carries the rejection reason.
   static final _errorHandleRe = RegExp(r"errorhandle_\w*\('((?:[^'\\]|\\.)*)'");
 
+  /// The language keys the forum shows a stored reply with (Discuz! `model_post`): published, or awaiting moderation.
+  static const replyStoredKeys = {'post_reply_succeed', 'post_reply_mod_succeed'};
+
   /// Whether the reply response says the reply was stored.
   static bool _isReplyStored(String data) =>
       _succeedHandleRe.hasMatch(data) || data.contains('回复发布成功') || data.contains('回复需要审核');
@@ -130,12 +133,18 @@ final class ReplyRepository with LoggerMixin {
         verification: refusedVerification(messageKey: result.messageKey, reason: result.reason),
       );
     }
+    // The forum's language key decides when it names one of a stored reply (`post_reply_succeed`, or
+    // `post_reply_mod_succeed` awaiting moderation), whatever the words and the verdict of the answer; any other key (a
+    // refusal: `post_flood_ctrl`…) and an answer without one (another plugin's own words, a reply merged into the
+    // previous floor) are read as before, from the kind of the answer and, for a message without the success class,
+    // its words.
     final stored = switch (result.kind) {
+      TsdmAppWriteKind.page => false,
+      _ when replyStoredKeys.contains(result.messageKey) => !result.login,
       TsdmAppWriteKind.handle || TsdmAppWriteKind.redirect => result.succeeded,
       TsdmAppWriteKind.message =>
         result.succeeded &&
             (result.alert == 'right' || result.message.contains('回复发布成功') || result.message.contains('回复需要审核')),
-      TsdmAppWriteKind.page => false,
     };
     final reason = result.reason.isNotEmpty ? result.reason : _serverMessage(result.html);
     return (

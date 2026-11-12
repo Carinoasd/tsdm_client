@@ -1068,18 +1068,31 @@ void main() {
 
   group('checkin', () {
     /// The forum: the API's [checkin] and [status] answers (null: an older plugin without `status`), the checkin
-    /// page and the result of the post.
-    _Forum forum(Map<String, Object?> checkin, {Object? status, int statusCode = 200}) => _Forum((o) {
-      final q = o.uri.queryParameters;
-      if (q['id'] == 'tsdmapp:api') {
-        return switch (q['action']) {
-          'checkin' => _json(checkin),
-          'status' => _json(status ?? {'ok': 0, 'error': 'action'}, status: statusCode),
-          _ => fail('unexpected action ${q['action']}'),
-        };
-      }
-      return o.method == 'POST' ? _html(_checkinSuccess) : _html(_checkinPage);
-    });
+    /// page and the result of the post. Once the form was posted, `checkin` says checked in today (the outcome is
+    /// read again after the post).
+    _Forum forum(Map<String, Object?> checkin, {Object? status, int statusCode = 200}) {
+      var posted = false;
+      return _Forum((o) {
+        final q = o.uri.queryParameters;
+        if (o.method == 'POST') {
+          posted = true;
+        }
+        if (q['id'] == 'tsdmapp:api') {
+          return switch (q['action']) {
+            'checkin' => _json(posted ? {...checkin, 'checked_today': 1, 'can_checkin': 0} : checkin),
+            'status' => _json(status ?? {'ok': 0, 'error': 'action'}, status: statusCode),
+            _ => fail('unexpected action ${q['action']}'),
+          };
+        }
+        return o.method == 'POST' ? _html(_checkinSuccess) : _html(_checkinPage);
+      });
+    }
+
+    /// The checkin form posted to [f] and its body.
+    (RequestOptions, String?) posted(_Forum f) {
+      final i = f.requests.lastIndexWhere((e) => e.method == 'POST');
+      return (f.requests[i], f.bodies[i]);
+    }
 
     Future<CheckinResult> run(_Forum f) => doCheckin(_client(f), CheckinFeeling.happy, 'hi').run();
 
@@ -1089,17 +1102,17 @@ void main() {
       final f = forum(_checkinAnswer(), status: _statusAnswer());
       expect(await run(f), isA<CheckinResultSuccess>());
       expect(readsPage(f), isFalse);
-      expect(f.apiRequests.map((e) => e.uri.queryParameters['action']), ['checkin', 'status']);
-      expect(f.requests.last.method, 'POST');
-      expect(Uri.splitQueryString(f.bodies.last!)['formhash'], 'a1b2c3d4');
+      // The state, the form hash, and the state again after the post.
+      expect(f.apiRequests.map((e) => e.uri.queryParameters['action']), ['checkin', 'status', 'checkin']);
+      expect(Uri.splitQueryString(posted(f).$2!)['formhash'], 'a1b2c3d4');
     });
 
     test('the checkin answer tells it (plugin 1.6.0): status is not asked', () async {
       final f = forum(_checkinAnswer(formHash: '0f0e0d0c'));
       expect(await run(f), isA<CheckinResultSuccess>());
       expect(readsPage(f), isFalse);
-      expect(f.apiRequests, hasLength(1));
-      expect(Uri.splitQueryString(f.bodies.last!)['formhash'], '0f0e0d0c');
+      expect(f.apiRequests.map((e) => e.uri.queryParameters['action']), ['checkin', 'checkin']);
+      expect(Uri.splitQueryString(posted(f).$2!)['formhash'], '0f0e0d0c');
     });
 
     test('the form posted is the one the checkin page path posts', () async {
@@ -1108,11 +1121,11 @@ void main() {
       await run(direct);
       expect(await run(viaPage), isA<CheckinResultSuccess>());
       expect(readsPage(viaPage), isTrue);
-      final (a, b) = (direct.requests.last, viaPage.requests.last);
+      final (a, b) = (posted(direct).$1, posted(viaPage).$1);
       expect(a.method, b.method);
       expect(a.uri, b.uri);
       expect(a.contentType, b.contentType);
-      expect(direct.bodies.last, viaPage.bodies.last);
+      expect(posted(direct).$2, posted(viaPage).$2);
       // The form asks the forum's app API for its result (plugin 2.6.0), not for the JSON mode of a page: no nodoc.
       expect(_asksJson(a), isTrue);
       expect(a.uri.queryParameters, isNot(contains('nodoc')));
@@ -1129,7 +1142,7 @@ void main() {
         final f = forum(_checkinAnswer(), status: status, statusCode: code);
         expect(await run(f), isA<CheckinResultSuccess>(), reason: label);
         expect(readsPage(f), isTrue, reason: label);
-        expect(Uri.splitQueryString(f.bodies.last!)['formhash'], 'a1b2c3d4', reason: label);
+        expect(Uri.splitQueryString(posted(f).$2!)['formhash'], 'a1b2c3d4', reason: label);
       }
     });
   });

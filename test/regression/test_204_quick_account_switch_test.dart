@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -116,6 +117,17 @@ final class _SwitchAdapter implements HttpClientAdapter {
     requests.add(options);
     if (gate != null) {
       await gate!.future;
+    }
+    if (options.uri.queryParameters case {'id': 'tsdmapp:api', 'action': 'status'}) {
+      // The forum's app API names the account of the page [body] (0: a guest), as the switch asks it first.
+      final uid = int.tryParse(RegExp(r'uid=(\d+)').firstMatch(body)?[1] ?? '') ?? 0;
+      return ResponseBody.fromString(
+        jsonEncode({'ok': 1, 'api': 1, 'uid': uid, 'formhash': 'f1f2f3f4'}),
+        200,
+        headers: {
+          Headers.contentTypeHeader: ['application/json; charset=utf-8'],
+        },
+      );
     }
     return ResponseBody.fromString(
       body,

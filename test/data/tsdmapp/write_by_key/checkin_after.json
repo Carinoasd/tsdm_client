@@ -1,0 +1,19 @@
+{
+ "ok": 1,
+ "api": 1,
+ "time": 1700000000,
+ "installed": 1,
+ "checked_today": 1,
+ "can_checkin": 0,
+ "window": {
+  "enabled": 0,
+  "start_hour": 8,
+  "end_hour": 22,
+  "open_now": 1
+ },
+ "day_start": 1699977600,
+ "last_time": 1700000000,
+ "days": 43,
+ "month_days": 12,
+ "formhash": "f1f2f3f4"
+}
