@@ -255,7 +255,7 @@ void main() {
       expect(find.byType(BatchRateRunPage), findsNothing, reason: 'run to the end, then the result');
       expect(runs, 1);
       // Back on the detail, read again; not a second page of the result.
-      expect(find.text('Batch rate #11'), findsOneWidget);
+      expect(find.text('Batch rating #11'), findsOneWidget);
       expect(find.byType(BatchRateBatchView), findsOneWidget);
     });
 

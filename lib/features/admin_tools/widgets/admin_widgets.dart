@@ -33,7 +33,9 @@ String adminErrorText(BuildContext context, AdminReply reply) {
     'duplicate' => tr.errorDuplicate,
     'formhash' || 'opid' => tr.errorFormhash,
     'users' => switch (json['missing']) {
-      final List<dynamic> missing when missing.isNotEmpty => tr.missing(names: missing.join('、')),
+      final List<dynamic> missing when missing.isNotEmpty => tr.missing(
+        names: missing.join(context.t.general.listSeparator),
+      ),
       _ => tr.errorUsers,
     },
     'limit' => tr.creditTooMany(n: json['max'] is int ? json['max'] as int : 50),

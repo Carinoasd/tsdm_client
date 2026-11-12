@@ -168,7 +168,7 @@ class _ModcpForumAccessPageState extends State<ModcpForumAccessPage> {
           const SizedBox(height: 8),
           Text(
             '${tr.deny}: ${[for (final r in ModcpAccessRight.values)
-              if (choice.denied.contains(r) || choice.denied.contains(ModcpAccessRight.view)) modcpAccessRightName(context, r)].join('、')}',
+              if (choice.denied.contains(r) || choice.denied.contains(ModcpAccessRight.view)) modcpAccessRightName(context, r)].join(context.t.general.listSeparator)}',
           ),
         ],
       ],

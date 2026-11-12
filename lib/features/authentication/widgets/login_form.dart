@@ -17,7 +17,11 @@ import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/debounce_buttons.dart';
 
 // TODO: Fetch login questions dynamically from web server.
-final _loginQuestions = ['无安全问题', '母亲的名字', '爷爷的名字', '父亲出生的城市', '您其中一位老师的名字', '您个人计算机的型号', '您最喜欢的餐馆名称', '驾驶执照的最后四位数字'];
+/// The forum's login security questions, in the order of their `questionid` (0 is none).
+List<String> _loginQuestions(BuildContext context) {
+  final q = context.t.adminTools.questions;
+  return [context.t.loginPage.noSecurityQuestion, q.q1, q.q2, q.q3, q.q4, q.q5, q.q6, q.q7];
+}
 
 /// Text telling why a login failed, for the [exception] the authentication bloc reports.
 String loginErrorText(BuildContext context, Object? exception) => switch (exception) {
@@ -74,7 +78,8 @@ class _LoginFormState extends State<LoginForm> with LoggerMixin {
 
   bool _showPassword = false;
 
-  String _question = _loginQuestions.first;
+  /// The `questionid` of the chosen security question, 0 for none.
+  int _question = 0;
 
   LoginField loginField = LoginField.username;
 
@@ -96,9 +101,9 @@ class _LoginFormState extends State<LoginForm> with LoggerMixin {
       password: passwordController.text,
       // formHash: state.loginHash!.formHash,
       tsdmVerify: verifyCodeController.text,
-      securityQuestion: _question == _loginQuestions.first
+      securityQuestion: _question == 0
           ? null
-          : SecurityQuestion(questionId: '${_loginQuestions.indexOf(_question)}', answer: answerController.text),
+          : SecurityQuestion(questionId: '$_question', answer: answerController.text),
     );
 
     var times = 10;
@@ -254,7 +259,7 @@ class _LoginFormState extends State<LoginForm> with LoggerMixin {
                     icon: Icons.question_mark_outlined,
                   ).copyWith(contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4)),
                   child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
+                    child: DropdownButton<int>(
                       value: _question,
                       // Long questions are cut with an ellipsis instead of overflowing on narrow phones.
                       isExpanded: true,
@@ -267,10 +272,10 @@ class _LoginFormState extends State<LoginForm> with LoggerMixin {
                           _question = newValue;
                         });
                       },
-                      items: _loginQuestions.map((value) {
-                        return DropdownMenuItem<String>(
-                          value: value,
-                          child: Text(value, maxLines: 1, overflow: TextOverflow.ellipsis),
+                      items: _loginQuestions(context).indexed.map((e) {
+                        return DropdownMenuItem<int>(
+                          value: e.$1,
+                          child: Text(e.$2, maxLines: 1, overflow: TextOverflow.ellipsis),
                         );
                       }).toList(),
                     ),
@@ -281,8 +286,8 @@ class _LoginFormState extends State<LoginForm> with LoggerMixin {
                   decoration: appFieldDecoration(
                     label: tr.answer,
                     icon: Icons.question_answer_outlined,
-                  ).copyWith(enabled: _question != _loginQuestions.first),
-                  validator: (v) => _question == _loginQuestions.first || v!.trim().isNotEmpty ? null : tr.answerEmpty,
+                  ).copyWith(enabled: _question != 0),
+                  validator: (v) => _question == 0 || v!.trim().isNotEmpty ? null : tr.answerEmpty,
                 ),
               ],
             ),

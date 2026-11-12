@@ -137,7 +137,9 @@ class _AdminCreditPageState extends State<AdminCreditPage> with AdminSessionLeas
     if (info.members.isEmpty || info.missing.isNotEmpty) {
       showSnackBar(
         context: context,
-        message: info.missing.isNotEmpty ? tr.missing(names: info.missing.join('、')) : tr.errorUsers,
+        message: info.missing.isNotEmpty
+            ? tr.missing(names: info.missing.join(context.t.general.listSeparator))
+            : tr.errorUsers,
       );
       return;
     }
@@ -171,7 +173,7 @@ class _AdminCreditPageState extends State<AdminCreditPage> with AdminSessionLeas
       confirm: tr.confirm,
       destructive: deltas.values.any((v) => v < 0),
       content: [
-        Text(info.members.map((m) => m.member.username).join('、')),
+        Text(info.members.map((m) => m.member.username).join(context.t.general.listSeparator)),
         sizedBoxW8H8,
         Text(
           deltas.entries.map((e) => '${names[e.key] ?? '#${e.key}'} ${e.value > 0 ? '+' : ''}${e.value}').join('\n'),
@@ -230,7 +232,9 @@ class _AdminCreditPageState extends State<AdminCreditPage> with AdminSessionLeas
       message: overflow.isEmpty
           ? adminErrorText(context, reply)
           : tr.creditOverflow(
-              list: overflow.map((o) => '${users[o.uid] ?? tr.uid(uid: o.uid)} ${names[o.id] ?? '#${o.id}'}').join('、'),
+              list: overflow
+                  .map((o) => '${users[o.uid] ?? tr.uid(uid: o.uid)} ${names[o.id] ?? '#${o.id}'}')
+                  .join(context.t.general.listSeparator),
             ),
     );
     if (reply.error == 'duplicate') await _load();
@@ -276,7 +280,7 @@ class _AdminCreditPageState extends State<AdminCreditPage> with AdminSessionLeas
                         Padding(
                           padding: const EdgeInsets.only(top: 8),
                           child: Text(
-                            tr.missing(names: info.missing.join('、')),
+                            tr.missing(names: info.missing.join(context.t.general.listSeparator)),
                             key: const ValueKey('admin-credit-missing'),
                             style: TextStyle(color: theme.colorScheme.error),
                           ),

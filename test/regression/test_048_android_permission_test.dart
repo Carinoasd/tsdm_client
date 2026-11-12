@@ -285,8 +285,8 @@ void main() {
       expect(gateway.requested, [Permission.notification]);
       expect(gateway.openedSettings, 0);
       expect(find.text('Permanently denied'), findsOneWidget);
-      expect(find.text('Ok'), findsOneWidget);
-      await tester.tap(find.text('Ok'));
+      expect(find.text('OK'), findsOneWidget);
+      await tester.tap(find.text('OK'));
       await tester.pumpAndSettle();
       expect(gateway.openedSettings, 1);
       expect(gateway.requested, [Permission.notification]);
@@ -304,7 +304,7 @@ void main() {
       expect(gateway.requested, [Permission.notification]);
       expect(gateway.openedSettings, 0);
       expect(find.text('Not allowed'), findsOneWidget);
-      expect(find.text('Ok'), findsNothing);
+      expect(find.text('OK'), findsNothing);
     });
 
     testWidgets('permanently denied explains first, then opens app settings', (tester) async {
@@ -323,7 +323,7 @@ void main() {
 
       await tester.tap(find.text('Notification permission'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Ok'));
+      await tester.tap(find.text('OK'));
       await tester.pumpAndSettle();
       expect(gateway.openedSettings, 1);
       expect(gateway.requested, isEmpty);

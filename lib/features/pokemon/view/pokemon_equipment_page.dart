@@ -81,7 +81,7 @@ class _PokemonEquipmentPageState extends State<PokemonEquipmentPage> {
       context: context,
       icon: Icons.remove_circle_outline,
       title: tr.unequip,
-      message: '${tr.unequip}「${slot.item?.name ?? ''}」',
+      message: tr.unequipItem(name: slot.item?.name ?? ''),
       confirmLabel: tr.unequip,
     );
     if (!confirmed || !mounted) return;

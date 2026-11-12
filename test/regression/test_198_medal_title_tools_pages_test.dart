@@ -328,14 +328,14 @@ void main() {
     await _pump(tester, MedalGrantPage(repository: _repo({'medalgrant': _grant(canGrant: 0)})));
     expect(find.text('You are not allowed to use this.'), findsOneWidget);
     await _pump(tester, MedalGrantPage(key: UniqueKey(), repository: _repo({'medalgrant': _grant(supported: 0)})));
-    expect(find.textContaining('not the new version'), findsOneWidget);
+    expect(find.textContaining('not up to date'), findsOneWidget);
   });
 
   testWidgets('issuing titles: the plugin’s form with members, titles, days and note', (tester) async {
     final posted = <(String, Map<String, String>)>[];
     await _pump(tester, TitleIssuePage(repository: _repo({'titleissue': _issue()}, posted: posted)));
     expect(find.textContaining('Disabled'), findsOneWidget);
-    await tester.enterText(find.widgetWithText(TextField, 'Members (UID or name)'), '44\nalice, 44');
+    await tester.enterText(find.widgetWithText(TextField, 'Members (UID or username)'), '44\nalice, 44');
     await tester.tap(find.widgetWithText(CheckboxListTile, 'Event title'));
     await tester.enterText(find.widgetWithText(TextField, 'Days (0 for permanent)'), '7');
     await tester.enterText(find.widgetWithText(TextField, 'Note (optional)'), 'Prize');

@@ -181,12 +181,12 @@ void main() {
       await tester.tap(find.byIcon(Icons.add_outlined));
       await settle(tester);
       await tester.enterText(find.byType(TextField).first, 'nope');
-      await tester.tap(find.text('Ok'));
+      await tester.tap(find.text('OK'));
       await settle(tester);
-      expect(find.text('Not an http(s) image url'), findsOneWidget);
+      expect(find.text('Not an http(s) image URL'), findsOneWidget);
       await tester.enterText(find.byType(TextField).first, '[img]https://x/b.png[/img]');
       await tester.enterText(find.byType(TextField).last, 'second');
-      await tester.tap(find.text('Ok'));
+      await tester.tap(find.text('OK'));
       await settle(tester);
       expect((await storage.fetchCustomImages()).map((e) => e.url), ['https://x/a.png', 'https://x/b.png']);
       expect(find.byTooltip('second'), findsOneWidget);

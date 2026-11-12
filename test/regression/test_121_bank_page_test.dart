@@ -247,7 +247,7 @@ void main() {
     await cubit.load();
     await tester.pumpAndSettle();
     expect(find.byType(AlertDialog), findsNothing);
-    expect(find.text('Sign in to view your bank account'), findsOneWidget);
+    expect(find.text('Log in to view your bank account'), findsOneWidget);
     expect(repository.submissions, isEmpty);
     await tester.pumpWidget(const SizedBox());
   });

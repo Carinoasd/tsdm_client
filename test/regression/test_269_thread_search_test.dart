@@ -857,7 +857,7 @@ void main() {
     expect(loadMore(), findsNothing, reason: 'both pages of every author searched');
 
     // One author's floors: page 2 is asked for, their page 2, with pages of their own.
-    await chooseFromMenu(tester, 1, 'Only view the author');
+    await chooseFromMenu(tester, 1, 'Only this author');
     expect(adapter.queries.last['authorid'], '1000');
     expect(adapter.asked.last, 2);
     expect(countText(tester), '1 / 1', reason: 'floor 15 among floors 12, 15 and 18');
@@ -869,7 +869,7 @@ void main() {
     expect(loadMore(), findsNothing);
 
     // Every author's floors again: pages of their own too.
-    await chooseFromMenu(tester, 12, 'View all authors');
+    await chooseFromMenu(tester, 12, 'All authors');
     expect(adapter.queries.last.containsKey('authorid'), isFalse);
     expect(countText(tester), '1 / 1', reason: 'floor 15 among floors 11 to 20');
     expect(loadMore(), findsOneWidget);

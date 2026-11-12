@@ -149,7 +149,7 @@ void main() {
 
   testWidgets('empty: the notice and the add tile, in a short panel', (tester) async {
     await pumpPanel(tester, [], height: 200);
-    expect(find.text('Save image urls here and insert them into posts with one tap'), findsOneWidget);
+    expect(find.text('Save image URLs here and insert them into posts with one tap'), findsOneWidget);
     expect(find.byTooltip('Add image'), findsOneWidget);
     await finish(tester);
   });
@@ -171,14 +171,14 @@ void main() {
     expect(tester.takeException(), isNull);
 
     await tester.enterText(find.byType(TextField).first, 'nope');
-    await tester.tap(find.text('Ok'));
+    await tester.tap(find.text('OK'));
     await settle(tester);
-    expect(find.text('Not an http(s) image url'), findsOneWidget);
+    expect(find.text('Not an http(s) image URL'), findsOneWidget);
     expect(await tester.runAsync(storage.fetchCustomImages), isEmpty);
 
     await tester.enterText(find.byType(TextField).first, '[img]https://x/b.png[/img]');
     await tester.enterText(find.byType(TextField).last, 'second');
-    await tester.tap(find.text('Ok'));
+    await tester.tap(find.text('OK'));
     await flush(tester);
     tester.view.resetViewInsets();
     await settle(tester);
@@ -187,7 +187,7 @@ void main() {
     expect((await tester.runAsync(storage.fetchCustomImages))?.map((e) => e.url), ['https://x/b.png']);
     expect(find.byKey(const ValueKey('emoji-panel')), findsOneWidget);
     expect(find.byTooltip('second'), findsOneWidget);
-    expect(find.text('Save image urls here and insert them into posts with one tap'), findsNothing);
+    expect(find.text('Save image URLs here and insert them into posts with one tap'), findsNothing);
     expect(picked, isEmpty);
 
     // A tap inserts it and keeps the panel open, like every other emoji there.
@@ -228,7 +228,7 @@ void main() {
 
     await tester.longPress(find.byTooltip('first'));
     await settle(tester);
-    await tester.tap(find.text('Ok'));
+    await tester.tap(find.text('OK'));
     await flush(tester);
     expect((await tester.runAsync(storage.fetchCustomImages))?.map((e) => e.url), ['https://x/b.png']);
     expect(find.byTooltip('first'), findsNothing);
@@ -246,14 +246,14 @@ void main() {
     await settle(tester);
     await tester.enterText(find.byType(TextField).first, 'https://x/c.png');
     await tester.enterText(find.byType(TextField).last, 'third');
-    await tester.tap(find.text('Ok'));
+    await tester.tap(find.text('OK'));
     await flush(tester);
     expect(find.byTooltip('third'), findsNWidgets(2));
 
     // Deleted from the editor's tab, gone from the panel too.
     await tester.longPress(find.byTooltip('third').first);
     await settle(tester);
-    await tester.tap(find.text('Ok'));
+    await tester.tap(find.text('OK'));
     await flush(tester);
     expect(find.byTooltip('third'), findsNothing);
     expect(await tester.runAsync(storage.fetchCustomImages), isEmpty);
@@ -291,7 +291,7 @@ void main() {
 
     await tester.longPress(find.byTooltip('first'));
     await settle(tester);
-    await tester.tap(find.text('Ok'));
+    await tester.tap(find.text('OK'));
     await flush(tester);
     expect(find.byTooltip('first'), findsNothing);
     expect((await tester.runAsync(storage.fetchCustomImages))?.map((e) => e.url), ['https://x/b.png']);

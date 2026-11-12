@@ -294,7 +294,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('modcp-threads-moderate')));
       await tester.pumpAndSettle();
-      expect(find.text('Stick'), findsOneWidget);
+      expect(find.text('Pin'), findsOneWidget);
       expect(find.text('Recommend'), findsNothing);
     });
 

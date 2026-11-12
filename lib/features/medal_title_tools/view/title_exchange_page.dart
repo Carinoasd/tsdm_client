@@ -81,7 +81,9 @@ class _TitleExchangePageState extends State<TitleExchangePage> {
           sizedBoxW12H12,
           AppNoticeBanner(
             tone: AppNoticeTone.warning,
-            message: tr.exchangeConsumeConfirm(medals: t.medals.map((m) => '「${context.displayText(m.name)}」').join()),
+            message: tr.exchangeConsumeConfirm(
+              medals: t.medals.map((m) => context.t.general.quoted(text: context.displayText(m.name))).join(' '),
+            ),
           ),
         ],
         sizedBoxW12H12,

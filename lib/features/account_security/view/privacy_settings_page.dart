@@ -57,7 +57,7 @@ class PrivacySettingsPage extends StatelessWidget {
                 message: [
                   for (final e in state.edited)
                     if (state.changed.contains(e.tab.op)) e.tab.title,
-                ].join('、'),
+                ].join(context.t.general.listSeparator),
                 dangerous: true,
               );
               if (discard ?? false) {

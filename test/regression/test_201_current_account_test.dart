@@ -653,8 +653,8 @@ void main() {
       expect(widget.heroTag, 'CurrentAccount_Alice');
       expect(widget.latestThreadUrl, isNull);
       expect(find.descendant(of: dialog, matching: find.text('Alice')), findsOneWidget);
-      expect(find.descendant(of: dialog, matching: find.text('Manage account')), findsOneWidget);
-      final latest = find.descendant(of: dialog, matching: find.widgetWithText(ListTile, 'Latest thread'));
+      expect(find.descendant(of: dialog, matching: find.text('Manage accounts')), findsOneWidget);
+      final latest = find.descendant(of: dialog, matching: find.widgetWithText(ListTile, 'Latest threads'));
       expect(tester.widget<ListTile>(latest).onTap, isNull, reason: 'only the homepage knows the latest thread');
 
       // The barrier closes it.

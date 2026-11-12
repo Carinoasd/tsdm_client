@@ -119,8 +119,8 @@ void main() {
     await openMenu(tester);
 
     final favorites = find.widgetWithText(ListTile, 'Favorites');
-    final manage = find.widgetWithText(ListTile, 'Manage account');
-    final latest = find.widgetWithText(ListTile, 'Latest thread');
+    final manage = find.widgetWithText(ListTile, 'Manage accounts');
+    final latest = find.widgetWithText(ListTile, 'Latest threads');
     expect(favorites, findsOneWidget);
     expect(manage, findsOneWidget);
     expect(latest, findsOneWidget);
@@ -138,7 +138,7 @@ void main() {
     final router = await pumpHome(tester);
     await openMenu(tester);
 
-    await tester.tap(find.widgetWithText(ListTile, 'Manage account'));
+    await tester.tap(find.widgetWithText(ListTile, 'Manage accounts'));
     await tester.pumpAndSettle();
 
     expect(find.byType(UserOperationDialog), findsNothing, reason: 'the menu closed');

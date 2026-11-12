@@ -115,9 +115,9 @@ class _TitleIssuePageState extends State<TitleIssuePage> {
               : tr.issueConfirmRevoke(titles: _chosen.length, users: members.length),
         ),
         sizedBoxW8H8,
-        Text(_chosen.map((id) => '「${context.displayText(names[id] ?? '#$id')}」').join()),
+        Text(_chosen.map((id) => context.t.general.quoted(text: context.displayText(names[id] ?? '#$id'))).join(' ')),
         sizedBoxW8H8,
-        Text(members.join('、'), style: Theme.of(context).textTheme.bodySmall),
+        Text(members.join(context.t.general.listSeparator), style: Theme.of(context).textTheme.bodySmall),
       ],
     );
     if (!ok || !mounted) return;

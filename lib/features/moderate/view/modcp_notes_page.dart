@@ -223,7 +223,10 @@ class _ModcpNotesPageState extends State<ModcpNotesPage> {
           note.admin,
           toolsDateTime(note.dateline),
           if (note.expiration > 0) tr.expires(date: toolsDate(note.expiration)),
-          [if (note.toSupermod) tr.toSupermod, if (note.toModerator) tr.toModerator].join('、'),
+          [
+            if (note.toSupermod) tr.toSupermod,
+            if (note.toModerator) tr.toModerator,
+          ].join(context.t.general.listSeparator),
         ]),
       ],
     );
