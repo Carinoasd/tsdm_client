@@ -145,10 +145,8 @@ class ListAppBar extends StatelessWidget implements PreferredSizeWidget {
     }
 
     final threadBloc = context.readOrNull<ThreadBloc>();
-    // Default is not reversed.
-    // FIXME: Some threads may set reversed order, detect that in page
-    //  (though impossible if only one page).
-    final reverseOrder = threadBloc?.state.reverseOrder ?? false;
+    // The order on screen, also when the thread's author set it newest first (see the thread bloc's order switch).
+    final reverseOrder = threadBloc?.state.shownNewestFirst ?? false;
 
     final isLogin = context.select<AuthenticationRepository, bool>((repo) => repo.currentUser != null);
 

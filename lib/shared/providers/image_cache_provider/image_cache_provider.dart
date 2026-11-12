@@ -416,7 +416,6 @@ final class ImageCacheProvider with LoggerMixin {
 
       final usage = switch (req) {
         ImageCacheGeneralRequest() => const ImageUsageInfoOther(),
-        // TODO: Handle this case.
         ImageCacheUserAvatarRequest(:final username) => ImageUsageInfoUserAvatar(username),
       };
 

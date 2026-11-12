@@ -3747,6 +3747,7 @@
     "switchBusy": "正在同步通知，請稍後再試",
     "moreAccounts": "另外 ${count} 個帳號",
     "replyBusy": "正在送出回覆，送出完成後再切換帳號",
+    "checkinBusy": "正在簽到，簽到完成後再切換帳號",
     "unread": "${count} 則未讀"
   },
   "specialThread": {

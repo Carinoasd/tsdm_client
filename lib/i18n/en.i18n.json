@@ -3747,6 +3747,7 @@
     "switchBusy": "Notifications are syncing, try again in a moment",
     "moreAccounts": "${count} more account(s)",
     "replyBusy": "A reply is being sent, switch accounts once it is done",
+    "checkinBusy": "Checking in, switch accounts once it is done",
     "unread": "${count} unread"
   },
   "specialThread": {

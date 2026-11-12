@@ -665,10 +665,14 @@ class ThreadBloc extends Bloc<ThreadEvent, ThreadState> with LoggerMixin {
     emit(
       _replacing(
         changes: (s) => s.copyWith(
-          // Set to reverse order if is null.
-          // FIXME: Some threads may set reversed order, detect that in page
-          //  (though impossible if only one page).
-          reverseOrder: !(state.reverseOrder ?? false),
+          // The other order than the one on screen: a thread its author set newest first is told by the forum's app
+          // API (`ordertype` 1 when not asked otherwise). Before, the order not asked was taken for the oldest first,
+          // and the first switch on such a thread asked for the newest first again. The order of the link opened
+          // (`exactOrder`) gives way to the one switched to.
+          reverseOrder: !state.shownNewestFirst,
+          exactOrder: null,
+          // Told again by the page asked; meanwhile the order asked is the one on screen.
+          newestFirst: false,
           currentPage: 1,
           firstPage: 1,
         ),

@@ -489,7 +489,9 @@ class AuthenticationRepository with LoggerMixin {
       final logoutDocument = parseHtmlDocument(tsdmAppAnswerText(logoutResp.data));
       final logoutMessage = logoutDocument.getElementById('messagetext');
       if (logoutMessage == null || !logoutMessage.innerHtmlEx().contains('已退出')) {
-        // TODO: Here we'd better to check the failed reason.
+        // No reason to read here: the forum names none for a logout it did not do. A form hash that does not match
+        // is answered as a logout is (`logout_succeed`, `class_member.php` `on_logout()`; Discuz! X5 redirects to the
+        // index) and the session is kept, which only the API above tells; anything else is not the logout's answer.
         return left(LogoutFailedException());
       }
     }

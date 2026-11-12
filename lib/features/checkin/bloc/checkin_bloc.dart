@@ -45,14 +45,18 @@ final class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
       emit(const CheckinStateNeedLogin());
       return;
     }
-    emit(const CheckinStateLoading());
-    final checkinFeeling = await _settingsRepository.getValue<String>(SettingsKeys.checkinFeeling);
-    final checkinMessage = await _settingsRepository.getValue<String>(SettingsKeys.checkinMessage);
-    final result = await _checkinRepository.checkin(
-      _authenticationRepository.currentUser!.uid!,
-      CheckinFeeling.from(checkinFeeling),
-      checkinMessage,
-    );
+    // Counted from the moment the check-in shows as running: no account switch starts while the settings are read
+    // either (CheckinRepository.checkingInAny).
+    final result = await CheckinRepository.counted(() async {
+      emit(const CheckinStateLoading());
+      final checkinFeeling = await _settingsRepository.getValue<String>(SettingsKeys.checkinFeeling);
+      final checkinMessage = await _settingsRepository.getValue<String>(SettingsKeys.checkinMessage);
+      return _checkinRepository.checkin(
+        _authenticationRepository.currentUser!.uid!,
+        CheckinFeeling.from(checkinFeeling),
+        checkinMessage,
+      );
+    });
     if (result is CheckinResultSuccess) {
       emit(CheckinStateSuccess(result.message));
       return;
