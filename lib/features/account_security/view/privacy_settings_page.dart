@@ -18,7 +18,10 @@ import 'package:tsdm_client/widgets/indicator.dart';
 /// blocking pages handle), saved at once.
 class PrivacySettingsPage extends StatelessWidget {
   /// Constructor.
-  const PrivacySettingsPage({super.key});
+  const PrivacySettingsPage({this.repository, super.key});
+
+  /// Injected for tests; the account's network client otherwise.
+  final AccountSecurityRepository? repository;
 
   @override
   Widget build(BuildContext context) {
@@ -32,7 +35,7 @@ class PrivacySettingsPage extends StatelessWidget {
     }
     return BlocProvider(
       create: (_) {
-        final cubit = PrivacySettingsCubit(repository: AccountSecurityRepository(), uid: uid);
+        final cubit = PrivacySettingsCubit(repository: repository ?? AccountSecurityRepository(), uid: uid);
         unawaited(cubit.load());
         return cubit;
       },

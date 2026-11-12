@@ -16,6 +16,9 @@ const appReadingMaxWidth = 920.0;
 /// Widest a form or a detail page (profile, settings like pages) grows.
 const appFormMaxWidth = 760.0;
 
+/// Widest a bottom sheet grows (the width of a Material modal bottom sheet); wider windows center it.
+const appSheetMaxWidth = 640.0;
+
 /// Gap between two surfaces of a list on phones.
 const appSurfaceGapCompact = 8.0;
 

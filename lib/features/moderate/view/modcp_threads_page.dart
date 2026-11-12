@@ -438,6 +438,29 @@ class _ThreadSearchSheetState extends State<_ThreadSearchSheet> {
     };
   }
 
+  /// The field of [key]: a date or a number.
+  Widget _field(String key) => switch (key) {
+    ModcpThreadQuery.startTime => ModcpDateField(
+      key: const ValueKey('modcp-threads-starttime'),
+      label: context.t.modcp.startDate,
+      value: _start,
+      onChanged: (v) => setState(() => _start = v),
+    ),
+    ModcpThreadQuery.endTime => ModcpDateField(
+      key: const ValueKey('modcp-threads-endtime'),
+      label: context.t.modcp.endDate,
+      value: _end,
+      onChanged: (v) => setState(() => _end = v),
+    ),
+    _ => TextField(
+      key: ValueKey('modcp-threads-$key'),
+      controller: _fields[key],
+      keyboardType: TextInputType.number,
+      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+      decoration: InputDecoration(labelText: _label(key)),
+    ),
+  };
+
   @override
   Widget build(BuildContext context) {
     final page = widget.page;
@@ -454,6 +477,7 @@ class _ThreadSearchSheetState extends State<_ThreadSearchSheet> {
               constraints: const BoxConstraints(maxWidth: appFormMaxWidth),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
+                spacing: 12,
                 children: [
                   DropdownButtonFormField<String>(
                     key: const ValueKey('modcp-threads-option'),
@@ -483,56 +507,34 @@ class _ThreadSearchSheetState extends State<_ThreadSearchSheet> {
                       controller: _fields[k],
                       decoration: InputDecoration(labelText: _label(k)),
                     ),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ModcpDateField(
-                          key: const ValueKey('modcp-threads-starttime'),
-                          label: context.t.modcp.startDate,
-                          value: _start,
-                          onChanged: (v) => setState(() => _start = v),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ModcpDateField(
-                          key: const ValueKey('modcp-threads-endtime'),
-                          label: context.t.modcp.endDate,
-                          value: _end,
-                          onChanged: (v) => setState(() => _end = v),
-                        ),
-                      ),
-                    ],
-                  ),
-                  Wrap(
-                    spacing: 12,
-                    children: [
-                      for (final k in _numbers)
-                        SizedBox(
-                          width: 150,
-                          child: TextField(
-                            key: ValueKey('modcp-threads-$k'),
-                            controller: _fields[k],
-                            keyboardType: TextInputType.number,
-                            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                            decoration: InputDecoration(labelText: _label(k)),
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  FilledButton.icon(
-                    key: const ValueKey('modcp-threads-search-submit'),
-                    icon: const Icon(Icons.search),
-                    label: Text(context.t.modcp.search),
-                    onPressed: () => Navigator.of(context).pop(<String, String>{
-                      ModcpThreadQuery.threadOption: _option,
-                      if (_type.isNotEmpty) ModcpThreadQuery.typeId: _type,
-                      if (_start.isNotEmpty) ModcpThreadQuery.startTime: _start,
-                      if (_end.isNotEmpty) ModcpThreadQuery.endTime: _end,
-                      for (final MapEntry(:key, :value) in _fields.entries)
-                        if (value.text.trim().isNotEmpty) key: value.text.trim(),
-                    }),
+                  // Two fields a row, the same columns as the dates.
+                  for (final row in [
+                    [ModcpThreadQuery.startTime, ModcpThreadQuery.endTime],
+                    for (var i = 0; i < _numbers.length; i += 2) _numbers.skip(i).take(2).toList(),
+                  ])
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      spacing: 12,
+                      children: [
+                        for (final k in row) Expanded(child: _field(k)),
+                        if (row.length == 1) const Spacer(),
+                      ],
+                    ),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: FilledButton.icon(
+                      key: const ValueKey('modcp-threads-search-submit'),
+                      icon: const Icon(Icons.search),
+                      label: Text(context.t.modcp.search),
+                      onPressed: () => Navigator.of(context).pop(<String, String>{
+                        ModcpThreadQuery.threadOption: _option,
+                        if (_type.isNotEmpty) ModcpThreadQuery.typeId: _type,
+                        if (_start.isNotEmpty) ModcpThreadQuery.startTime: _start,
+                        if (_end.isNotEmpty) ModcpThreadQuery.endTime: _end,
+                        for (final MapEntry(:key, :value) in _fields.entries)
+                          if (value.text.trim().isNotEmpty) key: value.text.trim(),
+                      }),
+                    ),
                   ),
                 ],
               ),
