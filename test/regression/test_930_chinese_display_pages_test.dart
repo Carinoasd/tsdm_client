@@ -39,6 +39,9 @@ import 'package:tsdm_client/features/space/models/space_models.dart';
 import 'package:tsdm_client/features/space/repository/space_write_repository.dart';
 import 'package:tsdm_client/features/space/widgets/space_social_widgets.dart';
 import 'package:tsdm_client/features/space/widgets/space_widgets.dart';
+import 'package:tsdm_client/features/task_center/cubit/task_center_cubit.dart';
+import 'package:tsdm_client/features/task_center/repository/task_center_repository.dart';
+import 'package:tsdm_client/features/task_center/view/task_center_page.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/cookie_provider/cookie_provider.dart';
@@ -437,6 +440,35 @@ void main() {
     expect(_shown('$_member : 廣告內容'), findsOneWidget);
     expect(_shown('簡體摘要'), findsOneWidget);
     expect(_shown(_memberTraditional), findsNothing);
+    await finish(tester);
+  });
+
+  testWidgets("a task claimed: the task's name converted in the app's sentence", (tester) async {
+    String file(String name) => File('test/data/task/$name').readAsStringSync();
+    var doing = 'list_doing_complete_x5.html';
+    final cubit = TaskCenterCubit(
+      currentUid: () => 31,
+      repository: () => TaskCenterRepository(
+        getPage: (url) async => file(switch (Uri.parse(url).queryParameters['item']) {
+          'new' => 'list_new_x5.html',
+          'doing' => doing,
+          _ => 'list_done_x5.html',
+        }),
+        getWrite: (_) async {
+          doing = 'list_doing_empty_x5.html';
+          return (data: file('draw_reward.json'), location: null);
+        },
+      ),
+    );
+    addTearDown(cubit.close);
+    await pump(tester, ChineseDisplayMode.traditional, TaskCenterPage(controller: cubit), scroll: false);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(t.taskCenter.tabDoing));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('task-claim-2')));
+    await tester.pumpAndSettle();
+    // "回复三次" in the dictionary's words; the sentence around it stays as the app wrote it.
+    expect(_shown(t.taskCenter.rewarded(name: '回覆三次')), findsOneWidget);
     await finish(tester);
   });
 }
