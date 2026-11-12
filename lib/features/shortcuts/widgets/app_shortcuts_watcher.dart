@@ -18,8 +18,7 @@ import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/platform.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 
-/// Carries out the shortcuts of a long press on the app icon (Android) and the taps on the home screen widget (Android,
-/// iOS).
+/// Carries out the shortcuts of a long press on the app icon and the taps on the home screen widget (Android, iOS).
 ///
 /// Lives under the app's providers and draws nothing. The shortcut the app was started with is carried out after the
 /// first frame, when the router shows its first page; a shortcut tapped while the app runs is carried out as it comes.
@@ -37,7 +36,7 @@ class AppShortcutsWatcher extends StatefulWidget {
 class _AppShortcutsWatcherState extends State<AppShortcutsWatcher> with LoggerMixin {
   final _channel = const AppShortcutsChannel();
 
-  /// Whether the platform hands shortcuts over: the launcher shortcuts and the widget on Android, the widget on iOS.
+  /// Whether the platform hands shortcuts over: the icon's shortcuts and the widget, on Android and iOS.
   static final bool _supported = isAndroid || isIOS;
 
   /// Whether a check-in shortcut is waiting for the login check: another one meanwhile is the same wish.

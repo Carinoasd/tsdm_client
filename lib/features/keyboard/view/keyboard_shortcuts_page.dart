@@ -83,7 +83,7 @@ class KeyboardShortcutsPage extends StatelessWidget {
             children: [
               for (var i = 0; i < keys.length; i++) ...[
                 if (i > 0) const SizedBox(width: 4),
-                cap(keyLabel(keys[i], mac: isMacOS)),
+                cap(keyLabel(keys[i], mac: isMacOS || isIOS)),
               ],
             ],
           ),

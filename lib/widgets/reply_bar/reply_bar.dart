@@ -26,6 +26,7 @@ import 'package:tsdm_client/features/editor/widgets/editor_frame.dart';
 import 'package:tsdm_client/features/editor/widgets/emoji_panel.dart';
 import 'package:tsdm_client/features/editor/widgets/rich_editor.dart';
 import 'package:tsdm_client/features/editor/widgets/toolbar.dart';
+import 'package:tsdm_client/features/keyboard/widgets/keyboard_shortcuts_host.dart';
 import 'package:tsdm_client/features/local_draft/models/local_draft.dart';
 import 'package:tsdm_client/features/local_draft/repository/local_draft_store.dart';
 import 'package:tsdm_client/features/local_draft/utils/draft_autosaver.dart';
@@ -1117,11 +1118,12 @@ final class _ReplyBarState extends State<_ReplyBar> with LoggerMixin {
 
   /// Ctrl+Enter and Alt+Enter send while the editor has the focus (#18).
   ///
-  /// Desktop only: on mobile the IME owns the Enter key. The editor itself ignores Enter with a modifier held, so
-  /// the binding is seen here; a matched binding is reported as handled, which keeps the platform text input from
-  /// turning the key into a newline. The activators are exact, Ctrl+Shift+Enter is left alone.
+  /// Desktop and iOS only (a hardware keyboard: the on-screen one of iOS sends no keys): on Android the IME owns the
+  /// Enter key. The editor itself ignores Enter with a modifier held, so the binding is seen here; a matched binding is
+  /// reported as handled, which keeps the platform text input from turning the key into a newline. The activators are
+  /// exact, Ctrl+Shift+Enter is left alone.
   Widget _wrapWithSendShortcuts(Widget editor) {
-    if (!isDesktop) {
+    if (!keyboardShortcutsBuilt) {
       return editor;
     }
     return CallbackShortcuts(
