@@ -145,7 +145,6 @@ extension ParseUrl on String {
     }
 
     if (mod == 'redirect' && queryParameters['tid'] != null) {
-      // TODO: Migrate to v2 when supported.
       // `goto=lastpost` (the "last reply" links of the forum lists and the notices) lands on the last floor: the last
       // page in the thread's own order, scrolled to its end.
       final lastPost = queryParameters['goto'] == 'lastpost';
@@ -160,7 +159,6 @@ extension ParseUrl on String {
     }
 
     if (mod == 'redirect' && queryParameters['goto'] == 'findpost' && queryParameters['pid'] != null) {
-      // TODO: Migrate to v2 when supported.
       return RecognizedRoute(
         ScreenPaths.threadV1,
         queryParameters: {

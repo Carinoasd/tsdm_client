@@ -174,14 +174,6 @@ final class CachedImageProvider extends ImageProvider<CachedImageProvider> with 
           }
       }
     } catch (e) {
-      // // Depending on where the exception was thrown, the image cache may not
-      // // have had a chance to track the key in the cache at all.
-      // // Schedule a microtask to give the cache a chance to add the key.
-      // scheduleMicrotask(() {
-      //   PaintingBinding.instance.imageCache.evict(key);
-      // });
-      // FIXME: Handle all exceptions.
-      // error('CachedImageProvider caught error: $e');
       // The url in the line: a decode failure ("Invalid image data") names no image by itself in an exported log.
       throw StateError('failed to render image $imageUrl: $e');
     } finally {

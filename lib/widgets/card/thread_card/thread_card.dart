@@ -590,7 +590,6 @@ class _CardLayout extends StatelessWidget {
 
 /// The query of [ScreenPaths.threadV1] a thread card opens its thread with.
 Map<String, String?> threadQuery({required String threadID, required String title, ThreadType? threadType}) => {
-  // FIXME: Query parameters are not recognized by v2 yet.
   'tid': threadID,
   'appBarTitle': title,
   'threadTypeName': threadType?.name,
