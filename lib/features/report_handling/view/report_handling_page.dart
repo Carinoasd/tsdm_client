@@ -239,7 +239,7 @@ class _ReportHandlingPageState extends State<ReportHandlingPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          for (final line in item.lines) SelectableText(line, style: theme.textTheme.bodyMedium),
+                          for (final line in item.lines) Text(line, style: theme.textTheme.bodyMedium),
                           if (item.excerpt.isNotEmpty)
                             Padding(
                               padding: const EdgeInsets.only(top: 6),
@@ -401,9 +401,13 @@ class _ReportHandlingPageState extends State<ReportHandlingPage> {
             ),
         ],
       ),
-      body: SafeArea(top: false, bottom: _selected.isEmpty, child: _body()),
-      bottomNavigationBar: shown != null && shown.canResolve && _selected.isNotEmpty
-          ? AppBottomActionBar(
+      body: Column(
+        children: [
+          Expanded(
+            child: SafeArea(top: false, bottom: _selected.isEmpty, child: _body()),
+          ),
+          if (shown != null && shown.canResolve && _selected.isNotEmpty)
+            AppBottomActionBar(
               child: Row(
                 children: [
                   TextButton(
@@ -424,8 +428,9 @@ class _ReportHandlingPageState extends State<ReportHandlingPage> {
                   ),
                 ],
               ),
-            )
-          : null,
+            ),
+        ],
+      ),
     );
   }
 }
