@@ -277,6 +277,7 @@ class _AdminGroupPageState extends State<AdminGroupPage> with AdminSessionLease 
           // The button sits in the field's suffix, so it is as tall as the dropdowns around it.
           InkWell(
             onTap: enabled ? () => _pickExpiry(draft) : null,
+            borderRadius: BorderRadius.circular(4),
             child: InputDecorator(
               decoration: InputDecoration(
                 border: const OutlineInputBorder(),

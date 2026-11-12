@@ -51,6 +51,9 @@ import 'package:tsdm_client/features/collection/widgets/collect_thread_sheet.dar
 import 'package:tsdm_client/features/doing/view/doing_page.dart';
 import 'package:tsdm_client/features/follow/view/follow_feed_page.dart';
 import 'package:tsdm_client/features/follow/view/follow_members_page.dart';
+import 'package:tsdm_client/features/forum/bloc/forum_bloc.dart';
+import 'package:tsdm_client/features/forum/repository/forum_repository.dart';
+import 'package:tsdm_client/features/forum/widgets/thread_filter_chip.dart';
 import 'package:tsdm_client/features/friend/view/friend_page.dart';
 import 'package:tsdm_client/features/home/cubit/home_cubit.dart';
 import 'package:tsdm_client/features/home/widgets/widgets.dart';
@@ -85,6 +88,7 @@ import 'package:tsdm_client/shared/providers/providers.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/models/database/database.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 import 'package:tsdm_client/themes/app_themes.dart';
+import 'package:tsdm_client/utils/show_bottom_sheet.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 
 import 'admin_tools_fakes.dart';
@@ -136,6 +140,13 @@ final class _Forum implements HttpClientAdapter {
 
   @override
   void close({bool force = false}) {}
+}
+
+/// A forum page loaded: its filter chips can be pressed.
+final class _ReadyForumBloc extends ForumBloc {
+  _ReadyForumBloc() : super(fid: '2', forumRepository: ForumRepository()) {
+    emit(state.copyWith(status: ForumStatus.success));
+  }
 }
 
 /// No attachment is downloaded here.
@@ -650,6 +661,29 @@ void main() {
       },
       maxWidth: appSheetMaxWidth,
     ),
+    _page(
+      'forum filter',
+      () => BlocProvider<ForumBloc>(
+        create: (_) => _ReadyForumBloc(),
+        child: Scaffold(
+          body: Center(
+            child: ThreadChip(
+              chipLabel: '全部',
+              chipSelected: false,
+              sheetTitle: '分类',
+              sheetItemBuilder: (_, _) => [
+                for (final name in ['全部', '公告', '很长很长很长很长很长很长很长很长很长很长很长很长的分类名称']) ListTile(title: Text(name)),
+              ],
+            ),
+          ),
+        ),
+      ),
+      open: (tester) async {
+        await tester.tap(find.byType(FilterChip));
+        await _settle(tester);
+      },
+      maxWidth: appSheetMaxWidth,
+    ),
     _page('downloads', () => const AttachmentDownloadsPage()),
     _page(
       'collections',
@@ -723,12 +757,51 @@ void main() {
           final widest = overlay > 0 ? overlay : _widest(_content());
           expect(widest, greaterThan(0), reason: 'the page shows its content');
           expect(widest, lessThanOrEqualTo(page.maxWidth));
+          // A sheet's rows fill the sheet, not a sliver of it.
+          final sheets = [find.byType(BottomSheet), find.byType(Sheet)];
+          final rows = _widest([
+            for (final sheet in sheets)
+              for (final content in _content()) find.descendant(of: sheet, matching: content),
+          ]);
+          if (_widest([for (final sheet in sheets) find.descendant(of: sheet, matching: find.byType(Material))]) > 0) {
+            expect(rows, greaterThan(widest / 2), reason: 'the rows of the sheet');
+          }
           await tester.pumpWidget(const SizedBox.shrink());
           await _settle(tester);
         });
       }
     });
   }
+
+  testWidgets('a sheet centered on a wide window still closes on a tap beside it', (tester) async {
+    addTearDown(tester.view.reset);
+    await _pump(
+      tester,
+      const Size(2560, 1600),
+      Builder(
+        builder: (context) => Scaffold(
+          body: Center(
+            child: TextButton(
+              onPressed: () async => showCustomBottomSheet<void>(
+                context: context,
+                title: '分类',
+                childrenBuilder: (_) => [const ListTile(title: Text('公告'))],
+              ),
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await _settle(tester);
+    final sheet = tester.getRect(find.byType(Sheet));
+    expect(sheet.width, appSheetMaxWidth);
+    expect(sheet.center.dx, closeTo(1280, 0.5));
+    await tester.tapAt(Offset(sheet.left / 2, sheet.center.dy));
+    await _settle(tester);
+    expect(find.byType(Sheet), findsNothing);
+  });
 
   testWidgets("the thread management's lookup: a gap between the fields, the numbers in the columns of the dates", (
     tester,

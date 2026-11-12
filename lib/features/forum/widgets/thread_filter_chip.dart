@@ -8,11 +8,7 @@ import 'package:tsdm_client/features/forum/models/models.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/show_bottom_sheet.dart';
-import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/selectable_list_tile.dart';
-
-/// Widest the option list of a filter sheet grows on wide windows.
-const _sheetMaxWidth = 640.0;
 
 /// One option of a filter sheet.
 ///
@@ -80,13 +76,8 @@ class ThreadChip extends StatelessWidget {
                       value: forumBloc,
                       child: BlocBuilder<ForumBloc, ForumState>(
                         builder: (sheetContext, state) => ListView(
-                          // Centered at a readable width on wide windows; the sheet is as wide as the window, so the
-                          // window width is the room (no layout builder: the sheet measures its content).
-                          padding: appCenteredPadding(
-                            MediaQuery.sizeOf(sheetContext).width,
-                            maxWidth: _sheetMaxWidth,
-                            minPadding: 0,
-                          ).copyWith(top: 4, bottom: 8).add(sheetContext.safePadding()),
+                          // The sheet itself keeps a readable width on wide windows (showCustomBottomSheet).
+                          padding: const EdgeInsets.only(top: 4, bottom: 8).add(sheetContext.safePadding()),
                           shrinkWrap: true,
                           children: sheetItemBuilder(sheetContext, state),
                         ),
