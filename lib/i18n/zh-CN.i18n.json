@@ -341,13 +341,9 @@
   },
   "medalTitleHub": {
     "title": "勋章与称号",
-    "entryDescription": "勋章中心、我的称号与称号商店",
     "currentTitle": "当前称号",
     "noTitle": "当前没有使用称号",
-    "loadFailed": "无法读取当前称号",
-    "medalCenterDescription": "浏览勋章与获取方式",
-    "myTitlesDescription": "使用、切换或摘下已拥有的称号",
-    "titleShopDescription": "浏览称号与价格，每次购买都会先确认"
+    "loadFailed": "无法读取当前称号"
   },
   "topicPage": {
     "title": "版块",
@@ -2198,6 +2194,10 @@
   },
   "modcp": {
     "panel": "版主面板",
+    "groupModeration": "版务",
+    "groupMembers": "会员与版块",
+    "groupRewards": "奖励",
+    "groupSite": "站务",
     "recycleBin": "回收站",
     "log": "版主日志",
     "threads": "主题",
@@ -3597,10 +3597,6 @@
     "days": "${n} 天",
     "done": "完成",
     "unconfirmed": "已送出，但无法确认结果，请重新整理查看。",
-    "hubExchange": "用勋章兑换称号",
-    "hubMyMedals": "显示或隐藏勋章、获取记录",
-    "hubGrant": "发勋章给会员、撤回",
-    "hubIssue": "发放或回收会员的称号",
     "exchangeTitle": "称号兑换",
     "exchangeFilterAll": "全部",
     "exchangeFilterReady": "可兑换",

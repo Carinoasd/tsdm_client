@@ -341,13 +341,9 @@
   },
   "medalTitleHub": {
     "title": "Medals & titles",
-    "entryDescription": "Medal centre, my titles and the title shop",
     "currentTitle": "Current title",
     "noTitle": "No secondary title in use",
-    "loadFailed": "Could not read your current title",
-    "medalCenterDescription": "Browse medals and how to get them",
-    "myTitlesDescription": "Use, switch or unset the titles you own",
-    "titleShopDescription": "Browse titles and prices, every purchase asks for confirmation"
+    "loadFailed": "Could not read your current title"
   },
   "topicPage": {
     "title": "Forums",
@@ -2198,6 +2194,10 @@
   },
   "modcp": {
     "panel": "Moderator panel",
+    "groupModeration": "Moderation",
+    "groupMembers": "Members & forums",
+    "groupRewards": "Rewards",
+    "groupSite": "Site",
     "recycleBin": "Recycle bin",
     "log": "Moderator log",
     "threads": "Threads",
@@ -3597,10 +3597,6 @@
     "days": "${n} days",
     "done": "Done",
     "unconfirmed": "Sent, but the result could not be confirmed; refresh to check.",
-    "hubExchange": "Get titles with medals",
-    "hubMyMedals": "Show or hide medals, medal record",
-    "hubGrant": "Send medals to members, take them back",
-    "hubIssue": "Give titles to members or take them back",
     "exchangeTitle": "Title exchange",
     "exchangeFilterAll": "All",
     "exchangeFilterReady": "Ready",

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
@@ -40,11 +41,12 @@ typedef _MeEntry = ({Key key, IconData icon, String label, VoidCallback onTap});
 /// The "me" tab of the home shell: the account in use and every page of it, in one place.
 ///
 /// Up top the account card: avatar, name, user group (a tap opens the profile), the check-in of the day and the
-/// switch to another saved account. Under it the pages of the account in three grids: content (threads, favorites,
-/// bookmarks, history, the drafts kept on this device and the forum's drafts box), social (private messages, friends,
-/// visitors) and stats (points, check-ins, reading, ratings); then the services of the forum in the same grid (tasks,
-/// magic, bank, ranklist, activities, medal center, title shop, medals and titles, achievements, pokemon center) and
-/// the list of the app itself (accounts, settings, about).
+/// switch to another saved account. Under it the rows of the account (editing its profile; the moderator's panel for an
+/// account of a management group), then its pages in three grids: content (threads, favorites, bookmarks, history, the
+/// drafts kept on this device and the forum's drafts box), social (private messages, friends, visitors) and stats
+/// (points, check-ins, reading, ratings); then the services of the forum in the same grid (tasks, magic, bank,
+/// ranklist, activities, medals and titles, achievements, pokemon center) and the list of the app itself (accounts,
+/// settings, about).
 ///
 /// The settings were a tab of their own before; the whole settings page is one tap away here, nothing in it moved. The
 /// pages the side navigation of wide windows listed besides its tabs are entries here as well.
@@ -321,13 +323,7 @@ class _MePageState extends State<MePage> {
         needLogin: false,
       ),
       service(const ValueKey('me-activities'), Icons.event_outlined, t.navigation.activities, ScreenPaths.activities),
-      service(
-        const ValueKey('me-medal-center'),
-        Icons.military_tech_outlined,
-        t.medalCenter.title,
-        ScreenPaths.medalCenter,
-      ),
-      service(const ValueKey('me-title-shop'), Icons.sell_outlined, t.titleShop.title, ScreenPaths.titleShop),
+      // The medal centre and the title shop are on the page of medals and titles.
       service(
         const ValueKey('me-medals'),
         Icons.workspace_premium_outlined,
@@ -357,6 +353,32 @@ class _MePageState extends State<MePage> {
     title: Text(title),
     trailing: const Icon(Icons.chevron_right),
     onTap: () => _open(path),
+  );
+
+  /// The rows of the account under its card: editing its profile, and the forum's moderation panel for an account of a
+  /// management group (管理组, read from its profile).
+  Widget _buildAccountRows(BuildContext context, {required int? uid}) => FutureBuilder<UserProfile?>(
+    future: uid == null ? null : _profileOf(uid),
+    builder: (context, snapshot) => AppTileGroup(
+      key: const ValueKey('me-account-rows'),
+      children: [
+        _row(
+          context,
+          key: const ValueKey('me-edit-profile'),
+          icon: Symbols.person_edit,
+          title: context.t.editUserProfilePage.title,
+          path: ScreenPaths.editUserProfile,
+        ),
+        if (uid != null && snapshot.data?.uid == '$uid' && (snapshot.data?.moderatorGroup ?? '').trim().isNotEmpty)
+          _row(
+            context,
+            key: const ValueKey('me-moderator-panel'),
+            icon: Icons.admin_panel_settings_outlined,
+            title: context.t.modcp.panel,
+            path: ScreenPaths.moderatorPanel,
+          ),
+      ],
+    ),
   );
 
   /// The app: the accounts saved on this device (with an account), the settings and about.
@@ -413,6 +435,8 @@ class _MePageState extends State<MePage> {
                 if (account case final UserLoginInfo user) ...[
                   _AccountCard(user: user, profileOf: _profileOf),
                   SizedBox(height: gap),
+                  _buildAccountRows(context, uid: user.uid),
+                  SizedBox(height: gap),
                   for (final (key, title, icon, entries) in [
                     ('me-group-content', tr.content, Icons.article_outlined, _contentEntries(context)),
                     ('me-group-social', tr.social, Icons.people_outline, _socialEntries(context)),
@@ -425,27 +449,12 @@ class _MePageState extends State<MePage> {
                   const _GuestCard(),
                   SizedBox(height: gap),
                 ],
-                FutureBuilder<UserProfile?>(
-                  future: account?.uid == null ? null : _profileOf(account!.uid!),
-                  builder: (context, snapshot) => _EntryGrid(
-                    key: const ValueKey('me-group-services'),
-                    title: tr.services,
-                    icon: Icons.apps_outlined,
-                    entries: [
-                      ..._serviceEntries(context, loggedIn: loggedIn),
-                      // An account of a management group (管理组): the forum's moderation panel.
-                      if (account?.uid != null &&
-                          snapshot.data?.uid == '${account?.uid}' &&
-                          (snapshot.data?.moderatorGroup ?? '').trim().isNotEmpty)
-                        (
-                          key: const ValueKey('me-moderator-panel'),
-                          icon: Icons.admin_panel_settings_outlined,
-                          label: context.t.modcp.panel,
-                          onTap: () => _open(ScreenPaths.moderatorPanel),
-                        ),
-                    ],
-                    wide: wide,
-                  ),
+                _EntryGrid(
+                  key: const ValueKey('me-group-services'),
+                  title: tr.services,
+                  icon: Icons.apps_outlined,
+                  entries: _serviceEntries(context, loggedIn: loggedIn),
+                  wide: wide,
                 ),
                 SizedBox(height: gap),
                 _buildApp(context, loggedIn: loggedIn),

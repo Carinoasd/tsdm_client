@@ -661,14 +661,26 @@ void main() {
       return router;
     }
 
-    testWidgets('an account of a management group: the panel among the services, opening it', (tester) async {
+    testWidgets('an account of a management group: the panel in a row under the account card, opening it', (
+      tester,
+    ) async {
       await pump(tester, 'profile_v4_other_admin.json', uid: 32);
       final entry = find.descendant(
-        of: find.byKey(const ValueKey('me-group-services')),
+        of: find.byKey(const ValueKey('me-account-rows')),
         matching: find.byKey(const ValueKey('me-moderator-panel')),
       );
-      await tester.scrollUntilVisible(entry, 200, scrollable: find.byType(Scrollable).first);
       expect(entry, findsOneWidget);
+      // Not a tile of the services any more; between the account card and the first group.
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('me-group-services')),
+          matching: find.byKey(const ValueKey('me-moderator-panel')),
+        ),
+        findsNothing,
+      );
+      final top = tester.getTopLeft(entry).dy;
+      expect(top, greaterThan(tester.getBottomLeft(find.byKey(const ValueKey('me-account-card'))).dy));
+      expect(top, lessThan(tester.getTopLeft(find.byKey(const ValueKey('me-group-content'))).dy));
       await tester.tap(entry);
       for (var i = 0; i < 4; i++) {
         await tester.pump(const Duration(milliseconds: 100));
@@ -686,6 +698,8 @@ void main() {
         scrollable: find.byType(Scrollable).first,
       );
       expect(find.byKey(const ValueKey('me-moderator-panel')), findsNothing);
+      // The row of the account stays, without the panel.
+      expect(find.byKey(const ValueKey('me-edit-profile')), findsOneWidget);
     });
   });
 }

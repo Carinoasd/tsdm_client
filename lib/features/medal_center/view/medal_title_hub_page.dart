@@ -44,21 +44,18 @@ class MedalTitleHubPage extends StatelessWidget {
                 _HubDestination(
                   icon: Icons.workspace_premium_outlined,
                   title: context.t.medalCenter.title,
-                  description: tr.medalCenterDescription,
                   path: ScreenPaths.medalCenter,
                 ),
                 sizedBoxW12H12,
                 _HubDestination(
                   icon: Icons.badge_outlined,
                   title: context.t.myTitlesPage.title,
-                  description: tr.myTitlesDescription,
                   path: ScreenPaths.switchTitle,
                 ),
                 sizedBoxW12H12,
                 _HubDestination(
                   icon: Icons.shopping_bag_outlined,
                   title: context.t.titleShop.title,
-                  description: tr.titleShopDescription,
                   path: ScreenPaths.titleShop,
                 ),
                 if (uid != null) ...[
@@ -66,14 +63,12 @@ class MedalTitleHubPage extends StatelessWidget {
                   _HubDestination(
                     icon: Icons.swap_horiz_outlined,
                     title: tools.exchangeTitle,
-                    description: tools.hubExchange,
                     path: ScreenPaths.titleExchange,
                   ),
                   sizedBoxW12H12,
                   _HubDestination(
                     icon: Icons.military_tech_outlined,
                     title: tools.myMedalsTitle,
-                    description: tools.hubMyMedals,
                     path: ScreenPaths.myMedals,
                   ),
                   _StaffDestinations(uid: uid),
@@ -160,11 +155,10 @@ class _CurrentTitleCard extends StatelessWidget {
 
 /// A card linking an existing page.
 class _HubDestination extends StatelessWidget {
-  const _HubDestination({required this.icon, required this.title, required this.description, required this.path});
+  const _HubDestination({required this.icon, required this.title, required this.path});
 
   final IconData icon;
   final String title;
-  final String description;
   final String path;
 
   @override
@@ -184,7 +178,6 @@ class _HubDestination extends StatelessWidget {
           ),
         ),
         title: Text(title),
-        subtitle: Text(description),
         trailing: const Icon(Icons.chevron_right),
         onTap: () async => context.pushNamed(path),
       ),
@@ -235,7 +228,6 @@ class _StaffDestinationsState extends State<_StaffDestinations> {
           _HubDestination(
             icon: Icons.card_giftcard_outlined,
             title: tools.grantTitle,
-            description: tools.hubGrant,
             path: ScreenPaths.medalGrant,
           ),
         ],
@@ -244,7 +236,6 @@ class _StaffDestinationsState extends State<_StaffDestinations> {
           _HubDestination(
             icon: Icons.verified_outlined,
             title: tools.issueTitle,
-            description: tools.hubIssue,
             path: ScreenPaths.titleIssue,
           ),
         ],

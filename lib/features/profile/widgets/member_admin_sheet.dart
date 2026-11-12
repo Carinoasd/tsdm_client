@@ -66,11 +66,12 @@ Future<bool> memberBackgroundGrantOf(
   return can?.background ?? false;
 }
 
-/// One admin operation on a member: an icon, a label and the page it opens with the member's UID brought in.
-typedef MemberAdminItem = ({Key key, IconData icon, String label, String path});
+/// One admin operation on a member: an icon, a label and the page it opens with the member's UID brought in; `site`
+/// for the forum's admin actions, listed apart from the rewards.
+typedef MemberAdminItem = ({Key key, IconData icon, String label, String path, bool site});
 
-/// The admin operations [can] offers on a member, in the order shown: sending backgrounds when [background], and the
-/// forum's admin actions [admin] lets the account read. Add new operations here.
+/// The admin operations [can] offers on a member, in the order shown: the rewards (medals, titles, sending backgrounds
+/// when [background]), then the forum's admin actions [admin] lets the account read. Add new operations here.
 List<MemberAdminItem> memberAdminItems(
   BuildContext context,
   StaffTools can, {
@@ -86,6 +87,7 @@ List<MemberAdminItem> memberAdminItems(
         icon: Icons.card_giftcard_outlined,
         label: tr.grantTitle,
         path: ScreenPaths.medalGrant,
+        site: false,
       ),
     if (can.issue)
       (
@@ -93,6 +95,7 @@ List<MemberAdminItem> memberAdminItems(
         icon: Icons.verified_outlined,
         label: tr.issueTitle,
         path: ScreenPaths.titleIssue,
+        site: false,
       ),
     if (background)
       (
@@ -100,6 +103,7 @@ List<MemberAdminItem> memberAdminItems(
         icon: Icons.wallpaper_outlined,
         label: context.t.backgroundGrant.title,
         path: ScreenPaths.backgroundGrant,
+        site: false,
       ),
     if (admin?.canRead(AdminActions.credit) ?? false)
       (
@@ -107,6 +111,7 @@ List<MemberAdminItem> memberAdminItems(
         icon: Icons.savings_outlined,
         label: at.credit,
         path: ScreenPaths.adminCredit,
+        site: true,
       ),
     if (admin?.canRead(AdminActions.group) ?? false)
       (
@@ -114,6 +119,7 @@ List<MemberAdminItem> memberAdminItems(
         icon: Icons.group_outlined,
         label: at.group,
         path: ScreenPaths.adminGroup,
+        site: true,
       ),
     if (admin?.canRead(AdminActions.ban) ?? false)
       (
@@ -121,6 +127,7 @@ List<MemberAdminItem> memberAdminItems(
         icon: Icons.cleaning_services_outlined,
         label: at.ban,
         path: ScreenPaths.adminBan,
+        site: true,
       ),
   ];
 }
@@ -142,7 +149,9 @@ Future<void> showMemberAdminSheet(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          for (final item in items)
+          for (final (i, item) in items.indexed) ...[
+            // The rewards and the forum's admin actions apart.
+            if (i > 0 && item.site != items[i - 1].site) const Divider(height: 8, indent: 16, endIndent: 16),
             ListTile(
               key: item.key,
               leading: Icon(item.icon),
@@ -152,6 +161,7 @@ Future<void> showMemberAdminSheet(
                 unawaited(router.pushNamed(item.path, queryParameters: {'uid': '$uid'}));
               },
             ),
+          ],
         ],
       ),
     ),
