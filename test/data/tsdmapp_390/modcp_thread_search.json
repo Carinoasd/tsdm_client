@@ -1,0 +1,271 @@
+{
+  "type": "modcp_thread",
+  "schema": 36,
+  "ok": 1,
+  "api": 1,
+  "time": 1794490483,
+  "uid": 33,
+  "formhash": "f1f2f3f4",
+  "checknewpm": "",
+  "timeoffset": 8,
+  "fid": 2,
+  "forum": "公告与新手报到",
+  "ismoderator": 1,
+  "forums": [
+    {
+      "fid": 2,
+      "name": "公告与新手报到"
+    },
+    {
+      "fid": 6,
+      "name": "新番追踪"
+    },
+    {
+      "fid": 12,
+      "name": "绘图插画"
+    },
+    {
+      "fid": 25,
+      "name": "周边交易区"
+    }
+  ],
+  "need_forum": 0,
+  "do": "list",
+  "filters": {
+    "threadoption": "0",
+    "viewsless": "",
+    "viewsmore": "",
+    "repliesless": "",
+    "repliesmore": "",
+    "noreplydays": "",
+    "typeid": "",
+    "starttime": "",
+    "endtime": "",
+    "keywords": "",
+    "users": "member_a"
+  },
+  "threadoptions": [
+    {
+      "value": "0",
+      "label": "全部"
+    },
+    {
+      "value": "1",
+      "label": "投票"
+    },
+    {
+      "value": "2",
+      "label": "商品"
+    },
+    {
+      "value": "3",
+      "label": "悬赏"
+    },
+    {
+      "value": "4",
+      "label": "活动"
+    },
+    {
+      "value": "5",
+      "label": "辩论"
+    },
+    {
+      "value": "999",
+      "label": "精华"
+    },
+    {
+      "value": "888",
+      "label": "置顶"
+    }
+  ],
+  "threadclasses": [],
+  "page": 1,
+  "perpage": 20,
+  "count": 5,
+  "pages": 1,
+  "threads": [
+    {
+      "tid": 9203132,
+      "pid": 0,
+      "fid": 2,
+      "forum": "公告与新手报到",
+      "subject": "other thread for 100",
+      "subject_html": "other thread for 100",
+      "author": "member_a",
+      "authorid": 104,
+      "anonymous": 0,
+      "dateline": 1794481808,
+      "lastpost": 1794483053,
+      "lastposter": "member_a",
+      "lastposterid": 0,
+      "replies": 1,
+      "views": 1,
+      "digest": 0,
+      "displayorder": 0,
+      "closed": 0,
+      "moved": 0,
+      "grouptid": 0,
+      "special": 0,
+      "attachment": 0,
+      "heats": 0,
+      "price": 0,
+      "readperm": 0,
+      "summary": "",
+      "extra": "",
+      "style": null
+    },
+    {
+      "tid": 9203130,
+      "pid": 0,
+      "fid": 2,
+      "forum": "公告与新手报到",
+      "subject": "other thread for 102",
+      "subject_html": "other thread for 102",
+      "author": "member_a",
+      "authorid": 104,
+      "anonymous": 0,
+      "dateline": 1794481806,
+      "lastpost": 1794482819,
+      "lastposter": "member_a",
+      "lastposterid": 0,
+      "replies": 1,
+      "views": 1,
+      "digest": 0,
+      "displayorder": 0,
+      "closed": 0,
+      "moved": 0,
+      "grouptid": 0,
+      "special": 0,
+      "attachment": 0,
+      "heats": 0,
+      "price": 0,
+      "readperm": 0,
+      "summary": "",
+      "extra": "",
+      "style": null
+    },
+    {
+      "tid": 9203128,
+      "pid": 0,
+      "fid": 2,
+      "forum": "公告与新手报到",
+      "subject": "other thread for 99",
+      "subject_html": "other thread for 99",
+      "author": "member_a",
+      "authorid": 104,
+      "anonymous": 0,
+      "dateline": 1794481804,
+      "lastpost": 1794482810,
+      "lastposter": "member_a",
+      "lastposterid": 0,
+      "replies": 1,
+      "views": 2,
+      "digest": 0,
+      "displayorder": 0,
+      "closed": 0,
+      "moved": 0,
+      "grouptid": 0,
+      "special": 0,
+      "attachment": 0,
+      "heats": 1,
+      "price": 0,
+      "readperm": 0,
+      "summary": "",
+      "extra": "",
+      "style": null
+    },
+    {
+      "tid": 9203135,
+      "pid": 0,
+      "fid": 2,
+      "forum": "公告与新手报到",
+      "subject": "paid thread",
+      "subject_html": "paid thread",
+      "author": "member_a",
+      "authorid": 104,
+      "anonymous": 0,
+      "dateline": 1794481811,
+      "lastpost": 1794481811,
+      "lastposter": "member_a",
+      "lastposterid": 0,
+      "replies": 0,
+      "views": 1,
+      "digest": 0,
+      "displayorder": 0,
+      "closed": 0,
+      "moved": 0,
+      "grouptid": 0,
+      "special": 0,
+      "attachment": 0,
+      "heats": 0,
+      "price": -1,
+      "readperm": 0,
+      "summary": "",
+      "extra": "",
+      "style": null
+    },
+    {
+      "tid": 9203134,
+      "pid": 0,
+      "fid": 2,
+      "forum": "公告与新手报到",
+      "subject": "reward thread",
+      "subject_html": "reward thread",
+      "author": "member_a",
+      "authorid": 104,
+      "anonymous": 0,
+      "dateline": 1794481810,
+      "lastpost": 1794481810,
+      "lastposter": "member_a",
+      "lastposterid": 0,
+      "replies": 0,
+      "views": 1,
+      "digest": 0,
+      "displayorder": 0,
+      "closed": 0,
+      "moved": 0,
+      "grouptid": 0,
+      "special": 0,
+      "attachment": 0,
+      "heats": 0,
+      "price": 0,
+      "readperm": 0,
+      "summary": "",
+      "extra": "",
+      "style": null
+    }
+  ],
+  "perms": {
+    "ismoderator": 1,
+    "allow_delthread": 1,
+    "allow_move": 1,
+    "allow_type": 1,
+    "allow_stick": 1,
+    "stick_max": 2,
+    "allow_digest": 1,
+    "digest_max": 3,
+    "allow_highlight": 1,
+    "allow_recommend": 0,
+    "allow_bump": 1,
+    "allow_close": 1
+  },
+  "search": {
+    "url": "forum.php?mod=modcp&action=thread&op=thread",
+    "method": "GET",
+    "fields": {
+      "do": "search",
+      "submit": "true"
+    },
+    "fid_field": "fid"
+  },
+  "list_url": "forum.php?mod=modcp&action=thread&op=thread&do=list&fid=2",
+  "moderate": {
+    "url": "forum.php?mod=topicadmin&action=moderate&fid=2&infloat=yes&nopost=yes",
+    "method": "POST",
+    "fields": {
+      "formhash": "f1f2f3f4",
+      "frommodcp": "1"
+    },
+    "ids_field": "moderate[]"
+  }
+}

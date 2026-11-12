@@ -1,0 +1,7 @@
+{
+  "ok": 0,
+  "error": "modcp_noperm",
+  "uid": 34,
+  "formhash": "f1f2f3f4",
+  "document": "<input type=\"hidden\" name=\"formhash\" value=\"f1f2f3f4\" />\n<div id=\"ct\" class=\"ct2_a wp cl\">\n<div class=\"mn\">\n<div class=\"bm bw0\">\n<h1 class=\"mt\">系统错误</h1>\n<p>抱歉，您无此权限</p>\n</div>\n</div>\n<div class=\"appl\">\n<div class=\"tbn\">\n<h2 class=\"mt bbda\">论坛管理</h2>\n<ul>\n<li class=\"cl\"><span class=\"y mtn\">0</span><a href=\"forum.php?mod=modcp&action=home\">内部留言</a></li>\n<li><a href=\"forum.php?mod=modcp&action=thread&op=thread\">主题管理</a></li>\n<li><a href=\"forum.php?mod=modcp&action=report\">管理举报</a></li>\n<li><a href=\"forum.php?mod=modcp&action=logout\">退出</a></li>\n</ul>\n</div>\n</div>\n</div>"
+}

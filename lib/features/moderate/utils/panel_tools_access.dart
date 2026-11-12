@@ -26,6 +26,17 @@ abstract final class PanelToolsAccess {
   static final _known = <int, ({PanelTools can, DateTime at})>{};
   static final _asking = <int, Future<PanelTools?>>{};
   static final _pages = <int, ({BackgroundGrantInfo info, DateTime at})>{};
+  static final _modcpPages = <int, ({Set<String> pages, DateTime at})>{};
+
+  /// The panel's pages the forum answers as fields for [uid] (`status.modcp_pages`, plugin 3.9.0: `log`, `report`,
+  /// `thread`, `forumaccess`, `home`), as last asked by [check]; null when none is kept or it is stale.
+  static Set<String>? modcpPages(int uid) {
+    final known = _modcpPages[uid];
+    if (known == null || DateTime.now().difference(known.at) >= _keep) {
+      return null;
+    }
+    return known.pages;
+  }
 
   /// The kept answer for [uid], null when none is kept or it is stale.
   static PanelTools? cached(int uid) {
@@ -90,6 +101,13 @@ abstract final class PanelToolsAccess {
         return null;
       }
       final can = (background: info?.canGrant ?? false, modcpReport: flags['modcp_report'] == 1);
+      _modcpPages[uid] = (
+        pages: {
+          for (final page in flags['modcp_pages'] is List ? flags['modcp_pages'] as List : const <Object?>[])
+            if (page is String) page,
+        },
+        at: DateTime.now(),
+      );
       // A catalogue that could not be read tells nothing about sending: shown without it this time, asked again later.
       if (flags['bggrant'] != 1 || info != null) {
         _known[uid] = (can: can, at: DateTime.now());
@@ -109,5 +127,6 @@ abstract final class PanelToolsAccess {
     _known.clear();
     _asking.clear();
     _pages.clear();
+    _modcpPages.clear();
   }
 }
