@@ -1,0 +1,9 @@
+{
+  "ok": 0,
+  "error": "message",
+  "message": "本批沒有任何項目被評分（可能都已評過或被跳過），仍保留批次紀錄以供追查。",
+  "message_key": "",
+  "login": 0,
+  "uid": 31,
+  "form": "batchrate"
+}

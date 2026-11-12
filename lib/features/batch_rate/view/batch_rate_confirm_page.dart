@@ -67,6 +67,11 @@ class _BatchRateConfirmPageState extends State<BatchRateConfirmPage> {
   @override
   void initState() {
     super.initState();
+    // Every setting typed is kept, and asks for the plugin to compute again: the reason, the names left out and the
+    // floor numbers as well as the scores, the thresholds and the multiples.
+    for (final c in [_reason, _exclude, _floors]) {
+      c.addListener(_changed);
+    }
     // After the first frame: the requests read the translations of the page.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -184,10 +189,17 @@ class _BatchRateConfirmPageState extends State<BatchRateConfirmPage> {
   }
 
   void _changed() {
+    if (_sync()) {
+      setState(() => _stale = true);
+    }
+  }
+
+  /// Write what the fields hold into the settings; false when there are none yet.
+  bool _sync() {
     final confirm = _confirm;
     final settings = _settings;
     if (confirm == null || settings == null) {
-      return;
+      return false;
     }
     for (final e in _scores.entries) {
       settings.scores[e.key] = int.tryParse(e.value.text.trim()) ?? 0;
@@ -202,7 +214,7 @@ class _BatchRateConfirmPageState extends State<BatchRateConfirmPage> {
       ..reason = _reason.text
       ..exclude = _exclude.text
       ..floors = _floors.text;
-    setState(() => _stale = true);
+    return true;
   }
 
   Future<void> _recalc() async {
@@ -211,6 +223,7 @@ class _BatchRateConfirmPageState extends State<BatchRateConfirmPage> {
     if (confirm == null || settings == null || _busy) {
       return;
     }
+    _sync();
     if (confirm.mode == BatchRateMode.range) {
       final floors = parseBatchRateFloors(settings.floors, maxSegments: widget.info.floorSegments);
       if (floors == null) {
@@ -223,6 +236,7 @@ class _BatchRateConfirmPageState extends State<BatchRateConfirmPage> {
   }
 
   Future<void> _send() async {
+    _sync();
     final confirm = _confirm;
     final settings = _settings;
     if (confirm == null ||

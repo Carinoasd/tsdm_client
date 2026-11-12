@@ -456,6 +456,66 @@ void main() {
       expect(tester.widget<FilledButton>(send).onPressed, isNull);
     });
 
+    testWidgets('the reason, the names left out and the floors typed last are sent, and kept', (tester) async {
+      final echo = {
+        ..._fixture('batchrate_confirm_recalc_r3'),
+        'reason': {'value': '活动奖励', 'required': 0},
+        'exclude': 'gl_dave,ps_v2',
+        'floors': '2~4 7 12 15~',
+      };
+      final answers = <Object?>[_fixture('batchrate_confirm_range_r3'), _fixture('batchrate_confirm_recalc_r3'), echo];
+      final posted = <Map<String, String>>[];
+      await _pump(
+        tester,
+        BatchRateConfirmPage(
+          info: BatchRateInfo.fromJson(_fixture('batchrate_info_can_r3'))!,
+          selection: const BatchRateSelection.floors(fid: 2, tid: 1019, floors: '2~4 7 9~'),
+          repository: BatchRateRepository(
+            ask: (_) async => null,
+            get: (_) async => null,
+            post: (_, data) async {
+              posted.add(data);
+              return answers.isEmpty ? _fixture('batchrate_batch_made') : answers.removeAt(0);
+            },
+            currentUid: () => 31,
+          ),
+        ),
+      );
+      final send = find.byKey(const ValueKey('batch-rate-send'));
+      await tester.enterText(find.byKey(const ValueKey('batch-rate-score-6')), '5');
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('batch-rate-recalc')));
+      await tester.pumpAndSettle();
+      expect(tester.widget<FilledButton>(send).onPressed, isNotNull);
+
+      await tester.enterText(find.byKey(const ValueKey('batch-rate-reason')), '活动奖励');
+      await tester.enterText(find.byKey(const ValueKey('batch-rate-exclude')), 'gl_dave,ps_v2');
+      await tester.enterText(find.byKey(const ValueKey('batch-rate-floors')), '2~4 7 12 15~');
+      await tester.pumpAndSettle();
+      expect(find.text('Settings changed: recalculate first'), findsOneWidget);
+      expect(tester.widget<FilledButton>(send).onPressed, isNull, reason: 'not sent before the plugin computed them');
+
+      await tester.tap(find.byKey(const ValueKey('batch-rate-recalc')));
+      await tester.pumpAndSettle();
+      expect(posted[2], containsPair('reason', '活动奖励'));
+      expect(posted[2], containsPair('exclude', 'gl_dave,ps_v2'));
+      expect(posted[2], containsPair('floors', '2~4 7 12 15~'));
+      String text(String key) => tester.widget<TextField>(find.byKey(ValueKey(key))).controller!.text;
+      expect(text('batch-rate-reason'), '活动奖励');
+      expect(text('batch-rate-exclude'), 'gl_dave,ps_v2');
+      expect(text('batch-rate-floors'), '2~4 7 12 15~');
+
+      await tester.tap(send);
+      await tester.pumpAndSettle();
+      await tester.tap(find.descendant(of: find.byType(AlertDialog), matching: find.byType(FilledButton)));
+      await tester.pump();
+      expect(posted[3], containsPair('ratesubmit', '1'));
+      expect(posted[3], containsPair('reason', '活动奖励'));
+      expect(posted[3], containsPair('exclude', 'gl_dave,ps_v2'));
+      expect(posted[3], containsPair('floors', '2~4 7 12 15~'));
+      await tester.pumpWidget(const SizedBox());
+    });
+
     testWidgets("the plugin's refusal shown as it said it, and nothing else", (tester) async {
       await _pump(
         tester,

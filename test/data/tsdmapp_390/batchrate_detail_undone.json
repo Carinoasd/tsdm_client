@@ -1,0 +1,158 @@
+{
+  "ok": 1,
+  "api": 1,
+  "time": 1700000000,
+  "uid": 31,
+  "formhash": "f1f2f3f4",
+  "type": "batchrate_batch",
+  "schema": 34,
+  "batch": {
+    "batchid": 18,
+    "uid": 7,
+    "username": "gl_dave",
+    "fid": 7,
+    "forum": "测试版块",
+    "tid": 1081,
+    "mode": 3,
+    "mode_text": "樓層範圍 2～250",
+    "floors": "",
+    "conds": [],
+    "scores": [
+      {
+        "id": 1,
+        "title": "威望",
+        "score": 1
+      }
+    ],
+    "reason": "B9進度測試",
+    "exclude": [
+      "gl_bob",
+      "gl_alice"
+    ],
+    "antispam": {
+      "rated": 1,
+      "same": 1
+    },
+    "total": 249,
+    "applied": 0,
+    "skipped": 231,
+    "pending": 0,
+    "status": 2,
+    "status_text": "已整批撤回",
+    "dateline": 1788335957,
+    "can_continue": 0,
+    "can_undo": 0,
+    "can_undo_item": 1
+  },
+  "items": [
+    {
+      "itemid": 802,
+      "tid": 1081,
+      "pid": 395,
+      "position": 2,
+      "subject": "",
+      "authorid": 4,
+      "author": "gl_alice",
+      "status": "skip_excluded",
+      "status_text": "已排除：gl_alice",
+      "mult": 1,
+      "url": "forum.php?mod=redirect&goto=findpost&ptid=1081&pid=395",
+      "can_undo": 0,
+      "undo_uid": 0,
+      "undo_dateline": 0
+    },
+    {
+      "itemid": 803,
+      "tid": 1081,
+      "pid": 396,
+      "position": 3,
+      "subject": "",
+      "authorid": 5,
+      "author": "gl_bob",
+      "status": "skip_excluded",
+      "status_text": "已排除：gl_bob",
+      "mult": 1,
+      "url": "forum.php?mod=redirect&goto=findpost&ptid=1081&pid=396",
+      "can_undo": 0,
+      "undo_uid": 0,
+      "undo_dateline": 0
+    },
+    {
+      "itemid": 804,
+      "tid": 1081,
+      "pid": 397,
+      "position": 4,
+      "subject": "",
+      "authorid": 8,
+      "author": "gl_erin",
+      "status": "undone",
+      "status_text": "已撤回",
+      "mult": 1,
+      "url": "forum.php?mod=redirect&goto=findpost&ptid=1081&pid=397",
+      "can_undo": 0,
+      "undo_uid": 7,
+      "undo_dateline": 1788336002
+    },
+    {
+      "itemid": 805,
+      "tid": 1081,
+      "pid": 398,
+      "position": 5,
+      "subject": "",
+      "authorid": 9,
+      "author": "ps_v1",
+      "status": "undone",
+      "status_text": "已撤回",
+      "mult": 1,
+      "url": "forum.php?mod=redirect&goto=findpost&ptid=1081&pid=398",
+      "can_undo": 0,
+      "undo_uid": 7,
+      "undo_dateline": 1788336006
+    },
+    {
+      "itemid": 806,
+      "tid": 1081,
+      "pid": 399,
+      "position": 6,
+      "subject": "",
+      "authorid": 10,
+      "author": "ps_v2",
+      "status": "undone",
+      "status_text": "已撤回",
+      "mult": 1,
+      "url": "forum.php?mod=redirect&goto=findpost&ptid=1081&pid=399",
+      "can_undo": 0,
+      "undo_uid": 7,
+      "undo_dateline": 1788336006
+    }
+  ],
+  "run": 0,
+  "chunk": 50,
+  "forms": {
+    "run": {
+      "url": "plugin.php?id=batchrate:run",
+      "method": "POST",
+      "fields": {
+        "formhash": "f1f2f3f4"
+      },
+      "batch_field": "batchid"
+    },
+    "undo_item": {
+      "url": "plugin.php?id=batchrate:list&bract=undo_item",
+      "method": "POST",
+      "fields": {
+        "formhash": "f1f2f3f4"
+      },
+      "item_field": "itemid"
+    },
+    "undo_batch": {
+      "url": "plugin.php?id=batchrate:list&bract=undo_batch",
+      "method": "POST",
+      "fields": {
+        "formhash": "f1f2f3f4"
+      },
+      "batch_field": "batchid"
+    },
+    "result_url": "plugin.php?id=batchrate:rate&brmode=result&batchid=18"
+  }
+}
