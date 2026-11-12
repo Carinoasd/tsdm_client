@@ -32,7 +32,10 @@ AddFriendFormResult parseAddFriendForm(Object? answer) {
   final result = tsdmAppWriteResultOf(answer);
   if (result != null && result.kind != TsdmAppWriteKind.page) {
     // The forum refused in the window (friends already, a request pending, the member himself, not logged in).
-    return AddFriendRefused(result.reason.isNotEmpty ? result.reason : t.friendPage.addFriend.failed);
+    return AddFriendRefused(
+      result.reason.isNotEmpty ? result.reason : t.friendPage.addFriend.failed,
+      fromForum: result.message.isNotEmpty,
+    );
   }
   final xml = tsdmAppAnswerText(answer);
   final payload = result?.documentHtml ?? _payload(xml);
@@ -46,10 +49,16 @@ AddFriendFormResult parseAddFriendForm(Object? answer) {
     result?.document ?? parseHtmlDocument(payload),
     payload: payload,
     raw: result == null ? xml : t.friendPage.addFriend.failed,
+    rawFromForum: result == null,
   );
 }
 
-AddFriendFormResult _parseAddFriendForm(uh.Document document, {required String payload, required String raw}) {
+AddFriendFormResult _parseAddFriendForm(
+  uh.Document document, {
+  required String payload,
+  required String raw,
+  required bool rawFromForum,
+}) {
   final formHash = document.querySelector('input[name="formhash"]')?.attributes['value'] ?? '';
   final targetName = document.querySelector('td strong')?.innerText.trim() ?? '';
   final noteHint = document.querySelector('p.mtn')?.innerText.trim();
@@ -71,7 +80,7 @@ AddFriendFormResult _parseAddFriendForm(uh.Document document, {required String p
   if (formHash.isEmpty) {
     // Neither a refusal nor a form: report whatever text there is.
     final text = _plainText(payload);
-    return AddFriendRefused(text.isEmpty ? raw : text);
+    return AddFriendRefused(text.isEmpty ? raw : text, fromForum: text.isNotEmpty || rawFromForum);
   }
   return AddFriendForm(
     formHash: formHash,
@@ -95,6 +104,8 @@ AddFriendResult parseAddFriendResult(Object? answer) {
     return AddFriendResult(
       success: success,
       message: message.isNotEmpty ? message : (success ? t.friendPage.addFriend.sent : t.friendPage.addFriend.failed),
+      // The forum's message or its page's text; not the app's "log in first" nor its words for none.
+      fromForum: result.message.isNotEmpty || (result.reason.isEmpty && message.isNotEmpty),
     );
   }
   final xml = tsdmAppAnswerText(answer);

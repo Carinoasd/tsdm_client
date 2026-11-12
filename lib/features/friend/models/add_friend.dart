@@ -45,20 +45,26 @@ final class AddFriendForm extends AddFriendFormResult {
 /// The forum refused before showing a form: already friends, a request still pending, adding oneself.
 final class AddFriendRefused extends AddFriendFormResult {
   /// Constructor.
-  const AddFriendRefused(this.message);
+  const AddFriendRefused(this.message, {this.fromForum = true});
 
-  /// The forum's message.
+  /// The forum's message, or the app's own words when it gave none ([fromForum] false).
   final String message;
+
+  /// [message] is the forum's, not the app's words in its place.
+  final bool fromForum;
 }
 
 /// The forum's answer to a submitted request.
 final class AddFriendResult {
   /// Constructor.
-  const AddFriendResult({required this.success, required this.message});
+  const AddFriendResult({required this.success, required this.message, this.fromForum = true});
 
   /// The request was sent (or the two are friends now).
   final bool success;
 
-  /// The forum's message, success or not.
+  /// The forum's message, success or not; the app's own words when it gave none ([fromForum] false).
   final String message;
+
+  /// [message] is the forum's, not the app's words in its place.
+  final bool fromForum;
 }

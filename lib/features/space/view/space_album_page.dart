@@ -193,11 +193,11 @@ class _SpaceAlbumPageState extends State<SpaceAlbumPage> {
               child: _grid(context, state),
             ),
           };
-          final title = state.title ?? widget.name ?? context.t.spacePage.albums;
+          final title = context.displayTextOr(state.title ?? widget.name, context.t.spacePage.albums);
           final count = state.totalCount;
           return Scaffold(
             appBar: AppBar(
-              title: Text(context.displayText(title)),
+              title: Text(title),
               actions: [
                 if (count != null)
                   Padding(

@@ -228,6 +228,9 @@ class _ReportHandlingPageState extends State<ReportHandlingPage> {
   }
 
   /// A report `reporter : reason` as the user chose to see it: the reason converted, the reporter's name as it is.
+  ///
+  /// The forum joins the reporter and the reason with ` : ` in the report's `message`; a line without it is converted
+  /// whole.
   String _reportLine(String line) {
     final at = line.indexOf(' : ');
     return at < 0

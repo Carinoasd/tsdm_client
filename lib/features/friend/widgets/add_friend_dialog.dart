@@ -32,8 +32,8 @@ Future<void> showAddFriendDialog(
     case Left():
       showSnackBar(context: context, message: tr.failed);
       return;
-    case Right(value: AddFriendRefused(:final message)):
-      showSnackBar(context: context, message: context.displayText(message));
+    case Right(value: AddFriendRefused(:final message, :final fromForum)):
+      showSnackBar(context: context, message: fromForum ? context.displayText(message) : message);
       return;
     case Right(value: final AddFriendForm f):
       form = f;
@@ -55,9 +55,7 @@ Future<void> showAddFriendDialog(
     context: context,
     message: switch (result) {
       Left() => tr.failed,
-      // The app's own words when the forum said nothing (see parseAddFriendResult) stay as they are.
-      Right(:final value) when value.message == tr.sent || value.message == tr.failed => value.message,
-      Right(:final value) => context.displayText(value.message),
+      Right(:final value) => value.fromForum ? context.displayText(value.message) : value.message,
     },
   );
 }
