@@ -645,6 +645,12 @@
       "notificationDirectReply": {
         "title": "Reply from notifications"
       },
+      "systemNotifications": {
+        "title": "System notifications",
+        "denied": "Notifications not allowed",
+        "unavailable": "No notification service on this device",
+        "open": "Open"
+      },
       "notificationPermission": {
         "title": "Notification permission",
         "detail": "Required by auto sync to show new notices, private messages and public messages as system notifications",

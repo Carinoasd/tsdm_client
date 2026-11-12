@@ -23,8 +23,10 @@ void main() {
       expect(android.importance, Importance.high);
       expect(android.priority, Priority.high);
       expect(android.icon, isNull, reason: 'the small icon given to initialize is kept');
-      expect(details.iOS, isNull);
-      expect(details.linux, isNull);
+      // iOS, macOS and Linux post them only once the user turned them on (test_940).
+      expect(details.iOS?.threadIdentifier, localNoticeChannelId);
+      expect(details.macOS?.threadIdentifier, localNoticeChannelId);
+      expect(details.linux, isNotNull);
     });
 
     test('Windows toasts play the IM preset sound (PR #70)', () {

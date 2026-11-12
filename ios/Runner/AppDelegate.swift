@@ -1,5 +1,6 @@
 import Flutter
 import UIKit
+import UserNotifications
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
@@ -12,6 +13,10 @@ import UIKit
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+    // flutter_local_notifications: the app delegate forwards the notification callbacks (shown in the foreground, a
+    // tap) to the plugin. Only the delegate is set: nothing is asked or posted until the user turns the notifications
+    // on in the settings.
+    UNUserNotificationCenter.current().delegate = self as? UNUserNotificationCenterDelegate
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "HomeWidgetBridge") {
       HomeWidgetBridge.register(with: registrar)
     }

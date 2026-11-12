@@ -16,6 +16,7 @@ import 'package:tsdm_client/features/audio_player/audio_player_init.dart';
 import 'package:tsdm_client/features/background_sync/background_sync_controller.dart';
 import 'package:tsdm_client/features/local_notice/callback.dart';
 import 'package:tsdm_client/features/local_notice/direct_reply_entry.dart';
+import 'package:tsdm_client/features/local_notice/opt_in_notifications.dart';
 import 'package:tsdm_client/features/local_notice/show.dart';
 import 'package:tsdm_client/features/settings/repositories/custom_font_store.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
@@ -202,6 +203,22 @@ Future<void> _boot(List<String> args) async {
     } on Object catch (e, st) {
       talker.handle(e, st, 'windows notification init failed');
     }
+  }
+
+  // iOS, macOS, Linux: only once the user turned the notifications on in the settings (off by default, the permission
+  // asked then). Otherwise the plugin is not initialized at all here, so nothing is asked and nothing posted. With them
+  // on it is initialized without asking anything; iOS and macOS turn them off again when the permission was taken back
+  // meanwhile.
+  if (systemNotificationGate.platform.darwin) {
+    await bootAppSystemNotifications();
+    if (systemNotificationGate.ready) {
+      // A tap on the notification while the app was not running (iOS, macOS): parked for the home page as on Android.
+      await rememberNotificationLaunch();
+    }
+  } else if (systemNotificationGate.platform.optIn) {
+    // Linux: not waited for, the probe of the notification service (up to a few seconds on a desktop without one) must
+    // not hold the first frame back. No launch details there.
+    unawaited(bootAppSystemNotifications());
   }
 
   await initAudioPlayer();

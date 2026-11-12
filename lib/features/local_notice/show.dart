@@ -3,6 +3,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/features/local_notice/direct_reply.dart';
 import 'package:tsdm_client/features/local_notice/keys.dart';
+import 'package:tsdm_client/features/local_notice/opt_in_notifications.dart';
 import 'package:tsdm_client/features/notification/models/models.dart';
 import 'package:tsdm_client/features/notification/utils/notice_info.dart';
 import 'package:tsdm_client/features/notification/utils/push_rules.dart';
@@ -57,11 +58,18 @@ const legacyLocalNoticeChannelId = 'newNoticeChannel';
 /// One id: a newer result replaces the previous notification instead of piling up.
 const localNoticeId = 0;
 
-/// Whether the auto sync posts system notifications on this platform: Android and Windows.
+/// Whether the auto sync posts system notifications now: always on Android and Windows; on iOS, macOS and Linux once
+/// the user turned them on and they are allowed ([SystemNotificationGate.posts]).
 ///
-/// Elsewhere nothing is shown ([showLocalNotification]), so nothing that only changes notifications is offered there
-/// (the setting to announce every logged-in account).
-bool get autoSyncPostsNotifications => isAndroid || isWindows;
+/// Read when a notification is about to be posted (and by what only matters then, like the settings of the
+/// notifications): elsewhere, or before, nothing is shown ([showLocalNotification]).
+bool get autoSyncPostsNotifications => systemNotificationGate.posts;
+
+/// Whether this platform always posted the notifications of the auto sync: Android and Windows.
+///
+/// For what is built once and only matters with notifications there: the in-app sync of the other logged-in accounts
+/// and the setting to announce them. The opt-in platforms (iOS, macOS, Linux) announce the account in use only.
+bool get alwaysPostsNotifications => systemNotificationGate.platform.alwaysPosts;
 
 /// Id of the notification of account [uid] while the auto sync announces every logged-in account
 /// (`SettingsKeys.backgroundSyncAllAccounts`): one notification per account, a newer result replacing only that
@@ -295,6 +303,8 @@ String localNotificationBodyOf(Translations translations, NotificationAutoSyncIn
 ///
 /// Windows: system toast with the IM preset sound (see [_windowsSound]).
 ///
+/// iOS, macOS: grouped by category; Linux: the plain notification.
+///
 /// [title], [body], [lines] and [summary] are the texts of the notification ([LocalNotificationContent]): Android
 /// shows [lines] in the inbox style when there are any, the whole [body] otherwise.
 ///
@@ -335,6 +345,11 @@ NotificationDetails buildLocalNotificationDetails({
   windows: WindowsNotificationDetails(
     audio: WindowsNotificationAudio.preset(sound: _windowsSound),
   ),
+  // iOS, macOS, Linux (posted only once turned on, `opt_in_notifications.dart`): the system's banner with the title
+  // and the body; the notifications of a category grouped together.
+  iOS: DarwinNotificationDetails(threadIdentifier: category?.channelId ?? localNoticeChannelId),
+  macOS: DarwinNotificationDetails(threadIdentifier: category?.channelId ?? localNoticeChannelId),
+  linux: const LinuxNotificationDetails(),
 );
 
 /// Delete the channel that carried the notifications before [localNoticeChannelId] existed.

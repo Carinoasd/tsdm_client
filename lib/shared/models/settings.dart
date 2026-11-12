@@ -211,6 +211,12 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
   /// notification itself, sent in the background as the account of the notification (`direct_reply.dart`).
   notificationDirectReply<bool>(name: 'notificationDirectReply', type: bool, defaultValue: true),
 
+  /// iOS, macOS and Linux: post the system notifications of the auto sync, as Android and Windows always do. Off by
+  /// default: the plugin is not even initialized (no permission asked) until the user turns it on, which asks the
+  /// permission then (`opt_in_notifications.dart`). Ignored on Android and Windows. Tied to the device and its
+  /// permission, so never synced across devices.
+  systemNotificationsOptIn<bool>(name: 'systemNotificationsOptIn', type: bool, defaultValue: false),
+
   /// Count the time spent reading threads (the reading statistics of the "me" page), kept on this device only.
   readingTimeStats<bool>(name: 'readingTimeStats', type: bool, defaultValue: true),
 
