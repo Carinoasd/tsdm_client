@@ -1,0 +1,97 @@
+{
+  "ok": 1,
+  "api": 1,
+  "time": 1700000000,
+  "uid": 31,
+  "installed": 1,
+  "formhash": "f1f2f3f4",
+  "type": "bggrant",
+  "schema": 31,
+  "supported": 1,
+  "can_grant": 1,
+  "can_manage": 0,
+  "keyword": "",
+  "page": 1,
+  "perpage": 60,
+  "count": 4,
+  "pages": 1,
+  "backgrounds": [
+    {
+      "id": 1,
+      "name": "夜空",
+      "file": "1209-1.jpg",
+      "image": "https://forum.test/source/plugin/background/background/1209-1.jpg"
+    },
+    {
+      "id": 2,
+      "name": "海边",
+      "file": "1209-2.jpg",
+      "image": "https://forum.test/source/plugin/background/background/1209-2.jpg"
+    },
+    {
+      "id": 3,
+      "name": "星河",
+      "file": "1209-3.jpg",
+      "image": "https://forum.test/source/plugin/background/background/1209-3.jpg"
+    },
+    {
+      "id": 4,
+      "name": "雪原",
+      "file": "1209-4.jpg",
+      "image": "https://forum.test/source/plugin/background/background/1209-4.jpg"
+    }
+  ],
+  "expiry": {
+    "default": "0",
+    "formats": [
+      "0",
+      "YYYY-MM-DD",
+      "YYYY-MM-DD HH:MM",
+      "N天",
+      "unix"
+    ],
+    "presets": [
+      {
+        "label": "永久",
+        "days": 0,
+        "months": 0
+      },
+      {
+        "label": "7 天",
+        "days": 7,
+        "months": 0
+      },
+      {
+        "label": "1 个月",
+        "days": 0,
+        "months": 1
+      },
+      {
+        "label": "3 个月",
+        "days": 0,
+        "months": 3
+      },
+      {
+        "label": "1 年",
+        "days": 0,
+        "months": 12
+      }
+    ]
+  },
+  "limits": {
+    "url": 255
+  },
+  "form": {
+    "url": "plugin.php?id=background:memcp&ac=slotadd",
+    "method": "POST",
+    "fields": {
+      "formhash": "f1f2f3f4",
+      "slotaddsubmit": "true"
+    },
+    "url_field": "slotaddurl",
+    "uids_field": "slotadduid",
+    "time_field": "slotaddtime",
+    "notify_field": "slotaddnotify",
+    "success_prefix": "已发放给"
+  }
+}

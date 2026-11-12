@@ -4249,6 +4249,27 @@
   "threadRecommend": {
     "unknown": "未能确认结果，请重新整理帖子查看。"
   },
+  "backgroundGrant": {
+    "title": "发放背景",
+    "search": "搜索背景",
+    "empty": "没有符合的背景",
+    "image": "图片路径",
+    "members": "会员 UID",
+    "expiry": "到期时间",
+    "notify": "通知会员",
+    "send": "发放",
+    "needImage": "请选择背景或填写图片路径",
+    "needMembers": "请填写会员 UID",
+    "badMembers": "不是 UID：${list}"
+  },
+  "reportHandling": {
+    "title": "举报处理",
+    "empty": "没有待处理的举报",
+    "noReward": "不奖惩",
+    "message": "给举报人的留言",
+    "resolve": "处理 ${n} 条",
+    "done": "处理成功"
+  },
   "attachmentDownload": {
     "title": "下载管理",
     "active": "进行中",

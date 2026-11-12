@@ -4249,6 +4249,27 @@
   "threadRecommend": {
     "unknown": "Could not confirm the result: refresh the thread to see it."
   },
+  "backgroundGrant": {
+    "title": "Send backgrounds",
+    "search": "Search backgrounds",
+    "empty": "No matching backgrounds",
+    "image": "Image path",
+    "members": "Member UIDs",
+    "expiry": "Expires",
+    "notify": "Notify members",
+    "send": "Send",
+    "needImage": "Choose a background or enter an image path",
+    "needMembers": "Enter member UIDs",
+    "badMembers": "Not UIDs: ${list}"
+  },
+  "reportHandling": {
+    "title": "Reports",
+    "empty": "No reports waiting",
+    "noReward": "No reward",
+    "message": "Message to the reporter",
+    "resolve": "Handle ${n}",
+    "done": "Handled"
+  },
   "attachmentDownload": {
     "title": "Downloads",
     "active": "In progress",
