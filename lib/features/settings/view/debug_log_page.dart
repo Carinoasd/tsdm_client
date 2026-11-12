@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:path/path.dart' as path;
@@ -198,11 +199,17 @@ class _DebugHistoricalLogDetailPageState extends State<DebugHistoricalLogDetailP
   /// Log content.
   String? _logData;
 
+  /// The file read and redacted once, off the UI isolate: older log files may predate redaction; never show or export
+  /// a secret from them.
+  late final Future<String> _redacted = File(
+    widget.log.file.path,
+  ).readAsString().then((text) => compute(redactLogText, text));
+
   @override
   Widget build(BuildContext context) {
     final tr = context.t.settingsPage.debugSection.viewHistoryLog;
     final body = FutureBuilder(
-      future: File(widget.log.file.path).readAsString(),
+      future: _redacted,
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           error('failed to load log ${widget.log.time.yyyyMMDD()}: ${snapshot.error}');
@@ -217,8 +224,7 @@ class _DebugHistoricalLogDetailPageState extends State<DebugHistoricalLogDetailP
           return const CenteredCircularIndicator();
         }
 
-        // Older log files may predate redaction; never show or export a secret from them.
-        _logData = redactLogText(snapshot.data!);
+        _logData = snapshot.data;
 
         // Monospaced text in a rounded block; long lines wrap, the page scrolls.
         return SingleChildScrollView(

@@ -77,8 +77,8 @@ final class _RedactedLog extends TalkerLog {
         _inner.message == null ? null : redactSensitive(_inner.message!),
         key: _inner.key,
         title: _inner.title,
-        exception: _inner.exception == null ? null : RedactingTalker._cleanException(_inner.exception!),
-        error: _inner.error,
+        exception: _exceptionOf(_inner),
+        error: _errorOf(_inner),
         stackTrace: _inner.stackTrace,
         time: _inner.time,
         pen: _inner.pen,
@@ -86,6 +86,21 @@ final class _RedactedLog extends TalkerLog {
       );
 
   final TalkerLog _inner;
+
+  /// The error of [log] unless its text carries a secret: the log screen shows it as it is.
+  static Error? _errorOf(TalkerLog log) {
+    final error = log.error;
+    return error == null || containsSensitive('$error') ? null : error;
+  }
+
+  /// The exception of [log] redacted, or its error when that one carried a secret ([_errorOf] dropped it).
+  static Object? _exceptionOf(TalkerLog log) {
+    if (log.exception case final exception?) {
+      return RedactingTalker._cleanException(exception);
+    }
+    final error = log.error;
+    return error != null && containsSensitive('$error') ? RedactingTalker._cleanException(error) : null;
+  }
 
   @override
   String generateTextMessage({TimeFormat timeFormat = TimeFormat.timeAndSeconds}) {

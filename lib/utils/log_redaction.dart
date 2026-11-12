@@ -53,8 +53,9 @@ const _quoted =
     r'"(?:[^"\\\r\n]|\\.)*"|'
     r"'(?:[^'\\\r\n]|\\.)*'";
 
-/// Where a map / JSON key begins: the start of a line, after `{`, `[`, `(` or `,`.
-const _keyContext = r'(?<=(?:^|[\r\n{\[(,])\s*)';
+/// Where a map / JSON key begins: the start of a line, after `{`, `[`, `(` or `,`, and the spaces after it (in the
+/// match, not in the look-behind: a run of spaces is then scanned once, not from every position).
+const _keyContext = r'(?<=^|[\r\n{\[(,])[ \t]*';
 
 /// The unquoted value of a map / JSON entry: up to the next `key:`, the end of the map or the end of the line, so a
 /// value with spaces or commas in it is redacted whole.
@@ -68,13 +69,21 @@ final _headerRe = RegExp(
   caseSensitive: false,
 );
 
-/// Credentials in a url: `https://user:pass@host`.
-final _urlUserInfoRe = RegExp(r'(?<key>[a-z][a-z0-9+.-]*://)(?<value>[^\s/@:]+:[^\s/@]*)@', caseSensitive: false);
-
-/// `Basic …` / `Bearer …` / `Digest …` credentials outside a header line (a printed request, an exception text).
-final _schemeTokenRe = RegExp(
-  r'(?<key>\b(?:Basic|Bearer|Digest|Token)(?:\s+|\+|%20))(?<value>(?=[A-Za-z0-9+/=._~-]*[0-9+/=])[A-Za-z0-9+/=._~-]{8,})',
+/// Credentials in a url: `https://user:pass@host`. The scheme starts after a character that cannot be part of it, so a
+/// long run of letters and digits (base64 in a page) is scanned once, not from every position.
+final _urlUserInfoRe = RegExp(
+  r'(?<key>(?<![a-z0-9+.-])[a-z][a-z0-9+.-]*://)(?<value>[^\s/@:?#]+:[^\s/@?#]*)@',
+  caseSensitive: false,
 );
+
+/// `Basic …` / `Bearer …` / `Token …` credentials outside a header line (a printed request, an exception text).
+final _schemeTokenRe = RegExp(
+  r'(?<key>\b(?:Basic|Bearer|Token)(?:\s+|\+|%20))(?<value>(?=[A-Za-z0-9+/=._~-]*[0-9+/=])[A-Za-z0-9+/=._~-]{8,})',
+  caseSensitive: false,
+);
+
+/// `Digest username="…", …, response="…"` outside a header line: its fields, to the end of the line.
+final _digestRe = RegExp(r'(?<key>\bDigest\s+)(?<value>\w+=[^\r\n]*)', caseSensitive: false);
 
 /// Html form inputs of a secret field, the value before or after the name.
 final _secretInputRe = RegExp(
@@ -109,7 +118,7 @@ final _deviceIdRe = RegExp(
 
 /// Private content fields of a form body: `message=…`.
 final _contentFormRe = RegExp(
-  '(?<key>(?<![\\w-])(?:$_contentNames)=)(?<value>[^&\\s{\\[][^&\\s]*)|(?<key2>(?<=^|[?&\\s:])(?:$_formContentNames)=)(?<value2>[^&\\s{\\[][^&\\s]*)',
+  '(?<key>(?<![\\w-])(?:$_contentNames)=)(?<value>[^&\\s]+)|(?<key2>(?<=^|[?&\\s:])(?:$_formContentNames)=)(?<value2>[^&\\s{\\[][^&\\s]*)',
   caseSensitive: false,
 );
 
@@ -164,6 +173,7 @@ String redactSensitive(String text) {
   out = out.replaceAllMapped(_headerRe, _keepNonEmpty);
   out = out.replaceAllMapped(_urlUserInfoRe, (m) => '${(m as RegExpMatch).namedGroup('key')}$redactionMask@');
   out = out.replaceAllMapped(_schemeTokenRe, _keep);
+  out = out.replaceAllMapped(_digestRe, _keep);
   out = out.replaceAllMapped(_secretInputRe, _keep);
   out = out.replaceAllMapped(_deviceIdRe, _keep);
   out = out.replaceAllMapped(_secretFormRe, _keepNonEmpty);
@@ -206,7 +216,10 @@ String redactLogText(String text, {bool maskEmail = true, IpRedaction ip = IpRed
       return '\u0000email${emails.length - 1}\u0000';
     });
     out = redactSensitive(out);
-    out = out.replaceAllMapped(RegExp('\u0000email(\\d+)\u0000'), (m) => emails[int.parse(m.group(1)!)]);
+    out = out.replaceAllMapped(RegExp('\u0000email(\\d+)\u0000'), (m) {
+      final i = int.parse(m.group(1)!);
+      return i < emails.length ? emails[i] : m.group(0)!;
+    });
   } else {
     out = redactSensitive(out);
   }

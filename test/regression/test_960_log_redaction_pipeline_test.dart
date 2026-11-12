@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -808,6 +809,64 @@ void main() {
       expect(redactLogText('999.1.2.3 and 1.2.3'), '999.1.2.3 and 1.2.3');
       // Secret fields stay redacted whatever the email setting.
       expect(redactLogText('emailnew=$_newEmail', maskEmail: false), 'emailnew=$redactionMask');
+    });
+  });
+
+  group('review follow-ups', () {
+    test('unencoded content starting with bbcode or braces is redacted', () {
+      expect(
+        redactSensitive(
+          'message=[quote]ReplyBody-96ff[/quote] pmmessage=[b]PrivateMessage-85ee[/b]&formhash=1 subject={$_subjectText}',
+        ),
+        'message=$redactionMask pmmessage=$redactionMask&formhash=$redactionMask subject=$redactionMask',
+      );
+    });
+
+    test('digest and lowercase bearer credentials outside a header line', () {
+      final out = redactSensitive(
+        'auth Digest username="dav", realm="r", response="$_digestResponse" sent; then bearer $_adminToken',
+      );
+      expect(out, isNot(contains(_digestResponse)));
+      expect(out, isNot(contains(_adminToken)));
+      expect(out, contains('Digest'));
+    });
+
+    test('a url with a port and an @ in its query keeps its host', () {
+      expect(redactSensitive('https://dav.example.com:8443/dav?x=1'), 'https://dav.example.com:8443/dav?x=1');
+      expect(
+        redactSensitive('https://user:$_webdavPassword@dav.example.com:8443/dav/'),
+        'https://$redactionMask@dav.example.com:8443/dav/',
+      );
+    });
+
+    test('an error of a custom log carrying a secret is not shown as it is', () {
+      talker.logCustom(TalkerLog('custom', error: ArgumentError('formhash=$_formHash'), logLevel: LogLevel.error));
+      final entry = talker.history.last;
+      expect(entry.error, isNull);
+      expect('${entry.exception}', isNot(contains(_formHash)));
+      expect('${entry.exception}', contains('formhash'));
+      talker.logCustom(TalkerLog('custom', error: ArgumentError('nothing secret')));
+      expect(talker.history.last.error, isA<ArgumentError>());
+    });
+
+    test('a text that looks like the email placeholder stays as it is', () {
+      const text = 'a \u0000email7\u0000 b';
+      expect(redactLogText(text, maskEmail: false), text);
+    });
+
+    test('long runs of base64, letters or spaces are redacted in linear time', () {
+      final random = Random(7);
+      final inputs = [
+        'data:image/png;base64,${base64Encode(List.generate(150000, (_) => random.nextInt(256)))}',
+        'x' * 200000,
+        'a${' ' * 100000}b: c',
+        'https://${'a' * 100000}',
+        '${'1.' * 50000}1',
+      ];
+      final watch = Stopwatch()..start();
+      inputs.forEach(redactLogText);
+      // Linear: well under a second here; the quadratic patterns took tens of seconds on these.
+      expect(watch.elapsed, lessThan(const Duration(seconds: 5)));
     });
   });
 
