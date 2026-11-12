@@ -127,6 +127,15 @@ class ScreenPaths {
   /// Issuing titles to members, for administrators and the title plugin's list (app API).
   static const String titleIssue = '/titleIssue';
 
+  /// Rewarding and penalizing members' credits, for administrators (app API admin actions).
+  static const String adminCredit = '/adminCredit';
+
+  /// Changing a member's user groups, for administrators (app API admin actions).
+  static const String adminGroup = '/adminGroup';
+
+  /// Banning a spammer and clearing their posts, for administrators (app API admin actions).
+  static const String adminBan = '/adminBan';
+
   /// Sending backgrounds of the background shop plugin (app API `bggrant`).
   ///
   /// Query parameters: `uid`, the member the list starts with.

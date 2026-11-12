@@ -8,16 +8,18 @@ library;
 
 const _mask = '<redacted>';
 
-/// Header names whose whole value is a secret, as header lines or as entries of a printed headers map.
+/// Header names whose whole value is a secret, as header lines or as entries of a printed headers map (the forum's
+/// admin token travels as `X-Tsdmapp-Admin`).
 final _headerRe = RegExp(
-  r"""(?<key>\b(?:cookie|set-cookie|authorization|proxy-authorization|x-csrf-token)\b["']?\s*[:=]\s*)(?<value>[^\r\n,}]*)""",
+  r"""(?<key>\b(?:cookie|set-cookie|authorization|proxy-authorization|x-csrf-token|x-tsdmapp-admin)\b["']?\s*[:=]\s*)(?<value>[^\r\n,}]*)""",
   caseSensitive: false,
 );
 
 /// Discuz! session cookies (`Ystv_2132_auth=...`), also when printed as map entries (`Ystv_2132_auth: ...`), form
-/// hashes, passwords, generic token names, and the account ids and activity stamps (`uid`, `touid`, `ulastactivity`).
+/// hashes, passwords, generic token names (the admin token's POST field `admintoken` too), and the account ids and
+/// activity stamps (`uid`, `touid`, `ulastactivity`).
 final _tokenRe = RegExp(
-  r"""(?<key>\b(?:\w+_)?(?:auth|saltkey|sid|token|session|password|passwd|pwd|formhash|uid|touid|hash|ulastactivity)\b["']?\s*[:=]\s*)(?<value>"[^"]*"|'[^']*'|[^&;,\s}\]]+)""",
+  r"""(?<key>\b(?:\w+_)?(?:auth|saltkey|sid|token|admintoken|session|password|passwd|pwd|formhash|uid|touid|hash|ulastactivity)\b["']?\s*[:=]\s*)(?<value>"[^"]*"|'[^']*'|[^&;,\s}\]]+)""",
   caseSensitive: false,
 );
 

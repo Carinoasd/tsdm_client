@@ -15,6 +15,7 @@ import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/date_time.dart';
 import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/extensions/universal_html.dart';
+import 'package:tsdm_client/features/admin_tools/models/admin_models.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/blocking/cubit/user_block_cubit.dart';
 import 'package:tsdm_client/features/blocking/repository/user_block_repository.dart';
@@ -140,6 +141,9 @@ class _ProfilePageState extends State<ProfilePage> {
   /// The account may send backgrounds to another member (shown with [_adminTools]).
   bool _backgroundGrant = false;
 
+  /// The forum's admin actions the account may use on another member; null for everyone else and until known.
+  AdminAccess? _adminAccess;
+
   /// Only the accounts of a management group ask the forum for the tools, an ordinary member sends nothing more.
   Future<void> _loadAdminTools() async {
     final auth = context.readOrNull<AuthenticationRepository>();
@@ -159,20 +163,22 @@ class _ProfilePageState extends State<ProfilePage> {
     }
 
     bool stillCurrent() => auth?.currentUser?.uid == uid;
-    final (can, background) = await (
+    final (can, background, admin) = await (
       memberAdminToolsOf(uid, stillCurrent: stillCurrent, isManager: isManager),
       memberBackgroundGrantOf(uid, stillCurrent: stillCurrent, isManager: isManager),
+      memberAdminAccessOf(uid, stillCurrent: stillCurrent, isManager: isManager),
     ).wait;
-    if (!mounted || !((can?.grant ?? false) || (can?.issue ?? false) || background)) {
+    if (!mounted || !((can?.grant ?? false) || (can?.issue ?? false) || background || admin != null)) {
       return;
     }
     // The account in use may have changed while the forum answered.
-    if (auth?.currentUser?.uid != uid) {
+    if (!stillCurrent()) {
       return;
     }
     setState(() {
       _adminTools = can ?? (grant: false, issue: false);
       _backgroundGrant = background;
+      _adminAccess = admin;
     });
   }
 
@@ -498,7 +504,13 @@ class _ProfilePageState extends State<ProfilePage> {
                     label: tr.adminMenu,
                     placement: OverflowPlacement.menuOnly,
                     onPressed: () => unawaited(
-                      showMemberAdminSheet(context, uid: memberUid, can: _adminTools!, background: _backgroundGrant),
+                      showMemberAdminSheet(
+                        context,
+                        uid: memberUid,
+                        can: _adminTools!,
+                        background: _backgroundGrant,
+                        admin: _adminAccess,
+                      ),
                     ),
                   ),
                 if (others && !off.contains(SpaceModule.poke))

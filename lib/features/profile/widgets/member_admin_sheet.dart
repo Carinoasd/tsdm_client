@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:tsdm_client/features/admin_tools/models/admin_models.dart';
+import 'package:tsdm_client/features/admin_tools/repository/admin_repository.dart';
 import 'package:tsdm_client/features/medal_title_tools/repository/medal_title_tools_repository.dart';
 import 'package:tsdm_client/features/medal_title_tools/utils/staff_access.dart';
 import 'package:tsdm_client/features/moderate/utils/panel_tools_access.dart';
@@ -25,6 +27,29 @@ Future<StaffTools?> memberAdminToolsOf(
   return StaffToolsAccess.check(uid, repository: repository, stillCurrent: stillCurrent);
 }
 
+/// What the account [uid] may do to other members with the forum's admin actions (plugin 3.9.0: credits, user
+/// groups, cleaning up a spammer), null when nothing or the forum could not tell.
+///
+/// Asked only for an account of a management group, as [memberAdminToolsOf]: an ordinary member sends no request.
+Future<AdminAccess?> memberAdminAccessOf(
+  int uid, {
+  required Future<bool?> Function() isManager,
+  AdminRepository? repository,
+  Future<bool?> Function()? switchOn,
+  bool Function()? stillCurrent,
+}) async {
+  if (await ManagementGroupCache.check(uid, isManager) != true) {
+    return null;
+  }
+  final access = await AdminAccessCache.check(
+    uid,
+    repository: repository,
+    switchOn: switchOn,
+    stillCurrent: stillCurrent,
+  );
+  return access == null || access.memberActions.isEmpty ? null : access;
+}
+
 /// Whether the account [uid] may send backgrounds to other members ([PanelToolsAccess]); false when it may not, is
 /// not of a management group or the forum could not tell. Asked only for an account of a management group, as
 /// [memberAdminToolsOf].
@@ -44,10 +69,16 @@ Future<bool> memberBackgroundGrantOf(
 /// One admin operation on a member: an icon, a label and the page it opens with the member's UID brought in.
 typedef MemberAdminItem = ({Key key, IconData icon, String label, String path});
 
-/// The admin operations [can] offers on a member, in the order shown, sending backgrounds when [background]. Add new
-/// operations here.
-List<MemberAdminItem> memberAdminItems(BuildContext context, StaffTools can, {bool background = false}) {
+/// The admin operations [can] offers on a member, in the order shown: sending backgrounds when [background], and the
+/// forum's admin actions [admin] lets the account read. Add new operations here.
+List<MemberAdminItem> memberAdminItems(
+  BuildContext context,
+  StaffTools can, {
+  bool background = false,
+  AdminAccess? admin,
+}) {
   final tr = context.t.medalTitleTools;
+  final at = context.t.adminTools;
   return [
     if (can.grant)
       (
@@ -70,6 +101,27 @@ List<MemberAdminItem> memberAdminItems(BuildContext context, StaffTools can, {bo
         label: context.t.backgroundGrant.title,
         path: ScreenPaths.backgroundGrant,
       ),
+    if (admin?.canRead(AdminActions.credit) ?? false)
+      (
+        key: const ValueKey('member-admin-credit'),
+        icon: Icons.savings_outlined,
+        label: at.credit,
+        path: ScreenPaths.adminCredit,
+      ),
+    if (admin?.canRead(AdminActions.group) ?? false)
+      (
+        key: const ValueKey('member-admin-group'),
+        icon: Icons.group_outlined,
+        label: at.group,
+        path: ScreenPaths.adminGroup,
+      ),
+    if (admin?.canRead(AdminActions.ban) ?? false)
+      (
+        key: const ValueKey('member-admin-ban'),
+        icon: Icons.cleaning_services_outlined,
+        label: at.ban,
+        path: ScreenPaths.adminBan,
+      ),
   ];
 }
 
@@ -79,8 +131,9 @@ Future<void> showMemberAdminSheet(
   required int uid,
   required StaffTools can,
   bool background = false,
+  AdminAccess? admin,
 }) {
-  final items = memberAdminItems(context, can, background: background);
+  final items = memberAdminItems(context, can, background: background, admin: admin);
   final router = GoRouter.of(context);
   return showModalBottomSheet<void>(
     context: context,

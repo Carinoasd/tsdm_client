@@ -9,6 +9,7 @@ import 'package:tsdm_client/cmd.dart';
 import 'package:tsdm_client/constants/constants.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/color.dart';
+import 'package:tsdm_client/features/admin_tools/repository/admin_repository.dart';
 import 'package:tsdm_client/features/app_lock/cubit/app_lock_cubit.dart';
 import 'package:tsdm_client/features/app_lock/widgets/app_lock_gate.dart';
 import 'package:tsdm_client/features/audio_player/audio_player_init.dart';
@@ -68,6 +69,8 @@ Future<void> _boot(List<String> args) async {
   final appLock = await AppLockCubit.load();
   getIt.registerSingleton(appLock, dispose: (c) async => c.close());
   WidgetsBinding.instance.addObserver(AppLockBackGuard(appLock));
+  // The admin token of the forum's admin actions is dropped whenever the app locks: the password is asked again.
+  AdminSession.instance.dropOnLock(appLock.stream.map((s) => s.locked));
 
   final settings = getIt.get<SettingsRepository>().currentSettings;
   // App-wide, see BackgroundSyncController; registered on every platform so the settings page can look it up.

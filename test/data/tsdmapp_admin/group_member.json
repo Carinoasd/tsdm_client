@@ -1,0 +1,335 @@
+{
+ "ok": 1,
+ "api": 1,
+ "time": 1700000000,
+ "uid": 96,
+ "formhash": "f1f2f3f4",
+ "type": "admingroup",
+ "schema": 27,
+ "session": {
+  "active": 1,
+  "expires": 1700000900,
+  "ttl": 900,
+  "max": 7200,
+  "checkip": 1
+ },
+ "member": {
+  "uid": 101,
+  "username": "member101",
+  "groupid": 10,
+  "group": "新手上路",
+  "grouptype": "member",
+  "adminid": 0,
+  "status": 0,
+  "self": 0,
+  "founder": 0,
+  "extgroupids": [],
+  "credits": 0,
+  "expiry": {
+   "time": 0,
+   "date": "",
+   "groupid": 0,
+   "adminid": 0
+  },
+  "ext_expiry": []
+ },
+ "can": 1,
+ "why": "",
+ "admin_grant": 0,
+ "groups": [
+  {
+   "groupid": 1,
+   "title": "管理员",
+   "type": "system",
+   "radminid": 1,
+   "related_adminid": 0,
+   "allowed": 0
+  },
+  {
+   "groupid": 2,
+   "title": "超级版主",
+   "type": "system",
+   "radminid": 2,
+   "related_adminid": 0,
+   "allowed": 1
+  },
+  {
+   "groupid": 3,
+   "title": "版主",
+   "type": "system",
+   "radminid": 3,
+   "related_adminid": 0,
+   "allowed": 1
+  },
+  {
+   "groupid": 4,
+   "title": "禁止发言",
+   "type": "system",
+   "radminid": 0,
+   "related_adminid": 0,
+   "allowed": 1
+  },
+  {
+   "groupid": 5,
+   "title": "禁止访问",
+   "type": "system",
+   "radminid": 0,
+   "related_adminid": 0,
+   "allowed": 1
+  },
+  {
+   "groupid": 8,
+   "title": "等待验证会员",
+   "type": "system",
+   "radminid": 0,
+   "related_adminid": 0,
+   "allowed": 1
+  },
+  {
+   "groupid": 10,
+   "title": "新手上路",
+   "type": "member",
+   "radminid": 0,
+   "related_adminid": 0,
+   "allowed": 1
+  },
+  {
+   "groupid": 16,
+   "title": "实习版主",
+   "type": "specialadmin",
+   "radminid": 3,
+   "related_adminid": 0,
+   "allowed": 1
+  },
+  {
+   "groupid": 17,
+   "title": "网站编辑",
+   "type": "specialadmin",
+   "radminid": 2,
+   "related_adminid": 0,
+   "allowed": 1
+  },
+  {
+   "groupid": 18,
+   "title": "信息监察员",
+   "type": "specialadmin",
+   "radminid": 1,
+   "related_adminid": 0,
+   "allowed": 0
+  },
+  {
+   "groupid": 19,
+   "title": "审核员",
+   "type": "specialadmin",
+   "radminid": 3,
+   "related_adminid": 0,
+   "allowed": 1
+  },
+  {
+   "groupid": 20,
+   "title": "临时组",
+   "type": "special",
+   "radminid": 0,
+   "related_adminid": 1,
+   "allowed": 1
+  },
+  {
+   "groupid": 21,
+   "title": "区版主",
+   "type": "specialadmin",
+   "radminid": 3,
+   "related_adminid": 0,
+   "allowed": 1
+  },
+  {
+   "groupid": 22,
+   "title": "字幕组",
+   "type": "special",
+   "radminid": 0,
+   "related_adminid": 1,
+   "allowed": 1
+  },
+  {
+   "groupid": 23,
+   "title": "低权组",
+   "type": "special",
+   "radminid": 0,
+   "related_adminid": 1,
+   "allowed": 1
+  },
+  {
+   "groupid": 24,
+   "title": "效能组",
+   "type": "special",
+   "radminid": 0,
+   "related_adminid": 1,
+   "allowed": 1
+  }
+ ],
+ "extgroups": [
+  {
+   "groupid": 1,
+   "title": "管理员",
+   "type": "system",
+   "radminid": 1,
+   "allowed": 0
+  },
+  {
+   "groupid": 2,
+   "title": "超级版主",
+   "type": "system",
+   "radminid": 2,
+   "allowed": 1
+  },
+  {
+   "groupid": 3,
+   "title": "版主",
+   "type": "system",
+   "radminid": 3,
+   "allowed": 1
+  },
+  {
+   "groupid": 16,
+   "title": "实习版主",
+   "type": "specialadmin",
+   "radminid": 3,
+   "allowed": 1
+  },
+  {
+   "groupid": 17,
+   "title": "网站编辑",
+   "type": "specialadmin",
+   "radminid": 2,
+   "allowed": 1
+  },
+  {
+   "groupid": 18,
+   "title": "信息监察员",
+   "type": "specialadmin",
+   "radminid": 1,
+   "allowed": 0
+  },
+  {
+   "groupid": 19,
+   "title": "审核员",
+   "type": "specialadmin",
+   "radminid": 3,
+   "allowed": 1
+  },
+  {
+   "groupid": 20,
+   "title": "临时组",
+   "type": "special",
+   "radminid": 0,
+   "allowed": 1
+  },
+  {
+   "groupid": 21,
+   "title": "区版主",
+   "type": "specialadmin",
+   "radminid": 3,
+   "allowed": 1
+  },
+  {
+   "groupid": 22,
+   "title": "字幕组",
+   "type": "special",
+   "radminid": 0,
+   "allowed": 1
+  },
+  {
+   "groupid": 23,
+   "title": "低权组",
+   "type": "special",
+   "radminid": 0,
+   "allowed": 1
+  },
+  {
+   "groupid": 24,
+   "title": "效能组",
+   "type": "special",
+   "radminid": 0,
+   "allowed": 1
+  }
+ ],
+ "expgroups": [
+  {
+   "groupid": 0,
+   "title": "普通用户"
+  },
+  {
+   "groupid": 1,
+   "title": "管理员"
+  },
+  {
+   "groupid": 2,
+   "title": "超级版主"
+  },
+  {
+   "groupid": 3,
+   "title": "版主"
+  },
+  {
+   "groupid": 4,
+   "title": "禁止发言"
+  },
+  {
+   "groupid": 5,
+   "title": "禁止访问"
+  },
+  {
+   "groupid": 8,
+   "title": "等待验证会员"
+  },
+  {
+   "groupid": 10,
+   "title": "新手上路"
+  },
+  {
+   "groupid": 16,
+   "title": "实习版主"
+  },
+  {
+   "groupid": 17,
+   "title": "网站编辑"
+  },
+  {
+   "groupid": 18,
+   "title": "信息监察员"
+  },
+  {
+   "groupid": 19,
+   "title": "审核员"
+  },
+  {
+   "groupid": 20,
+   "title": "临时组"
+  },
+  {
+   "groupid": 21,
+   "title": "区版主"
+  },
+  {
+   "groupid": 22,
+   "title": "字幕组"
+  },
+  {
+   "groupid": 23,
+   "title": "低权组"
+  },
+  {
+   "groupid": 24,
+   "title": "效能组"
+  }
+ ],
+ "adminids": [
+  0,
+  3,
+  2
+ ],
+ "limits": {
+  "extgroups_len": 30,
+  "reason": 200
+ },
+ "reason_required": 0
+}
