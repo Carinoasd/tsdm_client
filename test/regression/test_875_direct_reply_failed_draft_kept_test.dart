@@ -71,7 +71,7 @@ void main() {
   List<String> names() => dir.listSync().map((e) => e.uri.pathSegments.last).toList()..sort();
 
   setUpAll(() async {
-    // Without the log: test 911.
+    // The isolate without a log is test 911: `talker` can not be unset once set, so it can not be tested here.
     talker = TalkerFlutter.init(settings: TalkerSettings(enabled: false));
     _tr = await AppLocale.zhCn.build();
   });

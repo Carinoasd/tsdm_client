@@ -7,6 +7,7 @@ library;
 
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tsdm_client/features/local_notice/direct_reply_drafts.dart';
 import 'package:tsdm_client/features/local_notice/keys.dart';
@@ -22,9 +23,14 @@ void main() {
 
   test('no log set up and a directory that can not be written: no id, never an error', () async {
     expect(() => talker, throwsA(isA<Error>()), reason: 'nothing in this file sets the log up');
+    final printed = <String>[];
+    final previous = debugPrint;
+    debugPrint = (message, {wrapWidth}) => printed.add(message ?? '');
+    addTearDown(() => debugPrint = previous);
     final file = File('${dir.path}/not_a_dir')..writeAsStringSync('');
     final broken = DirectReplyDraftInbox(directory: () async => Directory(file.path));
     expect(await broken.put(uid: 1000, target: _floor, text: 'x'), isNull);
+    expect(printed, isNotEmpty, reason: 'the failure is printed in place of the log');
     tellAppOfDirectReplyDraft('1000-1-0000abcd');
     await broken.markHandled('1000-1-0000abcd');
   });
