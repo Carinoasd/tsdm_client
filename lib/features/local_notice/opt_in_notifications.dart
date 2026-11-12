@@ -188,14 +188,27 @@ final class SystemNotificationGate {
   bool get ready => _ready;
   bool _ready = false;
 
-  /// Whether the plugin was initialized during this run: it is initialized once, whatever the switch does after.
-  bool _initialized = false;
+  /// The initialization of the plugin during this run: once, whatever the switch does after, shared by a boot still
+  /// running (Linux does not wait for it) and the switch turned on meanwhile. Forgotten when it failed, to try again.
+  Future<bool>? _initializing;
+
+  /// Bumped by [enable]: a [boot] still running when the user turned the switch on leaves [ready] to it.
+  int _enables = 0;
 
   Future<bool> _initialize(OptInNoticePlugin plugin) async {
-    if (!_initialized) {
-      _initialized = await plugin.initialize();
+    final initializing = _initializing ??= plugin.initialize();
+    try {
+      final ok = await initializing;
+      if (!ok && identical(_initializing, initializing)) {
+        _initializing = null;
+      }
+      return ok;
+    } on Object {
+      if (identical(_initializing, initializing)) {
+        _initializing = null;
+      }
+      rethrow;
     }
-    return _initialized;
   }
 
   /// Whether notifications are posted now: always on [NoticePlatform.alwaysPosts], on the opt-in platforms when
@@ -222,11 +235,17 @@ final class SystemNotificationGate {
     if (!platform.optIn || !enabled) {
       return;
     }
+    final enables = _enables;
     var ok = false;
     try {
       ok = await _initialize(plugin) && await plugin.permitted();
     } on Object catch (e, st) {
       talker.handle(e, st, 'opt-in notifications boot failed');
+    }
+    if (enables != _enables) {
+      // The user turned the switch on meanwhile: that answer is the newer one.
+      talker.info('opt-in notifications boot result dropped: turned on meanwhile');
+      return;
     }
     _ready = ok;
     talker.info('opt-in notifications at boot: ${platform.name} ready=$ok');
@@ -248,6 +267,7 @@ final class SystemNotificationGate {
     if (!platform.optIn) {
       return OptInNoticeResult.unavailable;
     }
+    _enables++;
     try {
       if (!await _initialize(plugin)) {
         _ready = false;
@@ -300,19 +320,31 @@ Future<OptInNoticeResult> turnOnAppSystemNotifications() => turnOnSystemNotifica
   save: ({required on}) => getIt.get<SettingsRepository>().setValue(SettingsKeys.systemNotificationsOptIn, on),
 );
 
-/// The user turned the switch off: saved, and the notifications already shown taken back so nothing of the switch is
-/// left over (only when this run initialized the plugin; otherwise none were posted by it).
-Future<void> turnOffAppSystemNotifications() async {
-  await getIt.get<SettingsRepository>().setValue(SettingsKeys.systemNotificationsOptIn, false);
-  if (!systemNotificationGate.ready) {
+/// The user turned the switch off: saved with [save], and the notifications already shown taken back with
+/// [cancelAll] so nothing of the switch is left over (only when [gate] initialized the plugin during this run;
+/// otherwise none were posted by it).
+Future<void> turnOffSystemNotifications({
+  required SystemNotificationGate gate,
+  required Future<void> Function() save,
+  required Future<void> Function() cancelAll,
+}) async {
+  await save();
+  if (!gate.ready) {
     return;
   }
   try {
-    await flnp.cancelAll();
+    await cancelAll();
   } on Object catch (e, st) {
     talker.handle(e, st, 'taking back notifications failed');
   }
 }
+
+/// [turnOffSystemNotifications] with the gate, plugin and settings of the app.
+Future<void> turnOffAppSystemNotifications() => turnOffSystemNotifications(
+  gate: systemNotificationGate,
+  save: () => getIt.get<SettingsRepository>().setValue(SettingsKeys.systemNotificationsOptIn, false),
+  cancelAll: flnp.cancelAll,
+);
 
 /// [SystemNotificationGate.boot] of the app, called once at boot after the settings are loaded.
 Future<void> bootAppSystemNotifications() => systemNotificationGate.boot(

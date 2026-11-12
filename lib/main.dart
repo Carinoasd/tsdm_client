@@ -201,7 +201,8 @@ Future<void> _boot(List<String> args) async {
 
   // iOS, macOS, Linux: only once the user turned the notifications on in the settings (off by default, the permission
   // asked then). Otherwise the plugin is not initialized at all here, so nothing is asked and nothing posted. With them
-  // on it is initialized without asking anything, and turned off again when they are not allowed any more.
+  // on it is initialized without asking anything; iOS and macOS turn them off again when the permission was taken back
+  // meanwhile.
   if (systemNotificationGate.platform.darwin) {
     await bootAppSystemNotifications();
     if (systemNotificationGate.ready) {

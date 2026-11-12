@@ -7,6 +7,8 @@
 /// the platform is given to the gate instead.
 library;
 
+import 'dart:async';
+
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:talker_flutter/talker_flutter.dart';
@@ -53,6 +55,25 @@ final class _FakeOptIn implements OptInNoticePlugin {
     calls.add('permitted');
     return stillAllowed;
   }
+}
+
+/// A plugin whose boot check answers late (Linux: a notification service slow to answer).
+final class _LateOptIn implements OptInNoticePlugin {
+  final permittedLater = Completer<bool>();
+  int initializes = 0;
+
+  @override
+  Future<bool> initialize() async {
+    initializes++;
+    await Future<void>.delayed(Duration.zero);
+    return true;
+  }
+
+  @override
+  Future<bool> requestPermission() async => true;
+
+  @override
+  Future<bool> permitted() => permittedLater.future;
 }
 
 typedef _Shown = ({int id, String? title, String? body, NotificationDetails? details, String? payload});
@@ -271,6 +292,35 @@ void main() {
         expect(plugin.calls.where((c) => c == 'initialize'), hasLength(1));
         expect(gate.posts, isTrue);
       });
+    }
+  });
+
+  test('linux: turned on while the boot check still runs, the newer answer stays and one initialization', () async {
+    var on = true;
+    final gate = SystemNotificationGate(platform: NoticePlatform.linux, enabled: () => on);
+    final plugin = _LateOptIn();
+    final boot = gate.boot(enabled: true, plugin: plugin, turnOff: () async => on = false);
+    expect(await gate.enable(plugin), OptInNoticeResult.granted);
+    plugin.permittedLater.complete(false);
+    await boot;
+    expect(plugin.initializes, 1);
+    expect(on, isTrue);
+    expect(gate.posts, isTrue);
+  });
+
+  test('turned off: saved, and what was shown taken back only when this run initialized the plugin', () async {
+    for (final ready in [false, true]) {
+      final gate = SystemNotificationGate(platform: NoticePlatform.macOS, enabled: () => false);
+      if (ready) {
+        await gate.enable(_FakeOptIn());
+      }
+      final calls = <String>[];
+      await turnOffSystemNotifications(
+        gate: gate,
+        save: () async => calls.add('save'),
+        cancelAll: () async => calls.add('cancelAll'),
+      );
+      expect(calls, ready ? ['save', 'cancelAll'] : ['save'], reason: 'ready=$ready');
     }
   });
 
