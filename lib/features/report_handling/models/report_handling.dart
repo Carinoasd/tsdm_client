@@ -104,7 +104,7 @@ final class ReportReward {
       min: min,
       max: max,
       options: {
-        ...(options.isEmpty ? [for (var v = max; v >= min; v--) v] : options),
+        ...(options.isEmpty ? _steps(min, max) : options),
         0,
       }.toList()..sort((a, b) => b.compareTo(a)),
     );
@@ -124,6 +124,12 @@ final class ReportReward {
 
   /// The values offered, greatest first, 0 (no reward) among them.
   final List<int> options;
+}
+
+/// The values from [max] down to [min] the way the forum's select steps them: about ten, never hundreds.
+List<int> _steps(int min, int max) {
+  final step = ((max - min) / 10).ceil().clamp(1, 1 << 30);
+  return [for (var v = max; v >= min; v -= step) v];
 }
 
 /// One of the parts a source lists the reports by: a forum of the panel.
@@ -222,9 +228,17 @@ final class ModcpReportForm {
         !_keyed.hasMatch(_str(json['msg_field']))) {
       return null;
     }
+    final filled = [
+      for (final f in [json['ids_field'], json['uid_field'], json['credit_field'], json['msg_field']])
+        _str(f).substring(0, _str(f).indexOf('[') + 1),
+    ];
     return ModcpReportForm(
       url: uri.toString(),
-      fields: Map.unmodifiable({for (final e in fields.entries) '${e.key}': '${e.value}'}),
+      // The fields the app fills are never taken from the fixed ones (a reward is sent only when chosen).
+      fields: Map.unmodifiable({
+        for (final e in fields.entries)
+          if (!filled.any('${e.key}'.startsWith)) '${e.key}': '${e.value}',
+      }),
       idsField: _str(json['ids_field']),
       uidField: _str(json['uid_field']),
       creditField: _str(json['credit_field']),

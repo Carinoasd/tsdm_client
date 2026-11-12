@@ -163,6 +163,18 @@ void main() {
       expect(quiet['slotaddurl'], 'https://img.test/a.jpg');
     });
 
+    test('the fixed fields never carry the ones the app fills: no notice is no field', () {
+      final json = _fixture('bggrant_can')['form'] as Map<String, dynamic>;
+      final form = BackgroundGrantForm.parse({
+        ...json,
+        'fields': {...json['fields'] as Map<String, dynamic>, 'slotaddnotify': '1', 'slotadduid': '1'},
+      })!;
+      expect(form.fields, {'formhash': 'f1f2f3f4', 'slotaddsubmit': 'true'});
+      final body = form.body(image: 'a.jpg', uids: [35], expiry: '0', notify: false);
+      expect(body.containsKey('slotaddnotify'), isFalse);
+      expect(body['slotadduid'], '35');
+    });
+
     test('done only when the message starts with the prefix', () {
       expect(backgroundGrantResultOf('已发放给 1 位会员，到期 2026-11-19 23:59', '已发放给').success, isTrue);
       expect(backgroundGrantResultOf('没有发放背景的权限', '已发放给'), (success: false, message: '没有发放背景的权限'));

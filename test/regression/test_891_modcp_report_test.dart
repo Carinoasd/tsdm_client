@@ -141,6 +141,11 @@ void main() {
       expect(ReportReward.fromJson({'enabled': 1, 'min': 2, 'max': 2}), isNull);
       expect(ReportReward.fromJson(null), isNull);
       expect(ReportReward.fromJson({'enabled': 1, 'min': -1, 'max': 2})!.options, [2, 1, 0, -1]);
+      // A wide range without options is stepped as the forum's select, about ten values.
+      expect(
+        ReportReward.fromJson({'enabled': 1, 'min': -100, 'max': 100})!.options,
+        [100, 80, 60, 40, 20, 0, -20, -40, -60, -80, -100],
+      );
     });
 
     test('a form posting anywhere else, or of another shape, is never used', () {
@@ -159,6 +164,21 @@ void main() {
       ]) {
         expect(ModcpReportForm.parse({...submit, ...bad}, fid: 25), isNull, reason: '$bad');
       }
+    });
+
+    test('the fixed fields never carry the ones the app fills', () {
+      final submit = _fixture('modcp_report_fid25')['submit'] as Map<String, dynamic>;
+      final form = ModcpReportForm.parse({
+        ...submit,
+        'fields': {
+          ...submit['fields'] as Map<String, dynamic>,
+          'creditsvalue[1]': '3',
+          'msg[1]': 'x',
+          'reportids[]': '9',
+          'reportuids[9]': '1',
+        },
+      }, fid: 25)!;
+      expect(form.fields, {'formhash': 'f1f2f3f4', 'reportsubmit': 'true'});
     });
 
     test('the body: ids indexed, each reporter as listed, reward and message only when set', () {
@@ -224,6 +244,11 @@ void main() {
         isA<IdentityChangedException>(),
       );
       expect(ModcpReportSource.answerOf('<html></html>', uid: 33).isLeft(), isTrue);
+      // The forum's login ended under the same account: its prompt, not "account changed".
+      expect(
+        ModcpReportSource.answerOf(_fixture('modcp_report_guest'), uid: 33).getRight().toNullable(),
+        isA<ReportRefused>().having((r) => r.message, 'message', '您需要先登录才能继续本操作'),
+      );
     });
 
     test('done only on modcp_report_success; a reward out of range, the session ended', () {
@@ -246,6 +271,17 @@ void main() {
         isA<IdentityChangedException>(),
       );
       expect(ModcpReportSource.outcomeOf('<html></html>', uid: 33).getRight().toNullable(), isA<ReportUnknown>());
+      final loggedOut = {
+        ..._fixture('modcp_report_result_range'),
+        'uid': 0,
+        'login': 1,
+        'message': '您需要先登录才能继续本操作',
+        'message_key': 'to_login',
+      };
+      expect(
+        ModcpReportSource.outcomeOf(loggedOut, uid: 33).getRight().toNullable(),
+        isA<ReportNotDone>().having((d) => d.message, 'message', '您需要先登录才能继续本操作'),
+      );
     });
 
     test('posts the form once; never once the account changed', () async {

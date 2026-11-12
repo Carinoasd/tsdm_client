@@ -159,8 +159,10 @@ class _ProfilePageState extends State<ProfilePage> {
     }
 
     bool stillCurrent() => auth?.currentUser?.uid == uid;
-    final can = await memberAdminToolsOf(uid, stillCurrent: stillCurrent, isManager: isManager);
-    final background = await memberBackgroundGrantOf(uid, stillCurrent: stillCurrent, isManager: isManager);
+    final (can, background) = await (
+      memberAdminToolsOf(uid, stillCurrent: stillCurrent, isManager: isManager),
+      memberBackgroundGrantOf(uid, stillCurrent: stillCurrent, isManager: isManager),
+    ).wait;
     if (!mounted || !((can?.grant ?? false) || (can?.issue ?? false) || background)) {
       return;
     }

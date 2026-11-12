@@ -98,7 +98,11 @@ final class BackgroundGrantForm {
     }
     return BackgroundGrantForm(
       url: uri.toString(),
-      fields: Map.unmodifiable({for (final e in fields.entries) '${e.key}': '${e.value}'}),
+      // The fields the app fills are never taken from the fixed ones: no notice means the field is not sent at all.
+      fields: Map.unmodifiable({
+        for (final e in fields.entries)
+          if (!names.contains('${e.key}')) '${e.key}': '${e.value}',
+      }),
       urlField: names[0],
       uidsField: names[1],
       timeField: names[2],

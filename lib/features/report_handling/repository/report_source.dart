@@ -103,6 +103,10 @@ final class ModcpReportSource implements ReportSource {
       return left(HttpRequestFailedException(HttpStatus.ok));
     }
     if (json['uid'] is num && tsdmAppInt(json['uid']) != uid) {
+      // The forum's login ended (the app's account is the same): its login prompt, not another account.
+      if (tsdmAppInt(json['uid']) == 0 && json['error'] == 'message' && json['login'] == 1) {
+        return right(ReportRefused(tsdmAppText(json['message']).trim()));
+      }
       return left(IdentityChangedException());
     }
     if (modcpReportFromApi(json) case final list?) {
@@ -156,6 +160,10 @@ final class ModcpReportSource implements ReportSource {
       return right(const ReportUnknown());
     }
     if (result.uid != uid) {
+      // The forum's login ended: nothing was done, its login prompt is the reason.
+      if (result.uid == 0 && result.login) {
+        return right(ReportNotDone(result.reason.trim()));
+      }
       return left(IdentityChangedException());
     }
     if (result.messageKey == 'modcp_report_success') {

@@ -37,6 +37,9 @@ class _ReportHandlingPageState extends State<ReportHandlingPage> {
   String _scope = '';
   int _generation = 0;
 
+  /// The page of the part listed last: kept through a login asked meanwhile.
+  int _page = 1;
+
   final _selected = <int>{};
   final _credits = <int, int>{};
   final _messages = <int, TextEditingController>{};
@@ -55,13 +58,17 @@ class _ReportHandlingPageState extends State<ReportHandlingPage> {
     super.dispose();
   }
 
+  /// Forget the choices; the message fields still on screen this frame keep their controllers until it is drawn.
   void _clearChoices() {
     _selected.clear();
     _credits.clear();
-    for (final c in _messages.values) {
-      c.dispose();
-    }
+    final old = _messages.values.toList();
     _messages.clear();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      for (final c in old) {
+        c.dispose();
+      }
+    });
   }
 
   Future<void> _load({String? scope, int page = 1}) async {
@@ -80,6 +87,7 @@ class _ReportHandlingPageState extends State<ReportHandlingPage> {
       _loading = false;
       _answer = answer;
       if (answer case Right(value: ReportReady(:final list))) {
+        _page = list.page;
         final listed = {for (final i in list.items) i.id};
         _selected.retainWhere(listed.contains);
       }
@@ -90,13 +98,7 @@ class _ReportHandlingPageState extends State<ReportHandlingPage> {
     }
   }
 
-  Future<void> _reload() async {
-    final page = switch (_answer) {
-      Right(value: ReportReady(:final list)) => list.page,
-      _ => 1,
-    };
-    await _load(page: page);
-  }
+  Future<void> _reload() => _load(page: _page);
 
   Future<void> _open(ReportItem item) async {
     if (item.pid > 0) {
