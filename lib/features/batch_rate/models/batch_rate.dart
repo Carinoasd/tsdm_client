@@ -173,6 +173,7 @@ final class BatchRateInfo {
   /// Constructor.
   const BatchRateInfo({
     required this.uid,
+    required this.version,
     required this.formHash,
     required this.installed,
     required this.supported,
@@ -211,6 +212,8 @@ final class BatchRateInfo {
     final forms = _map(json['forms']);
     return BatchRateInfo(
       uid: _int(json['uid']),
+      // `batchrate_version` (3.9.0 third round) does not clash with the `version` of the other answers.
+      version: _str(json['batchrate_version']).isNotEmpty ? _str(json['batchrate_version']) : _str(json['version']),
       formHash: _str(json['formhash']),
       installed: _on(json['installed']),
       supported: _on(json['supported']),
@@ -241,6 +244,9 @@ final class BatchRateInfo {
 
   /// The account the answer is for.
   final int uid;
+
+  /// The batch rate plugin's version (`batchrate_version`), empty when the plugin is not there.
+  final String version;
 
   /// The form hash of the session.
   final String formHash;
@@ -520,6 +526,8 @@ final class BatchRateConfirm extends BatchRatePosted {
     required this.items,
     required this.submit,
     required this.fieldNames,
+    this.precheck,
+    this.condCredits,
   });
 
   /// The confirmation of an answer [json]; null when it is not one or its form posts elsewhere.
@@ -586,6 +594,21 @@ final class BatchRateConfirm extends BatchRatePosted {
         mult: name('mult_field', 'mult[{pid}]'),
         floors: name('floors_field', 'floors'),
       ),
+      precheck: switch (json['precheck']) {
+        final Map<String, dynamic> p => (
+          ok: _on(p['ok']),
+          errors: [
+            for (final e in _maps(p['errors'])) (code: _str(e['code']), id: _int(e['id']), message: _str(e['message'])),
+          ],
+        ),
+        _ => null,
+      },
+      condCredits: json['cond_credits'] is List
+          ? [
+              for (final c in _maps(json['cond_credits']))
+                (id: _int(c['id']), title: _str(c['title']), cond: _str(c['cond'])),
+            ]
+          : null,
     );
   }
 
@@ -664,6 +687,18 @@ final class BatchRateConfirm extends BatchRatePosted {
   /// The field names of the settings.
   final BatchRateFieldNames fieldNames;
 
+  /// What the plugin's checks of a sending say of these settings (`precheck`, 3.9.0 third round): sent only when
+  /// `ok`; null for an older answer (the app's own checks then).
+  final BatchRatePrecheck? precheck;
+
+  /// The credits a threshold may be set for (`cond_credits`, every credit of the forum; 3.9.0 third round); null for an
+  /// older answer.
+  final List<({int id, String title, String cond})>? condCredits;
+
+  /// The credits a threshold may be set for: [condCredits], or the credits rated for an older answer.
+  List<({int id, String title, String cond})> get thresholds =>
+      condCredits ?? [for (final c in credits) (id: c.id, title: c.title, cond: c.cond)];
+
   /// The floors of a thread (not the first floors of threads).
   bool get inThread => mode != BatchRateMode.list;
 }
@@ -701,7 +736,7 @@ final class BatchRateSettings {
   /// The settings a confirmation [c] was computed with: the forum's defaults the first time.
   factory BatchRateSettings.of(BatchRateConfirm c) => BatchRateSettings(
     scores: {for (final credit in c.credits) credit.id: credit.score},
-    conds: {for (final credit in c.credits) credit.id: credit.cond},
+    conds: {for (final t in c.thresholds) t.id: t.cond},
     mults: {for (final item in c.items) item.pid: item.mult},
     reason: c.reason,
     notify: c.notify || c.notifyForced,
@@ -766,13 +801,27 @@ final class BatchRateSettings {
   }
 }
 
-/// What keeps confirmation [c] with [settings] from being sent, checked before the plugin is asked: the plugin's
-/// [BatchRateConfirm.blocked], nothing rated, no score, a reason required but empty, a quota short (the plugin computes
-/// it but does not block on it), a multiple out of 1 to [multMax], a score times a multiple out of the credit's range.
-/// Empty when it may be sent.
+/// The plugin's checks of a sending, run on the settings of a confirmation: `ok`, or each check that failed with its
+/// `code` (`reason`, `score_range`, `mult_range`, `no_score`, `quota`), the credit (`id`, 0 for none) and the plugin's
+/// sentence.
+typedef BatchRatePrecheck = ({bool ok, List<({String code, int id, String message})> errors});
+
+/// What keeps confirmation [c] from being sent: the plugin's [BatchRateConfirm.blocked], nothing rated, and the
+/// plugin's [BatchRateConfirm.precheck] when it answered one; the app's own checks ([batchRateLocalHolds]) for an older
+/// answer. Empty when it may be sent.
 List<BatchRateHold> batchRateHolds(BatchRateConfirm c, BatchRateSettings settings, {int multMax = 99}) => [
   if (c.blocked) BatchRateHold.blocked,
   if (c.apply == 0) BatchRateHold.nothing,
+  ...switch (c.precheck) {
+    final precheck? => [if (!precheck.ok) BatchRateHold.precheck],
+    null => batchRateLocalHolds(c, settings, multMax: multMax),
+  },
+];
+
+/// The app's own checks of [settings] on confirmation [c], told as the settings change (before the plugin computes
+/// them): no score, a reason required but empty, a quota short, a multiple out of 1 to [multMax], a score times a
+/// multiple out of the credit's range.
+List<BatchRateHold> batchRateLocalHolds(BatchRateConfirm c, BatchRateSettings settings, {int multMax = 99}) => [
   if (settings.scored.isEmpty) BatchRateHold.noScore,
   if (c.reasonRequired && settings.reason.trim().isEmpty) BatchRateHold.reason,
   if (c.quota.any((q) => !q.ok)) BatchRateHold.quota,
@@ -798,6 +847,9 @@ Set<int> batchRateOutOfRange(BatchRateConfirm c, BatchRateSettings settings) => 
 enum BatchRateHold {
   /// The plugin says it would refuse it.
   blocked,
+
+  /// The plugin's checks of a sending failed (its sentences tell which).
+  precheck,
 
   /// No floor is rated.
   nothing,
@@ -1074,5 +1126,5 @@ final class BatchRateBatches {
 }
 
 /// The answer to a run or a taking back (a write result, `kind: handle`): what is `done` of `total`, what is
-/// `remaining`, `finished`; or the plugin's `message` when not `ok`.
-typedef BatchRateStep = ({bool ok, int done, int total, int remaining, bool finished, String message});
+/// `remaining` (null when not told), `finished`; or the plugin's `message` when not `ok`.
+typedef BatchRateStep = ({bool ok, int done, int total, int? remaining, bool finished, String message});

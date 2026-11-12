@@ -199,8 +199,8 @@ class _BatchRateBatchViewState extends State<BatchRateBatchView> {
             break;
           }
           // A part that takes nothing back three times in a row stops: never a loop without end.
-          still = lastRemaining != null && step.remaining >= lastRemaining && step.done == 0 ? still + 1 : 0;
-          lastRemaining = step.remaining;
+          still = lastRemaining != null && (step.remaining ?? 0) >= lastRemaining && step.done == 0 ? still + 1 : 0;
+          lastRemaining = step.remaining ?? 0;
           if (still >= 3) {
             message = fallback;
             break;
