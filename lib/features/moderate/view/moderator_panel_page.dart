@@ -68,8 +68,9 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
   /// The panel is linked to the accounts of a management group only (the "me" page), so asking here sends nothing for
   /// an ordinary member who does not open it by hand.
   Future<void> _loadStaff() async {
-    final uid = context.readOrNull<AuthenticationRepository>()?.currentUser?.uid;
-    bool stillCurrent() => !mounted || context.readOrNull<AuthenticationRepository>()?.currentUser?.uid == uid;
+    final auth = context.readOrNull<AuthenticationRepository>();
+    final uid = auth?.currentUser?.uid;
+    bool stillCurrent() => auth?.currentUser?.uid == uid;
     final ask =
         widget.staffTools ?? (uid == null ? null : () => StaffToolsAccess.check(uid, stillCurrent: stillCurrent));
     if (ask == null) {

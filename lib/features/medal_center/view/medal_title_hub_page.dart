@@ -218,7 +218,8 @@ class _StaffDestinationsState extends State<_StaffDestinations> {
 
   Future<void> _ask() async {
     // Not shown when the forum could not tell; the website has them.
-    final can = await StaffToolsAccess.check(widget.uid);
+    final auth = context.readOrNull<AuthenticationRepository>();
+    final can = await StaffToolsAccess.check(widget.uid, stillCurrent: () => auth?.currentUser?.uid == widget.uid);
     if (can != null && mounted) setState(() => _can = can);
   }
 

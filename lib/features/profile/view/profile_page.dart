@@ -139,7 +139,8 @@ class _ProfilePageState extends State<ProfilePage> {
 
   /// Only the accounts of a management group ask the forum for the tools, an ordinary member sends nothing more.
   Future<void> _loadAdminTools() async {
-    final uid = context.readOrNull<AuthenticationRepository>()?.currentUser?.uid;
+    final auth = context.readOrNull<AuthenticationRepository>();
+    final uid = auth?.currentUser?.uid;
     final profiles = context.readOrNull<ProfileRepository>();
     final viewing = widget.uid;
     if (uid == null || profiles == null || (widget.username == null && viewing == null) || viewing == '$uid') {
@@ -147,6 +148,7 @@ class _ProfilePageState extends State<ProfilePage> {
     }
     final can = await memberAdminToolsOf(
       uid,
+      stillCurrent: () => auth?.currentUser?.uid == uid,
       isManager: () async {
         final page = (await profiles.fetchProfile(uid: '$uid').run()).toNullable();
         final own = page == null ? null : (await buildProfilePage(page).run()).toNullable();
@@ -160,7 +162,7 @@ class _ProfilePageState extends State<ProfilePage> {
       return;
     }
     // The account in use may have changed while the forum answered.
-    if (context.readOrNull<AuthenticationRepository>()?.currentUser?.uid != uid) {
+    if (auth?.currentUser?.uid != uid) {
       return;
     }
     setState(() => _adminTools = can);
