@@ -26,10 +26,13 @@ List<String> issueMembers(String text) => <String>{
 /// or take them back, with a note; the latest issues. The title plugin's own form, checked again by the plugin.
 class TitleIssuePage extends StatefulWidget {
   /// Constructor.
-  const TitleIssuePage({this.repository, super.key});
+  const TitleIssuePage({this.repository, this.initialMembers, super.key});
 
   /// Injected for tests; the account's network client otherwise.
   final MedalTitleToolsRepository? repository;
+
+  /// Members the list starts with (a UID), empty when opened from the medal centre.
+  final String? initialMembers;
 
   @override
   State<TitleIssuePage> createState() => _TitleIssuePageState();
@@ -38,7 +41,7 @@ class TitleIssuePage extends StatefulWidget {
 class _TitleIssuePageState extends State<TitleIssuePage> {
   late final MedalTitleToolsRepository _repo =
       widget.repository ?? MedalTitleToolsRepository.network(getIt.get<NetClientProvider>());
-  final _members = TextEditingController();
+  late final _members = TextEditingController(text: widget.initialMembers ?? '');
   final _days = TextEditingController(text: '0');
   final _note = TextEditingController();
   final _search = TextEditingController();

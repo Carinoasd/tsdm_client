@@ -6,13 +6,11 @@ import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
-import 'package:tsdm_client/features/medal_title_tools/repository/medal_title_tools_repository.dart';
+import 'package:tsdm_client/features/medal_title_tools/utils/staff_access.dart';
 import 'package:tsdm_client/features/profile/bloc/current_title_cubit.dart';
 import 'package:tsdm_client/features/profile/widgets/secondary_title_badge.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
-import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
-import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
 import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 
@@ -196,44 +194,32 @@ class _HubDestination extends StatelessWidget {
 
 /// Sending medals and issuing titles, shown only to the accounts the forum lets use them.
 ///
-/// Whether the account may is asked once and kept for ten minutes: the answers carry the whole medal list and the
-/// latest sendings, too much to read each time this page opens.
+/// Whether the account may is asked once and kept for ten minutes, see [StaffToolsAccess].
 class _StaffDestinations extends StatefulWidget {
   const _StaffDestinations({required this.uid});
 
   final int uid;
-
-  static final _known = <int, ({bool grant, bool issue, DateTime at})>{};
 
   @override
   State<_StaffDestinations> createState() => _StaffDestinationsState();
 }
 
 class _StaffDestinationsState extends State<_StaffDestinations> {
-  ({bool grant, bool issue})? _can;
+  StaffTools? _can;
 
   @override
   void initState() {
     super.initState();
-    final known = _StaffDestinations._known[widget.uid];
-    if (known != null && DateTime.now().difference(known.at) < const Duration(minutes: 10)) {
-      _can = (grant: known.grant, issue: known.issue);
-    } else {
+    _can = StaffToolsAccess.cached(widget.uid);
+    if (_can == null) {
       unawaited(_ask());
     }
   }
 
   Future<void> _ask() async {
-    final repo = MedalTitleToolsRepository.network(getIt.get<NetClientProvider>());
-    try {
-      final grant = await repo.grant();
-      final issue = await repo.issue();
-      final can = (grant: grant?.canGrant ?? false, issue: issue?.canIssue ?? false);
-      _StaffDestinations._known[widget.uid] = (grant: can.grant, issue: can.issue, at: DateTime.now());
-      if (mounted) setState(() => _can = can);
-    } on Exception {
-      // Not shown; the website has them.
-    }
+    // Not shown when the forum could not tell; the website has them.
+    final can = await StaffToolsAccess.check(widget.uid);
+    if (can != null && mounted) setState(() => _can = can);
   }
 
   @override

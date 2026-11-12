@@ -1017,6 +1017,7 @@
   },
   "profilePage": {
     "title": "User Profile",
+    "adminMenu": "Manage",
     "userNodeNotFound": "user info root node not found",
     "secondaryTitle": "Secondary title",
     "checkin": {

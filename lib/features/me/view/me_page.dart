@@ -17,6 +17,7 @@ import 'package:tsdm_client/features/multi_user/widgets/current_account_avatar.d
 import 'package:tsdm_client/features/notification/utils/notice_page_tab.dart';
 import 'package:tsdm_client/features/profile/models/models.dart';
 import 'package:tsdm_client/features/profile/repository/profile_repository.dart';
+import 'package:tsdm_client/features/profile/utils/management_group.dart';
 import 'package:tsdm_client/features/profile/utils/profile_page_api.dart';
 import 'package:tsdm_client/features/root/stream/scroll_to_top_stream.dart';
 import 'package:tsdm_client/features/space/utils/space_switches.dart';
@@ -130,6 +131,9 @@ class _MePageState extends State<MePage> {
     // The profile of this very account, by its uid: the account in use may change while the page is on its way.
     final page = (await repository.fetchProfile(uid: '$uid').run()).toNullable();
     final profile = page == null ? null : (await buildProfilePage(page).run()).toNullable();
+    if (profile != null && profile.uid == '$uid') {
+      ManagementGroupCache.remember(uid, value: (profile.moderatorGroup ?? '').trim().isNotEmpty);
+    }
     if (profile == null) {
       // Asked again next time the page is built, not kept as missing.
       _profiles.removeWhere((key, _) => key == uid);

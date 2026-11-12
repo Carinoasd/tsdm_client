@@ -1017,6 +1017,7 @@
   },
   "profilePage": {
     "title": "个人资料",
+    "adminMenu": "管理",
     "userNodeNotFound": "未找到用户信息节点",
     "secondaryTitle": "称号",
     "checkin": {
