@@ -42,7 +42,9 @@ class _AdminBanPageState extends State<AdminBanPage> with AdminSessionLease {
   AdminReply? _failure;
   bool _loading = false;
   bool _sending = false;
-  bool _writable = true;
+
+  /// Known writable (`write` 1): the submit button is shown only then.
+  bool _writable = false;
   String _ban = 'post';
   int _days = 0;
   final _clear = <String>{'post'};
@@ -57,7 +59,7 @@ class _AdminBanPageState extends State<AdminBanPage> with AdminSessionLease {
   @override
   void initState() {
     super.initState();
-    _reason.addListener(() => _opId = null);
+    onAdminTextChanged(_reason, () => _opId = null);
     unawaited(_loadWritable());
     if (_target.text.trim().isNotEmpty) unawaited(_load());
   }
@@ -262,7 +264,10 @@ class _AdminBanPageState extends State<AdminBanPage> with AdminSessionLease {
           onPressed: _sending
               ? null
               : () async {
-                  await _runClear(member.member.uid, adminClearStart, member.postRows, member.postRows);
+                  final total = member.postRows > member.posts + member.threads
+                      ? member.postRows
+                      : member.posts + member.threads;
+                  await _runClear(member.member.uid, adminClearStart, total, total);
                   if (mounted) await _load();
                 },
           child: Text(tr.clearPosts),
@@ -274,7 +279,7 @@ class _AdminBanPageState extends State<AdminBanPage> with AdminSessionLease {
 
   Widget _form(AdminBanInfo info) {
     final tr = context.t.adminTools;
-    final enabled = !_sending && !_clearing && _writable;
+    final enabled = !_sending && !_clearing && !_loading && _writable;
     return AppSurface(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

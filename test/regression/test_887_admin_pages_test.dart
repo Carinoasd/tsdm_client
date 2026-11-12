@@ -139,6 +139,11 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('admin-credit-submit')));
       await _confirm(tester);
+      // Only looking at the reason (the cursor moved) keeps the operation the same.
+      tester.widget<TextField>(find.byKey(const ValueKey('admin-credit-reason'))).controller!.selection =
+          const TextSelection.collapsed(offset: 1);
+      await tester.tap(find.byKey(const ValueKey('admin-credit-reason')));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('admin-credit-submit')));
       await _confirm(tester);
       final posts = forum.of('admincredit', 'POST');
@@ -157,6 +162,25 @@ void main() {
       expect(find.byKey(const ValueKey('admin-credit-result')), findsOneWidget);
       expect(find.textContaining(t.adminTools.notified(n: 2)), findsOneWidget);
       expect(tester.widget<TextField>(find.byKey(const ValueKey('admin-credit-2'))).controller!.text, isEmpty);
+    });
+
+    testWidgets('a lookup that failed after one that answered: told, and nothing sent to the members before', (
+      tester,
+    ) async {
+      final found = adminFixture('credit_members')..['missing'] = <Object>[];
+      final forum = FakeAdminForum({
+        'GET:admincredit': [found, null],
+      });
+      await _pump(tester, AdminCreditPage(repository: forum.repository(), initialMembers: '101,103', writable: true));
+      FilledButton submit() => tester.widget<FilledButton>(find.byKey(const ValueKey('admin-credit-submit')));
+      expect(submit().onPressed, isNotNull);
+      await tester.enterText(find.byKey(const ValueKey('admin-target')), '104');
+      await tester.pumpAndSettle();
+      expect(submit().onPressed, isNull, reason: 'the text is not what was looked up');
+      await tester.tap(find.byKey(const ValueKey('admin-lookup')));
+      await tester.pumpAndSettle();
+      expect(find.text(t.adminTools.errorFailed), findsOneWidget);
+      expect(submit().onPressed, isNull);
     });
 
     testWidgets('write 0: no submit button', (tester) async {

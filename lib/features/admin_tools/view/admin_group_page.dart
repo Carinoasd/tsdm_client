@@ -46,7 +46,9 @@ class _AdminGroupPageState extends State<AdminGroupPage> with AdminSessionLease 
   AdminReply? _failure;
   bool _loading = false;
   bool _sending = false;
-  bool _writable = true;
+
+  /// Known writable (`write` 1): the submit button is shown only then.
+  bool _writable = false;
   String? _opId;
 
   /// Answers read: the form is built anew for each, so no field keeps the member read before.
@@ -55,7 +57,8 @@ class _AdminGroupPageState extends State<AdminGroupPage> with AdminSessionLease 
   @override
   void initState() {
     super.initState();
-    _reason.addListener(() => setState(() => _opId = null));
+    onAdminTextChanged(_reason, () => _opId = null);
+    _reason.addListener(() => setState(() {}));
     unawaited(_loadWritable());
     if (_target.text.trim().isNotEmpty) unawaited(_load());
   }
@@ -384,7 +387,7 @@ class _AdminGroupPageState extends State<AdminGroupPage> with AdminSessionLease 
               alignment: AlignmentDirectional.centerEnd,
               child: FilledButton(
                 key: const ValueKey('admin-group-submit'),
-                onPressed: _sending ? null : () => _submit(info, initial, draft),
+                onPressed: _sending || _loading ? null : () => _submit(info, initial, draft),
                 child: Text(tr.submit),
               ),
             ),

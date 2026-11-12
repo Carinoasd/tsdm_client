@@ -67,7 +67,8 @@ final class AdminSession {
   /// Clearings of members' posts left unfinished, by the account and the member: the cursor to go on from.
   final _clearCursors = <(int, int), AdminClearAt>{};
 
-  /// The token of account [uid]; null when none is kept for it (one kept for another account is dropped).
+  /// The token of account [uid]; null when none is kept for it. Not only a read: a token (and the clearings) kept for
+  /// another account are dropped here, as the account in use changed; every request asks it.
   String? tokenFor(int uid) {
     if (_held case final held? when held.uid != uid) {
       _held = null;
@@ -84,6 +85,11 @@ final class AdminSession {
 
   /// Forget the token.
   void drop() => _held = null;
+
+  /// Forget the token when it is still [token] (a newer login keeps its own).
+  void dropToken(String token) {
+    if (_held?.token == token) _held = null;
+  }
 
   /// An admin page (or the panel listing them) opened.
   void acquire() => _leases++;
@@ -294,7 +300,8 @@ final class AdminRepository {
   /// End the token (`op=logout`) and forget it; nothing is sent when none is kept for the account in use.
   Future<void> logout() async {
     final uid = _currentUid();
-    if (uid <= 0 || !_session.holds(uid)) {
+    final token = uid > 0 ? _session.tokenFor(uid) : null;
+    if (token == null) {
       _session.drop();
       return;
     }
@@ -303,7 +310,8 @@ final class AdminRepository {
     } on Exception catch (e) {
       talker.debug('admin logout failed: $e');
     } finally {
-      if (_session.holds(uid)) _session.drop();
+      // A page opened meanwhile may have logged in again: only the token logged out is forgotten.
+      _session.dropToken(token);
     }
   }
 }

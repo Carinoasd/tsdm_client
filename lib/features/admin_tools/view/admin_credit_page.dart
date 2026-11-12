@@ -43,7 +43,12 @@ class _AdminCreditPageState extends State<AdminCreditPage> with AdminSessionLeas
   AdminReply? _failure;
   bool _loading = true;
   bool _sending = false;
-  bool _writable = true;
+
+  /// Known writable (`write` 1): the submit button is shown only then.
+  bool _writable = false;
+
+  /// The members text of the last lookup that answered; submitting needs the text as looked up.
+  String? _lookedUp;
   AdminCreditResult? _result;
 
   /// The id of the write being sent; kept while the same form is sent again.
@@ -52,7 +57,8 @@ class _AdminCreditPageState extends State<AdminCreditPage> with AdminSessionLeas
   @override
   void initState() {
     super.initState();
-    _reason.addListener(_formChanged);
+    onAdminTextChanged(_reason, _formChanged);
+    _targets.addListener(() => setState(() {}));
     unawaited(_loadWritable());
     unawaited(_load());
   }
@@ -79,7 +85,8 @@ class _AdminCreditPageState extends State<AdminCreditPage> with AdminSessionLeas
   }
 
   Future<void> _load() async {
-    final targets = adminTargetsOf(_targets.text);
+    final text = _targets.text;
+    final targets = adminTargetsOf(text);
     setState(() {
       _loading = true;
       _failure = null;
@@ -95,16 +102,26 @@ class _AdminCreditPageState extends State<AdminCreditPage> with AdminSessionLeas
     );
     if (!mounted) return;
     final info = AdminCreditInfo.fromJson(reply.json);
+    if (info == null && _info != null) {
+      // The page stays, with the members of the lookup before: tell why this one failed.
+      showSnackBar(context: context, message: adminErrorText(context, reply));
+    }
     setState(() {
       _loading = false;
       _opId = null;
       if (info == null) {
         _failure = reply;
+        _lookedUp = null;
         return;
       }
       _info = info;
+      _lookedUp = text;
       for (final c in info.credits) {
-        _deltas.putIfAbsent(c.id, () => TextEditingController()..addListener(_formChanged));
+        _deltas.putIfAbsent(c.id, () {
+          final controller = TextEditingController();
+          onAdminTextChanged(controller, _formChanged);
+          return controller;
+        });
       }
     });
   }
@@ -303,7 +320,9 @@ class _AdminCreditPageState extends State<AdminCreditPage> with AdminSessionLeas
                           alignment: AlignmentDirectional.centerEnd,
                           child: FilledButton(
                             key: const ValueKey('admin-credit-submit'),
-                            onPressed: _sending || _loading || info.members.isEmpty ? null : () => _submit(info),
+                            onPressed: _sending || _loading || info.members.isEmpty || _lookedUp != _targets.text
+                                ? null
+                                : () => _submit(info),
                             child: Text(tr.submit),
                           ),
                         ),

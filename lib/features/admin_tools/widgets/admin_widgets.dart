@@ -58,6 +58,18 @@ String adminErrorText(BuildContext context, AdminReply reply) {
   };
 }
 
+/// Call [onChanged] when the text of [controller] changes; not for a move of the cursor or the selection, which the
+/// controller tells its listeners too (a write's `opid` is kept while the form stays the same).
+void onAdminTextChanged(TextEditingController controller, VoidCallback onChanged) {
+  var last = controller.text;
+  controller.addListener(() {
+    if (controller.text != last) {
+      last = controller.text;
+      onChanged();
+    }
+  });
+}
+
 /// Why the account may not change member [why] (`can` 0 of a member page).
 String adminWhyText(BuildContext context, String why) => switch (why) {
   'self' => context.t.adminTools.errorSelf,

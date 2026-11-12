@@ -317,6 +317,21 @@ void main() {
       expect(forum.session.holds(96), isFalse);
     });
 
+    test('a login made while a logout is on its way keeps its new token', () async {
+      final forum = FakeAdminForum({
+        'GET:admin': [adminFixture('admin_member_manager')],
+      });
+      forum.answers['POST:admin'] = [
+        (AdminRequest _) {
+          forum.session.keep(96, 'new-token-0000');
+          return {'ok': 1, 'type': 'admin', 'op': 'logout'};
+        },
+      ];
+      forum.session.keep(96, _token);
+      await forum.repository().logout();
+      expect(forum.session.tokenFor(96), 'new-token-0000');
+    });
+
     test('the app lock locking drops the token', () async {
       final session = AdminSession()..keep(96, _token);
       final lock = StreamController<bool>();
