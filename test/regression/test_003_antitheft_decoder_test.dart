@@ -38,8 +38,4 @@ void main() {
     expect(AntitheftDecoder.isChallenge(null), isFalse);
     expect(AntitheftDecoder.decode('<html></html>'), isNull);
   });
-
-  test('TEMP: deliberate failure for the CI summary', () {
-    expect(1, 2);
-  });
 }
