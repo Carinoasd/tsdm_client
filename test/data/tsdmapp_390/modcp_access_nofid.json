@@ -1,0 +1,77 @@
+{
+  "type": "modcp_forumaccess",
+  "schema": 38,
+  "ok": 1,
+  "api": 1,
+  "time": 1794490483,
+  "uid": 33,
+  "formhash": "f1f2f3f4",
+  "checknewpm": "",
+  "timeoffset": 8,
+  "fid": 0,
+  "forum": "",
+  "ismoderator": 0,
+  "forums": [
+    {
+      "fid": 2,
+      "name": "公告与新手报到"
+    },
+    {
+      "fid": 6,
+      "name": "新番追踪"
+    },
+    {
+      "fid": 12,
+      "name": "绘图插画"
+    },
+    {
+      "fid": 25,
+      "name": "周边交易区"
+    }
+  ],
+  "keyword": "",
+  "page": 1,
+  "perpage": 10,
+  "count": 0,
+  "pages": 1,
+  "list": [],
+  "result": {
+    "done": 0,
+    "error": 0,
+    "error_key": ""
+  },
+  "can_add": 0,
+  "add": {
+    "url": "forum.php?mod=modcp&action=forumaccess",
+    "method": "POST",
+    "fields": {
+      "formhash": "f1f2f3f4",
+      "op": "",
+      "addsubmit": "true"
+    },
+    "fid_field": "fid",
+    "user_field": "new_user",
+    "restore_field": "deleteaccess",
+    "restore_value": "1",
+    "deny_value": "-1",
+    "deny_fields": {
+      "view": "new_view",
+      "post": "new_post",
+      "reply": "new_reply",
+      "getattach": "new_getattach",
+      "getimage": "new_getimage",
+      "postattach": "new_postattach",
+      "postimage": "new_postimage"
+    }
+  },
+  "search": {
+    "url": "forum.php?mod=modcp&action=forumaccess",
+    "method": "POST",
+    "fields": {
+      "formhash": "f1f2f3f4",
+      "searchsubmit": "true"
+    },
+    "fid_field": "fid",
+    "user_field": "suser"
+  }
+}

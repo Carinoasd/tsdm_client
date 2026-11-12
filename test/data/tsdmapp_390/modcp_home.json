@@ -1,0 +1,62 @@
+{
+  "type": "modcp_home",
+  "schema": 39,
+  "ok": 1,
+  "api": 1,
+  "time": 1794490483,
+  "uid": 33,
+  "formhash": "f1f2f3f4",
+  "checknewpm": "",
+  "timeoffset": 8,
+  "fid": 0,
+  "forum": "",
+  "ismoderator": 0,
+  "forums": [
+    {
+      "fid": 2,
+      "name": "公告与新手报到"
+    },
+    {
+      "fid": 6,
+      "name": "新番追踪"
+    },
+    {
+      "fid": 12,
+      "name": "绘图插画"
+    },
+    {
+      "fid": 25,
+      "name": "周边交易区"
+    }
+  ],
+  "counts": {
+    "moderate": null,
+    "notes": 0,
+    "forums": 20
+  },
+  "notes": [],
+  "add": {
+    "url": "forum.php?mod=modcp&action=home",
+    "method": "POST",
+    "fields": {
+      "formhash": "f1f2f3f4",
+      "op": "addnote",
+      "submit": "true"
+    },
+    "message_field": "newmessage",
+    "supermod_field": "newaccess[2]",
+    "moderator_field": "newaccess[3]",
+    "days_field": "newexpiration",
+    "days_default": 30
+  },
+  "delete": {
+    "url": "forum.php?mod=modcp&action=home",
+    "method": "POST",
+    "fields": {
+      "formhash": "f1f2f3f4",
+      "op": "delete",
+      "notlistsubmit": "yes"
+    },
+    "ids_field": "delete[]"
+  }
+}

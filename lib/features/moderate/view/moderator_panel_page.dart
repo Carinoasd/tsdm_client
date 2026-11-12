@@ -17,18 +17,25 @@ import 'package:tsdm_client/features/batch_rate/view/batch_rate_list_page.dart';
 import 'package:tsdm_client/features/medal_title_tools/utils/staff_access.dart';
 import 'package:tsdm_client/features/medal_title_tools/view/medal_grant_page.dart';
 import 'package:tsdm_client/features/medal_title_tools/view/title_issue_page.dart';
+import 'package:tsdm_client/features/moderate/models/modcp_json_pages.dart';
 import 'package:tsdm_client/features/moderate/models/modcp_members.dart';
 import 'package:tsdm_client/features/moderate/models/modcp_panel.dart';
+import 'package:tsdm_client/features/moderate/repository/modcp_pages_repository.dart';
 import 'package:tsdm_client/features/moderate/repository/modcp_repository.dart';
 import 'package:tsdm_client/features/moderate/repository/moderate_repository.dart';
 import 'package:tsdm_client/features/moderate/utils/panel_tools_access.dart';
 import 'package:tsdm_client/features/moderate/view/announcements_page.dart';
 import 'package:tsdm_client/features/moderate/view/forum_rules_page.dart';
 import 'package:tsdm_client/features/moderate/view/member_review_page.dart';
+import 'package:tsdm_client/features/moderate/view/modcp_forum_access_page.dart';
 import 'package:tsdm_client/features/moderate/view/modcp_members_page.dart';
+import 'package:tsdm_client/features/moderate/view/modcp_notes_page.dart';
+import 'package:tsdm_client/features/moderate/view/modcp_posts_page.dart';
+import 'package:tsdm_client/features/moderate/view/modcp_threads_page.dart';
 import 'package:tsdm_client/features/moderate/view/moderate_queue_page.dart';
 import 'package:tsdm_client/features/moderate/view/moderator_log_page.dart';
 import 'package:tsdm_client/features/moderate/view/recycle_bin_page.dart';
+import 'package:tsdm_client/features/moderate/widgets/modcp_home_summary.dart';
 import 'package:tsdm_client/features/moderate/widgets/moderate_panel_login.dart';
 import 'package:tsdm_client/features/report_handling/repository/report_source.dart';
 import 'package:tsdm_client/features/report_handling/view/admin_report_page.dart';
@@ -52,6 +59,8 @@ class ModeratorPanelPage extends StatefulWidget {
     this.adminAccess,
     this.adminRepository,
     this.batchRate,
+    this.modcpPages,
+    this.pagesRepository,
     super.key,
   });
 
@@ -75,6 +84,13 @@ class ModeratorPanelPage extends StatefulWidget {
 
   /// Whether the account may read the batch rates (tsdmapp 3.9.0); asked of the forum (once per account) when null.
   final Future<BatchRateInfo?> Function()? batchRate;
+
+  /// The panel's pages the forum answers as fields (`status.modcp_pages`, tsdmapp 3.9.0); asked of the forum (with
+  /// [panelTools]) when null.
+  final Future<Set<String>?> Function()? modcpPages;
+
+  /// Those pages' requests; the app's client when null.
+  final ModcpPagesRepository? pagesRepository;
 
   @override
   State<ModeratorPanelPage> createState() => _ModeratorPanelPageState();
@@ -106,9 +122,65 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
   /// The batch rates the account may read; null until asked or when it may not.
   BatchRateInfo? _batchRate;
 
+  late final ModcpPagesRepository _pages = widget.pagesRepository ?? ModcpPagesRepository.network(_repository);
+
+  /// The panel's pages the forum answers as fields; none until asked.
+  Set<String> _modcpPages = const {};
+
+  /// The panel's first page (what waits), null until read or when it could not be (the panel's password not given).
+  ModcpHome? _home;
+
+  /// Asked as [_loadStaff] is; the first page read once the forum answers it.
+  Future<void> _loadModcpPages() async {
+    final auth = context.readOrNull<AuthenticationRepository>();
+    final uid = auth?.currentUser?.uid;
+    final ask =
+        widget.modcpPages ??
+        (uid == null
+            ? null
+            : () async {
+                await PanelToolsAccess.check(uid, stillCurrent: () => auth?.currentUser?.uid == uid);
+                return PanelToolsAccess.modcpPages(uid);
+              });
+    final pages = await ask?.call();
+    if (mounted && pages != null && pages.isNotEmpty) {
+      setState(() => _modcpPages = pages);
+      await _loadHome();
+    }
+  }
+
+  /// The first page asked last: an earlier answer is dropped.
+  int _homeGeneration = 0;
+
+  /// What waits on the panel's first page.
+  Future<void> _loadHome() async {
+    if (!_modcpPages.contains('home')) {
+      return;
+    }
+    final generation = ++_homeGeneration;
+    final answer = await _pages.fetchHome().run();
+    if (mounted && generation == _homeGeneration) {
+      setState(() {
+        _home = switch (answer) {
+          Right(value: ModcpReady(:final value)) => value,
+          _ => null,
+        };
+      });
+    }
+  }
+
+  /// Open [page], and read what waits again once back.
+  Future<void> _push(Widget Function() page) async {
+    await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page()));
+    if (mounted) {
+      await _loadHome();
+    }
+  }
+
   @override
   void initState() {
     super.initState();
+    unawaited(_loadModcpPages());
     unawaited(_loadMenu());
     unawaited(_loadStaff());
     unawaited(_loadPanel());
@@ -239,6 +311,36 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
         t.modcp.log,
         () => ModeratorLogPage(repository: repository),
       ),
+      // The panel's pages tsdmapp 3.9.0 answers as fields; the members' permissions need a group allowed to edit
+      // members (the panel's menu links it to those only).
+      if (_modcpPages.contains('home'))
+        (
+          const ValueKey('modcp-notes'),
+          Icons.sticky_note_2_outlined,
+          t.modcpPages.notes,
+          () => ModcpNotesPage(repository: _pages),
+        ),
+      if (_modcpPages.contains('thread')) ...[
+        (
+          const ValueKey('modcp-threads'),
+          Icons.topic_outlined,
+          t.modcpPages.threads,
+          () => ModcpThreadsPage(repository: _pages, moderateRepository: queueRepository),
+        ),
+        (
+          const ValueKey('modcp-posts'),
+          Icons.article_outlined,
+          t.modcpPages.posts,
+          () => ModcpPostsPage(repository: _pages),
+        ),
+      ],
+      if (_modcpPages.contains('forumaccess') && _offers((m) => m.has('forumaccess')))
+        (
+          const ValueKey('modcp-forum-access'),
+          Icons.admin_panel_settings_outlined,
+          t.modcpPages.access,
+          () => ModcpForumAccessPage(repository: _pages),
+        ),
       if (_offers((m) => m.canManageMembers))
         (
           const ValueKey('modcp-members'),
@@ -350,43 +452,66 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
       body: SafeArea(
         top: false,
         child: AppCenteredList(
-          builder: (context, padding, _) => GridView.extent(
-            key: const ValueKey('modcp-grid'),
-            maxCrossAxisExtent: 160,
-            mainAxisSpacing: 8,
-            crossAxisSpacing: 8,
-            childAspectRatio: 1.3,
+          builder: (context, padding, _) => ListView(
             padding: padding.copyWith(top: 12, bottom: 12),
             children: [
-              for (final (key, icon, label, page) in entries)
-                Material(
-                  key: key,
-                  color: colorScheme.surfaceContainerHigh,
-                  borderRadius: BorderRadius.circular(appInnerRadius),
-                  clipBehavior: Clip.antiAlias,
-                  child: InkWell(
-                    onTap: () => unawaited(
-                      Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page())),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(8),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(icon, color: colorScheme.primary, size: 28),
-                          const SizedBox(height: 8),
-                          Text(
-                            label,
-                            maxLines: 2,
-                            textAlign: TextAlign.center,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.labelLarge,
-                          ),
-                        ],
+              if (_home case final home?)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: ModcpHomeSummary(
+                    home: home,
+                    onModerate: () => unawaited(
+                      _push(
+                        () => ModcpForumPickerPage(
+                          title: t.moderate.queue,
+                          repository: repository,
+                          load: repository.fetchQueueForums,
+                          pageOf: (forum) =>
+                              ModerateQueuePage(fid: forum.fid, title: forum.name, repository: queueRepository),
+                        ),
                       ),
                     ),
+                    onNotes: () => unawaited(_push(() => ModcpNotesPage(repository: _pages))),
                   ),
                 ),
+              GridView.extent(
+                key: const ValueKey('modcp-grid'),
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                maxCrossAxisExtent: 160,
+                mainAxisSpacing: 8,
+                crossAxisSpacing: 8,
+                childAspectRatio: 1.3,
+                children: [
+                  for (final (key, icon, label, page) in entries)
+                    Material(
+                      key: key,
+                      color: colorScheme.surfaceContainerHigh,
+                      borderRadius: BorderRadius.circular(appInnerRadius),
+                      clipBehavior: Clip.antiAlias,
+                      child: InkWell(
+                        onTap: () => unawaited(_push(page)),
+                        child: Padding(
+                          padding: const EdgeInsets.all(8),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(icon, color: colorScheme.primary, size: 28),
+                              const SizedBox(height: 8),
+                              Text(
+                                label,
+                                maxLines: 2,
+                                textAlign: TextAlign.center,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.labelLarge,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ],
           ),
         ),

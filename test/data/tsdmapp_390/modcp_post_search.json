@@ -1,0 +1,207 @@
+{
+  "type": "modcp_post",
+  "schema": 37,
+  "ok": 1,
+  "api": 1,
+  "time": 1794490483,
+  "uid": 33,
+  "formhash": "f1f2f3f4",
+  "checknewpm": "",
+  "timeoffset": 8,
+  "fid": 2,
+  "forum": "公告与新手报到",
+  "ismoderator": 1,
+  "forums": [
+    {
+      "fid": 2,
+      "name": "公告与新手报到"
+    },
+    {
+      "fid": 6,
+      "name": "新番追踪"
+    },
+    {
+      "fid": 12,
+      "name": "绘图插画"
+    },
+    {
+      "fid": 25,
+      "name": "周边交易区"
+    }
+  ],
+  "do": "list",
+  "filters": {
+    "threadoption": "",
+    "starttime": "2026-10-30",
+    "endtime": "2026-11-12",
+    "keywords": "",
+    "users": "member_a",
+    "useip": ""
+  },
+  "threadoptions": [
+    {
+      "value": "0",
+      "label": "全部"
+    },
+    {
+      "value": "1",
+      "label": "主题首帖"
+    },
+    {
+      "value": "2",
+      "label": "主题回复帖"
+    }
+  ],
+  "limits": {
+    "days": 14,
+    "endtime_fixed": 1,
+    "results": 1000,
+    "keyword_min_bytes": 4
+  },
+  "error": 0,
+  "error_key": "",
+  "posttableid": 0,
+  "page": 1,
+  "perpage": 20,
+  "count": 8,
+  "pages": 1,
+  "posts": [
+    {
+      "pid": 16018,
+      "tid": 9203135,
+      "fid": 2,
+      "forum": "公告与新手报到",
+      "first": 1,
+      "subject": "paid thread",
+      "authorid": 104,
+      "author": "member_a",
+      "dateline": 1794483058,
+      "invisible": 0,
+      "message": "tsdmapp390 paid first",
+      "url": "forum.php?mod=redirect&goto=findpost&ptid=9203135&pid=16018"
+    },
+    {
+      "pid": 16017,
+      "tid": 9203134,
+      "fid": 2,
+      "forum": "公告与新手报到",
+      "first": 1,
+      "subject": "reward thread",
+      "authorid": 104,
+      "author": "member_a",
+      "dateline": 1794483057,
+      "invisible": 0,
+      "message": "tsdmapp390 reward first",
+      "url": "forum.php?mod=redirect&goto=findpost&ptid=9203134&pid=16017"
+    },
+    {
+      "pid": 16013,
+      "tid": 9203132,
+      "fid": 2,
+      "forum": "公告与新手报到",
+      "first": 0,
+      "subject": "other thread for 100",
+      "authorid": 104,
+      "author": "member_a",
+      "dateline": 1794483053,
+      "invisible": 0,
+      "message": "tsdmapp390 other reply",
+      "url": "forum.php?mod=redirect&goto=findpost&ptid=9203132&pid=16013"
+    },
+    {
+      "pid": 15782,
+      "tid": 9203132,
+      "fid": 2,
+      "forum": "公告与新手报到",
+      "first": 1,
+      "subject": "other thread for 100",
+      "authorid": 104,
+      "author": "member_a",
+      "dateline": 1794482822,
+      "invisible": 0,
+      "message": "tsdmapp390 other first",
+      "url": "forum.php?mod=redirect&goto=findpost&ptid=9203132&pid=15782"
+    },
+    {
+      "pid": 15779,
+      "tid": 9203130,
+      "fid": 2,
+      "forum": "公告与新手报到",
+      "first": 0,
+      "subject": "other thread for 102",
+      "authorid": 104,
+      "author": "member_a",
+      "dateline": 1794482819,
+      "invisible": 0,
+      "message": "tsdmapp390 other reply",
+      "url": "forum.php?mod=redirect&goto=findpost&ptid=9203130&pid=15779"
+    },
+    {
+      "pid": 15776,
+      "tid": 9203130,
+      "fid": 2,
+      "forum": "公告与新手报到",
+      "first": 1,
+      "subject": "other thread for 102",
+      "authorid": 104,
+      "author": "member_a",
+      "dateline": 1794482816,
+      "invisible": 0,
+      "message": "tsdmapp390 other first",
+      "url": "forum.php?mod=redirect&goto=findpost&ptid=9203130&pid=15776"
+    },
+    {
+      "pid": 15770,
+      "tid": 9203128,
+      "fid": 2,
+      "forum": "公告与新手报到",
+      "first": 0,
+      "subject": "other thread for 99",
+      "authorid": 104,
+      "author": "member_a",
+      "dateline": 1794482810,
+      "invisible": 0,
+      "message": "tsdmapp390 other reply",
+      "url": "forum.php?mod=redirect&goto=findpost&ptid=9203128&pid=15770"
+    },
+    {
+      "pid": 15767,
+      "tid": 9203128,
+      "fid": 2,
+      "forum": "公告与新手报到",
+      "first": 1,
+      "subject": "other thread for 99",
+      "authorid": 104,
+      "author": "member_a",
+      "dateline": 1794482807,
+      "invisible": 0,
+      "message": "tsdmapp390 other first",
+      "url": "forum.php?mod=redirect&goto=findpost&ptid=9203128&pid=15767"
+    }
+  ],
+  "allow_delete": 1,
+  "search": {
+    "url": "forum.php?mod=modcp&action=thread&op=post",
+    "method": "GET",
+    "fields": {
+      "do": "search",
+      "searchsubmit": "true",
+      "posttableid": "0"
+    },
+    "fid_field": "fid"
+  },
+  "list_url": "forum.php?mod=modcp&action=thread&op=post&do=list&fid=2&posttableid=0",
+  "delete": {
+    "url": "forum.php?mod=modcp&action=thread&op=post",
+    "method": "POST",
+    "fields": {
+      "formhash": "f1f2f3f4",
+      "fid": "2",
+      "do": "delete",
+      "posttableid": "0",
+      "deletesubmit": "true"
+    },
+    "ids_field": "delete[]",
+    "nocredit_field": "nocredit"
+  }
+}
