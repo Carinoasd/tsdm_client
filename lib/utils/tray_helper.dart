@@ -306,7 +306,7 @@ class TrayHelper with TrayListener, LoggerMixin {
     _started = false;
     _running.value = false;
     _initialization = null;
-    _translations = null;
+    // [_translations] is kept: a tray put up again from the settings has no `App.build` to give it back.
     try {
       await _settingsSubscription?.cancel();
     } on Exception catch (e) {

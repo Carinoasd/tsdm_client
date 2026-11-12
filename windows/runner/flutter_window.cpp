@@ -68,11 +68,13 @@ bool FlutterWindow::OnCreate() {
     return false;
   }
   RegisterPlugins(flutter_controller_->engine());
-  ::SetPropW(GetHandle(), kMainWindowProp, reinterpret_cast<HANDLE>(1));
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
     this->Show();
+    // Marked once shown: a window still waiting for its first frame is not
+    // one hidden in the tray.
+    ::SetPropW(GetHandle(), kMainWindowProp, reinterpret_cast<HANDLE>(1));
   });
 
   // Flutter can complete the first frame before the "show window" callback is

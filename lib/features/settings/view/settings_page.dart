@@ -778,14 +778,18 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
             onChanged: _switchingTray ? null : (v) => _toggleTrayIcon(context, enable: v),
           ),
         if (_trayPlatform.hasCloseToTraySwitch)
-          SectionSwitchListTile(
-            secondary: const Icon(Icons.close_fullscreen_outlined),
-            title: Text(_trayPlatform == TrayPlatform.macOS ? tr.closeToMenuBar : tr.closeToTray),
-            value: closeToTray && (!_trayPlatform.hasTrayIconSwitch || desktopTrayIcon),
-            // macOS: only with the menu bar icon, the window would have no way back.
-            onChanged: _switchingTray || (_trayPlatform.hasTrayIconSwitch && !desktopTrayIcon)
-                ? null
-                : (v) => _toggleCloseToTray(context, enable: v),
+          // Shown on only while it applies: the tray may have failed to start (Windows) or be off (macOS).
+          ValueListenableBuilder<bool>(
+            valueListenable: TrayHelper.instance.running,
+            builder: (context, trayRunning, _) => SectionSwitchListTile(
+              secondary: const Icon(Icons.close_fullscreen_outlined),
+              title: Text(_trayPlatform == TrayPlatform.macOS ? tr.closeToMenuBar : tr.closeToTray),
+              value: closeToTray && trayRunning,
+              // macOS: only with the menu bar icon, the window would have no way back.
+              onChanged: _switchingTray || (_trayPlatform.hasTrayIconSwitch && !desktopTrayIcon)
+                  ? null
+                  : (v) => _toggleCloseToTray(context, enable: v),
+            ),
           ),
       ],
     );
@@ -809,6 +813,8 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
         await settings.setValue(SettingsKeys.desktopTrayIcon, !turnsTraySwitchOff(_trayPlatform, result));
       } else {
         await settings.setValue(SettingsKeys.desktopTrayIcon, false);
+        // What the switches show is what there is: closing into the menu bar goes off with its icon.
+        await settings.setValue(SettingsKeys.closeToTray, false);
         await TrayHelper.instance.dispose();
       }
     } finally {

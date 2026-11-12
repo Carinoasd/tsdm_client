@@ -21,7 +21,7 @@ Future<bool> linuxTrayHostAvailable({Duration timeout = const Duration(seconds: 
     return false;
   } finally {
     try {
-      await client?.close().timeout(timeout);
+      await client?.close().timeout(const Duration(milliseconds: 500));
     } on Object catch (_) {
       // Nothing left to do with the bus.
     }
