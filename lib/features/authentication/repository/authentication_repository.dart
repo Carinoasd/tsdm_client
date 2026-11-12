@@ -13,6 +13,7 @@ import 'package:tsdm_client/features/authentication/repository/models/models.dar
 import 'package:tsdm_client/features/authentication/utils/logged_user_parser.dart';
 import 'package:tsdm_client/features/authentication/utils/login_parser.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
+import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/providers/cookie_provider/cookie_provider.dart';
@@ -427,30 +428,44 @@ class AuthenticationRepository with LoggerMixin {
     final netClient = _currentUserClientFactory(
       UserLoginInfo(username: user?.uid == target ? user?.username : null, uid: target),
     );
-    final respEither = await netClient.get(_checkAuthUrl).run();
-    if (respEither.isLeft()) {
-      return left(respEither.unwrapErr());
-    }
-    final resp = respEither.unwrap();
-    if (resp.statusCode != HttpStatus.ok) {
-      return left(HttpRequestFailedException(resp.statusCode));
-    }
-    final document = parseHtmlDocument(resp.data as String);
-    final userInfo = _parseUserInfoFromDocument(document);
-    if (userInfo == null) {
-      if (_isGuestPage(document)) {
-        // Not logged in any more: nothing to end on the server, drop the saved login.
-        info('logout: session already gone on the server, remove the saved login');
-        await _forgetCurrentUser();
-        return rightVoid();
-      }
-      warning('logout: no logged user on an unrecognized page, keep the saved login');
-      await _markUnauthenticated();
+    // The forum's app API tells the account of the session and its form hash (`status`); the settings page is read
+    // only when it does not (no plugin, a failed or busy request).
+    final String formHash;
+    final served = await _statusIdentityOf(netClient);
+    if (served != null && served.uid == 0) {
+      info('logout: session already gone on the server (app api), remove the saved login');
+      await _forgetCurrentUser();
       return rightVoid();
     }
-    final formHash = _formHashRe.firstMatch(document.body?.innerHtml ?? '')?.namedGroup('FormHash');
-    if (formHash == null) {
-      return left(LogoutFormHashNotFoundException());
+    if (served case (uid: > 0, formHash: final String hash)) {
+      formHash = hash;
+    } else {
+      final respEither = await netClient.get(_checkAuthUrl).run();
+      if (respEither.isLeft()) {
+        return left(respEither.unwrapErr());
+      }
+      final resp = respEither.unwrap();
+      if (resp.statusCode != HttpStatus.ok) {
+        return left(HttpRequestFailedException(resp.statusCode));
+      }
+      final document = parseHtmlDocument(resp.data as String);
+      final userInfo = _parseUserInfoFromDocument(document);
+      if (userInfo == null) {
+        if (_isGuestPage(document)) {
+          // Not logged in any more: nothing to end on the server, drop the saved login.
+          info('logout: session already gone on the server, remove the saved login');
+          await _forgetCurrentUser();
+          return rightVoid();
+        }
+        warning('logout: no logged user on an unrecognized page, keep the saved login');
+        await _markUnauthenticated();
+        return rightVoid();
+      }
+      final pageHash = _formHashRe.firstMatch(document.body?.innerHtml ?? '')?.namedGroup('FormHash');
+      if (pageHash == null) {
+        return left(LogoutFormHashNotFoundException());
+      }
+      formHash = pageHash;
     }
 
     final logoutRespEither = await netClient.get(_buildLogoutUrl(formHash)).run();
@@ -461,11 +476,21 @@ class AuthenticationRepository with LoggerMixin {
     if (logoutResp.statusCode != HttpStatus.ok) {
       return left(HttpRequestFailedException(logoutResp.statusCode));
     }
-    final logoutDocument = parseHtmlDocument(logoutResp.data as String);
-    final logoutMessage = logoutDocument.getElementById('messagetext');
-    if (logoutMessage == null || !logoutMessage.innerHtmlEx().contains('已退出')) {
-      // TODO: Here we'd better to check the failed reason.
-      return left(LogoutFailedException());
+    // The session is a guest's now (`status` of the forum's app API, asked with the cookies the logout left: the
+    // forum deletes the auth cookie), whatever the words of the page; the words decide only without the API.
+    final after = await _statusIdentityOf(netClient, waiting: true);
+    if (after != null) {
+      if (after.uid != 0) {
+        error('logout: the session is still uid ${"${after.uid}".obscured(4)} (app api)');
+        return left(LogoutFailedException());
+      }
+    } else {
+      final logoutDocument = parseHtmlDocument(tsdmAppAnswerText(logoutResp.data));
+      final logoutMessage = logoutDocument.getElementById('messagetext');
+      if (logoutMessage == null || !logoutMessage.innerHtmlEx().contains('已退出')) {
+        // TODO: Here we'd better to check the failed reason.
+        return left(LogoutFailedException());
+      }
     }
 
     await _forgetCurrentUser();
@@ -523,22 +548,35 @@ class AuthenticationRepository with LoggerMixin {
         return left(LoginInvalidCredentialException());
       }
       // Validate with an isolated session; failures must leave the active account untouched.
-      final resp = await _clientFactory(candidate).get(_checkAuthUrl).run();
-      if (resp.isLeft()) {
-        return left(resp.unwrapErr());
-      }
-      if (resp.unwrap().statusCode != HttpStatus.ok) {
-        return left(HttpRequestFailedException(resp.unwrap().statusCode));
-      }
+      final client = _clientFactory(candidate);
+      // The forum's app API tells the account of the session (`status`, no name: the saved one is kept); the settings
+      // page is read when it does not (no plugin, a failed or busy request), or when the saved login has no name.
+      final UserLoginInfo? parsedUserInfo;
+      final bool guest;
+      final served = await _statusIdentityOf(client);
+      final savedName = userInfo.username;
+      if (served != null && (served.uid != userInfo.uid || (savedName != null && savedName.isNotEmpty))) {
+        parsedUserInfo = served.uid == userInfo.uid ? UserLoginInfo(username: savedName, uid: served.uid) : null;
+        guest = served.uid == 0;
+      } else {
+        final resp = await client.get(_checkAuthUrl).run();
+        if (resp.isLeft()) {
+          return left(resp.unwrapErr());
+        }
+        if (resp.unwrap().statusCode != HttpStatus.ok) {
+          return left(HttpRequestFailedException(resp.unwrap().statusCode));
+        }
 
-      final document = parseHtmlDocument(resp.unwrap().data as String);
-      final parsedUserInfo = _parseUserInfoFromDocument(document);
+        final document = parseHtmlDocument(resp.unwrap().data as String);
+        parsedUserInfo = _parseUserInfoFromDocument(document);
+        guest = parsedUserInfo == null && _isGuestPage(document);
+      }
       if (parsedUserInfo == null || parsedUserInfo.uid != userInfo.uid) {
         error(
           'failed to switch user to uid=${"${userInfo.uid}".obscured(4)}, '
           'parsed uid=${"${parsedUserInfo?.uid}".obscured(4)}',
         );
-        if (parsedUserInfo == null && userInfo.uid != null && _isGuestPage(document)) {
+        if (parsedUserInfo == null && userInfo.uid != null && guest) {
           // The stored cookie of that account is dead: remember it (issue #25), the current account is untouched.
           // Only while its row holds the session checked: another one stored meanwhile says nothing of it.
           await getIt.get<StorageProvider>().markSessionExpiredIfHeld(userInfo.uid!, session: candidate.session);
@@ -563,6 +601,36 @@ class AuthenticationRepository with LoggerMixin {
       return rightVoid();
     }),
   );
+
+  /// The account the forum's app API says the session of [netClient] is (`status`: its `uid`, 0 for a guest) with the
+  /// session's form hash (null when it names none); null when the API does not tell (no plugin, a failed request, an
+  /// answer "too soon", one without a uid).
+  ///
+  /// [waiting] waits for an answer "too soon" ([TsdmAppApi.askWaiting]): the plugin takes one `status` per session
+  /// every few seconds, and the logout asks it again right after.
+  static Future<({int uid, String? formHash})?> _statusIdentityOf(
+    NetClientProvider netClient, {
+    bool waiting = false,
+  }) async {
+    final status = waiting
+        ? await TsdmAppApi.askWaiting(netClient, 'status')
+        : await TsdmAppApi.ask(netClient, 'status');
+    if (status == null || status['ok'] != 1) {
+      return null;
+    }
+    final uid = switch (status['uid']) {
+      final int n => n,
+      final String text => int.tryParse(text),
+      _ => null,
+    };
+    if (uid == null || uid < 0) {
+      return null;
+    }
+    final hash = status['formhash'];
+    return (uid: uid, formHash: hash is String && _statusFormHashRe.hasMatch(hash) ? hash : null);
+  }
+
+  static final _statusFormHashRe = RegExp(r'^\w+$');
 
   /// Parse html [document], find current logged in user uid in it.
   UserLoginInfo? _parseUserInfoFromDocument(uh.Document document) {

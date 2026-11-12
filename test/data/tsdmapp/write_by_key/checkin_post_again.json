@@ -1,0 +1,18 @@
+{
+ "ok": 1,
+ "api": 1,
+ "time": 1700000000,
+ "uid": 31,
+ "formhash": "f1f2f3f4",
+ "type": "result",
+ "schema": 13,
+ "kind": "page",
+ "message": "",
+ "message_key": "",
+ "url": "",
+ "handlekey": "",
+ "values": {},
+ "login": 0,
+ "alert": "",
+ "document": "<script type=\"text/javascript\" reload=\"1\">setTimeout(function() { hideWindow('qwindow'); }, 3000);</script>\n<div class=\"f_c\">\n<h3 class=\"flb\">\n<em id=\"return_win\">签到提示</em>\n<span>\n<a href=\"javascript:;\" class=\"flbc\" onclick=\"hideWindow('qwindow')\" title=\"关闭\">关闭</a></span>\n</h3>\n<div class=\"c\" id=\"dsu_ps_msg\">\n您今日已经签到，请明天再来！ </div>\n</div>\n"
+}

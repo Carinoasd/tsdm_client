@@ -1,0 +1,24 @@
+{
+ "ok": 1,
+ "api": 1,
+ "time": 1700000000,
+ "uid": 31,
+ "formhash": "f1f2f3f4",
+ "type": "result",
+ "schema": 13,
+ "kind": "handle",
+ "message": "回复需要审核，请等待通过",
+ "message_key": "post_reply_mod_succeed",
+ "url": "forum.php?mod=viewthread&tid=9202864",
+ "handlekey": "fastpost",
+ "values": {
+  "fid": "25",
+  "tid": "9202864",
+  "pid": "22424",
+  "from": "",
+  "sechash": "",
+  "reply_mod": "1"
+ },
+ "login": 0,
+ "alert": "right"
+}

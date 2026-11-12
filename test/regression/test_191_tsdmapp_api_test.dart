@@ -78,9 +78,12 @@ Map<String, Object?> _checkin({required int checked, required int open}) => {
 
 /// Answers the API with [api] and every other request with [pages] in order; records the requests.
 final class _Forum implements HttpClientAdapter {
-  _Forum({this.api, this.pages = const [], this.apiStatus = 200});
+  _Forum({this.api, this.pages = const [], this.apiStatus = 200, this.apiAfterPost});
 
   final Object? api;
+
+  /// What the API answers once a form was posted (the checkin read again after the post), [api] when null.
+  final Object? apiAfterPost;
   final List<String> pages;
   final int apiStatus;
   final requests = <RequestOptions>[];
@@ -96,6 +99,8 @@ final class _Forum implements HttpClientAdapter {
   ) async {
     requests.add(options);
     if (options.uri.queryParameters['id'] == 'tsdmapp:api') {
+      final posted = requests.any((e) => e.method == 'POST');
+      final api = posted ? (apiAfterPost ?? this.api) : this.api;
       final type = api is String ? 'text/html; charset=utf-8' : 'application/json; charset=utf-8';
       final body = switch (api) {
         final String s => s,
@@ -280,9 +285,12 @@ void main() {
           '<input type="hidden" name="formhash" value="XXXXXXXX" /></form></body></html>';
       const success =
           '<?xml version="1.0" encoding="utf-8"?>\n<root><![CDATA[<div class="c">恭喜你签到成功!获得随机奖励 天使币 10 .</div>]]></root>';
-      final (result, forum) = await checkin(_Forum(api: _checkin(checked: 0, open: 1), pages: [page, success]));
+      final (result, forum) = await checkin(
+        _Forum(api: _checkin(checked: 0, open: 1), apiAfterPost: _checkin(checked: 1, open: 1), pages: [page, success]),
+      );
       expect(result, isA<CheckinResultSuccess>());
-      expect(forum.requests.last.method, 'POST');
+      // The form is posted, then the API is read again for the outcome.
+      expect(forum.requests.map((e) => e.method).toList().reversed.take(2), ['GET', 'POST']);
     });
 
     test('an expired session told by the API', () async {

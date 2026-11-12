@@ -1030,30 +1030,37 @@ void main() {
       expect(() => parseCheckinResponseMessage(_orig('favorite_msg').body), returnsNormally);
     });
 
-    /// A forum whose check-in API says the check-in is open (with the form hash) and answers the post with [post].
-    _Forum checkinForum(_Answer post) => _Forum((r) {
-      if (r.uri.queryParameters['id'] == 'tsdmapp:api') {
-        return _api({
-          'ok': 1,
-          'api': 1,
-          'time': 1792523400,
-          'installed': 1,
-          'checked_today': 0,
-          'can_checkin': 1,
-          'window': {'enabled': 1, 'start_hour': 1, 'end_hour': 23, 'open_now': 1},
-          'day_start': 1792512000,
-          'last_time': 0,
-          'days': 3,
-          'month_days': 1,
-          'formhash': 'f1f2f3f4',
-        });
-      }
-      return post;
-    });
+    /// A forum whose check-in API says the check-in is open (with the form hash) and answers the post with [post];
+    /// once posted, the API says [checkedAfter] (the outcome is read again after the post).
+    _Forum checkinForum(_Answer post, {int checkedAfter = 1}) {
+      var posted = false;
+      return _Forum((r) {
+        if (r.method == 'POST') {
+          posted = true;
+        }
+        if (r.uri.queryParameters['id'] == 'tsdmapp:api') {
+          return _api({
+            'ok': 1,
+            'api': 1,
+            'time': 1792523400,
+            'installed': 1,
+            'checked_today': posted ? checkedAfter : 0,
+            'can_checkin': posted ? 1 - checkedAfter : 1,
+            'window': {'enabled': 1, 'start_hour': 1, 'end_hour': 23, 'open_now': 1},
+            'day_start': 1792512000,
+            'last_time': 0,
+            'days': 3,
+            'month_days': 1,
+            'formhash': 'f1f2f3f4',
+          });
+        }
+        return post;
+      });
+    }
 
     test('doCheckin: the result of the post, either way; a result no reader knows is told as text', () async {
-      Future<CheckinResult> run(_Answer post) =>
-          doCheckin(_client(checkinForum(post)), CheckinFeeling.happy, 'hi').run();
+      Future<CheckinResult> run(_Answer post, {int checkedAfter = 1}) =>
+          doCheckin(_client(checkinForum(post, checkedAfter: checkedAfter)), CheckinFeeling.happy, 'hi').run();
       expect(await run(_api(_json('checkin'))), isA<CheckinResultSuccess>());
       expect(await run(_web(_orig('checkin'))), isA<CheckinResultSuccess>());
       expect(await run(_api(_json('checkin_again'))), isA<CheckinResultAlreadyChecked>());
@@ -1062,7 +1069,10 @@ void main() {
       final login = {..._json('reply_msg_error'), 'message': '', 'login': 1, 'alert': 'info'};
       expect(await run(_api(login)), isA<CheckinResultNotAuthorized>());
       // A page without the window's text: the text of the page, never the decoded answer.
-      final empty = await run(_api({..._json('checkin'), 'document': '<script>hideWindow("qwindow");</script>'}));
+      final empty = await run(
+        _api({..._json('checkin'), 'document': '<script>hideWindow("qwindow");</script>'}),
+        checkedAfter: 0,
+      );
       expect(empty, isA<CheckinResultOtherError>().having((e) => e.message, 'message', isNot(contains('{'))));
       expect((empty as CheckinResultOtherError).message, isNot(contains('kind')));
     });
