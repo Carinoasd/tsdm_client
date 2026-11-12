@@ -1,0 +1,23 @@
+{
+ "ok": 1,
+ "api": 1,
+ "time": 1700000000,
+ "uid": 31,
+ "formhash": "f1f2f3f4",
+ "type": "result",
+ "schema": 13,
+ "kind": "handle",
+ "message": "非常感谢，回复发布成功，现在将转入主题页，请稍候……\n[ 点击这里转入主题列表 ]",
+ "message_key": "post_reply_succeed",
+ "url": "forum.php?mod=viewthread&tid=9202864&pid=22422&page=6&extra=#pid22422",
+ "handlekey": "fastpost",
+ "values": {
+  "fid": "25",
+  "tid": "9202864",
+  "pid": "22422",
+  "from": "",
+  "sechash": ""
+ },
+ "login": 0,
+ "alert": "right"
+}

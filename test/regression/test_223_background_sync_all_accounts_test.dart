@@ -362,8 +362,19 @@ final class _SwitchForum implements HttpClientAdapter {
       await hold!.future;
     }
     final user = _everyone.where((u) => _token(u) == token).firstOrNull;
+    final guest = user == null || expired.contains(token);
+    if (options.uri.queryParameters case {'id': 'tsdmapp:api', 'action': 'status'}) {
+      // The account of the session, as the forum's app API tells it (the switch asks it before the settings page).
+      return ResponseBody.fromString(
+        jsonEncode({'ok': 1, 'api': 1, 'uid': guest ? 0 : user.uid, 'formhash': 'f1f2f3f4'}),
+        200,
+        headers: {
+          Headers.contentTypeHeader: ['application/json; charset=utf-8'],
+        },
+      );
+    }
     return ResponseBody.fromString(
-      user == null || expired.contains(token) ? _guestPage : _authedPage(user),
+      guest ? _guestPage : _authedPage(user),
       200,
       headers: {
         Headers.contentTypeHeader: ['text/html; charset=utf-8'],

@@ -44,7 +44,7 @@ Task<CheckinResult> doCheckin(NetClientProvider netClient, CheckinFeeling feelin
         final formHash = await _apiFormHash(netClient, apiAnswer!);
         if (formHash != null) {
           talker.info('check in: form hash from the app api, checkin page skipped');
-          return _postCheckin(netClient, formHash, feeling, message);
+          return _postCheckin(netClient, formHash, feeling, message, askedAt: apiAnswer['time']);
         }
       case null:
         break;
@@ -91,7 +91,7 @@ Task<CheckinResult> doCheckin(NetClientProvider netClient, CheckinFeeling feelin
       return const CheckinResultFormHashNotFound();
     }
 
-    return _postCheckin(netClient, formHash, feeling, message);
+    return _postCheckin(netClient, formHash, feeling, message, askedAt: apiAnswer?['time']);
   });
 }
 
@@ -119,12 +119,16 @@ Future<String?> _apiFormHash(NetClientProvider netClient, Map<String, dynamic> c
 }
 
 /// Post the checkin form with [formHash], [feeling] and [message], the same fields as the web page sends.
+///
+/// [askedAt] is the forum's clock (`time`) of the `checkin` answer read before the post, when there was one: a
+/// checkin recorded at or after it is the one posted ([_checkinStateAfterPost]).
 Future<CheckinResult> _postCheckin(
   NetClientProvider netClient,
   String formHash,
   CheckinFeeling feeling,
-  String message,
-) async {
+  String message, {
+  Object? askedAt,
+}) async {
   final body = <String, String>{
     'formhash': formHash,
     'qdxq': feeling.toString(),
@@ -148,6 +152,18 @@ Future<CheckinResult> _postCheckin(
   }
   final checkInResult = parseCheckinResponseMessage(checkInResp.data);
 
+  // What the forum's app API says now decides (the check-in plugin's answer has no language key: its float window
+  // is a `page`): the words of the answer only tell why when it did not check in. Without the API (an older plugin,
+  // no checkin plugin, a failed read) the words decide, as before.
+  final askedTime = switch (askedAt) {
+    final int n => n,
+    final String text => int.tryParse(text),
+    _ => null,
+  };
+  if (await _checkinStateAfterPost(netClient, askedAt: askedTime) case final state?) {
+    return _resultByState(state, checkInResult, apiResult, checkInResp.data);
+  }
+
   // Return results.
   if (checkInResult == null) {
     // What the answer says, as text: the forum's fragment as it came, or the message (or the page text) of the app
@@ -166,6 +182,80 @@ Future<CheckinResult> _postCheckin(
 
   talker.error('check in with other error: $checkInResult');
   return CheckinResultOtherError(checkInResult);
+}
+
+/// The checkin state the forum's app API tells right after the checkin form was posted, null when it does not tell
+/// ([checkinStateOf]: no plugin, an older one, no checkin plugin, a failed read).
+///
+/// The plugin takes one call of an action per account every few seconds and `checkin` was just asked before the
+/// post: the answer "too soon" is waited for ([TsdmAppApi.askWaiting]). An answer "not logged in" is a state too.
+///
+/// Checked in is also a checkin recorded (`last_time`) at or after [askedAt], the clock of the answer read before the
+/// post: the forum's day may have turned while the answer was waited for (a checkin posted at 23:59:5x). Without that
+/// clock only `checked_today` tells (a checkin of another device just before the post is never taken for this one).
+Future<({bool checkedToday, bool openNow, bool loggedOut})?> _checkinStateAfterPost(
+  NetClientProvider netClient, {
+  int? askedAt,
+}) async {
+  final answer = await TsdmAppApi.askWaiting(netClient, 'checkin');
+  if (answer != null && answer['ok'] == 0 && answer['error'] == 'login') {
+    return (checkedToday: false, openNow: false, loggedOut: true);
+  }
+  final lastTime = answer?['last_time'];
+  final recorded = lastTime is int && lastTime > 0 && askedAt != null && lastTime >= askedAt;
+  return switch (checkinStateOf(answer)) {
+    (:final checkedToday, :final openNow) => (
+      checkedToday: checkedToday || recorded,
+      openNow: openNow,
+      loggedOut: false,
+    ),
+    null => null,
+  };
+}
+
+/// The result of the checkin posted, decided by [state], the forum's app API read after the post: checked in today
+/// is a success, whatever the words of the answer say ([text], the message parsed from it, kept for the user), unless
+/// they say it was done already (checked in meanwhile elsewhere); not checked in is never one, the words
+/// ([_checkCheckinResultText]) only tell why, and the closed window tells it when they do not.
+CheckinResult _resultByState(
+  ({bool checkedToday, bool openNow, bool loggedOut}) state,
+  String? text,
+  TsdmAppWriteResult? apiResult,
+  Object? data,
+) {
+  if (state.loggedOut) {
+    talker.error('check in failed: not logged in (app api, after the post)');
+    return const CheckinResultNotAuthorized();
+  }
+  final told = text == null ? null : _checkCheckinResultText(text);
+  if (state.checkedToday) {
+    if (told is CheckinResultAlreadyChecked) {
+      // Checked in meanwhile by another device or the background checkin: done today either way.
+      talker.info('check in skipped: checked in today already (app api, after the post)');
+      return told;
+    }
+    talker.info('check in success: checked in today (app api, after the post)');
+    return CheckinResultSuccess(text ?? '');
+  }
+  if (told != null && told is! CheckinResultSuccess && told is! CheckinResultAlreadyChecked) {
+    return told;
+  }
+  if (told is CheckinResultSuccess || told is CheckinResultAlreadyChecked) {
+    // The words say checked in, the forum has no checkin of today: the forum's record decides, the words are what
+    // there is to show.
+    talker.warning('check in: the answer says checked in, the app api has no checkin of today');
+  }
+  if (!state.openNow) {
+    talker.warning('check in not done: checkin is not open now (app api, after the post)');
+    return const CheckinResultEarlyInTime();
+  }
+  final reason =
+      text ??
+      (apiResult == null
+          ? tsdmAppAnswerText(data)
+          : (apiResult.reason.isNotEmpty ? apiResult.reason : (apiResult.document.body?.text ?? '').trim()));
+  talker.error('check in not done: not checked in today (app api, after the post), ${reason.length} bytes');
+  return CheckinResultOtherError(reason);
 }
 
 /// The result of a request that did not get a usable answer.
