@@ -30,8 +30,8 @@
    "after": "«辯論 D1_BODY_925316 辯論說明\n结束时间: 2026-10-23 09:51 裁判: ag_mod\n￼\n￼»\n«正方观点 (2)\n正方觀點 AFF_925316»\n«»\n«VS»\n«»\n«反方观点 (1)\n反方觀點 NEG_925316»\n«辩手:1 ( ￼加入 )\n•  ￼[img]\n￼ag_low»\n«@»\n«@»\n« »\n«辩手:1 ( ￼加入 )\n•  ￼[img]\n￼ag_mid»\n«@»\n«@»\n"
   },
   "test/data/tsdmapp/special_v15_reward_open_author.json#5800": {
-   "before": "«￼\n\n\nREWARD_R1_Q_222088 問題\n我来回答»\n«Bounty»\n«PROCESSING»\n«2 coins»\n",
-   "after": "«￼\n\n\nREWARD_R1_Q_222088 問題»\n«Bounty»\n«PROCESSING»\n«2 coins»\n"
+   "before": "«￼\n\n\nREWARD_R1_Q_222088 問題\n我来回答»\n«Bounty»\n«Open»\n«2 angel coins»\n",
+   "after": "«￼\n\n\nREWARD_R1_Q_222088 問題»\n«Bounty»\n«Open»\n«2 angel coins»\n"
   }
  }
 }
