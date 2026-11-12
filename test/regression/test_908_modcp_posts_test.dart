@@ -160,6 +160,9 @@ void main() {
         {'url': 'https://evil.test/forum.php?mod=modcp&action=thread&op=post'},
         {'ids_field': 'delete'},
         {'nocredit_field': 'no credit'},
+        {'nocredit_field': 'do'},
+        {'nocredit_field': 'fid'},
+        {'ids_field': 'action[]'},
         {
           'fields': {'formhash': 'f', 'fid': '2', 'do': 'delete', 'deletesubmit': 'true', 'mod': 'post'},
         },

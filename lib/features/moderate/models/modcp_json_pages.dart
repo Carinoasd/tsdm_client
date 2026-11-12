@@ -72,6 +72,11 @@ final class ModcpPanelForm {
         q.keys.any((k) => !{'mod', 'action', if (op != null) 'op', ...query}.contains(k))) {
       return null;
     }
+    // The names the app fills come from the answer too: never one choosing the page, nor one checked here.
+    final names = {for (final f in filled) _bare(f)};
+    if (names.any((n) => _guarded.contains(n) || expect.containsKey(n))) {
+      return null;
+    }
     final given = (fields as Map?) ?? const {};
     if (expect.entries.any((e) => _str(given[e.key]) != e.value || !given.containsKey(e.key))) {
       return null;
@@ -85,7 +90,7 @@ final class ModcpPanelForm {
       if (_guarded.contains(_bare(name)) && !expect.containsKey(name)) {
         return null;
       }
-      if (!filled.contains(_bare(name))) {
+      if (!names.contains(_bare(name))) {
         fixed[name] = _str(value);
       }
     }

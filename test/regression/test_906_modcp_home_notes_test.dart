@@ -182,6 +182,16 @@ void main() {
       ]) {
         expect(ModcpNoteAddForm.parse({...add, 'fields': fields}), isNull, reason: '$fields');
       }
+      // Nor do the names the app fills, which come from the answer too.
+      expect(ModcpNoteAddForm.parse({...add, 'message_field': 'op'}), isNull);
+      expect(
+        ModcpIdsForm.parse(
+          {..._fixture('modcp_home')['delete'] as Map<String, dynamic>, 'ids_field': 'op[]'},
+          action: 'home',
+          expect: const {'op': 'delete'},
+        ),
+        isNull,
+      );
       final delete = _fixture('modcp_home')['delete'] as Map<String, dynamic>;
       expect(
         ModcpIdsForm.parse(

@@ -55,7 +55,16 @@ class _ModcpForumAccessPageState extends State<ModcpForumAccessPage> {
     _ => null,
   };
 
-  Future<void> _ask(Future<Either<AppException, ModcpAnswer<ModcpAccessPage>>> Function() request) async {
+  /// The member looked up when the panel asked its password: looked up again once logged in.
+  String? _searching;
+
+  /// Ask [request] and show its answer; [searching] is the member looked up, [opening] the forum and page asked: what
+  /// is asked again when the panel asks its password first.
+  Future<void> _ask(
+    Future<Either<AppException, ModcpAnswer<ModcpAccessPage>>> Function() request, {
+    String? searching,
+    ({int fid, int page})? opening,
+  }) async {
     final generation = ++_generation;
     setState(() => _loading = true);
     final answer = await request();
@@ -70,6 +79,15 @@ class _ModcpForumAccessPageState extends State<ModcpForumAccessPage> {
       setState(() => _loading = false);
       showModcpLoadFailure(context, answer);
       return;
+    }
+    if (answer case Right(value: ModcpNeedsLogin())) {
+      _searching = searching;
+      if (opening != null) {
+        _fid = opening.fid;
+        _page = opening.page;
+      }
+    } else {
+      _searching = null;
     }
     _show(answer);
     if (answer case Right(
@@ -90,12 +108,17 @@ class _ModcpForumAccessPageState extends State<ModcpForumAccessPage> {
     }
   });
 
-  Future<void> _open(int fid, {int page = 1}) => _ask(() => widget.repository.fetchAccess(fid: fid, page: page).run());
+  Future<void> _open(int fid, {int page = 1}) => _ask(
+    () => widget.repository.fetchAccess(fid: fid, page: page).run(),
+    opening: (fid: fid, page: page),
+  );
 
   /// What was shown last, asked again: the member looked up looked up again.
   Future<void> _reload() {
-    if (_last case final last? when last.keyword.isNotEmpty && !last.needForum) {
-      return _ask(() => widget.repository.searchAccess(last, last.keyword).run());
+    final last = _last;
+    final keyword = _searching ?? last?.keyword ?? '';
+    if (last != null && keyword.isNotEmpty && !last.needForum) {
+      return _ask(() => widget.repository.searchAccess(last, keyword).run(), searching: keyword);
     }
     return _open(_fid, page: _page);
   }
@@ -119,7 +142,7 @@ class _ModcpForumAccessPageState extends State<ModcpForumAccessPage> {
       await _open(shown.fid);
       return;
     }
-    await _ask(() => widget.repository.searchAccess(shown, name).run());
+    await _ask(() => widget.repository.searchAccess(shown, name).run(), searching: name);
   }
 
   /// Set the permissions of [entry] (a new member when null).

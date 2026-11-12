@@ -79,6 +79,7 @@ class _ModcpThreadsPageState extends State<ModcpThreadsPage> {
     bool Function(ModcpThreadPage page)? accept,
     VoidCallback? onRejected,
     Map<String, String>? searching,
+    ({int fid, int page})? opening,
   }) async {
     final generation = ++_generation;
     setState(() => _loading = true);
@@ -115,6 +116,11 @@ class _ModcpThreadsPageState extends State<ModcpThreadsPage> {
           _conditions = value.isSearch ? (searching ?? _conditions) : null;
         case Right(value: ModcpNeedsLogin()) when searching != null:
           _conditions = searching;
+        case Right(value: ModcpNeedsLogin()) when opening != null:
+          // What was asked is asked again once logged in.
+          _conditions = null;
+          _fid = opening.fid;
+          _page = opening.page;
         default:
           break;
       }
@@ -127,10 +133,10 @@ class _ModcpThreadsPageState extends State<ModcpThreadsPage> {
   }
 
   /// The threads of forum [fid], page [page].
-  Future<void> _open(int fid, {int page = 1}) {
-    _conditions = null;
-    return _ask(() => widget.repository.fetchThreads(fid: fid, page: page).run());
-  }
+  Future<void> _open(int fid, {int page = 1}) => _ask(
+    () => widget.repository.fetchThreads(fid: fid, page: page).run(),
+    opening: (fid: fid, page: page),
+  );
 
   /// What was shown last, asked again: the search run again (the panel's session may have lost it, or asked its
   /// password meanwhile), or the forum's page.

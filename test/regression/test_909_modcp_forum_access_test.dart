@@ -81,7 +81,12 @@ ModcpPagesRepository _repo({
 
   Future<Either<AppException, ({int statusCode, Object? data})>> post(String url, Map<String, String> body) async {
     posted?.add((url, body));
-    return right((statusCode: 200, data: reply ?? _page(done: 1)));
+    if (url.contains('action=login')) {
+      // The panel's login: it sends the account on to the panel.
+      return right((statusCode: 302, data: null));
+    }
+    final data = reply is Object? Function(Map<String, String> body) ? reply(body) : reply;
+    return right((statusCode: 200, data: data ?? _page(done: 1)));
   }
 
   return ModcpPagesRepository(
@@ -142,6 +147,11 @@ void main() {
         {'url': 'https://evil.test/forum.php?mod=modcp&action=forumaccess'},
         {'url': 'forum.php?mod=modcp&action=forumaccess&op=delete'},
         {'user_field': 'new user'},
+        {'fid_field': 'action'},
+        {'restore_field': 'op'},
+        {
+          'deny_fields': {...deny, 'post': 'mod'},
+        },
         {
           'fields': {'formhash': 'f', 'op': 'delete', 'addsubmit': 'true'},
         },
@@ -306,6 +316,40 @@ void main() {
       expect(posted.single.$2, containsPair('deleteaccess', '1'));
       expect(posted.single.$2['new_user'], 'ag_low2');
       expect(find.text('Set in the admin centre: moderators can not change it'), findsOneWidget);
+    });
+
+    testWidgets("the panel's password asked while looking a member up: looked up again once logged in", (tester) async {
+      final posted = <(String, Map<String, String>)>[];
+      var login = true;
+      await pump(
+        tester,
+        _repo(
+          posted: posted,
+          reply: (Map<String, String> body) {
+            if (login) {
+              login = false;
+              return {
+                ..._fixture('modcp_report_login'),
+                'uid': 33,
+                'head': "<script>var discuz_uid = '33';</script>",
+              };
+            }
+            return _page(keyword: body['suser'] ?? '', entries: [_entry(35, 'ag_low2', post: -1)]);
+          },
+        ),
+      );
+      await tester.tap(find.byKey(const ValueKey('modcp-access-search')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const ValueKey('modcp-access-search-name')), 'ag_low2');
+      await tester.tap(find.byKey(const ValueKey('modcp-access-search-submit')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'pw');
+      await tester.tap(find.byType(FilledButton));
+      await tester.pumpAndSettle();
+      final searches = posted.where((e) => e.$2.containsKey('suser')).toList();
+      expect(searches.length, 2);
+      expect(searches.last.$2['suser'], 'ag_low2');
+      expect(find.byKey(const ValueKey('modcp-access-clear-search')), findsOneWidget);
     });
 
     testWidgets('a permission the admin centre allowed can not be ticked', (tester) async {
