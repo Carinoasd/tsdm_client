@@ -464,7 +464,13 @@ void main() {
       final id = await inbox.put(uid: 1000, target: _floor, text: '一');
       await collect();
       expect(names(), ['$id.done']);
-      now = now.add(DirectReplyDraftInbox.keepFor + const Duration(days: 1));
+      // The age of a mark is the age of its file: written at the time of the test run, not at `now`. Set, so that the
+      // test does not depend on the day it runs.
+      File('${dir.path}/$id.done').setLastModifiedSync(now);
+      now = now.add(DirectReplyDraftInbox.keepFor - const Duration(days: 1));
+      await collect();
+      expect(names(), ['$id.done']);
+      now = now.add(const Duration(days: 2));
       await collect();
       expect(dir.listSync(), isEmpty);
     });
