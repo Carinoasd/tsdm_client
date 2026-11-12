@@ -31,19 +31,19 @@ abstract final class ManagementGroupCache {
     if (kept != null) {
       return Future.value(kept);
     }
-    return _asking[uid] ??= () async {
-      try {
-        final value = await load();
-        if (value != null) {
-          remember(uid, value: value);
-        }
-        return value;
-      } on Exception {
-        return null;
-      } finally {
-        unawaited(_asking.remove(uid));
+    return _asking[uid] ??= _load(uid, load).whenComplete(() => unawaited(_asking.remove(uid)));
+  }
+
+  static Future<bool?> _load(int uid, Future<bool?> Function() load) async {
+    try {
+      final value = await load();
+      if (value != null) {
+        remember(uid, value: value);
       }
-    }();
+      return value;
+    } on Exception {
+      return null;
+    }
   }
 
   /// Forget everything kept.

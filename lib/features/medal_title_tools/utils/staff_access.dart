@@ -32,21 +32,26 @@ abstract final class StaffToolsAccess {
   /// Whether [uid] may send medals and issue titles; null when the forum could not tell (nothing is kept then).
   ///
   /// Asks with [repository], the account's client otherwise. Calls for the same account while one is on its way share
-  /// its answer.
-  static Future<StaffTools?> check(int uid, {MedalTitleToolsRepository? repository}) {
+  /// its answer. When [stillCurrent] says the account is no longer in use once the forum has answered, the answer is
+  /// dropped (it may be another account's) and nothing is kept.
+  static Future<StaffTools?> check(int uid, {MedalTitleToolsRepository? repository, bool Function()? stillCurrent}) {
     final kept = cached(uid);
     if (kept != null) {
       return Future.value(kept);
     }
-    return _asking[uid] ??= _ask(uid, repository).whenComplete(() => unawaited(_asking.remove(uid)));
+    return _asking[uid] ??= _ask(uid, repository, stillCurrent).whenComplete(() => unawaited(_asking.remove(uid)));
   }
 
-  static Future<StaffTools?> _ask(int uid, MedalTitleToolsRepository? repository) async {
+  static Future<StaffTools?> _ask(int uid, MedalTitleToolsRepository? repository, bool Function()? stillCurrent) async {
     final repo = repository ?? MedalTitleToolsRepository.network(getIt.get<NetClientProvider>());
     try {
       final grant = await repo.grant();
       final issue = await repo.issue();
-      final can = (grant: grant?.canGrant ?? false, issue: issue?.canIssue ?? false);
+      // The app API answers null when the request failed or the plugin is too old: the forum did not tell.
+      if (grant == null || issue == null || !(stillCurrent?.call() ?? true)) {
+        return null;
+      }
+      final can = (grant: grant.canGrant, issue: issue.canIssue);
       _known[uid] = (can: can, at: DateTime.now());
       return can;
     } on Exception {

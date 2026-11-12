@@ -113,6 +113,22 @@ void main() {
       expect(await StaffToolsAccess.check(35, repository: _repo()), (grant: true, issue: true));
     });
 
+    test('no answer from the forum, or another account by then, is not kept', () async {
+      final noAnswer = MedalTitleToolsRepository(
+        ask: (_, _) async => null,
+        getJson: (_) async => null,
+        post: (_, _) async => '',
+      );
+      expect(await StaffToolsAccess.check(35, repository: noAnswer), isNull);
+      expect(StaffToolsAccess.cached(35), isNull);
+      expect(await StaffToolsAccess.check(35, repository: _repo(), stillCurrent: () => false), isNull);
+      expect(StaffToolsAccess.cached(35), isNull);
+      expect(await StaffToolsAccess.check(35, repository: _repo(), stillCurrent: () => true), (
+        grant: true,
+        issue: true,
+      ));
+    });
+
     test('an ordinary member sends no request for the tools', () async {
       final asked = <String>[];
       var read = 0;

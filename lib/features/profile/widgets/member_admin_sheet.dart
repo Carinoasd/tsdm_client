@@ -16,11 +16,12 @@ Future<StaffTools?> memberAdminToolsOf(
   int uid, {
   required Future<bool?> Function() isManager,
   MedalTitleToolsRepository? repository,
+  bool Function()? stillCurrent,
 }) async {
   if (await ManagementGroupCache.check(uid, isManager) != true) {
     return null;
   }
-  return StaffToolsAccess.check(uid, repository: repository);
+  return StaffToolsAccess.check(uid, repository: repository, stillCurrent: stillCurrent);
 }
 
 /// One admin operation on a member: an icon, a label and the page it opens with the member's UID brought in.
