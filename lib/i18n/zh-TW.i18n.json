@@ -341,13 +341,9 @@
   },
   "medalTitleHub": {
     "title": "勳章與稱號",
-    "entryDescription": "勳章中心、我的頭銜與頭銜商店",
     "currentTitle": "目前的頭銜",
     "noTitle": "目前沒有使用頭銜",
-    "loadFailed": "無法讀取目前的頭銜",
-    "medalCenterDescription": "瀏覽勳章與取得方式",
-    "myTitlesDescription": "使用、切換或摘下已擁有的頭銜",
-    "titleShopDescription": "瀏覽頭銜與價格，每次購買都會先確認"
+    "loadFailed": "無法讀取目前的頭銜"
   },
   "topicPage": {
     "title": "版塊",
@@ -2198,6 +2194,10 @@
   },
   "modcp": {
     "panel": "版主面板",
+    "groupModeration": "版務",
+    "groupMembers": "會員與版塊",
+    "groupRewards": "獎勵",
+    "groupSite": "站務",
     "recycleBin": "回收站",
     "log": "版主日誌",
     "threads": "主題",
@@ -3597,10 +3597,6 @@
     "days": "${n} 天",
     "done": "完成",
     "unconfirmed": "已送出，但無法確認結果，請重新整理查看。",
-    "hubExchange": "用勳章兌換頭銜",
-    "hubMyMedals": "顯示或隱藏勳章、獲取紀錄",
-    "hubGrant": "發勳章給會員、撤回",
-    "hubIssue": "發放或回收會員的頭銜",
     "exchangeTitle": "頭銜兌換",
     "exchangeFilterAll": "全部",
     "exchangeFilterReady": "可兌換",

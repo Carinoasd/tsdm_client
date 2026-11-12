@@ -1,3 +1,4 @@
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:tsdm_client/constants/layout.dart';
 
@@ -21,6 +22,7 @@ class OverflowAction {
     required this.label,
     required this.onPressed,
     this.placement = OverflowPlacement.adaptive,
+    this.section,
   });
 
   /// Icon of the button and of the menu item.
@@ -34,6 +36,10 @@ class OverflowAction {
 
   /// Where to show the action.
   final OverflowPlacement placement;
+
+  /// The section of the overflow menu the action is listed in: the menu lists the sections in increasing order, apart
+  /// by dividers. Null for a menu without sections (every action of a list sets it, or none does).
+  final int? section;
 }
 
 /// Width below which [OverflowPlacement.adaptive] actions move into the overflow menu.
@@ -53,7 +59,11 @@ class OverflowActions extends StatelessWidget {
     final narrow = MediaQuery.sizeOf(context).width < overflowActionsNarrowWidth;
     bool inMenu(OverflowAction a) =>
         a.placement == OverflowPlacement.menuOnly || (narrow && a.placement == OverflowPlacement.adaptive);
+    // Sorted by section, each section in the order given (a merge sort is stable).
     final menu = actions.where(inMenu).toList();
+    if (menu.any((a) => a.section != null)) {
+      mergeSort(menu, compare: (a, b) => (a.section ?? 0).compareTo(b.section ?? 0));
+    }
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -63,11 +73,13 @@ class OverflowActions extends StatelessWidget {
           PopupMenuButton<OverflowAction>(
             onSelected: (a) => a.onPressed(),
             itemBuilder: (context) => [
-              for (final a in menu)
+              for (final (i, a) in menu.indexed) ...[
+                if (i > 0 && a.section != menu[i - 1].section) const PopupMenuDivider(height: 8),
                 PopupMenuItem(
                   value: a,
                   child: Row(children: [Icon(a.icon), sizedBoxPopupMenuItemIconSpacing, Text(a.label)]),
                 ),
+              ],
             ],
           ),
       ],

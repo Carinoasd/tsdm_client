@@ -507,6 +507,7 @@ const _stubPaths = [
   ScreenPaths.userBlock,
   ScreenPaths.openInApp,
   ScreenPaths.localDrafts,
+  ScreenPaths.editUserProfile,
 ];
 
 /// The app's router shape: the home shell with its four tabs (built by [tab]), the forum page, the settings and
@@ -889,20 +890,19 @@ void main() {
           'me-local-drafts',
           'me-messages',
           'me-friends',
-          'me-points',
-          'me-checkin-calendar',
-          'me-rating-stats',
           'me-switch-account',
+          'me-edit-profile',
         ]) {
           expect(find.byKey(ValueKey(key)), findsOneWidget, reason: key);
         }
         final list = find.byKey(const ValueKey('me-page-list'));
         for (final key in [
+          'me-points',
+          'me-checkin-calendar',
+          'me-rating-stats',
           'me-medals',
           'me-activities',
           'me-tasks',
-          'me-medal-center',
-          'me-title-shop',
           'me-bank',
           'me-pokemon',
           'me-achievements',
@@ -936,6 +936,7 @@ void main() {
         ('me-tasks', ScreenPaths.taskCenter, ''),
         ('me-local-drafts', ScreenPaths.localDrafts, ''),
         ('me-medals', ScreenPaths.medalTitleHub, ''),
+        ('me-edit-profile', ScreenPaths.editUserProfile, ''),
       ]) {
         testWidgets('$key opens $path$query above the shell', (tester) async {
           await app.pump(tester, initial: ScreenPaths.me, tab: _realTab);

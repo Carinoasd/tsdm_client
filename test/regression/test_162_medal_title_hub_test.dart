@@ -40,6 +40,10 @@ void main() {
     final router = await pump(tester);
     expect(find.text(tr.medalTitleHub.title), findsOneWidget);
     expect(find.text(tr.medalTitleHub.currentTitle), findsOneWidget);
+    // Each destination by its title alone, no line of description under it.
+    for (final tile in tester.widgetList<ListTile>(find.byType(ListTile))) {
+      expect(tile.subtitle, isNull);
+    }
 
     for (final (label, path) in [
       (tr.medalCenter.title, ScreenPaths.medalCenter),

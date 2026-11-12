@@ -102,6 +102,11 @@ const List<int> _checkinNextLevelExp = [
   300 - 250,
 ];
 
+/// The sections of the menu of another member's profile, in the order listed.
+const _menuSocial = 0;
+const _menuTools = 1;
+const _menuAdmin = 2;
+
 enum _ProfileActions {
   viewNotification,
   pokes,
@@ -440,6 +445,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   OverflowAction(
                     icon: Icons.article_outlined,
                     label: tr.memberThreads,
+                    section: _menuTools,
                     placement: OverflowPlacement.pinned,
                     onPressed: () => unawaited(
                       context.pushNamed(
@@ -451,6 +457,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 OverflowAction(
                   icon: Icons.person_search_outlined,
                   label: tr.searchAsThreadAuthor,
+                  section: _menuTools,
                   onPressed: () => unawaited(
                     context.pushNamed(
                       ScreenPaths.search,
@@ -462,12 +469,14 @@ class _ProfilePageState extends State<ProfilePage> {
                   OverflowAction(
                     icon: Icons.qr_code_2_outlined,
                     label: context.t.shareQr.title,
+                    section: _menuTools,
                     onPressed: () => unawaited(_showShareQr(context, userProfile)),
                   ),
                 if (otherUid != null)
                   OverflowAction(
                     icon: Icons.person_add_alt_1_outlined,
                     label: context.t.friendPage.addFriend.tooltip,
+                    section: _menuSocial,
                     onPressed: () =>
                         unawaited(showAddFriendDialog(context, uid: otherUid, username: userProfile.username)),
                   ),
@@ -475,6 +484,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   OverflowAction(
                     icon: Icons.email_outlined,
                     label: context.t.postCard.profileDialog.pmTooltip,
+                    section: _menuSocial,
                     placement: OverflowPlacement.pinned,
                     onPressed: () => unawaited(
                       context.pushNamed(
@@ -489,6 +499,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   OverflowAction(
                     icon: blocked ? Icons.remove_moderator_outlined : Icons.block_outlined,
                     label: blocked ? context.t.userBlock.unblock : context.t.userBlock.block,
+                    section: _menuTools,
                     onPressed: () => unawaited(
                       toggleUserBlock(
                         context,
@@ -502,6 +513,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   OverflowAction(
                     icon: Icons.admin_panel_settings_outlined,
                     label: tr.adminMenu,
+                    section: _menuAdmin,
                     placement: OverflowPlacement.menuOnly,
                     onPressed: () => unawaited(
                       showMemberAdminSheet(
@@ -517,6 +529,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   OverflowAction(
                     icon: Icons.waving_hand_outlined,
                     label: context.t.spacePage.poke.send,
+                    section: _menuSocial,
                     placement: OverflowPlacement.menuOnly,
                     onPressed: () => unawaited(showPokeDialog(context, uid: memberUid, username: userProfile.username)),
                   ),
@@ -524,6 +537,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   OverflowAction(
                     icon: Icons.person_add_alt_outlined,
                     label: context.t.spacePage.follow.action,
+                    section: _menuSocial,
                     placement: OverflowPlacement.menuOnly,
                     onPressed: () =>
                         unawaited(showFollowDialog(context, uid: memberUid, username: userProfile.username)),
@@ -1048,7 +1062,6 @@ class _ProfilePageState extends State<ProfilePage> {
               ListTile(
                 leading: const Icon(Icons.workspace_premium_outlined),
                 title: Text(context.t.medalTitleHub.title),
-                subtitle: Text(context.t.medalTitleHub.entryDescription),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () async => context.pushNamed(ScreenPaths.medalTitleHub),
               ),

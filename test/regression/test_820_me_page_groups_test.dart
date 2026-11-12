@@ -1,5 +1,5 @@
-/// The "me" tab in groups: the pages of the account in three grids (content, social, stats), the services of the forum
-/// in the same grid, the app's list last; a guest gets the services only, a tap on one that needs an account opens the
+/// The "me" tab in groups: the rows of the account under its card, the pages of the account in three grids (content,
+/// social, stats), the services of the forum in the same grid, the app's list last; a guest gets the services only, a tap on one that needs an account opens the
 /// login page.
 library;
 
@@ -61,8 +61,6 @@ const _services = <(String, String, bool)>[
   ('me-bank', ScreenPaths.bank, true),
   ('me-ranklist', ScreenPaths.ranklist, false),
   ('me-activities', ScreenPaths.activities, true),
-  ('me-medal-center', ScreenPaths.medalCenter, true),
-  ('me-title-shop', ScreenPaths.titleShop, true),
   ('me-medals', ScreenPaths.medalTitleHub, true),
   ('me-achievements', ScreenPaths.achievements, true),
   ('me-pokemon', ScreenPaths.pokemon, true),
@@ -175,6 +173,7 @@ void main() {
           ScreenPaths.manageAccount,
           ScreenPaths.settings.path,
           ScreenPaths.about,
+          ScreenPaths.editUserProfile,
           for (final (_, path, _) in _services) path,
         })
           GoRoute(path: path, name: path, builder: (_, state) => _Stub(state)),
@@ -263,6 +262,9 @@ void main() {
   });
 
   testWidgets('with an account: content, social, stats, services and the app, in this order', (tester) async {
+    // The medal centre and the title shop are on the page of medals and titles, not among the services.
+    expect(find.byKey(const ValueKey('me-medal-center')), findsNothing);
+    expect(find.byKey(const ValueKey('me-title-shop')), findsNothing);
     await pump(tester, guest: false);
     for (final (group, title, keys) in [
       ('me-group-content', tr.mePage.content, _content),
@@ -274,9 +276,17 @@ void main() {
       expect(find.descendant(of: find.byKey(ValueKey(group)), matching: find.text(title)), findsOneWidget);
     }
     // The groups follow one another down the page, the app's list last.
-    await tester.scrollUntilVisible(find.byKey(const ValueKey('me-group-content')), -200, scrollable: list);
+    await tester.scrollUntilVisible(find.byKey(const ValueKey('me-account-card')), -200, scrollable: list);
     double? top;
-    for (final key in ['me-group-content', 'me-group-social', 'me-group-stats', 'me-group-services', 'me-settings']) {
+    for (final key in [
+      'me-account-card',
+      'me-account-rows',
+      'me-group-content',
+      'me-group-social',
+      'me-group-stats',
+      'me-group-services',
+      'me-settings',
+    ]) {
       await reveal(tester, find.byKey(ValueKey(key)));
       final scrollable = tester.state<ScrollableState>(list);
       final at = tester.getTopLeft(find.byKey(ValueKey(key))).dy + scrollable.position.pixels;
@@ -316,9 +326,27 @@ void main() {
     }
   });
 
+  testWidgets('with an account: editing the profile right under the account card', (tester) async {
+    await pump(tester, guest: false);
+    final entry = find.descendant(
+      of: find.byKey(const ValueKey('me-account-rows')),
+      matching: find.byKey(const ValueKey('me-edit-profile')),
+    );
+    expect(entry, findsOneWidget);
+    expect(find.descendant(of: entry, matching: find.text(tr.editUserProfilePage.title)), findsOneWidget);
+    // No profile was read (offline): no moderator's panel either.
+    expect(find.byKey(const ValueKey('me-moderator-panel')), findsNothing);
+    await tester.tap(entry);
+    await _settle(tester, rounds: 4);
+    expect(find.text('at ${ScreenPaths.editUserProfile}'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('as a guest: the services, a tap on one that needs an account opens the login page', (tester) async {
     await pump(tester, guest: true);
     expect(find.byKey(const ValueKey('me-guest-card')), findsOneWidget);
+    expect(find.byKey(const ValueKey('me-account-rows')), findsNothing);
+    expect(find.byKey(const ValueKey('me-edit-profile')), findsNothing);
     for (final group in ['me-group-content', 'me-group-social', 'me-group-stats']) {
       expect(find.byKey(ValueKey(group)), findsNothing, reason: group);
     }

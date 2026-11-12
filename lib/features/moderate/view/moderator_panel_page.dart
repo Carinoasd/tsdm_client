@@ -44,7 +44,36 @@ import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 
-/// The moderator's panel: the pages of the forum's moderation panel the app offers, as a grid of tiles.
+/// The groups of the moderator's panel, in the order shown.
+enum _PanelGroup {
+  /// The threads and posts: the queue, the recycle bin, the log, the notes, the reports.
+  moderation(Icons.gavel_outlined),
+
+  /// The members and the forums: their permissions, the review of new members, the rules, the announcements.
+  members(Icons.manage_accounts_outlined),
+
+  /// What is given to members: medals, titles, backgrounds, the batch rates.
+  rewards(Icons.card_giftcard_outlined),
+
+  /// The forum's admin actions on members: credits, user groups, cleaning up a spammer.
+  site(Icons.admin_panel_settings_outlined)
+  ;
+
+  const _PanelGroup(this.icon);
+
+  /// Icon of the group's header.
+  final IconData icon;
+
+  /// Title of the group's header.
+  String title(Translations t) => switch (this) {
+    moderation => t.modcp.groupModeration,
+    members => t.modcp.groupMembers,
+    rewards => t.modcp.groupRewards,
+    site => t.modcp.groupSite,
+  };
+}
+
+/// The moderator's panel: the pages of the forum's moderation panel the app offers, as tiles in four groups.
 ///
 /// Shown to an account of a management group (the "me" page asks its profile); the forum decides what each page
 /// lists or refuses. The pages the panel's menu links only to the groups allowed to use them (the members, the rules,
@@ -287,8 +316,10 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
     final t = context.t;
     final repository = _repository;
     final queueRepository = widget.queueRepository;
-    final entries = <(Key, IconData, String, Widget Function())>[
+    final entries = <(_PanelGroup, Key, IconData, String, Widget Function())>[
       (
+        _PanelGroup.moderation,
+
         const ValueKey('modcp-queue'),
         Icons.fact_check_outlined,
         t.moderate.queue,
@@ -300,12 +331,16 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
         ),
       ),
       (
+        _PanelGroup.moderation,
+
         const ValueKey('modcp-recycle-bin'),
         Icons.delete_sweep_outlined,
         t.modcp.recycleBin,
         () => RecycleBinPage(repository: repository),
       ),
       (
+        _PanelGroup.moderation,
+
         const ValueKey('modcp-log'),
         Icons.history_outlined,
         t.modcp.log,
@@ -315,6 +350,8 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
       // members (the panel's menu links it to those only).
       if (_modcpPages.contains('home'))
         (
+          _PanelGroup.moderation,
+
           const ValueKey('modcp-notes'),
           Icons.sticky_note_2_outlined,
           t.modcpPages.notes,
@@ -322,12 +359,16 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
         ),
       if (_modcpPages.contains('thread')) ...[
         (
+          _PanelGroup.moderation,
+
           const ValueKey('modcp-threads'),
           Icons.topic_outlined,
           t.modcpPages.threads,
           () => ModcpThreadsPage(repository: _pages, moderateRepository: queueRepository),
         ),
         (
+          _PanelGroup.moderation,
+
           const ValueKey('modcp-posts'),
           Icons.article_outlined,
           t.modcpPages.posts,
@@ -336,6 +377,8 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
       ],
       if (_modcpPages.contains('forumaccess') && _offers((m) => m.has('forumaccess')))
         (
+          _PanelGroup.members,
+
           const ValueKey('modcp-forum-access'),
           Icons.admin_panel_settings_outlined,
           t.modcpPages.access,
@@ -343,12 +386,16 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
         ),
       if (_offers((m) => m.canManageMembers))
         (
+          _PanelGroup.members,
+
           const ValueKey('modcp-members'),
           Icons.manage_accounts_outlined,
           t.modcp.members,
           () => ModcpMembersPage(repository: repository),
         ),
       (
+        _PanelGroup.members,
+
         const ValueKey('modcp-member-review'),
         Icons.how_to_reg_outlined,
         t.modcp.memberReview,
@@ -356,6 +403,8 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
       ),
       if (_offers((m) => m.canEditForum))
         (
+          _PanelGroup.members,
+
           const ValueKey('modcp-rules'),
           Icons.rule_outlined,
           t.modcp.rules,
@@ -363,6 +412,8 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
         ),
       if (_offers((m) => m.canAnnounce))
         (
+          _PanelGroup.members,
+
           const ValueKey('modcp-announcements'),
           Icons.campaign_outlined,
           t.modcp.announcements,
@@ -371,6 +422,8 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
       // The reports of the whole forum for an account the admin API lets read them, beside the panel's.
       if (_admin?.canRead(AdminActions.report) ?? false)
         (
+          _PanelGroup.moderation,
+
           const ValueKey('modcp-report'),
           Icons.flag_outlined,
           t.reportHandling.title,
@@ -382,6 +435,8 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
         )
       else if (_panel?.modcpReport ?? false)
         (
+          _PanelGroup.moderation,
+
           const ValueKey('modcp-report'),
           Icons.flag_outlined,
           t.reportHandling.title,
@@ -389,6 +444,8 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
         ),
       if (_staff?.grant ?? false)
         (
+          _PanelGroup.rewards,
+
           const ValueKey('modcp-medal-grant'),
           Icons.card_giftcard_outlined,
           t.medalTitleTools.grantTitle,
@@ -396,6 +453,8 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
         ),
       if (_staff?.issue ?? false)
         (
+          _PanelGroup.rewards,
+
           const ValueKey('modcp-title-issue'),
           Icons.verified_outlined,
           t.medalTitleTools.issueTitle,
@@ -403,6 +462,8 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
         ),
       if (_panel?.background ?? false)
         (
+          _PanelGroup.rewards,
+
           const ValueKey('modcp-background-grant'),
           Icons.wallpaper_outlined,
           t.backgroundGrant.title,
@@ -410,6 +471,8 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
         ),
       if (_batchRate?.listUrl case final listUrl?)
         (
+          _PanelGroup.rewards,
+
           const ValueKey('modcp-batch-rate'),
           Icons.thumbs_up_down_outlined,
           t.batchRate.batches,
@@ -417,6 +480,8 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
         ),
       if (_admin?.canRead(AdminActions.credit) ?? false)
         (
+          _PanelGroup.site,
+
           const ValueKey('modcp-admin-credit'),
           Icons.savings_outlined,
           t.adminTools.credit,
@@ -427,6 +492,8 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
         ),
       if (_admin?.canRead(AdminActions.group) ?? false)
         (
+          _PanelGroup.site,
+
           const ValueKey('modcp-admin-group'),
           Icons.group_outlined,
           t.adminTools.group,
@@ -437,6 +504,8 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
         ),
       if (_admin?.canRead(AdminActions.ban) ?? false)
         (
+          _PanelGroup.site,
+
           const ValueKey('modcp-admin-ban'),
           Icons.cleaning_services_outlined,
           t.adminTools.ban,
@@ -445,6 +514,10 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
             writable: _admin?.canWrite(AdminActions.ban),
           ),
         ),
+    ];
+    final groups = [
+      for (final group in _PanelGroup.values)
+        if (entries.where((entry) => entry.$1 == group).toList() case final tiles when tiles.isNotEmpty) (group, tiles),
     ];
     final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
@@ -474,44 +547,63 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
                     onNotes: () => unawaited(_push(() => ModcpNotesPage(repository: _pages))),
                   ),
                 ),
-              GridView.extent(
-                key: const ValueKey('modcp-grid'),
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                maxCrossAxisExtent: 160,
-                mainAxisSpacing: 8,
-                crossAxisSpacing: 8,
-                childAspectRatio: 1.3,
-                children: [
-                  for (final (key, icon, label, page) in entries)
-                    Material(
-                      key: key,
-                      color: colorScheme.surfaceContainerHigh,
-                      borderRadius: BorderRadius.circular(appInnerRadius),
-                      clipBehavior: Clip.antiAlias,
-                      child: InkWell(
-                        onTap: () => unawaited(_push(page)),
-                        child: Padding(
-                          padding: const EdgeInsets.all(8),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(icon, color: colorScheme.primary, size: 28),
-                              const SizedBox(height: 8),
-                              Text(
-                                label,
-                                maxLines: 2,
-                                textAlign: TextAlign.center,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.labelLarge,
-                              ),
-                            ],
-                          ),
+              // Each tile belongs to one group for good: the answers come in one after another, a tile shown never
+              // moves to another group, and a group with no tile (yet) is not shown at all.
+              for (final (group, tiles) in groups)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: AppSurface(
+                    key: ValueKey('modcp-group-${group.name}'),
+                    padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        AppSectionHeader(
+                          group.title(t),
+                          icon: group.icon,
+                          padding: const EdgeInsets.fromLTRB(4, 8, 4, 8),
                         ),
-                      ),
+                        GridView.extent(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          maxCrossAxisExtent: 160,
+                          mainAxisSpacing: 8,
+                          crossAxisSpacing: 8,
+                          childAspectRatio: 1.3,
+                          children: [
+                            for (final (_, key, icon, label, page) in tiles)
+                              Material(
+                                key: key,
+                                color: colorScheme.surfaceContainerHigh,
+                                borderRadius: BorderRadius.circular(appInnerRadius),
+                                clipBehavior: Clip.antiAlias,
+                                child: InkWell(
+                                  onTap: () => unawaited(_push(page)),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(8),
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(icon, color: colorScheme.primary, size: 28),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          label,
+                                          maxLines: 2,
+                                          textAlign: TextAlign.center,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: Theme.of(context).textTheme.labelLarge,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
                     ),
-                ],
-              ),
+                  ),
+                ),
             ],
           ),
         ),
