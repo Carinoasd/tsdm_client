@@ -146,6 +146,7 @@ void main() {
         ReportReward.fromJson({'enabled': 1, 'min': -100, 'max': 100})!.options,
         [100, 80, 60, 40, 20, 0, -20, -40, -60, -80, -100],
       );
+      expect(ReportReward.fromJson({'enabled': 1, 'min': -10, 'max': 15})!.options.last, -10);
     });
 
     test('a form posting anywhere else, or of another shape, is never used', () {

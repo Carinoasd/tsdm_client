@@ -104,7 +104,7 @@ final class ModcpReportSource implements ReportSource {
     }
     if (json['uid'] is num && tsdmAppInt(json['uid']) != uid) {
       // The forum's login ended (the app's account is the same): its login prompt, not another account.
-      if (tsdmAppInt(json['uid']) == 0 && json['error'] == 'message' && json['login'] == 1) {
+      if (tsdmAppInt(json['uid']) == 0 && json['error'] == 'message' && tsdmAppInt(json['login']) == 1) {
         return right(ReportRefused(tsdmAppText(json['message']).trim()));
       }
       return left(IdentityChangedException());

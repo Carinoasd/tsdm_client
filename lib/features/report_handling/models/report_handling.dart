@@ -129,7 +129,7 @@ final class ReportReward {
 /// The values from [max] down to [min] the way the forum's select steps them: about ten, never hundreds.
 List<int> _steps(int min, int max) {
   final step = ((max - min) / 10).ceil().clamp(1, 1 << 30);
-  return [for (var v = max; v >= min; v -= step) v];
+  return {for (var v = max; v >= min; v -= step) v, min}.toList();
 }
 
 /// One of the parts a source lists the reports by: a forum of the panel.

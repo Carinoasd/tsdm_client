@@ -78,6 +78,7 @@ class _ReportHandlingPageState extends State<ReportHandlingPage> {
       _loading = true;
       if (next != _scope) _clearChoices();
       _scope = next;
+      _page = page;
     });
     final answer = await widget.source.load(scope: next, page: page);
     if (!mounted || generation != _generation) {
