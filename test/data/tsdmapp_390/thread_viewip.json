@@ -1,0 +1,223 @@
+{
+ "ok": 1,
+ "api": 1,
+ "time": 1700000000,
+ "uid": 32,
+ "formhash": "f1f2f3f4",
+ "checknewpm": "",
+ "type": "thread",
+ "schema": 23,
+ "codes": {
+  "allowsmilies": 1,
+  "allowbbcode": 1,
+  "allowimgcode": 1,
+  "allowhtml": 0,
+  "allowmediacode": 1,
+  "jammer": 0,
+  "maxsmilies": 10,
+  "imgwhitelist": {
+   "enabled": 0,
+   "domains": []
+  }
+ },
+ "smilies_version": "1071fed373e93cf2a184c2ef81938b99",
+ "timeoffset": 8,
+ "thread": {
+  "tid": 9203116,
+  "fid": 2,
+  "subject": "tsdmapp 3.9.0 reward thread",
+  "authorid": 104,
+  "author": "adm_other",
+  "anonymous": 0,
+  "dateline": 1794480035,
+  "views": 0,
+  "replies": 0,
+  "allreplies": 0,
+  "readperm": 0,
+  "price": 5,
+  "special": 3,
+  "closed": 0,
+  "digest": 0,
+  "displayorder": 0,
+  "typeid": 0,
+  "typename": "",
+  "sortid": 0,
+  "sortname": "",
+  "moved": 0,
+  "soft_closed": 0,
+  "draft": 0,
+  "pay": null,
+  "modact": ""
+ },
+ "forum": {
+  "fid": 2,
+  "name": "📢 公告 & 新手報到"
+ },
+ "nav": [
+  {
+   "fid": 1,
+   "name": "🏠 論壇大廳",
+   "type": "group"
+  },
+  {
+   "fid": 2,
+   "name": "📢 公告 & 新手報到",
+   "type": "forum"
+  }
+ ],
+ "page": 1,
+ "pages": 1,
+ "ppp": 10,
+ "ordertype": 0,
+ "authorid": 0,
+ "reply": {
+  "allowed": 1,
+  "fastpost": 1,
+  "fastpost_allowed": 1,
+  "posttime": "1794487436",
+  "subject": "",
+  "action": "forum.php?mod=post&action=reply&fid=2&tid=9203116&extra=&replysubmit=yes&infloat=yes&handlekey=fastpost",
+  "seccheck": null
+ },
+ "menus_html": [],
+ "perms": {
+  "ismoderator": 1,
+  "allow_comment": 1,
+  "allow_warn": 1,
+  "allow_banpost": 1,
+  "allow_delpost": 1,
+  "allow_stickreply": 1,
+  "allow_banuser": 1,
+  "allow_delcomment": 1,
+  "allow_delthread": 1,
+  "allow_bump": 1,
+  "allow_stick": 1,
+  "stick_max": 3,
+  "allow_live": 1,
+  "allow_highlight": 1,
+  "allow_digest": 1,
+  "digest_max": 3,
+  "allow_recommend": 0,
+  "allow_stamp": 1,
+  "allow_stamplist": 1,
+  "allow_close": 1,
+  "allow_move": 1,
+  "allow_type": 1,
+  "allow_copy": 0,
+  "allow_merge": 0,
+  "allow_refund": 0,
+  "allow_split": 1,
+  "allow_repair": 1,
+  "allow_removereward": 1,
+  "allow_removerate": 1,
+  "allow_delattach": 1,
+  "allow_viewip": 1
+ },
+ "recommend": {
+  "enabled": 1,
+  "shown": 1,
+  "add": {
+   "label": "支持",
+   "count": 0
+  },
+  "subtract": {
+   "label": "踩踩",
+   "count": 0
+  },
+  "recommend_add": 0,
+  "recommend_sub": 0,
+  "recommends": 0,
+  "step": 1,
+  "daycount": 0,
+  "ownthread": 0,
+  "can": 1,
+  "why": "",
+  "urls": {
+   "add": "forum.php?mod=misc&action=recommend&tid=9203116&hash=9797752b&do=add",
+   "subtract": "forum.php?mod=misc&action=recommend&tid=9203116&hash=9797752b&do=subtract"
+  }
+ },
+ "posts": [
+  {
+   "pid": 15505,
+   "position": 1,
+   "deleted": 0,
+   "first": 1,
+   "authorid": 104,
+   "author": "adm_other",
+   "anonymous": 0,
+   "dateline": 1794481282,
+   "invisible": 0,
+   "avatar": "https://forum.test/data/avatar/noavatar.svg",
+   "share_url": "forum.php?mod=viewthread&tid=9203116",
+   "group": {
+    "gid": 10,
+    "title": "新手上路",
+    "color": "",
+    "icon": ""
+   },
+   "lastedit": null,
+   "can": {
+    "reply": 1,
+    "edit": 1,
+    "rate": 1,
+    "report": 1,
+    "comment": 1,
+    "warn": 1,
+    "viewip": 1
+   },
+   "urls": {
+    "reply": "forum.php?mod=post&action=reply&fid=2&tid=9203116&reppost=15505&extra=&page=1",
+    "edit": "forum.php?mod=post&action=edit&fid=2&tid=9203116&pid=15505&page=1",
+    "rate": "forum.php?mod=misc&action=rate&tid=9203116&pid=15505",
+    "report": "misc.php?mod=report&rtype=post&rid=15505&tid=9203116&fid=2",
+    "comment": "forum.php?mod=misc&action=comment&tid=9203116&pid=15505&extra=&page=1",
+    "viewip": "forum.php?mod=topicadmin&action=getip&fid=2&tid=9203116&pid=15505"
+   },
+   "signature_html": "",
+   "poll_html": "",
+   "packet_html": "",
+   "rate": null,
+   "author_html": "\r\n<div id=\"favatar15505\" class=\"pls cl favatar\">\r\n<div class=\"pi\">\r\n<div class=\"authi\"><a href=\"home.php?mod=space&amp;uid=104\" target=\"_blank\" class=\"xw1\">adm_other</a>\r\n</div>\r\n</div>\r\n<div class=\"p_pop blk bui card_gender_0\" id=\"userinfo15505\" style=\"display: none; margin-top: -11px;\">\r\n<div class=\"m z\">\r\n<div id=\"userinfo15505_ma\"></div>\r\n</div>\r\n<div class=\"i y\">\r\n<div>\r\n<strong><a href=\"home.php?mod=space&amp;uid=104\" target=\"_blank\" class=\"xi2\">adm_other</a></strong>\r\n<em>当前离线</em>\r\n</div><dl class=\"cl\">\r\n<dt>积分</dt><dd><a href=\"home.php?mod=space&uid=104&do=profile\" target=\"_blank\" class=\"xi2\">0</a></dd>\r\n</dl><div class=\"imicn\">\r\n<a href=\"home.php?mod=space&amp;uid=104&amp;do=profile\" target=\"_blank\" title=\"查看详细资料\"><img src=\"static/image/common/userinfo.gif\" alt=\"查看详细资料\" /></a>\r\n</div>\r\n<div id=\"avatarfeed\"><span id=\"threadsortswait\"></span></div>\r\n</div>\r\n</div>\r\n<div>\r\n<div class=\"avatar\" onmouseover=\"showauthor(this, 'userinfo15505')\"><a href=\"home.php?mod=space&amp;uid=104\" class=\"avtm\" target=\"_blank\"><img data-src=\"./data/avatar/noavatar.svg\" class=\"_avt user_avatar\"></a></div>\r\n</div>\r\n<p>该用户从未签到</p><div class=\"tns xg2\"><table cellspacing=\"0\" cellpadding=\"0\"><th><p><a href=\"home.php?mod=space&uid=104&do=thread&type=thread&view=me&from=space\" class=\"xi2\">0</a></p>主题</th><th><p><a href=\"home.php?mod=space&uid=104&do=thread&type=reply&view=me&from=space\" class=\"xi2\">0</a></p>回帖</th><td><p><a href=\"home.php?mod=space&uid=104&do=profile\" class=\"xi2\">0</a></p>积分</td></table></div>\r\n\r\n<p><em><a href=\"home.php?mod=spacecp&amp;ac=usergroup&amp;gid=10\" target=\"_blank\">新手上路</a></em></p>\r\n\r\n\r\n<p><span id=\"g_up15505\" onmouseover=\"showMenu({'ctrlid':this.id, 'pos':'12!'});\"><i class=\"fico-star1 fic4 fc-l\" title=\"Rank: 1\"></i></span></p>\r\n<div id=\"g_up15505_menu\" class=\"tip tip_4\" style=\"display: none;\"><div class=\"tip_horn\"></div><div class=\"tip_c\">新手上路, 积分 0, 距离下一级还需 50 积分</div></div>\r\n\r\n\r\n<p><span class=\"pbg2\"  id=\"upgradeprogress_15505\" onmouseover=\"showMenu({'ctrlid':this.id, 'pos':'12!', 'menuid':'g_up15505_menu'});\"><span class=\"pbr2\" style=\"width:2%;\"></span></span></p>\r\n<div id=\"g_up15505_menu\" class=\"tip tip_4\" style=\"display: none;\"><div class=\"tip_horn\"></div><div class=\"tip_c\">新手上路, 积分 0, 距离下一级还需 50 积分</div></div>\r\n\r\n<dl class=\"pil cl\">\r\n\t<dt>积分</dt><dd><a href=\"home.php?mod=space&uid=104&do=profile\" target=\"_blank\" class=\"xi2\">0</a></dd>\r\n</dl>\r\n\r\n<dl class=\"pil cl\"></dl><ul class=\"xl xl2 o cl\">\r\n<li class=\"addflw\">\r\n<a href=\"home.php?mod=spacecp&amp;ac=follow&amp;op=add&amp;hash=9797752b&amp;fuid=104\" id=\"followmod_104\" title=\"关注TA\" class=\"xi2\" onclick=\"showWindow('followmod', this.href, 'get', 0);\">关注TA</a>\r\n</li>\r\n<li class=\"pm2\"><a href=\"home.php?mod=spacecp&amp;ac=pm&amp;op=showmsg&amp;handlekey=showmsg_104&amp;touid=104&amp;pmid=0&amp;daterange=2&amp;pid=15505&amp;tid=9203116\" onclick=\"showWindow('sendpm', this.href);\" title=\"发消息\" class=\"xi2\">发消息</a></li>\r\n</ul>\r\n<p class=\"cp_pls cl\">\r\n<a href=\"forum.php?mod=topicadmin&amp;action=getip&amp;fid=2&amp;tid=9203116&amp;pid=15505\" onclick=\"ajaxmenu(this, 0, 0, 2);doane(event)\">IP</a>\r\n<a href=\"?app=admin&frames=yes&action=members&operation=search&uid=104&submit=yes\" target=\"_blank\">编辑</a>\r\n<a href=\"?app=admin&action=members&operation=ban&username=adm_other&frames=yes\" target=\"_blank\">禁止</a>\r\n<a href=\"forum.php?mod=modcp&amp;action=thread&amp;op=post&amp;do=search&amp;searchsubmit=1&amp;users=adm_other\" target=\"_blank\">帖子</a>\r\n<a href=\"forum.php?mod=ajax&amp;action=quickclear&amp;uid=104\" onclick=\"showWindow('qclear_104', this.href, 'get', 0)\">清理</a>\r\n</p>\r\n</div>\r\n",
+   "body_html": "\r\n \r\n<div class=\"pcbs\"><div class=\"rwd cl\">\r\n<div class=\"rusld z\">\r\n<i class=\"fico-reward fc-l\"></i>悬赏<cite>5</cite>天使币<em>未解决</em>\r\n</div>\r\n<div class=\"rwdn\">\r\n<table cellspacing=\"0\" cellpadding=\"0\"><tr><td class=\"t_f\" id=\"postmessage_15505\">tsdmapp390 reward first</td></tr></table>\r\n<p class=\"pns mtw\"><button name=\"answer\" value=\"ture\" class=\"pn\" onclick=\"showWindow('reply', 'forum.php?mod=post&action=reply&fid=2&tid=9203116')\"><span>我来回答</span></button></p>\r\n</div>\r\n</div>\r\n\r\n\r\n</div>\r\n<div id=\"comment_15505\" class=\"cm\">\r\n</div>\r\n\r\n<div id=\"post_rate_div_15505\"></div>\r\n<script type=\"text/javascript\">(function(){})();</script>",
+   "message": "tsdmapp390 reward first",
+   "message_reason": "",
+   "bbcodeoff": 1,
+   "smileyoff": 1,
+   "parseurloff": 0,
+   "allowsmilies": 1,
+   "allowbbcode": 1,
+   "allowimgcode": 1,
+   "allowmediacode": 0,
+   "attachments": [],
+   "customtags": [],
+   "stand": 0,
+   "stand_votes": 0,
+   "best": 0,
+   "avatar_blocked": 0,
+   "hot": 0,
+   "hot_position": 0,
+   "from_app": 0,
+   "warned": 0,
+   "comments": [],
+   "comment_count": 0,
+   "comment_more": 0,
+   "comment_scores": [],
+   "stick": 0
+  }
+ ],
+ "special": {
+  "type": "reward",
+  "price": 5,
+  "resolved": 0,
+  "credit": {
+   "id": 2,
+   "title": "天使币",
+   "unit": ""
+  },
+  "can_answer": 1,
+  "can_set_best": 0,
+  "set_best": null,
+  "bestpost": null
+ }
+}

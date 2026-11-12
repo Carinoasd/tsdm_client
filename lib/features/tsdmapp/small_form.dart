@@ -39,6 +39,15 @@ enum SmallFormKind {
 
   /// The comment window of a floor (`forum.php?mod=misc&action=comment`, plugin 3.7.0).
   comment,
+
+  /// The poster's IP of a floor (`forum.php?mod=topicadmin&action=getip`, plugin 3.9.0): no form to post.
+  getip,
+
+  /// Taking a bounty off a thread (`forum.php?mod=topicadmin&action=removereward`, plugin 3.9.0).
+  removereward,
+
+  /// Refunding the buyers of a paid thread (`forum.php?mod=topicadmin&action=refund`, plugin 3.9.0).
+  refund,
 }
 
 /// Add [tsdmAppJsonQuery] and [tsdmAppFormQuery] to [url] (and [tsdmAppNodocQuery] for a whole [page]: the user group

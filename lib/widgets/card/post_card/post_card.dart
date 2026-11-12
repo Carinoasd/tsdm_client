@@ -23,6 +23,7 @@ import 'package:tsdm_client/features/moderate/models/moderate_posts.dart';
 import 'package:tsdm_client/features/moderate/widgets/floor_moderate_dialog.dart';
 import 'package:tsdm_client/features/moderate/widgets/member_ban_dialog.dart';
 import 'package:tsdm_client/features/moderate/widgets/remove_rate_dialog.dart';
+import 'package:tsdm_client/features/moderate/widgets/thread_admin_dialogs.dart';
 import 'package:tsdm_client/features/netdisk/models/netdisk_link.dart';
 import 'package:tsdm_client/features/netdisk/utils/netdisk_parser.dart';
 import 'package:tsdm_client/features/post/models/models.dart';
@@ -155,6 +156,9 @@ enum _PostCardActions {
 
   /// Ban the floor's author from posting, or lift the ban ([PostCard.onBanAuthor]).
   banAuthor,
+
+  /// The poster's IP of the floor (moderators the forum lets see it, [Post.viewIpUrl]).
+  viewIp,
 }
 
 /// Card for a [Post] model.
@@ -658,6 +662,8 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
             widget.post.rate != null &&
             _removeRateTid(context) != null)
           item(_PostCardActions.moderateRemoveRate, Icons.remove_circle_outline, context.t.moderateFloorOps.removeRate),
+        if (online && widget.post.viewIpUrl != null && !isOfflineFloor(context))
+          item(_PostCardActions.viewIp, Icons.lan_outlined, context.t.moderateFloorOps.viewIp),
         if (online && widget.onBanAuthor != null)
           item(
             _PostCardActions.banAuthor,
@@ -833,6 +839,10 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
         }
       case _PostCardActions.banAuthor:
         widget.onBanAuthor?.call();
+      case _PostCardActions.viewIp:
+        if ((widget.post.viewIpUrl, int.tryParse(widget.post.postID)) case (final url?, final pid?)) {
+          await showFloorIpDialog(context, url: url, pid: pid);
+        }
     }
   }
 

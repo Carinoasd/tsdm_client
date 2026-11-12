@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart' show immutable;
 import 'package:tsdm_client/features/moderate/models/moderate_form.dart';
 import 'package:tsdm_client/features/moderate/models/moderate_posts.dart';
+import 'package:tsdm_client/features/moderate/models/thread_admin_forms.dart';
 
 /// What the account a thread page was served to may manage in that thread, as the forum's app API tells it with the
 /// page (plugin 3.7.0, `perms` of a thread page answer of `schema` 21 or later).
@@ -59,6 +60,17 @@ final class ThreadPerms {
   /// moderators of the forum, whatever their user group; an author deleting the attachments of the own floor is not
   /// this flag's business); null when the answer does not tell (before plugin 3.8.0: the forum decides when asked).
   bool? get allowDeleteAttachments => _told('allow_delattach');
+
+  /// The account may see the poster's IP of the thread's floors (`allow_viewip`, plugin 3.9.0); each floor tells it
+  /// with its own `can.viewip` (the author's rank counts too).
+  bool get allowViewIp => _allows('allow_viewip');
+
+  /// The operations beside the management window the web page's menu of the thread has (`allow_removereward`,
+  /// `allow_refund`, since plugin 3.7.0), offered only when [formsKnown] (plugin 3.9.0 gives their window's data).
+  List<ThreadAdminAction> adminActions({required bool formsKnown}) => [
+    if (formsKnown && _allows('allow_removereward')) ThreadAdminAction.removeReward,
+    if (formsKnown && _allows('allow_refund')) ThreadAdminAction.refund,
+  ];
 
   /// Flag [key] where the answer carries it, null where it does not.
   bool? _told(String key) => _flags.containsKey(key) ? _allows(key) : null;

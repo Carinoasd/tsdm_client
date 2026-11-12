@@ -1,0 +1,9 @@
+{
+ "ok": 0,
+ "error": "message",
+ "message": "抱歉，特殊主题不能执行强制退款",
+ "message_key": "special_refundment_invalid",
+ "login": 0,
+ "uid": 32,
+ "form": "refund"
+}

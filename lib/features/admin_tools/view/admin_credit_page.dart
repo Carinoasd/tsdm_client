@@ -222,7 +222,17 @@ class _AdminCreditPageState extends State<AdminCreditPage> with AdminSessionLeas
     // The same form may be sent again after a failed request, `busy` or a login not finished: same operation id.
     final again = reply.json == null || reply.error == 'busy' || reply.error == 'admin_login';
     if (!again) _opId = null;
-    showSnackBar(context: context, message: adminErrorText(context, reply));
+    final overflow = adminCreditOverflowOf(reply.json);
+    final users = {for (final m in info.members) m.member.uid: m.member.username};
+    showSnackBar(
+      context: context,
+      showCloseIcon: overflow.isNotEmpty,
+      message: overflow.isEmpty
+          ? adminErrorText(context, reply)
+          : tr.creditOverflow(
+              list: overflow.map((o) => '${users[o.uid] ?? tr.uid(uid: o.uid)} ${names[o.id] ?? '#${o.id}'}').join('、'),
+            ),
+    );
     if (reply.error == 'duplicate') await _load();
   }
 

@@ -197,6 +197,7 @@ final class AdminRepository {
       if (_formHash.isEmpty) return AdminReply(entry);
     }
     final headers = _headers(uid);
+    final sent = headers[adminTokenHeader];
     final json = form != null
         ? await _post(action, {...form, 'formhash': _formHash}, headers)
         : await _get(action, query ?? const {}, headers);
@@ -207,15 +208,16 @@ final class AdminRepository {
       // A form hash the forum does not take is refused by Discuz itself (HTTP 503, no JSON): ask it again next time.
       _formHash = '';
     }
-    // A batch of the clearing names the member cleared as `uid` (spec 3.9.0 §6); every other answer the account.
-    if (json != null && json['op'] != 'clear' && json['uid'] is int && json['uid'] != uid && json['uid'] != 0) {
+    // The top `uid` of every answer is the account asking, a batch of the clearing too (its member is `target_uid`).
+    if (json != null && json['uid'] is int && json['uid'] != uid && json['uid'] != 0) {
       return AdminReply.changed;
     }
     _noteFormHash(json, uid);
     final reply = AdminReply(json);
     switch (reply.error) {
       case 'admin_login':
-        _session.drop();
+        // Only the token this request carried is void: one a login made meanwhile got is kept.
+        if (sent != null) _session.dropToken(sent);
       case 'admin_off':
         _session.drop();
         AdminAccessCache.forget(uid);
@@ -297,7 +299,8 @@ final class AdminRepository {
         : AdminReply({...json}..remove('token'), identityChanged: reply.identityChanged);
   }
 
-  /// End the token (`op=logout`) and forget it; nothing is sent when none is kept for the account in use.
+  /// End the token (`op=logout`, sent with it) and forget it; nothing is sent when none is kept for the account in use.
+  /// The forum answers `admin_login` when the token was void already (and changes nothing): logged out all the same.
   Future<void> logout() async {
     final uid = _currentUid();
     final token = uid > 0 ? _session.tokenFor(uid) : null;
@@ -408,10 +411,13 @@ typedef AdminClearOutcome = ({bool done, AdminReply? reply});
 /// Clear member [target]'s posts batch by batch (`op=clear`) from [cursor] until the forum says done, telling each
 /// batch to [onStep]. [total] is the rows the progress counts from (`post_rows`), [remaining] those left now.
 ///
-/// Where it stopped is kept in the session ([AdminSession.clearCursor]) before each batch, so a page left, an answer
-/// that failed or the app's next visit of the member goes on from there; the forum takes any cursor again (a batch
-/// already in the recycle bin is not counted twice), and `0-0` starts over. An expired token mid-way asks the password
-/// again through [reauth] and the same cursor is sent again. The batches need no `opid` and are not rate limited.
+/// Where it stopped is kept in the session ([AdminSession.clearCursor]) before each batch, for the progress shown when
+/// the page comes back; the forum keeps the progress itself and does not read the cursor (sent back all the same), so
+/// what goes on is what its `clear_pending` says. An expired token mid-way asks the password again through [reauth]
+/// and the same cursor is sent again. The batches need no `opid` and are not rate limited.
+///
+/// `clear_start` (no clearing of the member open: a new ban with `post` starts one) and `clear_stuck` (a batch made no
+/// progress) stop it with the forum's answer; the cursor kept is dropped for the former.
 Future<AdminClearOutcome> runAdminClear(
   AdminRepository repository, {
   required int target,
@@ -435,8 +441,13 @@ Future<AdminClearOutcome> runAdminClear(
       form: adminClearForm(uid: target, cursor: at),
       reauth: reauth,
     );
-    final step = adminClearStepOf(reply.json);
+    final step = adminClearStepOf(reply.json, target: target);
     if (step == null) {
+      if (reply.error == 'clear_start' || (reply.json != null && reply.ok)) {
+        // No clearing of this member is open on the forum (left over a day, another member's started since, or an
+        // answer about another member): only a new ban with `post` starts one, the cursor kept is of no use.
+        repository.session.keepClearCursor(uid, target, null);
+      }
       return (done: false, reply: reply);
     }
     onStep(step);

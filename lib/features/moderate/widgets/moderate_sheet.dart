@@ -5,9 +5,11 @@ import 'package:fpdart/fpdart.dart' show Left, Right;
 import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/features/moderate/models/moderate_form.dart';
+import 'package:tsdm_client/features/moderate/models/thread_admin_forms.dart';
 import 'package:tsdm_client/features/moderate/models/thread_perms.dart';
 import 'package:tsdm_client/features/moderate/repository/moderate_repository.dart';
 import 'package:tsdm_client/features/moderate/view/split_thread_page.dart';
+import 'package:tsdm_client/features/moderate/widgets/thread_admin_dialogs.dart';
 import 'package:tsdm_client/features/thread_link_card/models/thread_link_card_info.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
@@ -108,36 +110,54 @@ const List<ModerateOperation> moderateBatchOperations = [
 ];
 
 /// Let the moderator pick one of [operations] (never empty: the callers say so instead), delete last and apart.
-Future<ModerateOperation?> _pickOperation(BuildContext context, List<ModerateOperation> operations) =>
-    showModalBottomSheet<ModerateOperation>(
-      context: context,
-      showDragHandle: true,
-      builder: (context) => SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              for (final op in operations) ...[
-                if (op == ModerateOperation.delete) const Divider(height: 1),
-                ListTile(
-                  leading: Icon(
-                    moderateOperationIcon(op),
-                    color: op == ModerateOperation.delete ? Theme.of(context).colorScheme.error : null,
-                  ),
-                  title: Text(
-                    moderateOperationName(context, op),
-                    style: op == ModerateOperation.delete
-                        ? TextStyle(color: Theme.of(context).colorScheme.error)
-                        : null,
-                  ),
-                  onTap: () => Navigator.of(context).pop(op),
-                ),
-              ],
-            ],
-          ),
-        ),
+Future<ModerateOperation?> _pickOperation(BuildContext context, List<ModerateOperation> operations) async =>
+    await _pickThreadOperation(context, operations) as ModerateOperation?;
+
+/// Let the moderator pick one of [operations] or [extras] (never all empty: the callers say so instead), the extras
+/// before delete, delete last and apart: a [ModerateOperation] or a [ThreadAdminAction].
+Future<Object?> _pickThreadOperation(
+  BuildContext context,
+  List<ModerateOperation> operations, {
+  List<ThreadAdminAction> extras = const [],
+}) => showModalBottomSheet<Object>(
+  context: context,
+  showDragHandle: true,
+  builder: (context) => SafeArea(
+    child: SingleChildScrollView(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final op in operations.where((e) => e != ModerateOperation.delete)) _operationTile(context, op),
+          for (final action in extras)
+            ListTile(
+              key: ValueKey('moderate-${action.action}'),
+              leading: Icon(threadAdminActionIcon(action)),
+              title: Text(threadAdminActionName(context, action)),
+              onTap: () => Navigator.of(context).pop(action),
+            ),
+          for (final op in operations.where((e) => e == ModerateOperation.delete)) _operationTile(context, op),
+        ],
       ),
-    );
+    ),
+  ),
+);
+
+/// The tile of [op] in [_pickOperation]: delete in the error colour, a line above it.
+Widget _operationTile(BuildContext context, ModerateOperation op) {
+  final delete = op == ModerateOperation.delete;
+  final error = Theme.of(context).colorScheme.error;
+  return Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      if (delete) const Divider(height: 1),
+      ListTile(
+        leading: Icon(moderateOperationIcon(op), color: delete ? error : null),
+        title: Text(moderateOperationName(context, op), style: delete ? TextStyle(color: error) : null),
+        onTap: () => Navigator.of(context).pop(op),
+      ),
+    ],
+  );
+}
 
 /// Offer the management of threads [threads] (tid and title, in the list's order) of forum [fid] to a moderator: pick
 /// an operation, fill in the forum's window of it once, send it for every thread; the threads not done are listed
@@ -226,7 +246,8 @@ Future<ModerateBatchReport?> showBatchModerateSheet(
 ///
 /// With [perms] (what the thread's page told the account, plugin 3.7.0 of the forum's app API) only the operations
 /// the web page's management menu has are offered, and a stick or a digest no higher than the account may set;
-/// without, every one, as the forum's window decides.
+/// without, every one, as the forum's window decides. Taking the bounty off and refunding are offered where [perms]
+/// allow them and the plugin gives their windows (3.9.0, [threadAdminFormsKnown]).
 Future<ModerateDone?> showThreadModerateSheet(
   BuildContext context, {
   required String tid,
@@ -237,15 +258,25 @@ Future<ModerateDone?> showThreadModerateSheet(
 }) async {
   final all = moderateOperationsFor(closed: closed);
   final offered = perms?.threadOperations(all) ?? all;
-  if (offered.isEmpty) {
+  final extras = perms?.adminActions(formsKnown: threadAdminFormsKnown()) ?? const <ThreadAdminAction>[];
+  if (offered.isEmpty && extras.isEmpty) {
     // The thread page offers no management then; said all the same should another caller get here.
     showSnackBar(context: context, message: context.t.moderate.batch.noOperation);
     return null;
   }
-  final operation = await _pickOperation(context, offered);
-  if (operation == null || !context.mounted) {
+  final picked = await _pickThreadOperation(context, offered, extras: extras);
+  if (picked == null || !context.mounted) {
     return null;
   }
+  if (picked is ThreadAdminAction) {
+    final tidValue = int.tryParse(tid);
+    if (tidValue == null) {
+      return null;
+    }
+    final done = await showThreadAdminDialog(context, action: picked, fid: fid, tid: tidValue);
+    return done ? ModerateDone.changed : null;
+  }
+  final operation = picked as ModerateOperation;
   if (operation == ModerateOperation.split) {
     final split = await openSplitThreadPage(
       context,

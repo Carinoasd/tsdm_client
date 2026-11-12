@@ -12,7 +12,7 @@ abstract final class AdminActions {
   /// Banning a member and clearing their posts (清理广告号).
   static const ban = 'adminban';
 
-  /// The reports (handled elsewhere; listed so the answer reads whole).
+  /// The reports of the whole forum (用户举报 of the admin centre).
   static const report = 'adminreport';
 }
 
@@ -98,7 +98,8 @@ final class AdminAccess {
   /// The account may use them.
   final bool eligible;
 
-  /// Why not (`adminid`, `uids`, `cpaccess`, `ip`); empty when it may.
+  /// Why not (`uids`, `cpaccess`, `ip`); empty when it may. An account that is no administrator gets the switch off
+  /// (`enabled` 0) since the plugin's second round, not a reason.
   final String why;
 
   /// The account is a founder.
@@ -197,11 +198,13 @@ final class AdminMember {
   final bool founder;
 }
 
-/// Members to look up, as typed: UIDs and usernames, one a line or separated by commas.
+/// Members to look up, as typed: UIDs and usernames, one a line or separated by commas, enumeration commas or
+/// semicolons (half or full width). Only an item of digits alone is a UID (`12abc` is a username: the forum takes no
+/// other in `uids`); spaces do not separate, a username may have one.
 ({List<int> uids, List<String> usernames}) adminTargetsOf(String text) {
   final uids = <int>[];
   final names = <String>[];
-  for (final t in text.split(RegExp(r'[\r\n,，]+')).map((e) => e.trim())) {
+  for (final t in text.split(RegExp(r'[\r\n,，、;；]+')).map((e) => e.trim())) {
     if (t.isEmpty) continue;
     final uid = RegExp(r'^\d+$').hasMatch(t) ? int.tryParse(t) : null;
     if (uid != null && uid > 0) {
@@ -344,6 +347,18 @@ AdminCreditResult? adminCreditResultOf(Map<String, dynamic>? json) {
     notified: tsdmAppInt(json['notified']),
     members: adminCreditMembersOf(json['members']),
   );
+}
+
+/// The members and credits a change would take past what the forum stores (±2147483647): `overflow` of the error
+/// `credits` of `POST action=admincredit` (the plugin's second round); empty for any other answer.
+List<({int uid, int id})> adminCreditOverflowOf(Map<String, dynamic>? json) {
+  if (json == null || json['error'] != 'credits' || json['overflow'] is! List) {
+    return const [];
+  }
+  return [
+    for (final o in tsdmAppList(json['overflow']))
+      if (tsdmAppInt(o['uid']) > 0) (uid: tsdmAppInt(o['uid']), id: tsdmAppInt(o['id'])),
+  ];
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -701,6 +716,8 @@ final class AdminBanMember {
     this.posts = 0,
     this.threads = 0,
     this.postRows = 0,
+    this.postLeft,
+    this.clearPending = false,
   });
 
   /// The `member` object [json]; null without a uid.
@@ -715,6 +732,8 @@ final class AdminBanMember {
       posts: tsdmAppInt(m['posts']),
       threads: tsdmAppInt(m['threads']),
       postRows: tsdmAppInt(m['post_rows']),
+      postLeft: m.containsKey('post_left') ? tsdmAppInt(m['post_left']) : null,
+      clearPending: tsdmAppInt(m['clear_pending']) == 1,
     );
   }
 
@@ -735,6 +754,14 @@ final class AdminBanMember {
 
   /// Rows of the post table under the member (the recycled too): the total of the clearing.
   final int postRows;
+
+  /// Of [postRows], those not in the recycle bin yet (`post_left`, the plugin's second round): what a clearing has
+  /// left to do; null when the answer does not tell.
+  final int? postLeft;
+
+  /// The account asking has a clearing of this member's posts not finished (`clear_pending`: a ban with `post` sent
+  /// in the last 24 hours, not done yet): `op=clear` goes on with it. Without one, clearing starts with a ban again.
+  final bool clearPending;
 }
 
 /// The answer of `GET action=adminban`.
@@ -885,9 +912,13 @@ const adminClearStart = '0-0';
 /// One batch of the clearing (`op=clear`): done, the cursor of the next, the rows left, what this one handled.
 typedef AdminClearStep = ({bool done, String cursor, int remaining, int posts, int threads});
 
-/// The answer [json] of `op=clear`; null when it is not one.
-AdminClearStep? adminClearStepOf(Map<String, dynamic>? json) {
+/// The answer [json] of `op=clear` for member [target]; null when it is not one, or it names another member
+/// (`target_uid`, the plugin's second round; the top `uid` is the account asking, as in every answer).
+AdminClearStep? adminClearStepOf(Map<String, dynamic>? json, {int? target}) {
   if (json == null || json['ok'] != 1 || json['op'] != 'clear') {
+    return null;
+  }
+  if (target != null && json.containsKey('target_uid') && tsdmAppInt(json['target_uid']) != target) {
     return null;
   }
   return (

@@ -1,0 +1,26 @@
+{
+ "ok": 1,
+ "api": 1,
+ "time": 1700000000,
+ "uid": 32,
+ "formhash": "f1f2f3f4",
+ "type": "form",
+ "schema": 17,
+ "form": "getip",
+ "float": 0,
+ "ajax": 1,
+ "tid": 9202952,
+ "pid": 11736,
+ "authorid": 32,
+ "author": "ag_admin",
+ "ip": "203.0.113.5",
+ "port": 42204,
+ "location": "Reserved",
+ "admincp": {
+  "ban_ip": "admin.php?action=members&operation=ipban&ip=203.0.113.5&frames=yes",
+  "users": "admin.php?action=members&operation=search&regip=203.0.113.5&submit=yes&frames=yes"
+ },
+ "submit": null,
+ "hook_fields": [],
+ "unsupported": []
+}

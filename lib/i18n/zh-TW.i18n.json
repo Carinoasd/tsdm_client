@@ -2319,7 +2319,15 @@
       "failed": "$count 個主題未完成",
       "unknown": "結果未知，請重新整理確認",
       "noOperation": "沒有可用的管理操作"
-    }
+    },
+    "removeReward": "移除懸賞",
+    "refund": "強制退款",
+    "reasonRequired": "請填寫操作原因",
+    "rewardPrice": "懸賞 ${amount}",
+    "solved": "已選出最佳答案",
+    "salePrice": "售價 ${amount}",
+    "payers": "${n} 人購買",
+    "income": "作者收入 ${amount}"
   },
   "packetCard": {
     "title": "紅包",
@@ -2344,7 +2352,8 @@
     "stuck": "置頂回覆",
     "removeRate": "撤銷評分",
     "attachments": "附件",
-    "deleteAttachment": "刪除附件"
+    "deleteAttachment": "刪除附件",
+    "viewIp": "查看 IP"
   },
   "bbcodeEditor": {
     "experimentalInfo": "實驗性bbcode編輯器",
@@ -4268,7 +4277,18 @@
     "noReward": "不獎懲",
     "message": "給舉報人的留言",
     "resolve": "處理 ${n} 則",
-    "done": "處理成功"
+    "done": "處理成功",
+    "wholeForum": "全站",
+    "byForum": "版塊",
+    "waiting": "未處理",
+    "handled": "已處理",
+    "delete": "刪除 ${n} 則",
+    "deleted": "已刪除 ${n} 則",
+    "doneSkipped": "處理了 ${n} 則，${skipped} 則已被處理或不存在",
+    "openLink": "開啟連結",
+    "errorCredits": "獎懲值要在 ${min} 到 ${max} 之間",
+    "errorMessage": "留言太長",
+    "errorIds": "沒有選擇舉報，或一次選得太多"
   },
   "attachmentDownload": {
     "title": "下載管理",
@@ -4355,12 +4375,10 @@
     "postCounts": "回帖 ${posts} · 主題 ${threads}",
     "clearProgress": "已清理 ${done} / ${total}",
     "clearResume": "繼續清理",
-    "clearPosts": "清理帖子",
     "clearDone": "帖子已清理完",
     "reasonNeeded": "請填寫理由",
     "errorFailed": "請求失敗，請重試",
     "errorOff": "論壇的管理功能已關閉",
-    "errorAdminid": "這個帳號不是管理員",
     "errorUids": "這個帳號不在論壇允許的名單裡",
     "errorCpaccess": "這個帳號不能進入管理中心",
     "errorIp": "現在的網路不在管理中心允許的 IP 裡",
@@ -4389,6 +4407,9 @@
       "q5": "您個人電腦的型號",
       "q6": "您最喜歡的餐館名稱",
       "q7": "駕駛執照最後四位數字"
-    }
+    },
+    "errorClearStart": "這個會員沒有進行中的清理，請重新送出禁止並勾選清理帖子",
+    "errorClearStuck": "清理沒有進展，已停止",
+    "creditOverflow": "加減後會超出積分能存的範圍：${list}"
   }
 }

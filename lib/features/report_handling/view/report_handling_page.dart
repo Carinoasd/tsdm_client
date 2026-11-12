@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:fpdart/fpdart.dart' show Either, Left, Right;
 import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/constants/layout.dart';
@@ -14,17 +15,25 @@ import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 /// Handling reports (舉報處理) of a [source]: choose the part (the panel's forum), list the reports (each opens what
 /// was reported), pick some with the reporter's reward and a message when the forum sets a reward, handle them.
 ///
-/// The source decides everything: what is listed, the login it asks, what was done.
+/// With [wholeForum] (the admin API's reports of the whole forum) the page offers both and shows that one first: its
+/// lists of the reports waiting and handled are tabs, and its reports may be deleted too.
+///
+/// The source decides everything: what is listed, the login it asks, what was done. A report opens by itself only when
+/// its thread or floor is known; any other address (the reporter wrote it) is shown and opened once confirmed.
 class ReportHandlingPage extends StatefulWidget {
   /// Constructor.
-  const ReportHandlingPage({required this.source, super.key});
+  const ReportHandlingPage({required this.source, this.wholeForum, super.key});
 
-  /// Where the reports come from.
+  /// Where the reports come from: the panel's, one forum at a time.
   final ReportSource source;
+
+  /// The reports of the whole forum, offered beside [source] and shown first; null when not offered.
+  final ReportSource? wholeForum;
 
   @override
   State<ReportHandlingPage> createState() => _ReportHandlingPageState();
@@ -39,6 +48,11 @@ class _ReportHandlingPageState extends State<ReportHandlingPage> {
 
   /// The page of the part listed last: kept through a login asked meanwhile.
   int _page = 1;
+
+  /// [ReportHandlingPage.wholeForum] is shown.
+  late bool _whole = widget.wholeForum != null;
+
+  ReportSource get _source => _whole ? widget.wholeForum! : widget.source;
 
   final _selected = <int>{};
   final _credits = <int, int>{};
@@ -80,7 +94,7 @@ class _ReportHandlingPageState extends State<ReportHandlingPage> {
       _scope = next;
       _page = page;
     });
-    final answer = await widget.source.load(scope: next, page: page);
+    final answer = await _source.load(scope: next, page: page);
     if (!mounted || generation != _generation) {
       return;
     }
@@ -89,6 +103,7 @@ class _ReportHandlingPageState extends State<ReportHandlingPage> {
       _answer = answer;
       if (answer case Right(value: ReportReady(:final list))) {
         _page = list.page;
+        if (list.scopeTabs) _scope = list.scope;
         final listed = {for (final i in list.items) i.id};
         _selected.retainWhere(listed.contains);
       }
@@ -101,18 +116,115 @@ class _ReportHandlingPageState extends State<ReportHandlingPage> {
 
   Future<void> _reload() => _load(page: _page);
 
+  /// Show the other source, from its first page.
+  Future<void> _switchSource(bool whole) async {
+    if (whole == _whole) {
+      return;
+    }
+    setState(() {
+      _whole = whole;
+      _answer = null;
+      _clearChoices();
+    });
+    _scope = '';
+    await _load(scope: '');
+  }
+
   Future<void> _open(ReportItem item) async {
     if (item.pid > 0) {
       await context.pushNamed(
         ScreenPaths.threadV1,
         queryParameters: {'pid': '${item.pid}', 'overrideReverseOrder': 'false'},
       );
-    } else if (item.tid > 0) {
+      return;
+    }
+    if (item.tid > 0) {
       await context.pushNamed(ScreenPaths.threadV1, queryParameters: {'tid': '${item.tid}'});
-    } else if (item.absoluteUrl case final url?) {
-      await context.dispatchAsUrl(url);
+      return;
+    }
+    // The reporter wrote the address: opened once the moderator saw it.
+    final link = item.link;
+    if (link == null) {
+      return;
+    }
+    final ok = await showToolsConfirm(
+      context,
+      title: context.t.reportHandling.openLink,
+      confirm: context.t.general.ok,
+      content: [SelectableText('$link')],
+    );
+    if (!ok || !mounted) {
+      return;
+    }
+    if (item.linkIsForum) {
+      await context.dispatchAsUrl('$link');
+    } else {
+      await launchUrl(link, mode: LaunchMode.externalApplication);
     }
   }
+
+  /// What to tell of [outcome]; null to tell nothing (the login ended: the page asks it again).
+  String? _outcomeText(Either<AppException, ReportOutcome> outcome) {
+    final tr = context.t.reportHandling;
+    return switch (outcome) {
+      Right(value: ReportDone(:final describe?)) => describe(context),
+      Right(value: ReportDone(:final message)) => message.isEmpty ? tr.done : context.displayText(message),
+      Right(value: ReportNotDone(:final describe?)) => describe(context),
+      Right(value: ReportNotDone(:final message)) =>
+        message.isEmpty ? context.t.moderate.failed : context.displayText(message),
+      Right(value: ReportSessionEnded()) => null,
+      Right(value: ReportUnknown()) => context.t.medalTitleTools.unconfirmed,
+      Left(value: IdentityChangedException()) => context.t.general.accountChangedRetry,
+      Left() => context.t.medalTitleTools.unconfirmed,
+    };
+  }
+
+  Future<void> _delete(ReportList list) async {
+    final tr = context.t.reportHandling;
+    final items = [
+      for (final item in list.items)
+        if (_selected.contains(item.id)) item,
+    ];
+    if (items.isEmpty) {
+      return;
+    }
+    final ok = await showToolsConfirm(
+      context,
+      title: tr.delete(n: items.length),
+      confirm: tr.delete(n: items.length),
+      destructive: true,
+      content: [
+        for (final item in items)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Text(item.lines.firstOrNull ?? '#${item.id}', maxLines: 2, overflow: TextOverflow.ellipsis),
+          ),
+      ],
+    );
+    if (!ok || !mounted) {
+      return;
+    }
+    setState(() => _busy = true);
+    final outcome = await _source.delete(list, items);
+    if (!mounted) {
+      return;
+    }
+    setState(() => _busy = false);
+    if (_outcomeText(outcome) case final message?) {
+      showSnackBar(context: context, message: message, showCloseIcon: true);
+    }
+    if (outcome case Right(value: ReportDone())) {
+      setState(_clearChoices);
+    }
+    if (outcome case Left(value: IdentityChangedException())) {
+      return;
+    }
+    await _reload();
+  }
+
+  String _resolutionReward(ReportResolution r) =>
+      '${context.displayText(r.creditTitle)} ${r.value > 0 ? '+' : ''}${r.value}'
+      '${r.unit.isEmpty ? '' : ' ${context.displayText(r.unit)}'}';
 
   String _credit(ReportReward reward, int value) =>
       '${value > 0 ? '+' : ''}$value${reward.unit.isEmpty ? '' : ' ${context.displayText(reward.unit)}'}';
@@ -155,21 +267,13 @@ class _ReportHandlingPageState extends State<ReportHandlingPage> {
       return;
     }
     setState(() => _busy = true);
-    final outcome = await widget.source.resolve(list, decisions);
+    final outcome = await _source.resolve(list, decisions);
     if (!mounted) {
       return;
     }
     setState(() => _busy = false);
-    final message = switch (outcome) {
-      Right(value: ReportDone(:final message)) => message.isEmpty ? tr.done : message,
-      Right(value: ReportNotDone(:final message)) => message.isEmpty ? context.t.moderate.failed : message,
-      Right(value: ReportSessionEnded()) => null,
-      Right(value: ReportUnknown()) => context.t.medalTitleTools.unconfirmed,
-      Left(value: IdentityChangedException()) => context.t.general.accountChangedRetry,
-      Left() => context.t.medalTitleTools.unconfirmed,
-    };
-    if (message != null) {
-      showSnackBar(context: context, message: context.displayText(message), showCloseIcon: true);
+    if (_outcomeText(outcome) case final message?) {
+      showSnackBar(context: context, message: message, showCloseIcon: true);
     }
     if (outcome case Right(value: ReportDone())) {
       setState(_clearChoices);
@@ -212,8 +316,9 @@ class _ReportHandlingPageState extends State<ReportHandlingPage> {
     final theme = Theme.of(context);
     final muted = theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant);
     final selected = _selected.contains(item.id);
-    final reward = list.reward;
-    final canOpen = item.pid > 0 || item.tid > 0 || item.absoluteUrl != null;
+    final reward = list.canResolve ? list.reward : null;
+    final canOpen = item.opensInApp || item.link != null;
+    final resolution = item.resolution;
     return Card(
       key: ValueKey('report-${item.id}'),
       margin: EdgeInsets.zero,
@@ -232,7 +337,7 @@ class _ReportHandlingPageState extends State<ReportHandlingPage> {
                   Checkbox(
                     key: ValueKey('report-pick-${item.id}'),
                     value: selected,
-                    onChanged: _busy || !list.canResolve
+                    onChanged: _busy || !(list.canResolve || list.canDelete)
                         ? null
                         : (v) => setState(() => (v ?? false) ? _selected.add(item.id) : _selected.remove(item.id)),
                   ),
@@ -248,6 +353,17 @@ class _ReportHandlingPageState extends State<ReportHandlingPage> {
                               padding: const EdgeInsets.only(top: 6),
                               child: Text(item.excerpt, style: theme.textTheme.bodySmall),
                             ),
+                          if (!item.opensInApp && item.link != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 6),
+                              child: Text(
+                                '${item.link}',
+                                key: ValueKey('report-link-${item.id}'),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.primary),
+                              ),
+                            ),
                           const SizedBox(height: 6),
                           Text(
                             [
@@ -258,6 +374,22 @@ class _ReportHandlingPageState extends State<ReportHandlingPage> {
                             ].join(' · '),
                             style: muted,
                           ),
+                          if (resolution != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 2),
+                              child: Text(
+                                [
+                                  if (resolution.operator.isNotEmpty) resolution.operator,
+                                  if (resolution.time > 0) toolsDateTime(resolution.time),
+                                  if (resolution.value == 0)
+                                    context.t.reportHandling.noReward
+                                  else
+                                    _resolutionReward(resolution),
+                                ].join(' · '),
+                                key: ValueKey('report-resolution-${item.id}'),
+                                style: muted,
+                              ),
+                            ),
                         ],
                       ),
                     ),
@@ -296,6 +428,9 @@ class _ReportHandlingPageState extends State<ReportHandlingPage> {
                           key: ValueKey('report-message-${item.id}'),
                           controller: _messages.putIfAbsent(item.id, TextEditingController.new),
                           enabled: !_busy,
+                          inputFormatters: [
+                            if (list.messageMax case final max?) LengthLimitingTextInputFormatter(max),
+                          ],
                           decoration: InputDecoration(
                             isDense: true,
                             labelText: context.t.reportHandling.message,
@@ -348,13 +483,14 @@ class _ReportHandlingPageState extends State<ReportHandlingPage> {
       return const Center(child: CircularProgressIndicator());
     }
     return switch (_answer) {
-      Right(value: final ReportNeedsLogin need) => widget.source.loginView(need, _reload),
+      Right(value: final ReportNeedsLogin need) => _source.loginView(need, _reload),
       Right(value: ReportReady(:final list)) when list.needScope => _scopes(list),
       Right(value: ReportReady(:final list)) => _list(list),
-      Right(value: ReportRefused(:final message)) => AppStateView(
+      Right(value: ReportRefused(:final message, :final describe)) => AppStateView(
         icon: Icons.error_outline,
         error: true,
-        message: message.isEmpty ? context.t.moderate.failed : context.displayText(message),
+        message:
+            describe?.call(context) ?? (message.isEmpty ? context.t.moderate.failed : context.displayText(message)),
         action: TextButton(onPressed: _reload, child: Text(context.t.general.retry)),
       ),
       Left(value: IdentityChangedException()) => AppStateView(
@@ -386,7 +522,7 @@ class _ReportHandlingPageState extends State<ReportHandlingPage> {
             ? const PreferredSize(preferredSize: Size.fromHeight(2), child: LinearProgressIndicator(minHeight: 2))
             : null,
         actions: [
-          if (shown != null && shown.scopes.length > 1)
+          if (shown != null && !shown.scopeTabs && shown.scopes.length > 1)
             PopupMenuButton<String>(
               key: const ValueKey('report-switch-scope'),
               tooltip: context.t.modcp.switchForum,
@@ -406,10 +542,46 @@ class _ReportHandlingPageState extends State<ReportHandlingPage> {
       ),
       body: Column(
         children: [
+          if (widget.wholeForum != null || (shown?.scopeTabs ?? false))
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+              child: Wrap(
+                spacing: 12,
+                runSpacing: 8,
+                alignment: WrapAlignment.center,
+                children: [
+                  if (widget.wholeForum != null)
+                    SegmentedButton<bool>(
+                      key: const ValueKey('report-source'),
+                      showSelectedIcon: false,
+                      segments: [
+                        ButtonSegment(value: true, label: Text(tr.wholeForum)),
+                        ButtonSegment(value: false, label: Text(tr.byForum)),
+                      ],
+                      selected: {_whole},
+                      onSelectionChanged: _busy ? null : (v) => unawaited(_switchSource(v.first)),
+                    ),
+                  if (shown != null && shown.scopeTabs)
+                    SegmentedButton<String>(
+                      key: const ValueKey('report-tabs'),
+                      showSelectedIcon: false,
+                      segments: [
+                        for (final s in shown.scopes)
+                          ButtonSegment(
+                            value: s.key,
+                            label: Text(s.key == AdminReportScopes.resolved ? tr.handled : tr.waiting),
+                          ),
+                      ],
+                      selected: {shown.scope},
+                      onSelectionChanged: _busy ? null : (v) => unawaited(_load(scope: v.first)),
+                    ),
+                ],
+              ),
+            ),
           Expanded(
             child: SafeArea(top: false, bottom: _selected.isEmpty, child: _body()),
           ),
-          if (shown != null && shown.canResolve && _selected.isNotEmpty)
+          if (shown != null && (shown.canResolve || shown.canDelete) && _selected.isNotEmpty)
             AppBottomActionBar(
               child: Row(
                 children: [
@@ -424,11 +596,21 @@ class _ReportHandlingPageState extends State<ReportHandlingPage> {
                     child: Text(context.t.modcp.selected(count: _selected.length)),
                   ),
                   const Spacer(),
-                  FilledButton(
-                    key: const ValueKey('report-resolve'),
-                    onPressed: _busy ? null : () => _resolve(shown),
-                    child: Text(tr.resolve(n: _selected.length)),
-                  ),
+                  if (shown.canDelete)
+                    TextButton(
+                      key: const ValueKey('report-delete'),
+                      style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
+                      onPressed: _busy ? null : () => _delete(shown),
+                      child: Text(tr.delete(n: _selected.length)),
+                    ),
+                  if (shown.canResolve) ...[
+                    sizedBoxW8H8,
+                    FilledButton(
+                      key: const ValueKey('report-resolve'),
+                      onPressed: _busy ? null : () => _resolve(shown),
+                      child: Text(tr.resolve(n: _selected.length)),
+                    ),
+                  ],
                 ],
               ),
             ),

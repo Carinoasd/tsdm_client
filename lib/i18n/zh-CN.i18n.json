@@ -2319,7 +2319,15 @@
       "failed": "$count 个主题未完成",
       "unknown": "结果未知，请刷新确认",
       "noOperation": "没有可用的管理操作"
-    }
+    },
+    "removeReward": "移除悬赏",
+    "refund": "强制退款",
+    "reasonRequired": "请填写操作原因",
+    "rewardPrice": "悬赏 ${amount}",
+    "solved": "已选出最佳答案",
+    "salePrice": "售价 ${amount}",
+    "payers": "${n} 人购买",
+    "income": "作者收入 ${amount}"
   },
   "packetCard": {
     "title": "红包",
@@ -2344,7 +2352,8 @@
     "stuck": "置顶回复",
     "removeRate": "撤销评分",
     "attachments": "附件",
-    "deleteAttachment": "删除附件"
+    "deleteAttachment": "删除附件",
+    "viewIp": "查看 IP"
   },
   "bbcodeEditor": {
     "experimentalInfo": "实验性bbcode编辑器",
@@ -4268,7 +4277,18 @@
     "noReward": "不奖惩",
     "message": "给举报人的留言",
     "resolve": "处理 ${n} 条",
-    "done": "处理成功"
+    "done": "处理成功",
+    "wholeForum": "全站",
+    "byForum": "版块",
+    "waiting": "未处理",
+    "handled": "已处理",
+    "delete": "删除 ${n} 条",
+    "deleted": "已删除 ${n} 条",
+    "doneSkipped": "处理了 ${n} 条，${skipped} 条已被处理或不存在",
+    "openLink": "打开链接",
+    "errorCredits": "奖惩值要在 ${min} 到 ${max} 之间",
+    "errorMessage": "留言太长",
+    "errorIds": "没有选择举报，或一次选得太多"
   },
   "attachmentDownload": {
     "title": "下载管理",
@@ -4355,12 +4375,10 @@
     "postCounts": "回帖 ${posts} · 主题 ${threads}",
     "clearProgress": "已清理 ${done} / ${total}",
     "clearResume": "继续清理",
-    "clearPosts": "清理帖子",
     "clearDone": "帖子已清理完",
     "reasonNeeded": "请填写理由",
     "errorFailed": "请求失败，请重试",
     "errorOff": "论坛的管理功能已关闭",
-    "errorAdminid": "这个账号不是管理员",
     "errorUids": "这个账号不在论坛允许的名单里",
     "errorCpaccess": "这个账号不能进入管理中心",
     "errorIp": "现在的网络不在管理中心允许的 IP 里",
@@ -4389,6 +4407,9 @@
       "q5": "您个人计算机的型号",
       "q6": "您最喜欢的餐馆名称",
       "q7": "驾驶执照最后四位数字"
-    }
+    },
+    "errorClearStart": "这个会员没有进行中的清理，请重新提交禁止并勾选清理帖子",
+    "errorClearStuck": "清理没有进展，已停止",
+    "creditOverflow": "加减后会超出积分能存的范围：${list}"
   }
 }

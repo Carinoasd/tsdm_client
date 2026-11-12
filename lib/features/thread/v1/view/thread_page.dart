@@ -34,6 +34,7 @@ import 'package:tsdm_client/features/jump_page/cubit/jump_page_cubit.dart';
 import 'package:tsdm_client/features/keyboard/widgets/keyboard_page_actions.dart';
 import 'package:tsdm_client/features/moderate/models/moderate_form.dart';
 import 'package:tsdm_client/features/moderate/models/moderate_posts.dart';
+import 'package:tsdm_client/features/moderate/models/thread_admin_forms.dart';
 import 'package:tsdm_client/features/moderate/repository/moderate_repository.dart';
 import 'package:tsdm_client/features/moderate/widgets/floor_moderate_dialog.dart';
 import 'package:tsdm_client/features/moderate/widgets/member_ban_dialog.dart';
@@ -2830,7 +2831,11 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
                           description: context.t.threadPage.copyTid(tid: state.tid!),
                           onSelected: () async => copyToClipboard(context, state.tid!),
                         ),
-                        if (_threadOperations(state).isNotEmpty)
+                        if (_threadOperations(state).isNotEmpty ||
+                            (!state.isOffline &&
+                                state.tid != null &&
+                                state.fid != null &&
+                                (state.perms?.adminActions(formsKnown: threadAdminFormsKnown()).isNotEmpty ?? false)))
                           MenuCustomItem(
                             icon: Icons.admin_panel_settings_outlined,
                             description: context.t.moderate.menu,

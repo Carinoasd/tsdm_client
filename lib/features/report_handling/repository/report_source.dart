@@ -23,6 +23,9 @@ abstract interface class ReportSource {
   /// Handle [decisions] of [list], once.
   Future<Either<AppException, ReportOutcome>> resolve(ReportList list, List<ReportDecision> decisions);
 
+  /// Delete [items] of [list] (a list whose [ReportList.canDelete]), once.
+  Future<Either<AppException, ReportOutcome>> delete(ReportList list, List<ReportItem> items);
+
   /// The login asked by [need], calling [onLoggedIn] once logged in.
   Widget loginView(ReportNeedsLogin need, Future<void> Function() onLoggedIn);
 }
@@ -183,6 +186,11 @@ final class ModcpReportSource implements ReportSource {
         return right(ReportNotDone(result.reason.trim()));
     }
   }
+
+  /// The panel deletes no report.
+  @override
+  Future<Either<AppException, ReportOutcome>> delete(ReportList list, List<ReportItem> items) async =>
+      right(const ReportNotDone(''));
 
   @override
   Widget loginView(ReportNeedsLogin need, Future<void> Function() onLoggedIn) => ModeratePanelLoginView(
