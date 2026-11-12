@@ -9,6 +9,7 @@ import 'package:tsdm_client/features/activities/view/activities_page.dart';
 import 'package:tsdm_client/features/attachment_download/view/attachment_downloads_page.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/authentication/view/login_page.dart';
+import 'package:tsdm_client/features/background_grant/view/background_grant_page.dart';
 import 'package:tsdm_client/features/bank/view/bank_page.dart';
 import 'package:tsdm_client/features/blocking/view/user_block_page.dart';
 import 'package:tsdm_client/features/blocking/view/website_blocklist_page.dart';
@@ -426,6 +427,10 @@ final List<RouteBase> _appRoutes = [
   AppRoute(
     path: ScreenPaths.titleIssue,
     builder: (state) => TitleIssuePage(initialMembers: state.uri.queryParameters['uid']),
+  ),
+  AppRoute(
+    path: ScreenPaths.backgroundGrant,
+    builder: (state) => BackgroundGrantPage(initialMembers: state.uri.queryParameters['uid']),
   ),
   AppRoute(path: ScreenPaths.bank, builder: (_) => const BankPage()),
   AppRoute(path: ScreenPaths.taskCenter, builder: (_) => const TaskCenterPage()),

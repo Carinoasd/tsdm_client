@@ -137,6 +137,9 @@ class _ProfilePageState extends State<ProfilePage> {
   /// The admin tools the account may use on another member; null for everyone else and until known.
   StaffTools? _adminTools;
 
+  /// The account may send backgrounds to another member (shown with [_adminTools]).
+  bool _backgroundGrant = false;
+
   /// Only the accounts of a management group ask the forum for the tools, an ordinary member sends nothing more.
   Future<void> _loadAdminTools() async {
     final auth = context.readOrNull<AuthenticationRepository>();
@@ -146,26 +149,29 @@ class _ProfilePageState extends State<ProfilePage> {
     if (uid == null || profiles == null || (widget.username == null && viewing == null) || viewing == '$uid') {
       return;
     }
-    final can = await memberAdminToolsOf(
-      uid,
-      stillCurrent: () => auth?.currentUser?.uid == uid,
-      isManager: () async {
-        final page = (await profiles.fetchProfile(uid: '$uid').run()).toNullable();
-        final own = page == null ? null : (await buildProfilePage(page).run()).toNullable();
-        if (own == null || own.uid != '$uid') {
-          return null;
-        }
-        return (own.moderatorGroup ?? '').trim().isNotEmpty;
-      },
-    );
-    if (!mounted || can == null || !(can.grant || can.issue)) {
+    Future<bool?> isManager() async {
+      final page = (await profiles.fetchProfile(uid: '$uid').run()).toNullable();
+      final own = page == null ? null : (await buildProfilePage(page).run()).toNullable();
+      if (own == null || own.uid != '$uid') {
+        return null;
+      }
+      return (own.moderatorGroup ?? '').trim().isNotEmpty;
+    }
+
+    bool stillCurrent() => auth?.currentUser?.uid == uid;
+    final can = await memberAdminToolsOf(uid, stillCurrent: stillCurrent, isManager: isManager);
+    final background = await memberBackgroundGrantOf(uid, stillCurrent: stillCurrent, isManager: isManager);
+    if (!mounted || !((can?.grant ?? false) || (can?.issue ?? false) || background)) {
       return;
     }
     // The account in use may have changed while the forum answered.
     if (auth?.currentUser?.uid != uid) {
       return;
     }
-    setState(() => _adminTools = can);
+    setState(() {
+      _adminTools = can ?? (grant: false, issue: false);
+      _backgroundGrant = background;
+    });
   }
 
   final _refreshController = EasyRefreshController(controlFinishRefresh: true);
@@ -489,7 +495,9 @@ class _ProfilePageState extends State<ProfilePage> {
                     icon: Icons.admin_panel_settings_outlined,
                     label: tr.adminMenu,
                     placement: OverflowPlacement.menuOnly,
-                    onPressed: () => unawaited(showMemberAdminSheet(context, uid: memberUid, can: _adminTools!)),
+                    onPressed: () => unawaited(
+                      showMemberAdminSheet(context, uid: memberUid, can: _adminTools!, background: _backgroundGrant),
+                    ),
                   ),
                 if (others && !off.contains(SpaceModule.poke))
                   OverflowAction(

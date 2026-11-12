@@ -5,6 +5,7 @@ import 'package:fpdart/fpdart.dart' show Either, Left, Right;
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
+import 'package:tsdm_client/features/background_grant/view/background_grant_page.dart';
 import 'package:tsdm_client/features/medal_title_tools/utils/staff_access.dart';
 import 'package:tsdm_client/features/medal_title_tools/view/medal_grant_page.dart';
 import 'package:tsdm_client/features/medal_title_tools/view/title_issue_page.dart';
@@ -12,6 +13,7 @@ import 'package:tsdm_client/features/moderate/models/modcp_members.dart';
 import 'package:tsdm_client/features/moderate/models/modcp_panel.dart';
 import 'package:tsdm_client/features/moderate/repository/modcp_repository.dart';
 import 'package:tsdm_client/features/moderate/repository/moderate_repository.dart';
+import 'package:tsdm_client/features/moderate/utils/panel_tools_access.dart';
 import 'package:tsdm_client/features/moderate/view/announcements_page.dart';
 import 'package:tsdm_client/features/moderate/view/forum_rules_page.dart';
 import 'package:tsdm_client/features/moderate/view/member_review_page.dart';
@@ -20,6 +22,8 @@ import 'package:tsdm_client/features/moderate/view/moderate_queue_page.dart';
 import 'package:tsdm_client/features/moderate/view/moderator_log_page.dart';
 import 'package:tsdm_client/features/moderate/view/recycle_bin_page.dart';
 import 'package:tsdm_client/features/moderate/widgets/moderate_panel_login.dart';
+import 'package:tsdm_client/features/report_handling/repository/report_source.dart';
+import 'package:tsdm_client/features/report_handling/view/report_handling_page.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
@@ -31,7 +35,7 @@ import 'package:tsdm_client/widgets/app_surface.dart';
 /// the announcements) are shown once the menu says so, all of them when it could not be read.
 class ModeratorPanelPage extends StatefulWidget {
   /// Constructor.
-  const ModeratorPanelPage({this.repository, this.queueRepository, this.staffTools, super.key});
+  const ModeratorPanelPage({this.repository, this.queueRepository, this.staffTools, this.panelTools, super.key});
 
   /// The panel's pages; the app's client when null.
   final ModcpRepository? repository;
@@ -41,6 +45,9 @@ class ModeratorPanelPage extends StatefulWidget {
 
   /// What the account may do with the medal and title tools; asked of the forum (once per account) when null.
   final Future<StaffTools?> Function()? staffTools;
+
+  /// Sending backgrounds and the report page (plugin 3.9.0); asked of the forum (once per account) when null.
+  final Future<PanelTools?> Function()? panelTools;
 
   @override
   State<ModeratorPanelPage> createState() => _ModeratorPanelPageState();
@@ -58,11 +65,15 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
   /// The medal and title tools the account may use; null until asked or when it could not be.
   StaffTools? _staff;
 
+  /// Sending backgrounds and the report page; null until asked or when it could not be.
+  PanelTools? _panel;
+
   @override
   void initState() {
     super.initState();
     unawaited(_loadMenu());
     unawaited(_loadStaff());
+    unawaited(_loadPanel());
   }
 
   /// The panel is linked to the accounts of a management group only (the "me" page), so asking here sends nothing for
@@ -79,6 +90,19 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
     final can = await ask();
     if (mounted && can != null) {
       setState(() => _staff = can);
+    }
+  }
+
+  /// Asked as [_loadStaff] is.
+  Future<void> _loadPanel() async {
+    final auth = context.readOrNull<AuthenticationRepository>();
+    final uid = auth?.currentUser?.uid;
+    final ask =
+        widget.panelTools ??
+        (uid == null ? null : () => PanelToolsAccess.check(uid, stillCurrent: () => auth?.currentUser?.uid == uid));
+    final panel = await ask?.call();
+    if (mounted && panel != null) {
+      setState(() => _panel = panel);
     }
   }
 
@@ -158,6 +182,13 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
           t.modcp.announcements,
           () => AnnouncementsPage(repository: repository),
         ),
+      if (_panel?.modcpReport ?? false)
+        (
+          const ValueKey('modcp-report'),
+          Icons.flag_outlined,
+          t.reportHandling.title,
+          () => ReportHandlingPage(source: ModcpReportSource.network(repository)),
+        ),
       if (_staff?.grant ?? false)
         (
           const ValueKey('modcp-medal-grant'),
@@ -171,6 +202,13 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
           Icons.verified_outlined,
           t.medalTitleTools.issueTitle,
           () => const TitleIssuePage(),
+        ),
+      if (_panel?.background ?? false)
+        (
+          const ValueKey('modcp-background-grant'),
+          Icons.wallpaper_outlined,
+          t.backgroundGrant.title,
+          () => const BackgroundGrantPage(),
         ),
     ];
     final colorScheme = Theme.of(context).colorScheme;

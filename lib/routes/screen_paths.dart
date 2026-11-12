@@ -127,6 +127,11 @@ class ScreenPaths {
   /// Issuing titles to members, for administrators and the title plugin's list (app API).
   static const String titleIssue = '/titleIssue';
 
+  /// Sending backgrounds of the background shop plugin (app API `bggrant`).
+  ///
+  /// Query parameters: `uid`, the member the list starts with.
+  static const String backgroundGrant = '/backgroundGrant';
+
   /// Community bank balances, records and current-account transactions.
   static const String bank = '/bank';
 

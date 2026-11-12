@@ -1,0 +1,12 @@
+{
+  "ok": 1,
+  "api": 1,
+  "time": 1700000000,
+  "uid": 31,
+  "installed": 1,
+  "formhash": "f1f2f3f4",
+  "type": "bggrant",
+  "schema": 31,
+  "supported": 1,
+  "can_grant": 0
+}
