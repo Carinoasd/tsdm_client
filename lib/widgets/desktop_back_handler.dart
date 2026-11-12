@@ -25,8 +25,8 @@ import 'package:tsdm_client/features/keyboard/widgets/keyboard_shortcuts_host.da
 /// the sheet first and the page only on the next press. Pages refusing to pop (an unsaved draft asking first) keep
 /// deciding through their `PopScope`.
 ///
-/// On iOS `Esc` does the same once a hardware keyboard is seen (`keyboardShortcutsEnabled`); the widget is there from
-/// the start so the tree below does not change when the keyboard turns up.
+/// On iOS `Esc` does the same once a hardware keyboard is seen (`keyboardShortcutsEnabled`), the mouse button from the
+/// start; the widget is there from the start so the tree below does not change when the keyboard turns up.
 ///
 /// On other platforms this widget only builds [child].
 class DesktopBackHandler extends StatelessWidget {
@@ -75,7 +75,7 @@ class DesktopBackHandler extends StatelessWidget {
   }
 
   void _onPointerDown(PointerDownEvent event) {
-    if (_keysEnabled && event.kind == PointerDeviceKind.mouse && event.buttons & kBackMouseButton != 0) {
+    if (event.kind == PointerDeviceKind.mouse && event.buttons & kBackMouseButton != 0) {
       goBack();
     }
   }

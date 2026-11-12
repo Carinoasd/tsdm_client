@@ -24,7 +24,10 @@ abstract final class HardwareKeyboardPresence {
   static bool get touchPlatform => touchPlatformOverride ?? isIOS;
 
   /// Whether the app runs on a desktop platform, where the keyboard shortcuts are always in use.
-  static bool get desktopPlatform => touchPlatformOverride != null ? !touchPlatformOverride! : isDesktop;
+  static bool get desktopPlatform => switch (touchPlatformOverride) {
+    null => isDesktop,
+    final touch => !touch,
+  };
 
   static bool _watching = false;
 

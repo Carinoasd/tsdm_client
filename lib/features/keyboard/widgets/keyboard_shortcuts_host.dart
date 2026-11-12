@@ -85,8 +85,8 @@ class KeyboardAction<T extends Intent> extends Action<T> {
   }
 }
 
-/// Keys of the whole app on Windows, macOS and Linux, and on iOS with a hardware keyboard: the ones that open a page, and the table binding every key to
-/// the intents the pages answer (`KeyboardPageActions`).
+/// Keys of the whole app on Windows, macOS and Linux, and on iOS with a hardware keyboard: the ones that open a page,
+/// and the table binding every key to the intents the pages answer (`KeyboardPageActions`).
 ///
 /// Sitting between the app's own shortcuts and the navigator, the table is seen by the focus first; a key whose
 /// intent no page around the focus answers goes on untouched.
