@@ -1,0 +1,49 @@
+{
+ "ok": 1,
+ "api": 1,
+ "time": 1700000000,
+ "uid": 96,
+ "formhash": "f1f2f3f4",
+ "type": "admin",
+ "schema": 25,
+ "enabled": 1,
+ "eligible": 1,
+ "why": "",
+ "header": "X-Tsdmapp-Admin",
+ "session": {
+  "active": 0,
+  "expires": 0,
+  "ttl": 900,
+  "max": 7200,
+  "checkip": 1
+ },
+ "login": {
+  "locked": 0,
+  "retry_after": 0,
+  "tries_left": 4,
+  "secques": 0
+ },
+ "founder": 0,
+ "actions": {
+  "admincredit": {
+   "read": 1,
+   "write": 1,
+   "perm": "members_reward"
+  },
+  "admingroup": {
+   "read": 1,
+   "write": 1,
+   "perm": "members_group"
+  },
+  "adminban": {
+   "read": 1,
+   "write": 1,
+   "perm": "members_ban"
+  },
+  "adminreport": {
+   "read": 0,
+   "write": 0,
+   "perm": "report"
+  }
+ }
+}

@@ -4,6 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:fpdart/fpdart.dart' show Either, Left, Right;
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
+import 'package:tsdm_client/features/admin_tools/models/admin_models.dart';
+import 'package:tsdm_client/features/admin_tools/repository/admin_repository.dart';
+import 'package:tsdm_client/features/admin_tools/view/admin_ban_page.dart';
+import 'package:tsdm_client/features/admin_tools/view/admin_credit_page.dart';
+import 'package:tsdm_client/features/admin_tools/view/admin_group_page.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/medal_title_tools/utils/staff_access.dart';
 import 'package:tsdm_client/features/medal_title_tools/view/medal_grant_page.dart';
@@ -31,7 +36,14 @@ import 'package:tsdm_client/widgets/app_surface.dart';
 /// the announcements) are shown once the menu says so, all of them when it could not be read.
 class ModeratorPanelPage extends StatefulWidget {
   /// Constructor.
-  const ModeratorPanelPage({this.repository, this.queueRepository, this.staffTools, super.key});
+  const ModeratorPanelPage({
+    this.repository,
+    this.queueRepository,
+    this.staffTools,
+    this.adminAccess,
+    this.adminRepository,
+    super.key,
+  });
 
   /// The panel's pages; the app's client when null.
   final ModcpRepository? repository;
@@ -41,6 +53,12 @@ class ModeratorPanelPage extends StatefulWidget {
 
   /// What the account may do with the medal and title tools; asked of the forum (once per account) when null.
   final Future<StaffTools?> Function()? staffTools;
+
+  /// What the account may do with the forum's admin actions; asked of the forum (once per account) when null.
+  final Future<AdminAccess?> Function()? adminAccess;
+
+  /// The admin actions' requests; the app's client when null.
+  final AdminRepository? adminRepository;
 
   @override
   State<ModeratorPanelPage> createState() => _ModeratorPanelPageState();
@@ -58,11 +76,51 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
   /// The medal and title tools the account may use; null until asked or when it could not be.
   StaffTools? _staff;
 
+  late final AdminRepository _adminRepository = widget.adminRepository ?? AdminRepository.network();
+
+  /// The admin actions the account may use; null until asked or when it could not be.
+  AdminAccess? _admin;
+
+  /// The panel holds the admin session while it lists admin actions: going between them asks the password once.
+  bool _adminLease = false;
+
   @override
   void initState() {
     super.initState();
     unawaited(_loadMenu());
     unawaited(_loadStaff());
+    unawaited(_loadAdmin());
+  }
+
+  @override
+  void dispose() {
+    if (_adminLease) {
+      _adminRepository.session.release(_adminRepository.logout);
+    }
+    super.dispose();
+  }
+
+  Future<void> _loadAdmin() async {
+    final auth = context.readOrNull<AuthenticationRepository>();
+    final uid = auth?.currentUser?.uid;
+    bool stillCurrent() => auth?.currentUser?.uid == uid;
+    final ask =
+        widget.adminAccess ??
+        (uid == null
+            ? null
+            : () => AdminAccessCache.check(uid, repository: _adminRepository, stillCurrent: stillCurrent));
+    if (ask == null) {
+      return;
+    }
+    final access = await ask();
+    if (!mounted || access == null || access.memberActions.isEmpty) {
+      return;
+    }
+    if (!_adminLease) {
+      _adminLease = true;
+      _adminRepository.session.acquire();
+    }
+    setState(() => _admin = access);
   }
 
   /// The panel is linked to the accounts of a management group only (the "me" page), so asking here sends nothing for
@@ -171,6 +229,36 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
           Icons.verified_outlined,
           t.medalTitleTools.issueTitle,
           () => const TitleIssuePage(),
+        ),
+      if (_admin?.canRead(AdminActions.credit) ?? false)
+        (
+          const ValueKey('modcp-admin-credit'),
+          Icons.savings_outlined,
+          t.adminTools.credit,
+          () => AdminCreditPage(
+            repository: _adminRepository,
+            writable: _admin?.canWrite(AdminActions.credit),
+          ),
+        ),
+      if (_admin?.canRead(AdminActions.group) ?? false)
+        (
+          const ValueKey('modcp-admin-group'),
+          Icons.group_outlined,
+          t.adminTools.group,
+          () => AdminGroupPage(
+            repository: _adminRepository,
+            writable: _admin?.canWrite(AdminActions.group),
+          ),
+        ),
+      if (_admin?.canRead(AdminActions.ban) ?? false)
+        (
+          const ValueKey('modcp-admin-ban'),
+          Icons.cleaning_services_outlined,
+          t.adminTools.ban,
+          () => AdminBanPage(
+            repository: _adminRepository,
+            writable: _admin?.canWrite(AdminActions.ban),
+          ),
         ),
     ];
     final colorScheme = Theme.of(context).colorScheme;

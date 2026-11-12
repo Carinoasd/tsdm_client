@@ -67,6 +67,12 @@ import 'package:universal_html/parsing.dart';
 /// `schema: 23`), the moderation panel's log (`schema: 24`), the numbers online and whether the account may see the
 /// statistics on the homepage, and keeps the line breaks of the message of a write result. Each is read where the
 /// answer has it and nothing is asked differently for it: an older plugin's answer is read as it always was.
+///
+/// Plugin 3.9.0 adds the administrator's actions of the forum's admin centre (`admin`, `admincredit`, `admingroup`,
+/// `adminreport`, `adminban`), switched off by default: `status` tells the switch with `admin: 1` ([knowsAdmin]),
+/// `action=admin` tells what the account may use, and every other admin action carries the short-lived token the
+/// account gets for its login password ([askWithHeaders], `admin_tools`). It also answers the moderation panel's report
+/// page (`schema: 28`) and the background grant (`bggrant`, `schema: 31`) as the other plugin forms.
 abstract final class TsdmAppApi {
   /// Url of an action.
   static String url(String action, [Map<String, String> query = const {}]) => Uri.parse(
@@ -131,6 +137,11 @@ abstract final class TsdmAppApi {
   /// sent and the devices page only offered after `status` named it.
   static bool get knowsDevice => pluginInfo.value?.device ?? false;
 
+  /// Whether the forum's admin actions are switched on (plugin 3.9.0, `admin: 1` in `status`): true or false once a
+  /// `status` of that plugin told it, null otherwise (an older plugin, or no `status` asked yet). Not whether the
+  /// account may use them: that is `action=admin`'s answer.
+  static bool? get knowsAdmin => pluginInfo.value?.admin;
+
   /// Keep what an answer [json] of an action tells about the plugin ([pluginInfo]): an answer without a `version`
   /// (an older action's, or a message such as `login`) tells nothing and changes nothing. Only `status` names
   /// `nodoc` and `preview`, and not every answer names `api`: what is known of the version holds through the answers
@@ -149,6 +160,7 @@ abstract final class TsdmAppApi {
         nodoc: json.containsKey('nodoc') ? info.nodoc : known.nodoc,
         preview: info.preview ?? known.preview,
         device: info.device ?? known.device,
+        admin: info.admin ?? known.admin,
       );
     }
     if (info != known) {
@@ -178,6 +190,15 @@ abstract final class TsdmAppApi {
     Map<String, String> query = const {},
   ]) => _ask(client, action, query, waitBusy: true, tries: 3);
 
+  /// [askWaiting] with [headers] added to the request (the admin token of plugin 3.9.0, which the plugin takes only
+  /// as a header or a POST field, never in the url).
+  static Future<Map<String, dynamic>?> askWithHeaders(
+    NetClientProvider client,
+    String action,
+    Map<String, String> query,
+    Map<String, String> headers,
+  ) => _ask(client, action, query, waitBusy: true, tries: 3, headers: headers);
+
   /// [askWaiting], and an older plugin's `{"ok":0,"error":"action"}` is given back instead of null: the caller tells
   /// a plugin without the action apart from a failed request (the sync of plugin 3.4.0 switches itself off for a
   /// while on the former).
@@ -205,6 +226,7 @@ abstract final class TsdmAppApi {
     required int tries,
     int maxWait = 10,
     bool keepActionError = false,
+    Map<String, String> headers = const {},
   }) async {
     if (knownUnavailable) {
       return null;
@@ -212,7 +234,12 @@ abstract final class TsdmAppApi {
     final result = await client
         .get(
           url(action, query),
-          options: waitBusy ? Options(validateStatus: (code) => code != null && (code < 300 || code == 429)) : null,
+          options: waitBusy || headers.isNotEmpty
+              ? Options(
+                  validateStatus: waitBusy ? (code) => code != null && (code < 300 || code == 429) : null,
+                  headers: headers.isEmpty ? null : headers,
+                )
+              : null,
         )
         .run();
     if (waitBusy) {
@@ -243,6 +270,7 @@ abstract final class TsdmAppApi {
           tries: tries - 1,
           maxWait: maxWait,
           keepActionError: keepActionError,
+          headers: headers,
         );
       }
     }
@@ -343,7 +371,7 @@ abstract final class TsdmAppApi {
 /// the lean answers it asks for (`nodoc=1`), are what that plugin gives. An older plugin answers less; the app then
 /// parses those pages from the web page (or the blocks of the answer) as before. Shown on the settings page beside
 /// the version the forum's plugin last named ([TsdmAppApi.pluginInfo]).
-const expectedTsdmAppVersion = '3.8.0';
+const expectedTsdmAppVersion = '3.9.0';
 
 /// The first version of the forum's plugin that answers the post forms (a new thread, a reply, an edit, the reply
 /// window) as structured fields (`type: post`, `schema` 16): see [TsdmAppApi.knowsPostForm].
@@ -360,7 +388,14 @@ const tsdmAppPreviewVersion = '3.1.0';
 @immutable
 final class TsdmAppPluginInfo {
   /// Constructor.
-  const TsdmAppPluginInfo({required this.version, required this.api, required this.nodoc, this.preview, this.device});
+  const TsdmAppPluginInfo({
+    required this.version,
+    required this.api,
+    required this.nodoc,
+    this.preview,
+    this.device,
+    this.admin,
+  });
 
   /// The info of an action answer [json], null when it names no `version` (or `plugin_version`, which comes first).
   static TsdmAppPluginInfo? fromAnswer(Map<String, dynamic> json) {
@@ -377,6 +412,12 @@ final class TsdmAppPluginInfo {
       // `status` of 3.6.0 names it either way (`device: 0` while the forum keeps no devices); only `status` has an int
       // `device` (the `device_revoked` answer's is the device's id).
       device: switch (json['device']) {
+        1 => true,
+        0 => false,
+        _ => null,
+      },
+      // `status` of 3.9.0 names the admin actions' switch either way (`admin: 0` while it is off).
+      admin: switch (json['admin']) {
         1 => true,
         0 => false,
         _ => null,
@@ -402,6 +443,10 @@ final class TsdmAppPluginInfo {
   /// false for `device: 0`, null when the answer does not tell (an older plugin's `status`, another action).
   final bool? device;
 
+  /// Whether the forum's admin actions are switched on: true for `admin: 1` in `status` (plugin 3.9.0), false for
+  /// `admin: 0`, null when the answer does not tell (an older plugin's `status`, another action).
+  final bool? admin;
+
   /// Whether [version] is older than [expectedTsdmAppVersion]: some pages are then parsed from the web page.
   bool get olderThanExpected => compareTsdmAppVersions(version, expectedTsdmAppVersion) < 0;
 
@@ -412,14 +457,16 @@ final class TsdmAppPluginInfo {
       other.api == api &&
       other.nodoc == nodoc &&
       other.preview == preview &&
-      other.device == device;
+      other.device == device &&
+      other.admin == admin;
 
   @override
-  int get hashCode => Object.hash(version, api, nodoc, preview, device);
+  int get hashCode => Object.hash(version, api, nodoc, preview, device, admin);
 
   @override
   String toString() =>
-      'TsdmAppPluginInfo(version: $version, api: $api, nodoc: $nodoc, preview: $preview, device: $device)';
+      'TsdmAppPluginInfo(version: $version, api: $api, nodoc: $nodoc, preview: $preview, device: $device, '
+      'admin: $admin)';
 }
 
 /// Compare two dotted versions [a] and [b] (`2.3.0`, `2.10.1`) part by part as numbers, a missing part as 0, a part

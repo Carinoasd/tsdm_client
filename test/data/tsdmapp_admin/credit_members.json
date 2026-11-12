@@ -1,0 +1,97 @@
+{
+ "ok": 1,
+ "api": 1,
+ "time": 1700000000,
+ "uid": 96,
+ "formhash": "f1f2f3f4",
+ "type": "admincredit",
+ "schema": 26,
+ "session": {
+  "active": 1,
+  "expires": 1700000900,
+  "ttl": 900,
+  "max": 7200,
+  "checkip": 1
+ },
+ "credits": [
+  {
+   "id": 1,
+   "title": "威望",
+   "unit": ""
+  },
+  {
+   "id": 2,
+   "title": "天使币",
+   "unit": ""
+  },
+  {
+   "id": 3,
+   "title": "宣传",
+   "unit": ""
+  },
+  {
+   "id": 4,
+   "title": "腹黑",
+   "unit": ""
+  },
+  {
+   "id": 5,
+   "title": "天然",
+   "unit": ""
+  },
+  {
+   "id": 6,
+   "title": "精灵",
+   "unit": ""
+  }
+ ],
+ "limits": {
+  "users": 50,
+  "delta": 99999999,
+  "reason": 200
+ },
+ "reason_required": 0,
+ "members": [
+  {
+   "uid": 101,
+   "username": "member101",
+   "groupid": 10,
+   "group": "新手上路",
+   "grouptype": "member",
+   "adminid": 0,
+   "status": 0,
+   "self": 0,
+   "founder": 0,
+   "credits": {
+    "1": 0,
+    "2": 0,
+    "3": 0,
+    "4": 0,
+    "5": 0,
+    "6": 0
+   }
+  },
+  {
+   "uid": 103,
+   "username": "member103",
+   "groupid": 10,
+   "group": "新手上路",
+   "grouptype": "member",
+   "adminid": 0,
+   "status": 0,
+   "self": 0,
+   "founder": 0,
+   "credits": {
+    "1": 0,
+    "2": 0,
+    "3": 0,
+    "4": 0,
+    "5": 0,
+    "6": 0
+   }
+  }
+ ],
+ "missing": [
+  "nobody_x"
+ ]
+}

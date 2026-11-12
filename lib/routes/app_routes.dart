@@ -6,6 +6,9 @@ import 'package:tsdm_client/features/account_security/view/account_security_page
 import 'package:tsdm_client/features/account_security/view/privacy_settings_page.dart';
 import 'package:tsdm_client/features/achievements/view/achievements_page.dart';
 import 'package:tsdm_client/features/activities/view/activities_page.dart';
+import 'package:tsdm_client/features/admin_tools/view/admin_ban_page.dart';
+import 'package:tsdm_client/features/admin_tools/view/admin_credit_page.dart';
+import 'package:tsdm_client/features/admin_tools/view/admin_group_page.dart';
 import 'package:tsdm_client/features/attachment_download/view/attachment_downloads_page.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/authentication/view/login_page.dart';
@@ -426,6 +429,18 @@ final List<RouteBase> _appRoutes = [
   AppRoute(
     path: ScreenPaths.titleIssue,
     builder: (state) => TitleIssuePage(initialMembers: state.uri.queryParameters['uid']),
+  ),
+  AppRoute(
+    path: ScreenPaths.adminCredit,
+    builder: (state) => AdminCreditPage(initialMembers: state.uri.queryParameters['uid']),
+  ),
+  AppRoute(
+    path: ScreenPaths.adminGroup,
+    builder: (state) => AdminGroupPage(initialMember: state.uri.queryParameters['uid']),
+  ),
+  AppRoute(
+    path: ScreenPaths.adminBan,
+    builder: (state) => AdminBanPage(initialMember: state.uri.queryParameters['uid']),
   ),
   AppRoute(path: ScreenPaths.bank, builder: (_) => const BankPage()),
   AppRoute(path: ScreenPaths.taskCenter, builder: (_) => const TaskCenterPage()),

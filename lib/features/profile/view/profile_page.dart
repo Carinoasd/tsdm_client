@@ -15,6 +15,7 @@ import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/date_time.dart';
 import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/extensions/universal_html.dart';
+import 'package:tsdm_client/features/admin_tools/models/admin_models.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/blocking/cubit/user_block_cubit.dart';
 import 'package:tsdm_client/features/blocking/repository/user_block_repository.dart';
@@ -137,6 +138,9 @@ class _ProfilePageState extends State<ProfilePage> {
   /// The admin tools the account may use on another member; null for everyone else and until known.
   StaffTools? _adminTools;
 
+  /// The forum's admin actions the account may use on another member; null for everyone else and until known.
+  AdminAccess? _adminAccess;
+
   /// Only the accounts of a management group ask the forum for the tools, an ordinary member sends nothing more.
   Future<void> _loadAdminTools() async {
     final auth = context.readOrNull<AuthenticationRepository>();
@@ -146,26 +150,28 @@ class _ProfilePageState extends State<ProfilePage> {
     if (uid == null || profiles == null || (widget.username == null && viewing == null) || viewing == '$uid') {
       return;
     }
-    final can = await memberAdminToolsOf(
-      uid,
-      stillCurrent: () => auth?.currentUser?.uid == uid,
-      isManager: () async {
-        final page = (await profiles.fetchProfile(uid: '$uid').run()).toNullable();
-        final own = page == null ? null : (await buildProfilePage(page).run()).toNullable();
-        if (own == null || own.uid != '$uid') {
-          return null;
-        }
-        return (own.moderatorGroup ?? '').trim().isNotEmpty;
-      },
-    );
-    if (!mounted || can == null || !(can.grant || can.issue)) {
-      return;
+    Future<bool?> isManager() async {
+      final page = (await profiles.fetchProfile(uid: '$uid').run()).toNullable();
+      final own = page == null ? null : (await buildProfilePage(page).run()).toNullable();
+      if (own == null || own.uid != '$uid') {
+        return null;
+      }
+      return (own.moderatorGroup ?? '').trim().isNotEmpty;
     }
+
+    bool stillCurrent() => auth?.currentUser?.uid == uid;
+    final can = await memberAdminToolsOf(uid, stillCurrent: stillCurrent, isManager: isManager);
+    // The management group is kept by now: an ordinary member stops here without another request.
+    final admin = await memberAdminAccessOf(uid, stillCurrent: stillCurrent, isManager: isManager);
+    final staff = can != null && (can.grant || can.issue) ? can : null;
     // The account in use may have changed while the forum answered.
-    if (auth?.currentUser?.uid != uid) {
+    if (!mounted || (staff == null && admin == null) || !stillCurrent()) {
       return;
     }
-    setState(() => _adminTools = can);
+    setState(() {
+      _adminTools = staff ?? (grant: false, issue: false);
+      _adminAccess = admin;
+    });
   }
 
   final _refreshController = EasyRefreshController(controlFinishRefresh: true);
@@ -489,7 +495,9 @@ class _ProfilePageState extends State<ProfilePage> {
                     icon: Icons.admin_panel_settings_outlined,
                     label: tr.adminMenu,
                     placement: OverflowPlacement.menuOnly,
-                    onPressed: () => unawaited(showMemberAdminSheet(context, uid: memberUid, can: _adminTools!)),
+                    onPressed: () => unawaited(
+                      showMemberAdminSheet(context, uid: memberUid, can: _adminTools!, admin: _adminAccess),
+                    ),
                   ),
                 if (others && !off.contains(SpaceModule.poke))
                   OverflowAction(

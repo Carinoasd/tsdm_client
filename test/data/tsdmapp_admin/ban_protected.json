@@ -1,0 +1,67 @@
+{
+ "ok": 1,
+ "api": 1,
+ "time": 1700000000,
+ "uid": 96,
+ "formhash": "f1f2f3f4",
+ "type": "adminban",
+ "schema": 30,
+ "session": {
+  "active": 1,
+  "expires": 1700000900,
+  "ttl": 900,
+  "max": 7200,
+  "checkip": 1
+ },
+ "timeoffset": 8,
+ "member": {
+  "uid": 33,
+  "username": "member33",
+  "groupid": 2,
+  "group": "超级版主",
+  "grouptype": "system",
+  "adminid": 2,
+  "status": 0,
+  "self": 0,
+  "founder": 0,
+  "banned": "",
+  "banexpiry": 0,
+  "posts": 623,
+  "threads": 444,
+  "post_rows": 625
+ },
+ "can": 0,
+ "why": "protected",
+ "bans": [
+  "",
+  "post",
+  "visit",
+  "status"
+ ],
+ "days": [
+  0,
+  1,
+  3,
+  5,
+  7,
+  14,
+  30,
+  60,
+  90,
+  180,
+  365
+ ],
+ "clear": [
+  "post",
+  "postcomment",
+  "avatar",
+  "profile"
+ ],
+ "batch": 200,
+ "reason_required": 0,
+ "limits": {
+  "reason": 200,
+  "days": 3650
+ },
+ "crimes": []
+}
