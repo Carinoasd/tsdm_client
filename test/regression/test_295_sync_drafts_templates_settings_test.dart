@@ -39,6 +39,8 @@ import 'package:tsdm_client/shared/models/thread_floor_interaction_mode.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/models/database/database.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 
+import 'fixtures/same_members.dart';
+
 const _uid = 3000;
 
 /// A forum that answers from [pullAnswer] and the queued [pushAnswers] (the last one stays), and records every call.
@@ -344,7 +346,7 @@ void main() {
         final settings = api.lastPushed['settings'] as Map<String, dynamic>;
         expect(settings['updated'], now.millisecondsSinceEpoch);
         expect((settings['values'] as Map)['threadReverseOrder'], true);
-        expect((settings['values'] as Map).keys.toSet(), {for (final s in syncedSettings) s.key.name});
+        expectSameMembers((settings['values'] as Map).keys, [for (final s in syncedSettings) s.key.name]);
       });
 
       test('a device with settings of its own keeps them at its first sync, the forum fills in the rest', () async {

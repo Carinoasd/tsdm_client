@@ -57,16 +57,6 @@ LocalNoticeTarget _tapped(DirectReplyRequest request, String? event, {bool uncon
       ).payload,
     )!;
 
-var _logReady = false;
-
-/// The log, set up by every group: the first test of the file runs without it.
-void _logOnce() {
-  if (!_logReady) {
-    talker = TalkerFlutter.init(settings: TalkerSettings(enabled: false));
-    _logReady = true;
-  }
-}
-
 void main() {
   late Directory dir;
   late LocalDraftStore store;
@@ -81,18 +71,9 @@ void main() {
   List<String> names() => dir.listSync().map((e) => e.uri.pathSegments.last).toList()..sort();
 
   setUpAll(() async {
+    // The isolate without a log is test 911: `talker` can not be unset once set, so it can not be tested here.
+    talker = TalkerFlutter.init(settings: TalkerSettings(enabled: false));
     _tr = await AppLocale.zhCn.build();
-  });
-
-  // First of the file, before any group sets the log up: the failing isolate whose log could not be set up. Relies on
-  // the order of declaration (no randomized ordering).
-  test('no log set up and a directory that can not be written: no id, never an error', () async {
-    expect(() => talker, throwsA(isA<Error>()), reason: 'not set up yet in this test');
-    final file = File('${dir.path}/not_a_dir')..writeAsStringSync('');
-    final broken = DirectReplyDraftInbox(directory: () async => Directory(file.path));
-    expect(await broken.put(uid: 1000, target: _floor, text: 'x'), isNull);
-    tellAppOfDirectReplyDraft('1000-1-0000abcd');
-    await broken.markHandled('1000-1-0000abcd');
   });
 
   setUp(() async {
@@ -110,8 +91,6 @@ void main() {
   });
 
   group('the failing isolate keeps the text at once', () {
-    setUpAll(_logOnce);
-
     test('one file per failure, written whole, naming the account, the target, the text and the time', () async {
       final id = await inbox.put(uid: 1000, target: _floor, text: '第一句', maybeSent: true);
       expect(id, isNotNull);
@@ -212,8 +191,6 @@ void main() {
   });
 
   group("the app's isolate moves them into the drafts", () {
-    setUpAll(_logOnce);
-
     test('a failure swiped away is the draft of its floor all the same', () async {
       final id = await inbox.put(uid: 1000, target: _floor, text: '第一句');
       expect(await collect(), [id]);
@@ -311,8 +288,6 @@ void main() {
   });
 
   group('one draft per failure, tapped or not', () {
-    setUpAll(_logOnce);
-
     test('tapped after it was moved: nothing kept again, whatever became of the draft', () async {
       final request = _request(1000, _floor, '第一句');
       final id = await inbox.put(uid: 1000, target: _floor, text: '第一句');
@@ -415,8 +390,6 @@ void main() {
   });
 
   group('limits and broken files', () {
-    setUpAll(_logOnce);
-
     test(
       'a file that does not parse, of another version or naming another account is deleted, the rest moved',
       () async {
@@ -493,8 +466,6 @@ void main() {
   });
 
   group('the tap keeps going through it', () {
-    setUpAll(_logOnce);
-
     test('openNoticePageOfAccount keeps the text through the inbox', () {
       final tap = File('lib/features/local_notice/tap.dart').readAsStringSync();
       final open = tap.substring(tap.indexOf('openNoticePageOfAccount('));

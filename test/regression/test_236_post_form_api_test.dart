@@ -61,6 +61,7 @@ import 'package:tsdm_client/widgets/reply_bar/repository/reply_repository.dart';
 import 'package:universal_html/parsing.dart';
 
 import 'draft_fixtures.dart';
+import 'fixtures/same_members.dart';
 import 'poll_fixtures.dart';
 
 const _dir = 'test/data/tsdmapp';
@@ -527,7 +528,7 @@ N1_BODY_000000 & "引號" 'single' <b>不是標籤</b> &amp; [b]粗體[/b]
         'reply_anonymous': ('reply', PostFormSupport.supported),
         'reply_float': ('reply', PostFormSupport.supported),
       };
-      expect(expected.keys.toSet(), _forms.toSet());
+      expectSameMembers(expected.keys, _forms);
       for (final MapEntry(key: name, value: (action, support)) in expected.entries) {
         expect(_form(name).editorSupport(action), support, reason: name);
       }

@@ -28,6 +28,8 @@ import 'package:tsdm_client/shared/providers/net_client_provider/net_error_saver
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 
+import 'fixtures/same_members.dart';
+
 /// Feedback of the blocking features: a Cloudflare interstitial answered with an error status, a forum rule added
 /// from a notice card that goes away while the notice list reloads, a block list that can not be read, and the wording
 /// of the manager page. Pages are synthetic, no real account or network.
@@ -855,7 +857,7 @@ void main() {
       final en = strings('en');
       for (final locale in ['zh-CN', 'zh-TW']) {
         final other = strings(locale);
-        expect(other.keys.toSet(), en.keys.toSet(), reason: locale);
+        expectSameMembers(other.keys, en.keys, reason: locale);
         final placeholder = RegExp(r'\$\{\w+\}');
         for (final key in en.keys) {
           Set<String> of(String s) => placeholder.allMatches(s).map((m) => m[0]!).toSet();
