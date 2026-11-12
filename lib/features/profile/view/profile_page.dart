@@ -24,12 +24,15 @@ import 'package:tsdm_client/features/checkin/widgets/checkin_button.dart';
 import 'package:tsdm_client/features/follow/widgets/follow_widgets.dart';
 import 'package:tsdm_client/features/friend/widgets/add_friend_dialog.dart';
 import 'package:tsdm_client/features/local_notice/tap.dart';
+import 'package:tsdm_client/features/medal_title_tools/utils/staff_access.dart';
 import 'package:tsdm_client/features/need_login/view/need_login_page.dart';
 import 'package:tsdm_client/features/profile/bloc/current_title_cubit.dart';
 import 'package:tsdm_client/features/profile/bloc/profile_bloc.dart';
 import 'package:tsdm_client/features/profile/models/models.dart';
 import 'package:tsdm_client/features/profile/repository/profile_repository.dart';
 import 'package:tsdm_client/features/profile/utils/parse_profile.dart';
+import 'package:tsdm_client/features/profile/utils/profile_page_api.dart';
+import 'package:tsdm_client/features/profile/widgets/member_admin_sheet.dart';
 import 'package:tsdm_client/features/profile/widgets/secondary_title_badge.dart';
 import 'package:tsdm_client/features/profile/widgets/user_group_progress_section.dart';
 import 'package:tsdm_client/features/share_qr/share_qr_dialog.dart';
@@ -131,6 +134,40 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
+  /// The admin tools the account may use on another member; null for everyone else and until known.
+  StaffTools? _adminTools;
+
+  /// Only the accounts of a management group ask the forum for the tools, an ordinary member sends nothing more.
+  Future<void> _loadAdminTools() async {
+    final auth = context.readOrNull<AuthenticationRepository>();
+    final uid = auth?.currentUser?.uid;
+    final profiles = context.readOrNull<ProfileRepository>();
+    final viewing = widget.uid;
+    if (uid == null || profiles == null || (widget.username == null && viewing == null) || viewing == '$uid') {
+      return;
+    }
+    final can = await memberAdminToolsOf(
+      uid,
+      stillCurrent: () => auth?.currentUser?.uid == uid,
+      isManager: () async {
+        final page = (await profiles.fetchProfile(uid: '$uid').run()).toNullable();
+        final own = page == null ? null : (await buildProfilePage(page).run()).toNullable();
+        if (own == null || own.uid != '$uid') {
+          return null;
+        }
+        return (own.moderatorGroup ?? '').trim().isNotEmpty;
+      },
+    );
+    if (!mounted || can == null || !(can.grant || can.issue)) {
+      return;
+    }
+    // The account in use may have changed while the forum answered.
+    if (auth?.currentUser?.uid != uid) {
+      return;
+    }
+    setState(() => _adminTools = can);
+  }
+
   final _refreshController = EasyRefreshController(controlFinishRefresh: true);
   late final ScrollController _scrollController;
 
@@ -446,6 +483,13 @@ class _ProfilePageState extends State<ProfilePage> {
                         blocked: blocked,
                       ),
                     ),
+                  ),
+                if (others && _adminTools != null)
+                  OverflowAction(
+                    icon: Icons.admin_panel_settings_outlined,
+                    label: tr.adminMenu,
+                    placement: OverflowPlacement.menuOnly,
+                    onPressed: () => unawaited(showMemberAdminSheet(context, uid: memberUid, can: _adminTools!)),
                   ),
                 if (others && !off.contains(SpaceModule.poke))
                   OverflowAction(
@@ -1119,6 +1163,7 @@ class _ProfilePageState extends State<ProfilePage> {
   void initState() {
     super.initState();
     _scrollController = ScrollController()..addListener(_updateAppBarState);
+    unawaited(_loadAdminTools());
   }
 
   @override

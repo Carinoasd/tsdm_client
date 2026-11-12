@@ -32,10 +32,13 @@ int? threadIdOf(String text) {
 /// The check is the website's check page made here; the medal centre checks everything again when the form arrives.
 class MedalGrantPage extends StatefulWidget {
   /// Constructor.
-  const MedalGrantPage({this.repository, super.key});
+  const MedalGrantPage({this.repository, this.initialMembers, super.key});
 
   /// Injected for tests; the account's network client otherwise.
   final MedalTitleToolsRepository? repository;
+
+  /// Members the list starts with (a UID), empty when opened from the medal centre.
+  final String? initialMembers;
 
   @override
   State<MedalGrantPage> createState() => _MedalGrantPageState();
@@ -44,7 +47,7 @@ class MedalGrantPage extends StatefulWidget {
 class _MedalGrantPageState extends State<MedalGrantPage> {
   late final MedalTitleToolsRepository _repo =
       widget.repository ?? MedalTitleToolsRepository.network(getIt.get<NetClientProvider>());
-  final _members = TextEditingController();
+  late final _members = TextEditingController(text: widget.initialMembers ?? '');
   final _reason = TextEditingController();
   final _medalSearch = TextEditingController();
   GrantInfo? _info;

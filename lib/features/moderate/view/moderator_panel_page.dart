@@ -3,6 +3,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:fpdart/fpdart.dart' show Either, Left, Right;
 import 'package:tsdm_client/exceptions/exceptions.dart';
+import 'package:tsdm_client/extensions/build_context.dart';
+import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
+import 'package:tsdm_client/features/medal_title_tools/utils/staff_access.dart';
+import 'package:tsdm_client/features/medal_title_tools/view/medal_grant_page.dart';
+import 'package:tsdm_client/features/medal_title_tools/view/title_issue_page.dart';
 import 'package:tsdm_client/features/moderate/models/modcp_members.dart';
 import 'package:tsdm_client/features/moderate/models/modcp_panel.dart';
 import 'package:tsdm_client/features/moderate/repository/modcp_repository.dart';
@@ -26,13 +31,16 @@ import 'package:tsdm_client/widgets/app_surface.dart';
 /// the announcements) are shown once the menu says so, all of them when it could not be read.
 class ModeratorPanelPage extends StatefulWidget {
   /// Constructor.
-  const ModeratorPanelPage({this.repository, this.queueRepository, super.key});
+  const ModeratorPanelPage({this.repository, this.queueRepository, this.staffTools, super.key});
 
   /// The panel's pages; the app's client when null.
   final ModcpRepository? repository;
 
   /// The moderation queue's lists and operations; the app's client when null.
   final ModerateRepository? queueRepository;
+
+  /// What the account may do with the medal and title tools; asked of the forum (once per account) when null.
+  final Future<StaffTools?> Function()? staffTools;
 
   @override
   State<ModeratorPanelPage> createState() => _ModeratorPanelPageState();
@@ -47,10 +55,31 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
   /// The menu was asked and answered (read or not).
   bool _asked = false;
 
+  /// The medal and title tools the account may use; null until asked or when it could not be.
+  StaffTools? _staff;
+
   @override
   void initState() {
     super.initState();
     unawaited(_loadMenu());
+    unawaited(_loadStaff());
+  }
+
+  /// The panel is linked to the accounts of a management group only (the "me" page), so asking here sends nothing for
+  /// an ordinary member who does not open it by hand.
+  Future<void> _loadStaff() async {
+    final auth = context.readOrNull<AuthenticationRepository>();
+    final uid = auth?.currentUser?.uid;
+    bool stillCurrent() => auth?.currentUser?.uid == uid;
+    final ask =
+        widget.staffTools ?? (uid == null ? null : () => StaffToolsAccess.check(uid, stillCurrent: stillCurrent));
+    if (ask == null) {
+      return;
+    }
+    final can = await ask();
+    if (mounted && can != null) {
+      setState(() => _staff = can);
+    }
   }
 
   Future<void> _loadMenu() async {
@@ -128,6 +157,20 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
           Icons.campaign_outlined,
           t.modcp.announcements,
           () => AnnouncementsPage(repository: repository),
+        ),
+      if (_staff?.grant ?? false)
+        (
+          const ValueKey('modcp-medal-grant'),
+          Icons.card_giftcard_outlined,
+          t.medalTitleTools.grantTitle,
+          () => const MedalGrantPage(),
+        ),
+      if (_staff?.issue ?? false)
+        (
+          const ValueKey('modcp-title-issue'),
+          Icons.verified_outlined,
+          t.medalTitleTools.issueTitle,
+          () => const TitleIssuePage(),
         ),
     ];
     final colorScheme = Theme.of(context).colorScheme;

@@ -419,8 +419,14 @@ final List<RouteBase> _appRoutes = [
   AppRoute(path: ScreenPaths.medalTitleHub, builder: (_) => const MedalTitleHubPage()),
   AppRoute(path: ScreenPaths.titleExchange, builder: (_) => const TitleExchangePage()),
   AppRoute(path: ScreenPaths.myMedals, builder: (_) => const MyMedalsPage()),
-  AppRoute(path: ScreenPaths.medalGrant, builder: (_) => const MedalGrantPage()),
-  AppRoute(path: ScreenPaths.titleIssue, builder: (_) => const TitleIssuePage()),
+  AppRoute(
+    path: ScreenPaths.medalGrant,
+    builder: (state) => MedalGrantPage(initialMembers: state.uri.queryParameters['uid']),
+  ),
+  AppRoute(
+    path: ScreenPaths.titleIssue,
+    builder: (state) => TitleIssuePage(initialMembers: state.uri.queryParameters['uid']),
+  ),
   AppRoute(path: ScreenPaths.bank, builder: (_) => const BankPage()),
   AppRoute(path: ScreenPaths.taskCenter, builder: (_) => const TaskCenterPage()),
   AppRoute(
