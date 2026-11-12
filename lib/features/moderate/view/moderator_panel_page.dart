@@ -28,6 +28,7 @@ import 'package:tsdm_client/features/moderate/view/moderator_log_page.dart';
 import 'package:tsdm_client/features/moderate/view/recycle_bin_page.dart';
 import 'package:tsdm_client/features/moderate/widgets/moderate_panel_login.dart';
 import 'package:tsdm_client/features/report_handling/repository/report_source.dart';
+import 'package:tsdm_client/features/report_handling/view/admin_report_page.dart';
 import 'package:tsdm_client/features/report_handling/view/report_handling_page.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
@@ -125,7 +126,7 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
       return;
     }
     final access = await ask();
-    if (!mounted || access == null || access.memberActions.isEmpty) {
+    if (!mounted || access == null || (access.memberActions.isEmpty && !access.canRead(AdminActions.report))) {
       return;
     }
     if (!_adminLease) {
@@ -241,7 +242,19 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
           t.modcp.announcements,
           () => AnnouncementsPage(repository: repository),
         ),
-      if (_panel?.modcpReport ?? false)
+      // The reports of the whole forum for an account the admin API lets read them, beside the panel's.
+      if (_admin?.canRead(AdminActions.report) ?? false)
+        (
+          const ValueKey('modcp-report'),
+          Icons.flag_outlined,
+          t.reportHandling.title,
+          () => AdminReportPage(
+            repository: _adminRepository,
+            writable: _admin?.canWrite(AdminActions.report) ?? false,
+            panel: (_panel?.modcpReport ?? false) ? ModcpReportSource.network(repository) : null,
+          ),
+        )
+      else if (_panel?.modcpReport ?? false)
         (
           const ValueKey('modcp-report'),
           Icons.flag_outlined,

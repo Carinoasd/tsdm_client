@@ -1,0 +1,60 @@
+{
+ "ok": 1,
+ "api": 1,
+ "time": 1700000000,
+ "uid": 32,
+ "formhash": "f1f2f3f4",
+ "type": "form",
+ "schema": 17,
+ "form": "refund",
+ "float": 0,
+ "ajax": 1,
+ "tid": 9203117,
+ "subject": "tsdmapp 3.9.0 paid thread",
+ "price": 3,
+ "payers": 0,
+ "income": 0,
+ "credit": {
+  "id": 2,
+  "title": "天使币",
+  "unit": ""
+ },
+ "submit": {
+  "url": "forum.php?mod=topicadmin&action=refund&modsubmit=yes&infloat=yes&modclick=yes",
+  "method": "POST",
+  "enctype": "application/x-www-form-urlencoded",
+  "fields": {
+   "formhash": "f1f2f3f4",
+   "fid": "2",
+   "tid": "9203117",
+   "handlekey": "mods",
+   "modsubmit": "ture"
+  }
+ },
+ "reason": {
+  "name": "reason",
+  "type": "textarea",
+  "value": "",
+  "required": 0,
+  "choices": [
+   "广告/SPAM",
+   "恶意灌水",
+   "违规内容",
+   "文不对题",
+   "重复发帖",
+   "--------",
+   "我很赞同",
+   "精品文章",
+   "原创内容"
+  ]
+ },
+ "notify": {
+  "name": "sendreasonpm",
+  "type": "checkbox",
+  "value": "on",
+  "checked": 0,
+  "forced": 0
+ },
+ "hook_fields": [],
+ "unsupported": []
+}

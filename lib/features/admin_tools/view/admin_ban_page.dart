@@ -14,7 +14,8 @@ import 'package:tsdm_client/widgets/app_surface.dart';
 
 /// Cleaning up a spammer (`adminban` of the app API, plugin 3.9.0): the member's state and offences, the ban, its
 /// days, the reason and what to clear; then, when their posts go to the recycle bin, the clearing batch by batch with
-/// its progress. A clearing left unfinished (the page left, a failed answer) goes on from where it stopped.
+/// its progress. A clearing left unfinished (the page left, a failed answer, the app closed) goes on from where the
+/// forum says it stopped (`clear_pending`, `post_left`).
 class AdminBanPage extends StatefulWidget {
   /// Constructor.
   const AdminBanPage({this.repository, this.initialMember, this.writable, super.key});
@@ -98,6 +99,10 @@ class _AdminBanPageState extends State<AdminBanPage> with AdminSessionLease {
       _info = info;
       _failure = info == null ? reply : null;
       if (info != null) {
+        if (!info.member.clearPending) {
+          // The forum has no clearing of this member open: a cursor kept from before goes nowhere.
+          adminRepository.session.keepClearCursor(adminRepository.currentUid, info.member.member.uid, null);
+        }
         if (!info.bans.contains(_ban)) _ban = info.bans.firstWhere((b) => b.isNotEmpty, orElse: () => '');
         if (!info.days.contains(_days)) _days = info.days.firstOrNull ?? 0;
         _clear.retainAll(info.clear);
@@ -207,6 +212,9 @@ class _AdminBanPageState extends State<AdminBanPage> with AdminSessionLease {
     if (outcome.done) {
       showSnackBar(context: context, message: context.t.adminTools.clearDone);
     } else if (outcome.reply case final reply?) {
+      // The ban form is what starts a clearing again: it keeps the posts checked (the reload after keeps it unless the
+      // forum no longer offers clearing them).
+      if (reply.error == 'clear_start') setState(() => _clear.add('post'));
       showSnackBar(context: context, message: adminErrorText(context, reply));
     }
   }
@@ -230,51 +238,35 @@ class _AdminBanPageState extends State<AdminBanPage> with AdminSessionLease {
     if (_clearing) {
       return AppSurface(child: _progress(_clearTotal, _clearRemaining));
     }
+    // Only a clearing the forum says is open goes on (`clear_pending`, the plugin's second round): it keeps the progress
+    // itself, so the app closed meanwhile loses nothing. Without one a new ban with `post` starts it.
+    if (!member.clearPending) {
+      return const SizedBox.shrink();
+    }
     final kept = adminRepository.session.clearCursor(adminRepository.currentUid, member.member.uid);
-    if (kept != null) {
-      return AppSurface(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _progress(kept.total, kept.remaining),
-            Align(
-              alignment: AlignmentDirectional.centerEnd,
-              child: FilledButton.tonal(
-                key: const ValueKey('admin-ban-resume'),
-                onPressed: _writable && !_sending && !_loading
-                    ? () async {
-                        await _runClear(member.member.uid, kept.cursor, kept.total, kept.remaining);
-                        if (mounted) await _load();
-                      }
-                    : null,
-                child: Text(tr.clearResume),
-              ),
+    final remaining = member.postLeft ?? kept?.remaining ?? member.postRows;
+    final total = member.postRows > remaining ? member.postRows : remaining;
+    return AppSurface(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _progress(total, remaining),
+          Align(
+            alignment: AlignmentDirectional.centerEnd,
+            child: FilledButton.tonal(
+              key: const ValueKey('admin-ban-resume'),
+              onPressed: _writable && !_sending && !_loading
+                  ? () async {
+                      await _runClear(member.member.uid, kept?.cursor ?? adminClearStart, total, remaining);
+                      if (mounted) await _load();
+                    }
+                  : null,
+              child: Text(tr.clearResume),
             ),
-          ],
-        ),
-      );
-    }
-    // Banned with posts on the record but no clearing kept (the app was closed meanwhile): it can be run again from the
-    // start, the forum does not count what is in the recycle bin twice.
-    if (_writable && member.banned.isNotEmpty && (member.posts > 0 || member.threads > 0)) {
-      return Align(
-        alignment: AlignmentDirectional.centerEnd,
-        child: FilledButton.tonal(
-          key: const ValueKey('admin-ban-clear-posts'),
-          onPressed: _sending || _loading
-              ? null
-              : () async {
-                  final total = member.postRows > member.posts + member.threads
-                      ? member.postRows
-                      : member.posts + member.threads;
-                  await _runClear(member.member.uid, adminClearStart, total, total);
-                  if (mounted) await _load();
-                },
-          child: Text(tr.clearPosts),
-        ),
-      );
-    }
-    return const SizedBox.shrink();
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _form(AdminBanInfo info) {

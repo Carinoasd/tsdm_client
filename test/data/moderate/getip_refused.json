@@ -1,0 +1,9 @@
+{
+ "ok": 0,
+ "error": "message",
+ "message": "抱歉，您没有权限查看更高级别的管理员 IP",
+ "message_key": "admin_getip_nopermission",
+ "login": 0,
+ "uid": 70,
+ "form": "getip"
+}

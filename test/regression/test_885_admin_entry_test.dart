@@ -320,7 +320,11 @@ void main() {
         );
         expect(find.byKey(const ValueKey('modcp-admin-credit')), findsNothing);
         expect(find.byKey(const ValueKey('modcp-admin-ban')), findsNothing);
-        expect(forum.session.leases, 0);
+        // A read-only admin of the reports gets the reports of the whole forum (tsdmapp 3.9.0 second round, test_896),
+        // and the panel holds the session for it.
+        final reports = access?.canRead(AdminActions.report) ?? false;
+        expect(find.byKey(const ValueKey('modcp-report')), reports ? findsOneWidget : findsNothing);
+        expect(forum.session.leases, reports ? 1 : 0);
       }
       expect(tester.takeException(), isNull);
     });

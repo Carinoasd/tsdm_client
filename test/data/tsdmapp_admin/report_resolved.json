@@ -1,0 +1,96 @@
+{
+ "ok": 1,
+ "api": 1,
+ "time": 1700000000,
+ "uid": 32,
+ "formhash": "f1f2f3f4",
+ "type": "adminreport",
+ "schema": 29,
+ "session": {
+  "active": 1,
+  "expires": 1700000900,
+  "ttl": 900,
+  "max": 7200,
+  "checkip": 1
+ },
+ "timeoffset": 8,
+ "op": "resolved",
+ "page": 1,
+ "perpage": 20,
+ "count": 2,
+ "pages": 1,
+ "reward": {
+  "enabled": 1,
+  "credit": {
+   "id": 2,
+   "title": "天使币",
+   "unit": ""
+  },
+  "min": -3,
+  "max": 3,
+  "options": [
+   3,
+   2,
+   1,
+   0,
+   -1,
+   -2,
+   -3
+  ]
+ },
+ "limits": {
+  "msg": 100
+ },
+ "reports": [
+  {
+   "id": 169,
+   "url": "forum.php?mod=viewthread&tid=9199043",
+   "tid": 9199043,
+   "pid": 0,
+   "fid": 25,
+   "forum": "周邊交易區",
+   "message": "ag_t01 : tsdmapp390 report f25",
+   "message_html": "ag_t01&nbsp;:&nbsp;tsdmapp390 report f25",
+   "uid": 37,
+   "username": "ag_t01",
+   "dateline": 1699999880,
+   "num": 1,
+   "excerpt": "BU thread區 TB 一樓內文 B（1789158946626）\r\nBU thread區 ag_ad ...",
+   "opuid": 32,
+   "opname": "ag_admin",
+   "optime": 1700000300,
+   "result": {
+    "type": "credit",
+    "credit": {
+     "id": 2,
+     "title": "天使币",
+     "unit": ""
+    },
+    "value": 2
+   }
+  },
+  {
+   "id": 168,
+   "url": "forum.php?mod=redirect&goto=findpost&ptid=9203112&pid=15265",
+   "tid": 9203112,
+   "pid": 15265,
+   "fid": 2,
+   "forum": "📢 公告 & 新手報到",
+   "message": "ag_t01 : tsdmapp390 report e",
+   "message_html": "ag_t01&nbsp;:&nbsp;tsdmapp390 report e",
+   "uid": 37,
+   "username": "ag_t01",
+   "dateline": 1699999820,
+   "num": 1,
+   "excerpt": "tsdmapp390 spam reply a",
+   "opuid": 32,
+   "opname": "ag_admin",
+   "optime": 1700000200,
+   "result": {
+    "type": "ignore",
+    "credit": null,
+    "value": 0
+   }
+  }
+ ]
+}

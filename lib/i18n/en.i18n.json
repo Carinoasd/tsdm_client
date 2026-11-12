@@ -2319,7 +2319,15 @@
       "failed": "$count threads not done",
       "unknown": "Result unknown, refresh to check",
       "noOperation": "No management operation available"
-    }
+    },
+    "removeReward": "Remove bounty",
+    "refund": "Force refund",
+    "reasonRequired": "Enter a reason",
+    "rewardPrice": "Bounty ${amount}",
+    "solved": "Best answer chosen",
+    "salePrice": "Price ${amount}",
+    "payers": "${n} buyers",
+    "income": "Author earned ${amount}"
   },
   "packetCard": {
     "title": "Packet",
@@ -2344,7 +2352,8 @@
     "stuck": "Stuck reply",
     "removeRate": "Remove rates",
     "attachments": "Attachments",
-    "deleteAttachment": "Delete attachment"
+    "deleteAttachment": "Delete attachment",
+    "viewIp": "View IP"
   },
   "bbcodeEditor": {
     "experimentalInfo": "Experimental BBCode Editor",
@@ -4268,7 +4277,18 @@
     "noReward": "No reward",
     "message": "Message to the reporter",
     "resolve": "Handle ${n}",
-    "done": "Handled"
+    "done": "Handled",
+    "wholeForum": "Whole forum",
+    "byForum": "By forum",
+    "waiting": "Pending",
+    "handled": "Resolved",
+    "delete": "Delete ${n}",
+    "deleted": "Deleted ${n}",
+    "doneSkipped": "Handled ${n}; ${skipped} already handled or gone",
+    "openLink": "Open link",
+    "errorCredits": "The reward must be from ${min} to ${max}",
+    "errorMessage": "The message is too long",
+    "errorIds": "No report picked, or too many at once"
   },
   "attachmentDownload": {
     "title": "Downloads",
@@ -4355,12 +4375,10 @@
     "postCounts": "Posts ${posts} · Threads ${threads}",
     "clearProgress": "Cleared ${done} / ${total}",
     "clearResume": "Continue",
-    "clearPosts": "Clean up posts",
     "clearDone": "Posts cleaned up",
     "reasonNeeded": "Enter a reason",
     "errorFailed": "Request failed, try again",
     "errorOff": "The forum's admin tools are switched off",
-    "errorAdminid": "This account is not an administrator",
     "errorUids": "This account is not on the forum's list",
     "errorCpaccess": "This account cannot enter the admin centre",
     "errorIp": "This network is not allowed by the admin centre",
@@ -4389,6 +4407,9 @@
       "q5": "Your computer model",
       "q6": "Your favourite restaurant",
       "q7": "Last four digits of your driving licence"
-    }
+    },
+    "errorClearStart": "No cleanup of this member is open: submit the ban again with posts checked",
+    "errorClearStuck": "The cleanup made no progress and stopped",
+    "creditOverflow": "Out of the range credits can hold: ${list}"
   }
 }

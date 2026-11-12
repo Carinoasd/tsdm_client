@@ -1,9 +1,14 @@
+import 'package:flutter/widgets.dart' show BuildContext;
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 
 /// Handling the reports of members (舉報處理). The list and its handling are the same whichever way the forum serves
 /// them (`ReportSource`): the moderation panel's report page of one forum (`modcp_report`, plugin 3.9.0, `schema` 28)
-/// now; the admin API's list of the whole forum (`adminreport`, `schema` 29) shares the item, the reward and the page.
+/// and the admin API's list of the whole forum (`adminreport`, `schema` 29, with the reports handled and deletion),
+/// sharing the item, the reward and the page.
+
+/// The app's own words for an answer, in the language shown: what a source says without the forum's words.
+typedef ReportDescribe = String Function(BuildContext context);
 
 String _str(Object? v) => v == null ? '' : '$v';
 List<Map<String, dynamic>> _list(Object? v) => v is List ? v.whereType<Map<String, dynamic>>().toList() : const [];
@@ -24,6 +29,7 @@ final class ReportItem {
     required this.dateline,
     required this.count,
     this.excerpt = '',
+    this.resolution,
   });
 
   /// Report id.
@@ -62,14 +68,69 @@ final class ReportItem {
   /// The beginning of the post reported (plain text), empty when not given.
   final String excerpt;
 
-  /// The absolute URL of what was reported, null unless it is a page of this forum.
-  String? get absoluteUrl {
-    if (url.trim().isEmpty) {
+  /// How it was handled, for a report of the list of those handled; null for one waiting.
+  final ReportResolution? resolution;
+
+  /// The thread page shows what was reported (its floor or thread is known): opened right away.
+  bool get opensInApp => pid > 0 || tid > 0;
+
+  /// The `http(s)` URL of what was reported (relative to the forum, or any site's: the reporter sent it), null when
+  /// there is none. Never opened without asking: only [opensInApp] reports open by themselves.
+  Uri? get link {
+    final raw = url.trim();
+    if (raw.isEmpty) {
       return null;
     }
-    final uri = Uri.parse('$baseUrl/').resolve(url.trim());
-    return uri.origin == Uri.parse(baseUrl).origin ? uri.toString() : null;
+    final uri = Uri.tryParse('$baseUrl/')?.resolve(raw);
+    return uri != null && (uri.scheme == 'http' || uri.scheme == 'https') && uri.host.isNotEmpty ? uri : null;
   }
+
+  /// Whether [link] is a page of this forum.
+  bool get linkIsForum => link?.origin == Uri.parse(baseUrl).origin;
+
+  /// The absolute URL of what was reported, null unless it is a page of this forum.
+  String? get absoluteUrl => linkIsForum ? link.toString() : null;
+}
+
+/// How a report was handled (`adminreport` `op=resolved`): by whom, when, and the reporter's reward (none when
+/// ignored).
+final class ReportResolution {
+  /// Constructor.
+  const ReportResolution({
+    required this.operator,
+    required this.time,
+    required this.value,
+    this.creditTitle = '',
+    this.unit = '',
+  });
+
+  /// The `opname`, `optime` and `result` of a handled report [r].
+  factory ReportResolution.fromJson(Map<String, dynamic> r) {
+    final result = r['result'] is Map ? r['result'] as Map : const <String, Object?>{};
+    final credit = result['type'] == 'credit' && result['credit'] is Map ? result['credit'] as Map : null;
+    return ReportResolution(
+      operator: _str(r['opname']).trim(),
+      time: tsdmAppInt(r['optime']),
+      value: credit == null ? 0 : tsdmAppInt(result['value']),
+      creditTitle: credit == null ? '' : _str(credit['title']),
+      unit: credit == null ? '' : _str(credit['unit']),
+    );
+  }
+
+  /// Who handled it.
+  final String operator;
+
+  /// When (seconds).
+  final int time;
+
+  /// The reward given, 0 for none.
+  final int value;
+
+  /// The credit of the reward.
+  final String creditTitle;
+
+  /// Its unit.
+  final String unit;
 }
 
 /// The reward a reporter may be given.
@@ -83,7 +144,8 @@ final class ReportReward {
     required this.options,
   });
 
-  /// The `reward` of an answer, null when the forum sets none (`enabled` 0): no reward nor message then.
+  /// The `reward` of an answer, null when the forum sets none (`enabled` 0): no reward then, nor a message on the
+  /// panel's page (the admin API takes a message alone, [ReportList.messageWithoutReward]).
   static ReportReward? fromJson(Object? json) {
     if (json is! Map || json['enabled'] != 1) {
       return null;
@@ -149,6 +211,7 @@ class ReportList {
     required this.count,
     required this.items,
     this.reward,
+    this.messageMax,
   });
 
   /// The account it was served to.
@@ -181,8 +244,20 @@ class ReportList {
   /// The reward, null when none can be given.
   final ReportReward? reward;
 
+  /// The longest message to a reporter, null when the forum tells none.
+  final int? messageMax;
+
   /// Whether reports of this page can be handled.
   bool get canResolve => !needScope && items.isNotEmpty;
+
+  /// Whether reports of this page can be deleted.
+  bool get canDelete => false;
+
+  /// The parts are a few tabs of the same list (waiting, handled), not places to choose from first.
+  bool get scopeTabs => false;
+
+  /// A message goes to the reporter even when the forum sets no reward (the admin API's; the panel prints none then).
+  bool get messageWithoutReward => false;
 }
 
 /// How one report is handled: the reporter's reward (0 none) and a message to them (empty none).
@@ -342,8 +417,9 @@ ModcpReportList? modcpReportFromApi(Map<String, dynamic> json) {
   );
 }
 
-/// A report of an answer's `reports[]` (the panel's and the admin API's share the fields).
-ReportItem reportItemFromApi(Map<String, dynamic> r) => ReportItem(
+/// A report of an answer's `reports[]` (the panel's and the admin API's share the fields; a handled one of the admin
+/// API has its [ReportItem.resolution]).
+ReportItem reportItemFromApi(Map<String, dynamic> r, {bool resolved = false}) => ReportItem(
   id: tsdmAppInt(r['id']),
   url: _str(r['url']),
   tid: tsdmAppInt(r['tid']),
@@ -356,7 +432,83 @@ ReportItem reportItemFromApi(Map<String, dynamic> r) => ReportItem(
   dateline: tsdmAppInt(r['dateline']),
   count: tsdmAppInt(r['num']) < 1 ? 1 : tsdmAppInt(r['num']),
   excerpt: _str(r['excerpt']).trim(),
+  resolution: resolved ? ReportResolution.fromJson(r) : null,
 );
+
+/// The two lists of the admin API's reports: waiting (`new`) and handled (`resolved`).
+abstract final class AdminReportScopes {
+  /// Waiting to be handled.
+  static const pending = 'new';
+
+  /// Handled.
+  static const resolved = 'resolved';
+}
+
+/// A page of the admin API's reports of the whole forum (`adminreport`, `schema` 29): waiting or handled, handled
+/// and deleted by the admin API when [writable].
+final class AdminReportList extends ReportList {
+  /// Constructor.
+  const AdminReportList({
+    required super.uid,
+    required super.scopes,
+    required super.scope,
+    required super.page,
+    required super.pages,
+    required super.count,
+    required super.items,
+    required this.writable,
+    super.reward,
+    super.messageMax,
+  }) : super(scopeLabel: '', needScope: false);
+
+  /// The account may post `adminreport` (`write` 1 of `action=admin`).
+  final bool writable;
+
+  /// The handled list.
+  bool get resolved => scope == AdminReportScopes.resolved;
+
+  @override
+  bool get canResolve => writable && !resolved && items.isNotEmpty;
+
+  @override
+  bool get canDelete => writable && items.isNotEmpty;
+
+  @override
+  bool get scopeTabs => true;
+
+  @override
+  bool get messageWithoutReward => true;
+}
+
+/// The admin API's reports in the answer [json] served to the list [scopes] name; null when it is not one.
+AdminReportList? adminReportFromApi(
+  Map<String, dynamic>? json, {
+  required bool writable,
+  required List<ReportScope> scopes,
+}) {
+  if (json == null || json['ok'] != 1 || json['type'] != 'adminreport' || tsdmAppInt(json['schema']) < 29) {
+    return null;
+  }
+  final resolved = json['op'] == AdminReportScopes.resolved;
+  final page = tsdmAppInt(json['page']);
+  final pages = tsdmAppInt(json['pages']);
+  final msg = tsdmAppInt(tsdmAppMap(json['limits'])['msg']);
+  return AdminReportList(
+    uid: tsdmAppInt(json['uid']),
+    scopes: scopes,
+    scope: resolved ? AdminReportScopes.resolved : AdminReportScopes.pending,
+    page: page < 1 ? 1 : page,
+    pages: pages < 1 ? 1 : pages,
+    count: tsdmAppInt(json['count']),
+    reward: ReportReward.fromJson(json['reward']),
+    messageMax: msg > 0 ? msg : null,
+    writable: writable,
+    items: [
+      for (final r in _list(json['reports']))
+        if (tsdmAppInt(r['id']) > 0) reportItemFromApi(r, resolved: resolved),
+    ],
+  );
+}
 
 /// The answer of a source to a list asked.
 sealed class ReportAnswer {
@@ -382,13 +534,16 @@ final class ReportNeedsLogin extends ReportAnswer {
   final String token;
 }
 
-/// The forum refused, in its own words.
+/// The forum refused, in its own words (or the app's, [describe]).
 final class ReportRefused extends ReportAnswer {
   /// Constructor.
-  const ReportRefused(this.message);
+  const ReportRefused(this.message, {this.describe});
 
   /// The forum's message, may be empty.
   final String message;
+
+  /// The app's words for it, used in place of [message] when given.
+  final ReportDescribe? describe;
 }
 
 /// What became of reports sent to be handled.
@@ -399,19 +554,25 @@ sealed class ReportOutcome {
 /// Handled, the forum says.
 final class ReportDone extends ReportOutcome {
   /// Constructor.
-  const ReportDone(this.message);
+  const ReportDone(this.message, {this.describe});
 
   /// The forum's message.
   final String message;
+
+  /// The app's words for it, used in place of [message] when given.
+  final ReportDescribe? describe;
 }
 
 /// Not handled, or stopped part way (the reports before it were handled): the forum's message.
 final class ReportNotDone extends ReportOutcome {
   /// Constructor.
-  const ReportNotDone(this.message);
+  const ReportNotDone(this.message, {this.describe});
 
   /// The forum's message, may be empty.
   final String message;
+
+  /// The app's words for it, used in place of [message] when given.
+  final ReportDescribe? describe;
 }
 
 /// The login ended: nothing was done.

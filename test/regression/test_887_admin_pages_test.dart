@@ -36,12 +36,15 @@ Future<void> _confirm(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
-Map<String, dynamic> _clearStep(int uid, {required bool done, String cursor = '', int remaining = 0}) => {
+/// A batch of the clearing of member [target]: the top `uid` is the account asking (96), the member `target_uid`
+/// (tsdmapp 3.9.0 second round).
+Map<String, dynamic> _clearStep(int target, {required bool done, String cursor = '', int remaining = 0}) => {
   'ok': 1,
   'type': 'adminban',
   'schema': 30,
   'op': 'clear',
-  'uid': uid,
+  'uid': 96,
+  'target_uid': target,
   'done': done ? 1 : 0,
   'cursor': cursor,
   'remaining': remaining,
@@ -560,9 +563,15 @@ void main() {
     });
 
     testWidgets('a clearing kept from before is offered to go on; protected shows only the reason', (tester) async {
+      // The forum says the clearing is open (`clear_pending`, second round) with 300 of 600 rows left.
+      final pending = adminFixture('ban_member');
+      (pending['member'] as Map<String, dynamic>)
+        ..['post_rows'] = 600
+        ..['post_left'] = 300
+        ..['clear_pending'] = 1;
       final forum = FakeAdminForum({
         'GET:admin': [adminFixture('admin_member_manager')],
-        'GET:adminban': [adminFixture('ban_member')],
+        'GET:adminban': [pending, adminFixture('ban_member')],
         'POST:adminban': [_clearStep(99, done: true)],
       });
       forum.session.keepClearCursor(96, 99, (cursor: '0-300', total: 600, remaining: 300));

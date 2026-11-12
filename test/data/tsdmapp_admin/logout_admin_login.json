@@ -1,0 +1,12 @@
+{
+ "ok": 0,
+ "error": "admin_login",
+ "uid": 96,
+ "formhash": "f1f2f3f4",
+ "login": {
+  "locked": 0,
+  "retry_after": 0,
+  "tries_left": 4,
+  "secques": 0
+ }
+}

@@ -22,7 +22,6 @@ String adminErrorText(BuildContext context, AdminReply reply) {
   return switch (reply.error) {
     'admin_off' => tr.errorOff,
     'admin_noperm' => switch (reply.why) {
-      'adminid' => tr.errorAdminid,
       'uids' => tr.errorUids,
       'cpaccess' => tr.errorCpaccess,
       'ip' => tr.errorIp,
@@ -50,6 +49,8 @@ String adminErrorText(BuildContext context, AdminReply reply) {
     'expgroup_same' => tr.errorExpgroupSame,
     'protected' => tr.errorProtected,
     'portal' => tr.errorPortal,
+    'clear_start' => tr.errorClearStart,
+    'clear_stuck' => tr.errorClearStuck,
     '' => tr.errorFailed,
     final code => switch (json['message']) {
       final String message when message.isNotEmpty => context.displayText(message),

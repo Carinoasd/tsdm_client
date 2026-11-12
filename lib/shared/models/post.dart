@@ -96,6 +96,7 @@ class Post with PostMappable {
     this.recommend,
     this.stuck = false,
     this.canWarn,
+    this.viewIpUrl,
     this.commentScores = const [],
     this.timeOffset,
   });
@@ -296,6 +297,7 @@ class Post with PostMappable {
       warned: _apiInt(p['warned']) == 1,
       stuck: _apiInt(p['stick']) == 1,
       canWarn: can['warn'] is num ? _apiInt(can['warn']) == 1 : null,
+      viewIpUrl: allowed('viewip'),
       // Plugin 3.7.0 gives the comments as fields: every one with its id, the forum's own "more" and delete flags.
       comments: apiComments ?? commentPage?.comments ?? const [],
       moreComments: apiComments != null ? _apiInt(p['comment_more']) == 1 : commentPage?.hasMore ?? false,
@@ -556,6 +558,10 @@ class Post with PostMappable {
   /// Whether the account may warn this floor's author, as the forum's app API tells it (plugin 3.7.0, `can.warn`: a
   /// group that may warn, and an author of a rank it may warn); null when the page does not tell.
   final bool? canWarn;
+
+  /// The forum's window with the poster's IP of this floor (`urls.viewip` where `can.viewip` is 1, plugin 3.9.0: a
+  /// moderator of the forum whose group may see IPs, of an author of a rank below or equal); null otherwise.
+  final String? viewIpUrl;
 
   /// The floor is a reply stuck under the first floor (`forum.php?mod=topicadmin&action=stickreply`): the web page
   /// prints it there with 置顶回复 (`em.replystick`) in its header, on the thread's first page. The app API tells it
