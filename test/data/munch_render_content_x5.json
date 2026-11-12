@@ -86,8 +86,8 @@
    "after": "«￼»\n«本帖为密码帖 ，请输入密码»\n"
   },
   "test/data/tsdmapp/special_v15_reward_open_author.json#5800": {
-   "before": "«￼\n\n\nREWARD_R1_Q_222088 問題»\n«Bounty»\n«PROCESSING»\n«2 coins»\n",
-   "after": "«￼\n\n\nREWARD_R1_Q_222088 問題\n我来回答»\n«Bounty»\n«PROCESSING»\n«2 coins»\n"
+   "before": "«￼\n\n\nREWARD_R1_Q_222088 問題»\n«Bounty»\n«Open»\n«2 angel coins»\n",
+   "after": "«￼\n\n\nREWARD_R1_Q_222088 問題\n我来回答»\n«Bounty»\n«Open»\n«2 angel coins»\n"
   },
   "test/data/tsdmapp/special_v15_trade_author.json#5795": {
    "before": "«TRADE_T1_INTRO_222088 櫃台說明￼柜台商品管理 |\n￼交易记录\n[img]\n￼展开\n\n￼商品一 222088\n全新商品\n3天5小时\n10.00 元   附加 5 天使币\n此商品已被删除\n￼展开\n\n￼商品三 222088\n二手商品\n3 天使币»\n",
@@ -102,16 +102,16 @@
    "after": "«TRADE_T1_INTRO_222088 櫃台說明\n商品数: 3\n推荐商品[img]\n￼展开\n￼商品一 222088\n商品类型: 全新商品\n剩余时间: 3天5小时\n10.00 元   附加 5 天使币\n20.50 元 附加 8 天使币\n此商品已被删除\n￼展开\n￼商品三 222088\n商品类型: 二手商品\n剩余时间: 成交结束\n3 天使币»\n"
   },
   "test/data/tsdmapp/thread_v14_access_noimage.json#4989": {
-   "before": "«首樓 [img] 表情與各種標籤 282713\n￼\n￼\n\n[img]\n￼連結 https://example.com/auto\n粗體 紅字 大字\n•  一\n•  二\n\n￼如果无法播放，请点击此处在新窗口打开\n\n[spoiler=標題]折疊內文[/spoiler]\n[img] ￼tsdmapp270_cover.png\n\n[img] ￼tsdmapp270_paid.png\n\n結尾　全形空白與        tab￼tsdmapp270_note.zip\n153 Bytes, 下载次数: 7»\n«引用的話 [img]»\n«Code Block»\n«<?php echo 1; ?>»\n",
-   "after": "«首樓 [img] 表情與各種標籤 282713\n￼\n￼\n\n[img]\n￼連結 https://example.com/auto\n粗體 紅字 大字\n•  一\n•  二\n\n￼\n￼如果无法播放，请点击此处在新窗口打开\n\n[spoiler=標題]折疊內文[/spoiler]\n[img] ￼tsdmapp270_cover.png (38.57 KB, 下载次数: 3)\n[img] ￼tsdmapp270_paid.png (38.57 KB, 下载次数: 0, 售价: 2 天使币)\n結尾　全形空白與        tab\n[img] ￼tsdmapp270_note.zip\n153 Bytes, 下载次数: 7»\n«引用的話 [img]»\n«Code Block»\n«<?php echo 1; ?>»\n«￼ Media: example.com  Tap to open in browser»\n"
+   "before": "«首樓 [img] 表情與各種標籤 282713\n￼\n￼\n\n[img]\n￼連結 https://example.com/auto\n粗體 紅字 大字\n•  一\n•  二\n\n￼如果无法播放，请点击此处在新窗口打开\n\n[spoiler=標題]折疊內文[/spoiler]\n[img] ￼tsdmapp270_cover.png\n\n[img] ￼tsdmapp270_paid.png\n\n結尾　全形空白與        tab￼tsdmapp270_note.zip\n153 Bytes, 下载次数: 7»\n«引用的話 [img]»\n«Code block»\n«<?php echo 1; ?>»\n",
+   "after": "«首樓 [img] 表情與各種標籤 282713\n￼\n￼\n\n[img]\n￼連結 https://example.com/auto\n粗體 紅字 大字\n•  一\n•  二\n\n￼\n￼如果无法播放，请点击此处在新窗口打开\n\n[spoiler=標題]折疊內文[/spoiler]\n[img] ￼tsdmapp270_cover.png (38.57 KB, 下载次数: 3)\n[img] ￼tsdmapp270_paid.png (38.57 KB, 下载次数: 0, 售价: 2 天使币)\n結尾　全形空白與        tab\n[img] ￼tsdmapp270_note.zip\n153 Bytes, 下载次数: 7»\n«引用的話 [img]»\n«Code block»\n«<?php echo 1; ?>»\n«￼ Media: example.com  Tap to open in browser»\n"
   },
   "test/data/tsdmapp/thread_v14_access_noimage.json#4995": {
    "before": "«密碼樓的內文 282713 [img]»\n",
    "after": "«￼\n密碼樓的內文 282713 [img]»\n«本帖为密码帖»\n"
   },
   "test/data/tsdmapp/thread_v14_attachments.json#4989": {
-   "before": "«首樓 [img] 表情與各種標籤 282713\n￼\n￼\n\n[img]\n￼連結 https://example.com/auto\n粗體 紅字 大字\n•  一\n•  二\n\n￼如果无法播放，请点击此处在新窗口打开\n\n[spoiler=標題]折疊內文[/spoiler]\n[img]\n[img] ￼tsdmapp270_paid.png\n\n結尾　全形空白與        tab￼tsdmapp270_note.zip\n153 Bytes, 下载次数: 7»\n«引用的話 [img]»\n«Code Block»\n«<?php echo 1; ?>»\n",
-   "after": "«首樓 [img] 表情與各種標籤 282713\n￼\n￼\n\n[img]\n￼連結 https://example.com/auto\n粗體 紅字 大字\n•  一\n•  二\n\n￼\n￼如果无法播放，请点击此处在新窗口打开\n\n[spoiler=標題]折疊內文[/spoiler]\n[img]\n[img] ￼tsdmapp270_paid.png (38.57 KB, 下载次数: 0, 售价: 2 天使币)\n結尾　全形空白與        tab\n[img] ￼tsdmapp270_note.zip\n153 Bytes, 下载次数: 7»\n«引用的話 [img]»\n«Code Block»\n«<?php echo 1; ?>»\n«￼ Media: example.com  Tap to open in browser»\n"
+   "before": "«首樓 [img] 表情與各種標籤 282713\n￼\n￼\n\n[img]\n￼連結 https://example.com/auto\n粗體 紅字 大字\n•  一\n•  二\n\n￼如果无法播放，请点击此处在新窗口打开\n\n[spoiler=標題]折疊內文[/spoiler]\n[img]\n[img] ￼tsdmapp270_paid.png\n\n結尾　全形空白與        tab￼tsdmapp270_note.zip\n153 Bytes, 下载次数: 7»\n«引用的話 [img]»\n«Code block»\n«<?php echo 1; ?>»\n",
+   "after": "«首樓 [img] 表情與各種標籤 282713\n￼\n￼\n\n[img]\n￼連結 https://example.com/auto\n粗體 紅字 大字\n•  一\n•  二\n\n￼\n￼如果无法播放，请点击此处在新窗口打开\n\n[spoiler=標題]折疊內文[/spoiler]\n[img]\n[img] ￼tsdmapp270_paid.png (38.57 KB, 下载次数: 0, 售价: 2 天使币)\n結尾　全形空白與        tab\n[img] ￼tsdmapp270_note.zip\n153 Bytes, 下载次数: 7»\n«引用的話 [img]»\n«Code block»\n«<?php echo 1; ?>»\n«￼ Media: example.com  Tap to open in browser»\n"
   },
   "test/data/tsdmapp/thread_v14_attachments.json#4995": {
    "before": "«密碼樓的內文 282713 [img]»\n",
@@ -122,28 +122,28 @@
    "after": "«BANNED_DIGEST_282713 精華主題裡禁止組作者的回覆 (, 下载次数: 0)»\n"
   },
   "test/data/tsdmapp/thread_v14_guestthumb.json#4989": {
-   "before": "«首樓 [img] 表情與各種標籤 282713\n￼\n￼\n\n[img]\n                               \n￼登录/注册后可看大图\n\n￼連結 https://example.com/auto\n粗體 紅字 大字\n•  一\n•  二\n\n￼如果无法播放，请点击此处在新窗口打开\n\n[spoiler=標題]折疊內文[/spoiler]\n[img]\n￼登录/注册后可看大图\n\n[img]\n￼登录/注册后可看大图\n\n結尾　全形空白與        tab￼tsdmapp270_note.zip\n153 Bytes, 下载次数: 7»\n«引用的話 [img]»\n«Code Block»\n«<?php echo 1; ?>»\n",
-   "after": "«首樓 [img] 表情與各種標籤 282713\n￼\n￼\n\n[img]\n                               \n￼登录/注册后可看大图\n\n￼連結 https://example.com/auto\n粗體 紅字 大字\n•  一\n•  二\n\n￼\n￼如果无法播放，请点击此处在新窗口打开\n\n[spoiler=標題]折疊內文[/spoiler]\n[img]\n￼登录/注册后可看大图\n\n[img]\n￼登录/注册后可看大图\n\n結尾　全形空白與        tab\n[img] ￼tsdmapp270_note.zip\n153 Bytes, 下载次数: 7»\n«引用的話 [img]»\n«Code Block»\n«<?php echo 1; ?>»\n«￼ Media: example.com  Tap to open in browser»\n"
+   "before": "«首樓 [img] 表情與各種標籤 282713\n￼\n￼\n\n[img]\n                               \n￼登录/注册后可看大图\n\n￼連結 https://example.com/auto\n粗體 紅字 大字\n•  一\n•  二\n\n￼如果无法播放，请点击此处在新窗口打开\n\n[spoiler=標題]折疊內文[/spoiler]\n[img]\n￼登录/注册后可看大图\n\n[img]\n￼登录/注册后可看大图\n\n結尾　全形空白與        tab￼tsdmapp270_note.zip\n153 Bytes, 下载次数: 7»\n«引用的話 [img]»\n«Code block»\n«<?php echo 1; ?>»\n",
+   "after": "«首樓 [img] 表情與各種標籤 282713\n￼\n￼\n\n[img]\n                               \n￼登录/注册后可看大图\n\n￼連結 https://example.com/auto\n粗體 紅字 大字\n•  一\n•  二\n\n￼\n￼如果无法播放，请点击此处在新窗口打开\n\n[spoiler=標題]折疊內文[/spoiler]\n[img]\n￼登录/注册后可看大图\n\n[img]\n￼登录/注册后可看大图\n\n結尾　全形空白與        tab\n[img] ￼tsdmapp270_note.zip\n153 Bytes, 下载次数: 7»\n«引用的話 [img]»\n«Code block»\n«<?php echo 1; ?>»\n«￼ Media: example.com  Tap to open in browser»\n"
   },
   "test/data/tsdmapp/thread_v14_guestthumb.json#4995": {
    "before": "",
    "after": "«￼»\n«本帖为密码帖 ，请输入密码»\n"
   },
   "test/data/tsdmapp/thread_v14_hide_replied.json#4989": {
-   "before": "«首樓 [img] 表情與各種標籤 282713\n￼\n￼\n\n[img]\n￼連結 https://example.com/auto\n粗體 紅字 大字\n•  一\n•  二\n\n￼如果无法播放，请点击此处在新窗口打开\n\n[spoiler=標題]折疊內文[/spoiler]\n[img]\n[img]\n結尾　全形空白與        tab￼tsdmapp270_perm.png\n阅读权限: 100\n[img]\n￼tsdmapp270_note.zip\n153 Bytes, 下载次数: 7»\n«引用的話 [img]»\n«Code Block»\n«<?php echo 1; ?>»\n",
-   "after": "«首樓 [img] 表情與各種標籤 282713\n￼\n￼\n\n[img]\n￼連結 https://example.com/auto\n粗體 紅字 大字\n•  一\n•  二\n\n￼\n￼如果无法播放，请点击此处在新窗口打开\n\n[spoiler=標題]折疊內文[/spoiler]\n[img]\n[img]\n結尾　全形空白與        tab\n￼tsdmapp270_perm.png (38.57 KB, 下载次数: 0)\n阅读权限: 100\n[img]\n[img] ￼tsdmapp270_note.zip\n153 Bytes, 下载次数: 7»\n«引用的話 [img]»\n«Code Block»\n«<?php echo 1; ?>»\n«￼ Media: example.com  Tap to open in browser»\n"
+   "before": "«首樓 [img] 表情與各種標籤 282713\n￼\n￼\n\n[img]\n￼連結 https://example.com/auto\n粗體 紅字 大字\n•  一\n•  二\n\n￼如果无法播放，请点击此处在新窗口打开\n\n[spoiler=標題]折疊內文[/spoiler]\n[img]\n[img]\n結尾　全形空白與        tab￼tsdmapp270_perm.png\n阅读权限: 100\n[img]\n￼tsdmapp270_note.zip\n153 Bytes, 下载次数: 7»\n«引用的話 [img]»\n«Code block»\n«<?php echo 1; ?>»\n",
+   "after": "«首樓 [img] 表情與各種標籤 282713\n￼\n￼\n\n[img]\n￼連結 https://example.com/auto\n粗體 紅字 大字\n•  一\n•  二\n\n￼\n￼如果无法播放，请点击此处在新窗口打开\n\n[spoiler=標題]折疊內文[/spoiler]\n[img]\n[img]\n結尾　全形空白與        tab\n￼tsdmapp270_perm.png (38.57 KB, 下载次数: 0)\n阅读权限: 100\n[img]\n[img] ￼tsdmapp270_note.zip\n153 Bytes, 下载次数: 7»\n«引用的話 [img]»\n«Code block»\n«<?php echo 1; ?>»\n«￼ Media: example.com  Tap to open in browser»\n"
   },
   "test/data/tsdmapp/thread_v14_hide_replied.json#4995": {
    "before": "«密碼樓的內文 282713 [img]»\n",
    "after": "«￼\n密碼樓的內文 282713 [img]»\n«本帖为密码帖»\n"
   },
   "test/data/tsdmapp/thread_v14_hide_viewer_not_replied.json#4989": {
-   "before": "«首樓 [img] 表情與各種標籤 282713\n￼\n￼\n\n[img]\n￼連結 https://example.com/auto\n粗體 紅字 大字\n•  一\n•  二\n\n￼如果无法播放，请点击此处在新窗口打开\n\n[spoiler=標題]折疊內文[/spoiler]\n\n\n結尾　全形空白與        tab\n本帖子中包含更多资源\n您需要 ￼登录 才可以下载或查看，没有账号？￼立即注册\n×»\n«引用的話 [img]»\n«Code Block»\n«<?php echo 1; ?>»\n",
-   "after": "«首樓 [img] 表情與各種標籤 282713\n￼\n￼\n\n[img]\n￼連結 https://example.com/auto\n粗體 紅字 大字\n•  一\n•  二\n\n￼\n￼如果无法播放，请点击此处在新窗口打开\n\n[spoiler=標題]折疊內文[/spoiler]\n\n\n結尾　全形空白與        tab\n本帖子中包含更多资源\n您需要 ￼登录 才可以下载或查看，没有账号？￼立即注册\n×»\n«引用的話 [img]»\n«Code Block»\n«<?php echo 1; ?>»\n«￼ Media: example.com  Tap to open in browser»\n"
+   "before": "«首樓 [img] 表情與各種標籤 282713\n￼\n￼\n\n[img]\n￼連結 https://example.com/auto\n粗體 紅字 大字\n•  一\n•  二\n\n￼如果无法播放，请点击此处在新窗口打开\n\n[spoiler=標題]折疊內文[/spoiler]\n\n\n結尾　全形空白與        tab\n本帖子中包含更多资源\n您需要 ￼登录 才可以下载或查看，没有账号？￼立即注册\n×»\n«引用的話 [img]»\n«Code block»\n«<?php echo 1; ?>»\n",
+   "after": "«首樓 [img] 表情與各種標籤 282713\n￼\n￼\n\n[img]\n￼連結 https://example.com/auto\n粗體 紅字 大字\n•  一\n•  二\n\n￼\n￼如果无法播放，请点击此处在新窗口打开\n\n[spoiler=標題]折疊內文[/spoiler]\n\n\n結尾　全形空白與        tab\n本帖子中包含更多资源\n您需要 ￼登录 才可以下载或查看，没有账号？￼立即注册\n×»\n«引用的話 [img]»\n«Code block»\n«<?php echo 1; ?>»\n«￼ Media: example.com  Tap to open in browser»\n"
   },
   "test/data/tsdmapp/thread_v14_jammer.json#4989": {
-   "before": "«首樓 [img] 表情與各種標籤 282713\n￼\n￼\n\n[img]\n￼連結 https://example.com/auto\n粗體 紅字 大字\n•  一\n•  二\n\n￼如果无法播放，请点击此处在新窗口打开\n\n[spoiler=標題]折疊內文[/spoiler]\n[img]\n[img]\n結尾　全形空白與        tab￼tsdmapp270_perm.png\n阅读权限: 100\n[img]\n￼tsdmapp270_note.zip\n153 Bytes, 下载次数: 7»\n«引用的話 [img]»\n«Code Block»\n«<?php echo 1; ?>»\n",
-   "after": "«首樓 [img] 表情與各種標籤 282713\n￼\n￼\n\n[img]\n￼連結 https://example.com/auto\n粗體 紅字 大字\n•  一\n•  二\n\n￼\n￼如果无法播放，请点击此处在新窗口打开\n\n[spoiler=標題]折疊內文[/spoiler]\n[img]\n[img]\n結尾　全形空白與        tab\n￼tsdmapp270_perm.png (38.57 KB, 下载次数: 0)\n阅读权限: 100\n[img]\n[img] ￼tsdmapp270_note.zip\n153 Bytes, 下载次数: 7»\n«引用的話 [img]»\n«Code Block»\n«<?php echo 1; ?>»\n«￼ Media: example.com  Tap to open in browser»\n"
+   "before": "«首樓 [img] 表情與各種標籤 282713\n￼\n￼\n\n[img]\n￼連結 https://example.com/auto\n粗體 紅字 大字\n•  一\n•  二\n\n￼如果无法播放，请点击此处在新窗口打开\n\n[spoiler=標題]折疊內文[/spoiler]\n[img]\n[img]\n結尾　全形空白與        tab￼tsdmapp270_perm.png\n阅读权限: 100\n[img]\n￼tsdmapp270_note.zip\n153 Bytes, 下载次数: 7»\n«引用的話 [img]»\n«Code block»\n«<?php echo 1; ?>»\n",
+   "after": "«首樓 [img] 表情與各種標籤 282713\n￼\n￼\n\n[img]\n￼連結 https://example.com/auto\n粗體 紅字 大字\n•  一\n•  二\n\n￼\n￼如果无法播放，请点击此处在新窗口打开\n\n[spoiler=標題]折疊內文[/spoiler]\n[img]\n[img]\n結尾　全形空白與        tab\n￼tsdmapp270_perm.png (38.57 KB, 下载次数: 0)\n阅读权限: 100\n[img]\n[img] ￼tsdmapp270_note.zip\n153 Bytes, 下载次数: 7»\n«引用的話 [img]»\n«Code block»\n«<?php echo 1; ?>»\n«￼ Media: example.com  Tap to open in browser»\n"
   },
   "test/data/tsdmapp/thread_v14_jammer.json#4990": {
    "before": "«回覆可見 282713\n本帖隐藏的内容\nHIDE_REPLY_SECRET_282713\n4 D\" e* B9 w$ ~  e0 @4 T2 n\n之後的字»\n",
@@ -162,8 +162,8 @@
    "after": "«原生发帖页。\n￼»\n«￼本主题由 管理团队 于 前天 13:29 解除置顶»\n"
   },
   "test/data/tsdmapp/thread_v14_singleban_mod.json#5013": {
-   "before": "«￼\nSINGLEBAN_282713 單帖屏蔽的回覆»\n«Blocked content»\n«This post has been blocked by administrator or moderator»\n",
-   "after": "«￼\nSINGLEBAN_282713 單帖屏蔽的回覆 (, 下载次数: 0)»\n«Blocked content»\n«This post has been blocked by administrator or moderator»\n"
+   "before": "«￼\nSINGLEBAN_282713 單帖屏蔽的回覆»\n«Hidden content»\n«This floor has been hidden by an administrator or moderator»\n",
+   "after": "«￼\nSINGLEBAN_282713 單帖屏蔽的回覆 (, 下载次数: 0)»\n«Hidden content»\n«This floor has been hidden by an administrator or moderator»\n"
   },
   "test/data/tsdmapp/thread_v14_singleban_mod.json#5014": {
    "before": "«BANNED_PLAIN_282713 非精華主題裡禁止組作者的回覆»\n",
@@ -178,8 +178,8 @@
    "after": "«￼\n网盘链接 Link：https://pan.baidu.com/s/acc160c2a9822\n提取码 Code：cc2a»\n«购买原地址 Original Site：￼https://mora.jp/package/43000011/4538182931059/\n[img]\n￼\n\nアルバム情報\nタイトル：THE BOOK\nアーティスト：YOASOBI\n発売日：2021.01.06\nレーベル：YOASOBI\nフォーマット：AAC｜320kbps\n曲数：9\n収録時間：29:59\n容量：70.3MB\n[spoiler=収録曲]\n\n•  1. Epilogue\n•  2. アンコール\n•  3. ハルジオン\n•  4. あの夢をなぞって\n•  5. たぶん\n•  6. 群青\n•  7. ハルカ\n•  8. 夜に駆ける\n•  9. Prologue\n\n[/spoiler]\n￼\n\n网盘 Cloud：百度网盘\n购买商店 Store：mora\n文件格式 Format：AAC 320kbps\n文件大小 Size：70.3MB\n是否自购 Self-purchased：否»\n"
   },
   "test/data/tsdmapp/thread_v3_moderated.json#4663": {
-   "before": "«￼\n出售说明 SALE094886\n[spoiler=解压密码]SALEPW094886[/spoiler]\n广告 SALEAD094886\n￼\n\nMG：￼download\n￼»\n«简介 INTRO094886\n[spoiler=解压密码]FREEPW094886[/spoiler]\n广告 FREEAD094886\n￼\n\n试听：￼http://free.example/094886»\n«Some content requires enough points to be visible»\n«99999 points are required, but you only have 1032 points»\n«Some content requires enough points to be visible»\n«99999 points are required, but you only have 1032 points»\n«￼本主题由 管理团队 于 昨天 09:55\n打开»\n",
-   "after": "«￼\n出售说明 SALE094886\n[spoiler=解压密码]SALEPW094886[/spoiler]\n广告 SALEAD094886\n￼\n\nMG：￼download\n￼»\n«简介 INTRO094886\n[spoiler=解压密码]FREEPW094886[/spoiler]\n广告 FREEAD094886\n￼\n\n试听：￼http://free.example/094886»\n«Some content requires enough points to be visible»\n«99999 points are required, but you only have 1032 points»\n«Some content requires enough points to be visible»\n«99999 points are required, but you only have 1032 points»\n«￼本主题由 管理团队 于 昨天 09:55 打开»\n"
+   "before": "«￼\n出售说明 SALE094886\n[spoiler=解压密码]SALEPW094886[/spoiler]\n广告 SALEAD094886\n￼\n\nMG：￼download\n￼»\n«简介 INTRO094886\n[spoiler=解压密码]FREEPW094886[/spoiler]\n广告 FREEAD094886\n￼\n\n试听：￼http://free.example/094886»\n«Some content requires enough credits to view»\n«99999 credits are required, but you only have 1032»\n«Some content requires enough credits to view»\n«99999 credits are required, but you only have 1032»\n«￼本主题由 管理团队 于 昨天 09:55\n打开»\n",
+   "after": "«￼\n出售说明 SALE094886\n[spoiler=解压密码]SALEPW094886[/spoiler]\n广告 SALEAD094886\n￼\n\nMG：￼download\n￼»\n«简介 INTRO094886\n[spoiler=解压密码]FREEPW094886[/spoiler]\n广告 FREEAD094886\n￼\n\n试听：￼http://free.example/094886»\n«Some content requires enough credits to view»\n«99999 credits are required, but you only have 1032»\n«Some content requires enough credits to view»\n«99999 credits are required, but you only have 1032»\n«￼本主题由 管理团队 于 昨天 09:55 打开»\n"
   }
  }
 }
