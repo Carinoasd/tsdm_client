@@ -27,9 +27,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # Must be 1..N in order: report and artifact names use the value, the file split uses the index.
         shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@v4
+      - name: Check shard setup
+        run: |
+          if [ "${{ strategy.job-total }}" != "$CI_TEST_SHARDS" ] || [ "${{ matrix.shard }}" != "$(( ${{ strategy.job-index }} + 1 ))" ]; then
+            echo "::error::The shard matrix must be 1..CI_TEST_SHARDS ($CI_TEST_SHARDS) in order"
+            exit 1
+          fi
+          python3 ./scripts/ci_test_shard.py check "${{ strategy.job-total }}"
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: ${{env.CI_FLUTTER_VERSION}}
@@ -52,18 +60,13 @@ jobs:
         # Also runs when analyzing failed, so one push reports both.
         if: ${{ !cancelled() && steps.precompile.outcome == 'success' }}
         run: |
-          if [ "${{ strategy.job-total }}" != "$CI_TEST_SHARDS" ]; then
-            echo "::error::The shard matrix has ${{ strategy.job-total }} entries but CI_TEST_SHARDS is $CI_TEST_SHARDS"
-            exit 1
-          fi
-          python3 ./scripts/ci_test_shard.py check "${{ strategy.job-total }}"
           mapfile -t files < <(python3 ./scripts/ci_test_shard.py list "${{ strategy.job-total }}" "${{ strategy.job-index }}")
           echo "Running ${#files[@]} test files"
           flutter test --file-reporter "json:reports/shard-${{ matrix.shard }}/report.json" "${files[@]}"
       - name: Summarize test results
         if: ${{ !cancelled() && steps.precompile.outcome == 'success' }}
         run: |
-          python3 ./scripts/ci_test_report.py "reports/shard-${{ matrix.shard }}/report.json" | tee -a "$GITHUB_STEP_SUMMARY"
+          python3 ./scripts/ci_test_report.py --jobs-result "${{ job.status }}" "reports/shard-${{ matrix.shard }}/report.json" | tee -a "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
