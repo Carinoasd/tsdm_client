@@ -243,5 +243,11 @@ typedef BackgroundGrantResult = ({bool success, String message});
 /// messages carry no language key).
 BackgroundGrantResult backgroundGrantResultOf(String message, String successPrefix) {
   final text = message.trim();
-  return (success: successPrefix.isNotEmpty && text.startsWith(successPrefix), message: text);
+  if (successPrefix.isEmpty || !text.startsWith(successPrefix)) {
+    return (success: false, message: text);
+  }
+  // Every UID unknown: the plugin still starts with the prefix (`已发放给 0 位会员…找不到的 UID 999999`). Nothing was
+  // sent, so it is not a success; the message is shown as it is.
+  final count = RegExp(r'^\s*(\d+)').firstMatch(text.substring(successPrefix.length));
+  return (success: count == null || int.parse(count.group(1)!) > 0, message: text);
 }

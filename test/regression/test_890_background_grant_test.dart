@@ -180,6 +180,9 @@ void main() {
       expect(backgroundGrantResultOf('没有发放背景的权限', '已发放给'), (success: false, message: '没有发放背景的权限'));
       expect(backgroundGrantResultOf('请填写用户 UID（已发放给）', '已发放给').success, isFalse);
       expect(backgroundGrantResultOf('已发放给', '').success, isFalse);
+      // Nobody received it (every UID unknown): the plugin's message starts the same, it is not a success.
+      expect(backgroundGrantResultOf('已发放给 0 位会员，到期 永久。找不到的 UID 999999', '已发放给').success, isFalse);
+      expect(backgroundGrantResultOf('已发放给 2 位会员，到期 永久。找不到的 UID 999999', '已发放给').success, isTrue);
     });
   });
 
