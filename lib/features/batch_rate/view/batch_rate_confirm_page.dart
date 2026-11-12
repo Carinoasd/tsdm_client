@@ -115,7 +115,10 @@ class _BatchRateConfirmPageState extends State<BatchRateConfirmPage> {
     if (!mounted) {
       return;
     }
-    setState(() => _busy = false);
+    // Kept busy while the page is replaced by the batch made.
+    if (reply is! BatchRateAnswered<BatchRatePosted> || reply.value is! BatchRateBatchPage) {
+      setState(() => _busy = false);
+    }
     switch (reply) {
       case BatchRateAnswered(value: final BatchRateConfirm confirm):
         _take(confirm);

@@ -251,7 +251,8 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
 
   /// The batch rating offered on the thread in [state], asked once the account is known to moderate its forum.
   BatchRateInfo? _batchRateFor(BuildContext context, ThreadState state) {
-    final uid = context.read<AuthenticationRepository>().effectiveCurrentUid;
+    final auth = context.read<AuthenticationRepository>();
+    final uid = auth.effectiveCurrentUid;
     final fid = state.fid;
     final moderator = state.perms?.isModerator ?? _moderates;
     final key = uid == null || fid == null || state.tid == null || state.isOffline || !moderator ? null : '$uid:$fid';
@@ -261,7 +262,6 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
     if (key != _batchRateAsked) {
       _batchRateAsked = key;
       _batchRate = null;
-      final auth = context.read<AuthenticationRepository>();
       BatchRateAccess.check(uid!, fid: fid, stillCurrent: () => auth.effectiveCurrentUid == uid).then((info) {
         if (mounted && _batchRateAsked == key && info != null && info.offersThread) {
           setState(() => _batchRate = info);

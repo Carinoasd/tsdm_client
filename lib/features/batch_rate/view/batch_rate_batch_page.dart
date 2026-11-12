@@ -142,14 +142,14 @@ class _BatchRateBatchViewState extends State<BatchRateBatchView> {
         return;
       }
       message = switch (reply) {
-        BatchRateAnswered(value: final step) when step.ok => () {
-          // The quota of the moderator came back: the entries read it again.
-          BatchRateAccess.forget(page.uid, fid: page.batch.fid);
-          return tr.undone;
-        }(),
+        BatchRateAnswered(value: final step) when step.ok => tr.undone,
         BatchRateAnswered(value: final step) => step.message.isEmpty ? fallback : context.displayText(step.message),
         _ => batchRateReplyText(context, reply, fallback),
       };
+      if (reply case BatchRateAnswered(value: final step) when step.ok) {
+        // The quota of the moderator came back: the entries read it again.
+        BatchRateAccess.forget(page.uid, fid: page.batch.fid);
+      }
     } on IdentityChangedException {
       message = context.t.general.accountChangedRetry;
     }

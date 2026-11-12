@@ -289,7 +289,7 @@ void main() {
       expect(find.text('Batch rate #51'), findsOneWidget);
     });
 
-    testWidgets('nothing typed while the plugin computes; a batch with nothing to run shown as it is', (tester) async {
+    testWidgets('nothing typed while sending; a batch with nothing to run shown as it is', (tester) async {
       final pending = Completer<Object?>();
       final answers = <Object?>[_fixture('batchrate_confirm_recalc')];
       var posts = 0;
@@ -303,7 +303,7 @@ void main() {
             get: (_) async => _fixture('batchrate_result_done'),
             post: (_, _) async {
               posts++;
-              return posts == 2 ? pending.future : answers.removeAt(0);
+              return posts == 2 ? await pending.future : answers.removeAt(0);
             },
             currentUid: () => 31,
           ),
@@ -320,6 +320,41 @@ void main() {
       expect(find.byType(BatchRateRunPage), findsNothing);
       expect(find.text('Batch rate #51'), findsOneWidget);
       expect(posts, 2, reason: 'nothing run');
+    });
+
+    testWidgets('typed while computing again: nothing, then up to date', (tester) async {
+      final pending = Completer<Object?>();
+      var posts = 0;
+      await _pump(
+        tester,
+        BatchRateConfirmPage(
+          info: BatchRateInfo.fromJson(_fixture('batchrate_info_can'))!,
+          selection: const BatchRateSelection.floors(fid: 2, tid: 1019, floors: '2~4 7 9~'),
+          repository: BatchRateRepository(
+            ask: (_) async => null,
+            get: (_) async => null,
+            post: (_, _) async {
+              posts++;
+              return posts == 1 ? _fixture('batchrate_confirm_range') : await pending.future;
+            },
+            currentUid: () => 31,
+          ),
+        ),
+      );
+      await tester.enterText(find.byKey(const ValueKey('batch-rate-score-6')), '5');
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('batch-rate-recalc')));
+      await tester.pump();
+      expect(posts, 2);
+      for (final key in ['batch-rate-score-6', 'batch-rate-cond-6', 'batch-rate-mult-37', 'batch-rate-floors']) {
+        expect(tester.widget<TextField>(find.byKey(ValueKey(key))).enabled, isFalse, reason: key);
+      }
+      expect(tester.widget<SwitchListTile>(find.byKey(const ValueKey('batch-rate-same'))).onChanged, isNull);
+      pending.complete(_fixture('batchrate_confirm_recalc'));
+      await tester.pumpAndSettle();
+      expect(tester.widget<TextField>(find.byKey(const ValueKey('batch-rate-score-6'))).enabled, isTrue);
+      expect(find.text('Settings changed: recalculate first'), findsNothing);
+      expect(tester.widget<FilledButton>(find.byKey(const ValueKey('batch-rate-send'))).onPressed, isNotNull);
     });
 
     testWidgets("the plugin's refusal shown as it said it, and nothing else", (tester) async {
