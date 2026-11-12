@@ -31,8 +31,6 @@ A cross-platform client for the [天使动漫 forum](https://www.tsdm39.com/). W
 
 The forum has no public API: the app requests the same pages a browser does, parses them and adds what a phone or a desktop needs on top. Releases for Android, iOS (unsigned), Windows, macOS and Linux are built by GitHub Actions; the in-app update check reads `version.json` from this repository.
 
-The project continues [realth000/tsdm_client](https://github.com/realth000/tsdm_client) (MIT) with its full history and copyright notices; the X5 adaptation and everything since is maintained by Carinoasd.
-
 ## Download
 
 Get the latest build from [Releases](https://github.com/Carinoasd/tsdm_client/releases/latest):

@@ -30,8 +30,6 @@
 [天使动漫论坛](https://www.tsdm39.com/) 的跨平台客戶端。論壇於 2026 年升級到 Discuz! X5 後，原客戶端無法解析新版頁面；本專案受站方委託接手維護，
 適配 X5 的頁面結構並持續加入功能，是站方認可的官方客戶端版本。
 
-本專案延續自 [realth000/tsdm_client](https://github.com/realth000/tsdm_client)（MIT），保留其全部歷史與版權聲明；X5 適配與後續開發由 Carinoasd 負責。
-
 ## 下載
 
 到 [Releases](https://github.com/Carinoasd/tsdm_client/releases/latest) 下載：
