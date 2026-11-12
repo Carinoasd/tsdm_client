@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 """Turn `flutter test --file-reporter json:<file>` reports into a Markdown summary.
 
-Usage: ci_test_report.py <report.json> [<report.json> ...]
+Usage: ci_test_report.py [--strict] [--jobs-result <result>] <report.json> [...]
+
+--strict             exit 1 when a report is missing or incomplete
+--jobs-result <r>    result of the jobs that wrote the reports (e.g. "failure");
+                     a non-success result is shown even when every test passed
 
 Writes Markdown to stdout (meant for $GITHUB_STEP_SUMMARY): totals, then every
 failed test with its file and name, and the first lines of each error in a
@@ -22,7 +26,7 @@ MAX_ERROR_CHARS = 4000
 def relative(path):
     if not path:
         return "?"
-    path = path.replace("file://", "")
+    path = path.removeprefix("file://")
     cwd = os.getcwd().rstrip("/") + "/"
     if path.startswith(cwd):
         path = path[len(cwd):]
@@ -50,6 +54,7 @@ def parse(report_path):
     suites = {}
     tests = {}
     errors = {}
+    outcomes = {}
     last_time = 0
     with open(report_path, encoding="utf-8", errors="replace") as handle:
         for line in handle:
@@ -75,30 +80,32 @@ def parse(report_path):
                     text = f"{text}\n{stack}"
                 errors.setdefault(event["testID"], []).append(text)
             elif kind == "testDone":
-                test = tests.get(event["testID"], {})
-                if event.get("skipped"):
-                    result["skipped"] += 1
-                elif event.get("result") == "success":
-                    # Hidden entries are the per-file "loading" pseudo tests.
-                    if not event.get("hidden"):
-                        result["passed"] += 1
-                else:
-                    name = test.get("name") or "?"
-                    file_path = suites.get(test.get("suiteID"), "?")
-                    if name.startswith("loading "):
-                        name = "(failed to load: compile error or crash in setup)"
-                    line_no = test.get("root_line") or test.get("line")
-                    result["failed"].append(
-                        {
-                            "file": file_path,
-                            "line": line_no,
-                            "name": name,
-                            "error": "\n\n".join(errors.get(event["testID"], [])),
-                        }
-                    )
+                outcomes[event["testID"]] = event
             elif kind == "done":
                 result["finished"] = True
                 result["success"] = bool(event.get("success"))
+    # Outcomes are read after the whole file: an error can arrive after `testDone`
+    # ("This test failed after it had already completed"), and it fails that test.
+    for test_id, event in outcomes.items():
+        test = tests.get(test_id, {})
+        if event.get("skipped") and test_id not in errors:
+            result["skipped"] += 1
+        elif event.get("result") == "success" and test_id not in errors:
+            # Hidden entries are the per-file "loading" pseudo tests.
+            if not event.get("hidden"):
+                result["passed"] += 1
+        else:
+            name = test.get("name") or "?"
+            if name.startswith("loading "):
+                name = "(failed to load: compile error or crash in setup)"
+            result["failed"].append(
+                {
+                    "file": suites.get(test.get("suiteID"), "?"),
+                    "line": test.get("root_line") or test.get("line"),
+                    "name": name,
+                    "error": "\n\n".join(errors.get(test_id, [])),
+                }
+            )
     result["seconds"] = round(last_time / 1000) if last_time else None
     return result
 
@@ -115,7 +122,18 @@ def trim(text):
     return text.replace("```", "'''")
 
 
-def main(paths):
+def main(argv):
+    strict = False
+    jobs_result = None
+    paths = []
+    args = iter(argv)
+    for arg in args:
+        if arg == "--strict":
+            strict = True
+        elif arg == "--jobs-result":
+            jobs_result = next(args, None)
+        else:
+            paths.append(arg)
     if not paths:
         sys.exit(__doc__)
     results = [parse(path) for path in paths]
@@ -131,6 +149,8 @@ def main(paths):
         out.append("### :warning: Test run incomplete")
     elif unlocated:
         out.append("### :x: Test run failed outside any single test; see the job log")
+    elif jobs_result and jobs_result != "success":
+        out.append(f"### :x: Shard jobs: {jobs_result} (tests passed; analyzing or setup failed, see the logs)")
     else:
         out.append("### :white_check_mark: All tests passed")
     out.append("")
@@ -171,6 +191,8 @@ def main(paths):
             out.append("")
             out.append(f"Errors of the remaining {len(failed) - MAX_DETAILED} failures are in the job logs.")
     print("\n".join(out))
+    if strict and broken:
+        sys.exit(1)
 
 
 if __name__ == "__main__":

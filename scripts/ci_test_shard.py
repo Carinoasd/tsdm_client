@@ -15,6 +15,8 @@ import os
 import sys
 
 TEST_DIR = "test"
+# Fixed cost of one test file (compiling and starting the suite), in bytes of source.
+PER_FILE_COST = 8000
 
 
 def test_files():
@@ -33,10 +35,9 @@ def partition(total):
     shards = [[] for _ in range(total)]
     weights = [0] * total
     for size, path in test_files():
-        # Constant per-file cost: compiling and starting a suite is not free.
         lightest = min(range(total), key=lambda i: (weights[i], i))
         shards[lightest].append(path)
-        weights[lightest] += size + 8000
+        weights[lightest] += size + PER_FILE_COST
     return [sorted(shard) for shard in shards]
 
 
