@@ -90,8 +90,10 @@ class _BatchRateRunPageState extends State<BatchRateRunPage> {
       switch (reply) {
         case BatchRateAnswered(value: final step) when step.ok:
           setState(() {
-            _done = step.done;
             _total = step.total > 0 ? step.total : _total;
+            // `done` is the floors rated so far; what is left (`remaining`) tells the same, and is what the plugin
+            // counts down.
+            _done = _total == null ? step.done : (_total! - step.remaining).clamp(0, _total!);
           });
           if (step.finished) {
             await _showResult();

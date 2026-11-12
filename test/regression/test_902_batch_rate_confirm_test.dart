@@ -217,6 +217,64 @@ void main() {
     });
   });
 
+  group('third round: the plugin checks, the thresholds of every credit', () {
+    test('precheck read; sending held by it, not by the app', () {
+      final first = _confirm('batchrate_confirm_range_r3');
+      expect(first.precheck!.ok, isFalse);
+      expect(first.precheck!.errors.single, (code: 'no_score', id: 0, message: '請至少填寫一個積分欄的分值（不可全部為 0）。'));
+      expect(batchRateHolds(first, BatchRateSettings.of(first)), [BatchRateHold.precheck]);
+      final ok = _confirm('batchrate_confirm_recalc_r3');
+      expect(ok.precheck!.ok, isTrue);
+      expect(ok.precheck!.errors, isEmpty);
+      expect(batchRateHolds(ok, BatchRateSettings.of(ok)), isEmpty);
+      // The plugin is followed: a quota the app would hold on is not held when the plugin says it is fine.
+      final json = _fixture('batchrate_confirm_recalc_r3');
+      final short = BatchRateConfirm.fromJson({
+        ...json,
+        'quota': [
+          {'id': 6, 'title': '精灵', 'need': 20, 'left': 5, 'ok': 0},
+        ],
+      })!;
+      expect(batchRateLocalHolds(short, BatchRateSettings.of(short)), [BatchRateHold.quota]);
+      expect(batchRateHolds(short, BatchRateSettings.of(short)), isEmpty);
+      expect(batchRateHolds(BatchRateConfirm.fromJson({...json, 'blocked': 1})!, BatchRateSettings.of(ok)), [
+        BatchRateHold.blocked,
+      ]);
+    });
+
+    test('each code of the checks', () {
+      final quota = _confirm('batchrate_confirm_quota_r3').precheck!;
+      expect(quota.errors.map((e) => (e.code, e.id)), [('mult_range', 6), ('no_score', 0), ('quota', 6)]);
+      expect(quota.errors.first.message, startsWith('精灵 100 ×99 = 9900'));
+      final range = _confirm('batchrate_confirm_score_range_r3').precheck!;
+      expect(range.errors.first, (code: 'score_range', id: 6, message: '精灵 的分值超出允許範圍（-20 ～ 100）。'));
+    });
+
+    test('an older answer without precheck: the app checks', () {
+      final old = _confirm('batchrate_confirm_quota');
+      expect(old.precheck, isNull);
+      expect(batchRateHolds(old, BatchRateSettings.of(old)), contains(BatchRateHold.quota));
+    });
+
+    test('thresholds for every credit of the forum, the rated ones for an older answer', () {
+      final c = _confirm('batchrate_confirm_range_r3');
+      expect(c.thresholds.map((t) => (t.id, t.title)), [
+        (1, '威望'),
+        (2, '天使币'),
+        (3, '宣传'),
+        (4, '腹黑'),
+        (5, '天然'),
+        (6, '精灵'),
+      ]);
+      final s = BatchRateSettings.of(c)
+        ..scores[6] = 1
+        ..conds[1] = '5';
+      expect(s.fields(c, submit: false)['cond[1]'], '5');
+      expect(_confirm('batchrate_confirm_range').thresholds.map((t) => t.id), [6]);
+      expect(_confirm('batchrate_confirm_list_r3').condCredits, isEmpty);
+    });
+  });
+
   group('page', () {
     testWidgets('a change computed again before sending; sent once after the confirmation', (tester) async {
       final posted = <Map<String, String>>[];
@@ -355,6 +413,47 @@ void main() {
       expect(tester.widget<TextField>(find.byKey(const ValueKey('batch-rate-score-6'))).enabled, isTrue);
       expect(find.text('Settings changed: recalculate first'), findsNothing);
       expect(tester.widget<FilledButton>(find.byKey(const ValueKey('batch-rate-send'))).onPressed, isNotNull);
+    });
+
+    testWidgets("the plugin's checks beside their fields, every credit's threshold; sent once they pass", (
+      tester,
+    ) async {
+      final answers = <Object?>[_fixture('batchrate_confirm_range_r3'), _fixture('batchrate_confirm_score_range_r3')];
+      final posted = <Map<String, String>>[];
+      await _pump(
+        tester,
+        BatchRateConfirmPage(
+          info: BatchRateInfo.fromJson(_fixture('batchrate_info_can_r3'))!,
+          selection: const BatchRateSelection.floors(fid: 2, tid: 1019, floors: '2~4 7 9~'),
+          repository: BatchRateRepository(
+            ask: (_) async => null,
+            get: (_) async => null,
+            post: (_, data) async {
+              posted.add(data);
+              return answers.removeAt(0);
+            },
+            currentUid: () => 31,
+          ),
+        ),
+      );
+      final send = find.byKey(const ValueKey('batch-rate-send'));
+      expect(find.text('請至少填寫一個積分欄的分值（不可全部為 0）。'), findsOneWidget);
+      expect(tester.widget<FilledButton>(send).onPressed, isNull);
+      for (final id in [1, 2, 3, 4, 5, 6]) {
+        expect(find.byKey(ValueKey('batch-rate-cond-$id')), findsOneWidget, reason: '$id');
+      }
+      await tester.enterText(find.byKey(const ValueKey('batch-rate-score-6')), '200');
+      await tester.enterText(find.byKey(const ValueKey('batch-rate-cond-1')), '3');
+      await tester.pumpAndSettle();
+      // Changed: the plugin's sentences wait for it to check again.
+      expect(find.text('請至少填寫一個積分欄的分值（不可全部為 0）。'), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('batch-rate-recalc')));
+      await tester.pumpAndSettle();
+      expect(posted[1], containsPair('cond[1]', '3'));
+      final score = tester.widget<TextField>(find.byKey(const ValueKey('batch-rate-score-6')));
+      expect(score.decoration!.errorText, contains('精灵 的分值超出允許範圍（-20 ～ 100）。'));
+      expect(score.decoration!.errorText, contains('額度不足'));
+      expect(tester.widget<FilledButton>(send).onPressed, isNull);
     });
 
     testWidgets("the plugin's refusal shown as it said it, and nothing else", (tester) async {

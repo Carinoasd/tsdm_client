@@ -120,6 +120,22 @@ void main() {
       );
     });
 
+    test('third round: `batchrate_version`; no `forum` when the account may not rate there', () {
+      final can = BatchRateInfo.fromJson(_fixture('batchrate_info_can_r3'))!;
+      expect((can.version, can.forum, can.fid, can.offersList), ('1.3.2', '测试版块', 2, true));
+      final norate = _fixture('batchrate_info_norate_r3');
+      expect(norate.containsKey('forum'), isFalse);
+      final info = BatchRateInfo.fromJson(norate)!;
+      expect((info.fid, info.forum, info.can, info.why, info.offersThread), (2, '', false, 'norate', false));
+      final nofid = BatchRateInfo.fromJson(_fixture('batchrate_info_nofid_r3'))!;
+      expect((nofid.version, nofid.offersBatches), ('1.3.2', true));
+      // An older answer: `version` only.
+      expect(BatchRateInfo.fromJson(_fixture('batchrate_info_can'))!.version, '1.3.2');
+      for (final name in ['batchrate_info_can_r3', 'batchrate_info_norate_r3', 'batchrate_info_nofid_r3']) {
+        expect(TsdmAppPluginInfo.fromAnswer(_fixture(name)), isNull, reason: name);
+      }
+    });
+
     test("the batch rate plugin's version is never taken for the app API's", () {
       expect(TsdmAppPluginInfo.fromAnswer(_fixture('batchrate_info_can')), isNull);
       expect(TsdmAppPluginInfo.fromAnswer({'ok': 1, 'version': '3.9.0', 'actions': <String>[]})!.version, '3.9.0');

@@ -160,7 +160,9 @@ class _BatchRateConfirmPageState extends State<BatchRateConfirmPage> {
 
     for (final credit in confirm.credits) {
       keep(_scores, credit.id, credit.score == 0 ? '' : '${credit.score}');
-      keep(_conds, credit.id, credit.cond);
+    }
+    for (final t in confirm.thresholds) {
+      keep(_conds, t.id, t.cond);
     }
     for (final item in confirm.items) {
       keep(_mults, item.pid, '${item.mult}');
@@ -190,8 +192,8 @@ class _BatchRateConfirmPageState extends State<BatchRateConfirmPage> {
     for (final e in _scores.entries) {
       settings.scores[e.key] = int.tryParse(e.value.text.trim()) ?? 0;
     }
-    for (final e in _conds.entries) {
-      settings.conds[e.key] = e.value.text;
+    for (final t in confirm.thresholds) {
+      settings.conds[t.id] = _conds[t.id]?.text ?? '';
     }
     for (final item in confirm.items) {
       settings.mults[item.pid] = int.tryParse(_mults[item.pid]?.text.trim() ?? '') ?? 1;
@@ -259,11 +261,21 @@ class _BatchRateConfirmPageState extends State<BatchRateConfirmPage> {
     setState(() => _stale = true);
   }
 
+  /// The sentences of the plugin's checks matching [test], one a line (shown in the script of the app); null when none,
+  /// or while the settings changed since the plugin checked them.
+  String? _precheckOf(BatchRateConfirm c, bool Function(({String code, int id, String message}) e) test) {
+    final lines = [
+      for (final e in c.precheck?.errors ?? const <({String code, int id, String message})>[])
+        if (test(e)) context.displayText(e.message),
+    ];
+    return _stale || lines.isEmpty ? null : lines.join('\n');
+  }
+
   String _holdText(BatchRateHold hold) {
     final tr = context.t.batchRate;
     return switch (hold) {
-      BatchRateHold.blocked => '',
-      BatchRateHold.nothing => tr.holdNothing,
+      BatchRateHold.blocked || BatchRateHold.precheck => '',
+      BatchRateHold.nothing => '',
       BatchRateHold.noScore => tr.holdNoScore,
       BatchRateHold.reason => tr.holdReason,
       BatchRateHold.quota => tr.holdQuota,
@@ -330,30 +342,39 @@ class _BatchRateConfirmPageState extends State<BatchRateConfirmPage> {
                           labelText: context.displayText(credit.title),
                           helperText: helper,
                           helperStyle: quota != null && !quota.ok ? TextStyle(color: colorScheme.error) : null,
+                          errorText: _precheckOf(c, (e) => e.id == credit.id && e.id > 0),
+                          errorMaxLines: 3,
                           border: const OutlineInputBorder(),
                         ),
                       ),
                     ),
-                    if (c.inThread) ...[
-                      sizedBoxW8H8,
-                      SizedBox(
-                        width: 120,
-                        child: TextField(
-                          key: ValueKey('batch-rate-cond-${credit.id}'),
-                          enabled: !_busy,
-                          controller: _conds[credit.id],
-                          keyboardType: const TextInputType.numberWithOptions(signed: true),
-                          inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^-?\d*'))],
-                          decoration: InputDecoration(
-                            labelText: tr.atLeast(title: context.displayText(credit.title)),
-                            border: const OutlineInputBorder(),
-                          ),
-                        ),
-                      ),
-                    ],
                   ],
                 );
               },
+            ),
+            sizedBoxW12H12,
+          ],
+          if (c.inThread && c.thresholds.isNotEmpty) ...[
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final t in c.thresholds)
+                  SizedBox(
+                    width: 120,
+                    child: TextField(
+                      key: ValueKey('batch-rate-cond-${t.id}'),
+                      enabled: !_busy,
+                      controller: _conds[t.id],
+                      keyboardType: const TextInputType.numberWithOptions(signed: true),
+                      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^-?\d*'))],
+                      decoration: InputDecoration(
+                        labelText: tr.atLeast(title: context.displayText(t.title)),
+                        border: const OutlineInputBorder(),
+                      ),
+                    ),
+                  ),
+              ],
             ),
             sizedBoxW12H12,
           ],
@@ -363,6 +384,7 @@ class _BatchRateConfirmPageState extends State<BatchRateConfirmPage> {
             controller: _reason,
             decoration: InputDecoration(
               labelText: c.reasonRequired ? '${tr.reason} *' : tr.reason,
+              errorText: _precheckOf(c, (e) => e.code == 'reason'),
               border: const OutlineInputBorder(),
             ),
           ),
@@ -425,12 +447,20 @@ class _BatchRateConfirmPageState extends State<BatchRateConfirmPage> {
     final tr = context.t.batchRate;
     final colorScheme = Theme.of(context).colorScheme;
     final holds = batchRateHolds(c, s, multMax: widget.info.multMax);
+    // The plugin's checks belong to the settings it computed; while they are changed, the app's own checks tell.
+    final local = _stale || c.precheck == null;
     final notes = [
       if (_sentUnknown) tr.unconfirmed,
       if (_stale) tr.holdStale,
       ...c.errors.map(context.displayText),
-      for (final h in holds)
-        if (_holdText(h) case final text when text.isNotEmpty) text,
+      if (local)
+        for (final h in batchRateLocalHolds(c, s, multMax: widget.info.multMax))
+          if (_holdText(h) case final text when text.isNotEmpty) text,
+      if (c.apply == 0) tr.holdNothing,
+      // What the plugin's checks say beside no field: no score, a credit not listed.
+      if (!_stale)
+        for (final e in c.precheck?.errors ?? const <({String code, int id, String message})>[])
+          if (e.code != 'reason' && !c.credits.any((credit) => credit.id == e.id)) context.displayText(e.message),
     ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
