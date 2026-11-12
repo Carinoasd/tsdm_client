@@ -69,6 +69,7 @@ class SettingsMap with SettingsMapMappable {
     this.backgroundSyncAllAccounts = false,
     this.notificationHideContent = false,
     this.notificationDirectReply = true,
+    this.systemNotificationsOptIn = false,
     this.readingTimeStats = true,
     this.notifyReply = true,
     this.notifyMention = true,
@@ -189,6 +190,9 @@ class SettingsMap with SettingsMapMappable {
 
   /// See `SettingsKeys.notificationDirectReply`. Not required: backups from older versions lack it.
   final bool notificationDirectReply;
+
+  /// See `SettingsKeys.systemNotificationsOptIn`. Not required: backups from older versions lack it.
+  final bool systemNotificationsOptIn;
 
   /// See `SettingsKeys.readingTimeStats`. Not required: backups from older versions lack it.
   final bool readingTimeStats;
@@ -440,6 +444,7 @@ class SettingsMap with SettingsMapMappable {
       SettingsKeys.backgroundSyncAllAccounts => copyWith(backgroundSyncAllAccounts: value as bool?),
       SettingsKeys.notificationHideContent => copyWith(notificationHideContent: value as bool?),
       SettingsKeys.notificationDirectReply => copyWith(notificationDirectReply: value as bool?),
+      SettingsKeys.systemNotificationsOptIn => copyWith(systemNotificationsOptIn: value as bool?),
       SettingsKeys.readingTimeStats => copyWith(readingTimeStats: value as bool?),
       SettingsKeys.notifyReply => copyWith(notifyReply: value as bool?),
       SettingsKeys.notifyMention => copyWith(notifyMention: value as bool?),

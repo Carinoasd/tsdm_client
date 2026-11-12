@@ -1,5 +1,6 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:tsdm_client/features/local_notice/keys.dart';
+import 'package:tsdm_client/features/local_notice/opt_in_notifications.dart';
 import 'package:tsdm_client/features/local_notice/stream.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/utils/platform.dart';
@@ -63,12 +64,13 @@ Future<void> _bringWindowToFront() async {
 
 /// Park the payload of the notification that cold-started the app, if any (#14).
 ///
-/// Android only, call at boot after the plugin is initialized. [onLocalNotificationOpened] is not invoked for the
+/// Android, and iOS / macOS / Linux once the notifications were turned on there
+/// ([SystemNotificationGate.ready]); call at boot after the plugin is initialized. [onLocalNotificationOpened] is not invoked for the
 /// tap that launched the app, its payload only exists in the launch details; only the payloads this app knows
 /// ([LocalNoticeKeys.parseOpenNotification], with or without the account) are kept. Failures are logged and swallowed
 /// because they must not block the boot.
 Future<void> rememberNotificationLaunch() async {
-  if (!isAndroid) {
+  if (!isAndroid && !systemNotificationGate.ready) {
     return;
   }
   try {

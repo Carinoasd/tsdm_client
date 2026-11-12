@@ -37,6 +37,7 @@ import 'package:tsdm_client/features/home_widget/bloc/home_widget_sync_cubit.dar
 import 'package:tsdm_client/features/home_widget/repository/home_widget_channel.dart';
 import 'package:tsdm_client/features/homepage/repository/guide_feed.dart';
 import 'package:tsdm_client/features/keyboard/widgets/keyboard_shortcuts_host.dart';
+import 'package:tsdm_client/features/local_notice/opt_in_notifications.dart';
 import 'package:tsdm_client/features/local_notice/show.dart';
 import 'package:tsdm_client/features/login_device/login_device_coordinator.dart';
 import 'package:tsdm_client/features/login_device/widgets/login_device_revoked_watcher.dart';
@@ -410,9 +411,9 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
               NotificationSyncAllRepository(storageProvider: getIt(), notificationRepository: context.repo()),
           dispose: (repo) async => repo.dispose(),
         ),
-        // The other logged-in accounts, polled by the in-app auto sync when asked to; only where it posts system
-        // notifications.
-        if (autoSyncPostsNotifications)
+        // The other logged-in accounts, polled by the in-app auto sync when asked to; only where it always posted system
+        // notifications (Android, Windows).
+        if (alwaysPostsNotifications)
           RepositoryProvider<OtherAccountsAutoSync>(
             create: (context) => OtherAccountsAutoSync.forApp(
               storage: getIt(),
@@ -449,7 +450,7 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
           BlocProvider(create: (context) => NotificationStateCubit(context.repo())),
           BlocProvider(
             create: (context) {
-              final others = autoSyncPostsNotifications ? context.repo<OtherAccountsAutoSync>() : null;
+              final others = alwaysPostsNotifications ? context.repo<OtherAccountsAutoSync>() : null;
               final bloc = AutoNotificationCubit(
                 authenticationRepository: context.repo(),
                 notificationRepository: context.repo(),
@@ -521,7 +522,7 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
               notificationBloc: context.read<NotificationBloc>(),
             ),
           ),
-          if (autoSyncPostsNotifications)
+          if (alwaysPostsNotifications)
             // What the background message service (#80) and the in-app sync of the other accounts stored shows up in
             // the app without waiting for its own sync: the account switched to meanwhile may be the one synced.
             BlocProvider(
@@ -647,12 +648,18 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
                 );
                 return true;
               },
-              onRead: autoSyncPostsNotifications
-                  ? (tid) => unawaited(
-                      flnp
-                          .cancel(id: followedThreadNoticeId(tid))
-                          .catchError((Object e) => talker.warning('taking back notification failed: $e')),
-                    )
+              // Asked at each read: on iOS, macOS and Linux the notifications may be turned on or off meanwhile.
+              onRead: alwaysPostsNotifications || systemNotificationGate.platform.optIn
+                  ? (tid) {
+                      if (!autoSyncPostsNotifications) {
+                        return;
+                      }
+                      unawaited(
+                        flnp
+                            .cancel(id: followedThreadNoticeId(tid))
+                            .catchError((Object e) => talker.warning('taking back notification failed: $e')),
+                      );
+                    }
                   : null,
             )..start(),
             lazy: false,
@@ -822,7 +829,8 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
                           : LocalNoticeAccount(
                               uid: user!.uid!,
                               username: user.username,
-                              named: s.backgroundSyncAllAccounts,
+                              // Only where the other accounts are polled too (Android, Windows).
+                              named: alwaysPostsNotifications && s.backgroundSyncAllAccounts,
                             ),
                     );
                   },
