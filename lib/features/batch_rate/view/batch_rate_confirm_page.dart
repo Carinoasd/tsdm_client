@@ -178,6 +178,7 @@ class _BatchRateConfirmPageState extends State<BatchRateConfirmPage> {
       }
     }
 
+    // The fields set to what the plugin computed: their listeners write the old settings, replaced right after.
     set(_reason, settings.reason);
     set(_exclude, settings.exclude);
     set(_floors, settings.floors);
@@ -185,10 +186,27 @@ class _BatchRateConfirmPageState extends State<BatchRateConfirmPage> {
       _confirm = confirm;
       _settings = settings;
       _stale = false;
+      _texts = _fieldTexts();
     });
   }
 
+  /// What the fields held when the plugin last computed the confirmation, see [_changed].
+  String? _texts;
+
+  /// Every field's text, in a fixed order.
+  String _fieldTexts() => [
+    for (final m in [_scores, _conds, _mults])
+      for (final e in m.entries) '${e.key}=${e.value.text}',
+    _reason.text,
+    _exclude.text,
+    _floors.text,
+  ].join('\u0000');
+
+  /// A field changed: asks for the plugin to compute again only when some text did (not a tap moving the cursor).
   void _changed() {
+    if (_confirm == null || _fieldTexts() == _texts) {
+      return;
+    }
     if (_sync()) {
       setState(() => _stale = true);
     }

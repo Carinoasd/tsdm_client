@@ -46,10 +46,6 @@ class _BatchRateBatchViewState extends State<BatchRateBatchView> {
   /// answers the result of a batch with nothing rated any more with a sentence, not the batch).
   late String? _url = widget.url;
 
-  /// The detail of [batchId] in the batches.
-  static String? _detailOf(int batchId) =>
-      BatchRateForm.urlOf('plugin.php?id=batchrate:list&bract=detail&batchid=$batchId');
-
   @override
   void initState() {
     super.initState();
@@ -157,7 +153,7 @@ class _BatchRateBatchViewState extends State<BatchRateBatchView> {
       if (reply case BatchRateAnswered(value: final step) when step.ok) {
         // The quota of the moderator came back: the entries read it again.
         BatchRateAccess.forget(page.uid, fid: page.batch.fid);
-        _url = _detailOf(page.batch.batchId) ?? _url;
+        _url = BatchRateRepository.detailUrlOf(page.batch.batchId) ?? _url;
       }
     } on IdentityChangedException {
       message = context.t.general.accountChangedRetry;
@@ -202,12 +198,12 @@ class _BatchRateBatchViewState extends State<BatchRateBatchView> {
         }
         if (reply case BatchRateAnswered(value: final step) when step.ok) {
           setState(() => _undoing = (_undoing ?? 0) + step.done);
-          if (step.done > 0) {
-            _url = _detailOf(page.batch.batchId) ?? _url;
+          // Something was taken back (or all of it was already): the result may now be the plugin's sentence.
+          if (step.done > 0 || step.finished) {
+            _url = BatchRateRepository.detailUrlOf(page.batch.batchId) ?? _url;
           }
           if (step.finished) {
             BatchRateAccess.forget(page.uid, fid: page.batch.fid);
-            _url = _detailOf(page.batch.batchId) ?? _url;
             message = tr.undone;
             break;
           }

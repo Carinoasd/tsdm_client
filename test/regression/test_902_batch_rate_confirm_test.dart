@@ -487,6 +487,13 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('batch-rate-recalc')));
       await tester.pumpAndSettle();
       expect(tester.widget<FilledButton>(send).onPressed, isNotNull);
+      // A tap in a field changes nothing.
+      await tester.tap(find.byKey(const ValueKey('batch-rate-exclude')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('batch-rate-floors')));
+      await tester.pumpAndSettle();
+      expect(find.text('Settings changed: recalculate first'), findsNothing);
+      expect(tester.widget<FilledButton>(send).onPressed, isNotNull);
 
       await tester.enterText(find.byKey(const ValueKey('batch-rate-reason')), '活动奖励');
       await tester.enterText(find.byKey(const ValueKey('batch-rate-exclude')), 'gl_dave,ps_v2');

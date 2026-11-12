@@ -251,6 +251,10 @@ class BatchRateRepository {
   Future<BatchRateReply<BatchRateBatches>> list(String listUrl, {int page = 1}) =>
       _getPage(page > 1 ? '${_base(listUrl)}&page=$page' : _base(listUrl), BatchRateBatches.fromJson);
 
+  /// The detail of batch [batchId] in the plugin's batches page.
+  static String? detailUrlOf(int batchId) =>
+      BatchRateForm.urlOf('plugin.php?id=batchrate:list&bract=detail&batchid=$batchId');
+
   /// [listUrl] without the parameters of a page or a batch.
   static String _base(String listUrl) => Uri.parse(listUrl).replace(query: 'id=batchrate:list').toString();
 }
