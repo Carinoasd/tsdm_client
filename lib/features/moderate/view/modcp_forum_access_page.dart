@@ -81,7 +81,8 @@ class _ModcpForumAccessPageState extends State<ModcpForumAccessPage> {
       return;
     }
     if (answer case Right(value: ModcpNeedsLogin())) {
-      _searching = searching;
+      // The whole list asked (a forum, a page, the search cleared): none looked up again.
+      _searching = searching ?? (opening != null ? '' : null);
       if (opening != null) {
         _fid = opening.fid;
         _page = opening.page;

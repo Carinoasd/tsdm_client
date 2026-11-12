@@ -87,7 +87,7 @@ final class ModcpPanelForm {
       if (!_fieldName.hasMatch(name) || value is Map || value is List) {
         return null;
       }
-      if (_guarded.contains(_bare(name)) && !expect.containsKey(name)) {
+      if ((_guarded.contains(_bare(name)) || expect.containsKey(_bare(name))) && !expect.containsKey(name)) {
         return null;
       }
       if (!names.contains(_bare(name))) {

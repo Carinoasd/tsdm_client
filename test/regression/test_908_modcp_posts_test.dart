@@ -161,6 +161,9 @@ void main() {
         {'ids_field': 'delete'},
         {'nocredit_field': 'no credit'},
         {'nocredit_field': 'do'},
+        {
+          'fields': {'formhash': 'f', 'fid': '2', 'fid[x]': '5', 'do': 'delete', 'deletesubmit': 'true'},
+        },
         {'nocredit_field': 'fid'},
         {'ids_field': 'action[]'},
         {

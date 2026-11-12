@@ -352,6 +352,47 @@ void main() {
       expect(find.byKey(const ValueKey('modcp-access-clear-search')), findsOneWidget);
     });
 
+    testWidgets('the search cleared while the panel asks its password: the whole list once logged in', (tester) async {
+      final posted = <(String, Map<String, String>)>[];
+      final asked = <String>[];
+      var login = false;
+      await pump(
+        tester,
+        _repo(
+          posted: posted,
+          asked: asked,
+          answer: (_) {
+            if (login) {
+              login = false;
+              return {
+                ..._fixture('modcp_report_login'),
+                'uid': 33,
+                'head': "<script>var discuz_uid = '33';</script>",
+              };
+            }
+            return _page(entries: [_entry(35, 'ag_low2', post: -1)]);
+          },
+          reply: (Map<String, String> body) =>
+              _page(keyword: body['suser'] ?? '', entries: [_entry(35, 'ag_low2', post: -1)]),
+        ),
+      );
+      await tester.tap(find.byKey(const ValueKey('modcp-access-search')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const ValueKey('modcp-access-search-name')), 'ag_low2');
+      await tester.tap(find.byKey(const ValueKey('modcp-access-search-submit')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('modcp-access-clear-search')), findsOneWidget);
+      login = true;
+      await tester.tap(find.byKey(const ValueKey('modcp-access-clear-search')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'pw');
+      await tester.tap(find.byType(FilledButton));
+      await tester.pumpAndSettle();
+      expect(posted.where((e) => e.$2.containsKey('suser')).length, 1);
+      expect(asked.last, contains('fid=2'));
+      expect(find.byKey(const ValueKey('modcp-access-clear-search')), findsNothing);
+    });
+
     testWidgets('a permission the admin centre allowed can not be ticked', (tester) async {
       await pump(tester, _repo(answer: (_) => _page(entries: [_entry(35, 'ag_low2', getattach: 1)])));
       await tester.tap(find.byKey(const ValueKey('modcp-access-35')));
