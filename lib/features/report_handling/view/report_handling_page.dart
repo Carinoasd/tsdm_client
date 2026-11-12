@@ -18,7 +18,8 @@ import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 /// Handling reports (舉報處理) of a [source]: choose the part (the panel's forum), list the reports (each opens what
-/// was reported), pick some with the reporter's reward and a message when the forum sets a reward, handle them.
+/// was reported), pick some with the reporter's reward and a message when the forum sets a reward (a message alone
+/// where the source takes one, [ReportList.messageWithoutReward]), handle them.
 ///
 /// With [wholeForum] (the admin API's reports of the whole forum) the page offers both and shows that one first: its
 /// lists of the reports waiting and handled are tabs, and its reports may be deleted too.
@@ -258,6 +259,7 @@ class _ReportHandlingPageState extends State<ReportHandlingPage> {
                 if (d.item.username.isEmpty) 'UID ${d.item.uid}' else d.item.username,
                 if (reward != null && d.credit != 0)
                   '${context.displayText(reward.creditTitle)} ${_credit(reward, d.credit)}',
+                if (d.message.trim().isNotEmpty) d.message.trim(),
               ].join(' · '),
             ),
           ),

@@ -325,6 +325,46 @@ void main() {
       expect(find.text(t.reportHandling.errorCredits(min: -3, max: 3)), findsOneWidget);
     });
 
+    testWidgets('no reward set: a message alone to a waiting one, shown in the confirmation; none when handled', (
+      tester,
+    ) async {
+      Map<String, dynamic> noReward(String name) =>
+          adminFixture(name)..['reward'] = {'enabled': 0, 'credit': null, 'min': 0, 'max': 0, 'options': <int>[]};
+      final forum = _forum({
+        'GET:adminreport': [
+          (AdminRequest r) => noReward(r.data['op'] == 'resolved' ? 'report_resolved' : 'report_new'),
+        ],
+        'POST:adminreport': [
+          {
+            'ok': 1,
+            'uid': 32,
+            'type': 'adminreport',
+            'op': 'resolve',
+            'resolved': [168],
+            'skipped': <int>[],
+          },
+        ],
+      });
+      await _pump(tester, AdminReportPage(repository: forum.repository(), writable: true));
+      await tester.tap(find.byKey(const ValueKey('report-pick-168')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('report-credit-168')), findsNothing);
+      await tester.enterText(find.byKey(const ValueKey('report-message-168')), '已处理');
+      await tester.tap(find.byKey(const ValueKey('report-resolve')));
+      await tester.pumpAndSettle();
+      expect(find.text('ag_t01 · 已处理'), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilledButton, t.reportHandling.resolve(n: 1)).last);
+      await tester.pumpAndSettle();
+      final sent = forum.of('adminreport', 'POST').single.data;
+      expect((sent['ids[0]'], sent['msg[168]'], sent.containsKey('credits[168]')), ('168', '已处理', false));
+
+      await tester.tap(find.text(t.reportHandling.handled));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('report-pick-169')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('report-message-169')), findsNothing);
+    });
+
     testWidgets('read-only: listed, nothing to pick', (tester) async {
       final forum = _forum();
       await _pump(tester, AdminReportPage(repository: forum.repository(), writable: false));

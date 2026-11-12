@@ -144,7 +144,8 @@ final class ReportReward {
     required this.options,
   });
 
-  /// The `reward` of an answer, null when the forum sets none (`enabled` 0): no reward nor message then.
+  /// The `reward` of an answer, null when the forum sets none (`enabled` 0): no reward then, nor a message on the
+  /// panel's page (the admin API takes a message alone, [ReportList.messageWithoutReward]).
   static ReportReward? fromJson(Object? json) {
     if (json is! Map || json['enabled'] != 1) {
       return null;
