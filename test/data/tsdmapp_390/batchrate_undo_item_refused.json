@@ -1,0 +1,17 @@
+{
+  "ok": 0,
+  "api": 1,
+  "time": 1700000000,
+  "uid": 31,
+  "formhash": "f1f2f3f4",
+  "type": "result",
+  "schema": 13,
+  "kind": "handle",
+  "message": "本項目已撤回或未評分，無法再次撤回。",
+  "message_key": "",
+  "url": "",
+  "handlekey": "batchrate_undo_item",
+  "values": {},
+  "login": 0,
+  "alert": "error"
+}

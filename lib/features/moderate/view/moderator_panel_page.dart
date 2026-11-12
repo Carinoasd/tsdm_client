@@ -11,6 +11,9 @@ import 'package:tsdm_client/features/admin_tools/view/admin_credit_page.dart';
 import 'package:tsdm_client/features/admin_tools/view/admin_group_page.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/background_grant/view/background_grant_page.dart';
+import 'package:tsdm_client/features/batch_rate/models/batch_rate.dart';
+import 'package:tsdm_client/features/batch_rate/utils/batch_rate_access.dart';
+import 'package:tsdm_client/features/batch_rate/view/batch_rate_list_page.dart';
 import 'package:tsdm_client/features/medal_title_tools/utils/staff_access.dart';
 import 'package:tsdm_client/features/medal_title_tools/view/medal_grant_page.dart';
 import 'package:tsdm_client/features/medal_title_tools/view/title_issue_page.dart';
@@ -47,6 +50,7 @@ class ModeratorPanelPage extends StatefulWidget {
     this.panelTools,
     this.adminAccess,
     this.adminRepository,
+    this.batchRate,
     super.key,
   });
 
@@ -67,6 +71,9 @@ class ModeratorPanelPage extends StatefulWidget {
 
   /// The admin actions' requests; the app's client when null.
   final AdminRepository? adminRepository;
+
+  /// Whether the account may read the batch rates (tsdmapp 3.9.0); asked of the forum (once per account) when null.
+  final Future<BatchRateInfo?> Function()? batchRate;
 
   @override
   State<ModeratorPanelPage> createState() => _ModeratorPanelPageState();
@@ -95,6 +102,9 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
   /// The panel holds the admin session while it lists admin actions: going between them asks the password once.
   bool _adminLease = false;
 
+  /// The batch rates the account may read; null until asked or when it may not.
+  BatchRateInfo? _batchRate;
+
   @override
   void initState() {
     super.initState();
@@ -102,6 +112,20 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
     unawaited(_loadStaff());
     unawaited(_loadPanel());
     unawaited(_loadAdmin());
+    unawaited(_loadBatchRate());
+  }
+
+  /// Asked as [_loadStaff] is.
+  Future<void> _loadBatchRate() async {
+    final auth = context.readOrNull<AuthenticationRepository>();
+    final uid = auth?.currentUser?.uid;
+    final ask =
+        widget.batchRate ??
+        (uid == null ? null : () => BatchRateAccess.check(uid, stillCurrent: () => auth?.currentUser?.uid == uid));
+    final info = await ask?.call();
+    if (mounted && info != null && info.offersBatches) {
+      setState(() => _batchRate = info);
+    }
   }
 
   @override
@@ -268,6 +292,13 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
           Icons.wallpaper_outlined,
           t.backgroundGrant.title,
           () => const BackgroundGrantPage(),
+        ),
+      if (_batchRate?.listUrl case final listUrl?)
+        (
+          const ValueKey('modcp-batch-rate'),
+          Icons.thumbs_up_down_outlined,
+          t.batchRate.batches,
+          () => BatchRateListPage(listUrl: listUrl),
         ),
       if (_admin?.canRead(AdminActions.credit) ?? false)
         (

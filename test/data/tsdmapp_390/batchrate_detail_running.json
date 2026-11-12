@@ -1,0 +1,219 @@
+{
+  "ok": 1,
+  "api": 1,
+  "time": 1700000000,
+  "uid": 31,
+  "formhash": "f1f2f3f4",
+  "type": "batchrate_batch",
+  "schema": 34,
+  "batch": {
+    "batchid": 11,
+    "uid": 7,
+    "username": "gl_dave",
+    "fid": 6,
+    "forum": "测试版块",
+    "tid": 1025,
+    "mode": 3,
+    "mode_text": "樓層範圍 2～10",
+    "floors": "",
+    "conds": [],
+    "scores": [
+      {
+        "id": 1,
+        "title": "威望",
+        "score": 2
+      }
+    ],
+    "reason": "鎖定測試",
+    "exclude": [],
+    "antispam": {
+      "rated": 1,
+      "same": 1
+    },
+    "total": 9,
+    "applied": 0,
+    "skipped": 8,
+    "pending": 1,
+    "status": 0,
+    "status_text": "處理中",
+    "dateline": 1788331745,
+    "can_continue": 1,
+    "can_undo": 0,
+    "can_undo_item": 1
+  },
+  "items": [
+    {
+      "itemid": 672,
+      "tid": 1025,
+      "pid": 51,
+      "position": 2,
+      "subject": "",
+      "authorid": 4,
+      "author": "gl_alice",
+      "status": "pending",
+      "status_text": "會評分",
+      "mult": 1,
+      "url": "forum.php?mod=redirect&goto=findpost&ptid=1025&pid=51",
+      "can_undo": 0,
+      "undo_uid": 0,
+      "undo_dateline": 0
+    },
+    {
+      "itemid": 673,
+      "tid": 1025,
+      "pid": 52,
+      "position": 3,
+      "subject": "",
+      "authorid": 4,
+      "author": "gl_alice",
+      "status": "skip_same_author",
+      "status_text": "同人已評第 2 樓，跳過",
+      "mult": 1,
+      "url": "forum.php?mod=redirect&goto=findpost&ptid=1025&pid=52",
+      "can_undo": 0,
+      "undo_uid": 0,
+      "undo_dateline": 0
+    },
+    {
+      "itemid": 674,
+      "tid": 1025,
+      "pid": 53,
+      "position": 4,
+      "subject": "",
+      "authorid": 4,
+      "author": "gl_alice",
+      "status": "skip_same_author",
+      "status_text": "同人已評第 2 樓，跳過",
+      "mult": 1,
+      "url": "forum.php?mod=redirect&goto=findpost&ptid=1025&pid=53",
+      "can_undo": 0,
+      "undo_uid": 0,
+      "undo_dateline": 0
+    },
+    {
+      "itemid": 675,
+      "tid": 1025,
+      "pid": 54,
+      "position": 5,
+      "subject": "",
+      "authorid": 4,
+      "author": "gl_alice",
+      "status": "skip_same_author",
+      "status_text": "同人已評第 2 樓，跳過",
+      "mult": 1,
+      "url": "forum.php?mod=redirect&goto=findpost&ptid=1025&pid=54",
+      "can_undo": 0,
+      "undo_uid": 0,
+      "undo_dateline": 0
+    },
+    {
+      "itemid": 676,
+      "tid": 1025,
+      "pid": 55,
+      "position": 6,
+      "subject": "",
+      "authorid": 4,
+      "author": "gl_alice",
+      "status": "skip_same_author",
+      "status_text": "同人已評第 2 樓，跳過",
+      "mult": 1,
+      "url": "forum.php?mod=redirect&goto=findpost&ptid=1025&pid=55",
+      "can_undo": 0,
+      "undo_uid": 0,
+      "undo_dateline": 0
+    },
+    {
+      "itemid": 677,
+      "tid": 1025,
+      "pid": 56,
+      "position": 7,
+      "subject": "",
+      "authorid": 4,
+      "author": "gl_alice",
+      "status": "skip_same_author",
+      "status_text": "同人已評第 2 樓，跳過",
+      "mult": 1,
+      "url": "forum.php?mod=redirect&goto=findpost&ptid=1025&pid=56",
+      "can_undo": 0,
+      "undo_uid": 0,
+      "undo_dateline": 0
+    },
+    {
+      "itemid": 678,
+      "tid": 1025,
+      "pid": 57,
+      "position": 8,
+      "subject": "",
+      "authorid": 4,
+      "author": "gl_alice",
+      "status": "skip_same_author",
+      "status_text": "同人已評第 2 樓，跳過",
+      "mult": 1,
+      "url": "forum.php?mod=redirect&goto=findpost&ptid=1025&pid=57",
+      "can_undo": 0,
+      "undo_uid": 0,
+      "undo_dateline": 0
+    },
+    {
+      "itemid": 679,
+      "tid": 1025,
+      "pid": 58,
+      "position": 9,
+      "subject": "",
+      "authorid": 4,
+      "author": "gl_alice",
+      "status": "skip_same_author",
+      "status_text": "同人已評第 2 樓，跳過",
+      "mult": 1,
+      "url": "forum.php?mod=redirect&goto=findpost&ptid=1025&pid=58",
+      "can_undo": 0,
+      "undo_uid": 0,
+      "undo_dateline": 0
+    },
+    {
+      "itemid": 680,
+      "tid": 1025,
+      "pid": 59,
+      "position": 10,
+      "subject": "",
+      "authorid": 4,
+      "author": "gl_alice",
+      "status": "skip_same_author",
+      "status_text": "同人已評第 2 樓，跳過",
+      "mult": 1,
+      "url": "forum.php?mod=redirect&goto=findpost&ptid=1025&pid=59",
+      "can_undo": 0,
+      "undo_uid": 0,
+      "undo_dateline": 0
+    }
+  ],
+  "run": 0,
+  "chunk": 50,
+  "forms": {
+    "run": {
+      "url": "plugin.php?id=batchrate:run",
+      "method": "POST",
+      "fields": {
+        "formhash": "f1f2f3f4"
+      },
+      "batch_field": "batchid"
+    },
+    "undo_item": {
+      "url": "plugin.php?id=batchrate:list&bract=undo_item",
+      "method": "POST",
+      "fields": {
+        "formhash": "f1f2f3f4"
+      },
+      "item_field": "itemid"
+    },
+    "undo_batch": {
+      "url": "plugin.php?id=batchrate:list&bract=undo_batch",
+      "method": "POST",
+      "fields": {
+        "formhash": "f1f2f3f4"
+      },
+      "batch_field": "batchid"
+    },
+    "result_url": "plugin.php?id=batchrate:rate&brmode=result&batchid=11"
+  }
+}

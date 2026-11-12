@@ -17,6 +17,9 @@ import 'package:tsdm_client/extensions/uri.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/authentication/repository/models/models.dart' show AuthStatus;
 import 'package:tsdm_client/features/authentication/utils/account_changes.dart';
+import 'package:tsdm_client/features/batch_rate/models/batch_rate.dart';
+import 'package:tsdm_client/features/batch_rate/utils/batch_rate_access.dart';
+import 'package:tsdm_client/features/batch_rate/view/batch_rate_floors_page.dart';
 import 'package:tsdm_client/features/blocking/repository/user_block_repository.dart';
 import 'package:tsdm_client/features/blocking/utils/block_filter.dart';
 import 'package:tsdm_client/features/blocking/utils/thread_author_cache.dart';
@@ -240,6 +243,53 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
 
   /// The account logged in moderates the forum the thread is in, as the forum says: the management is offered.
   bool _moderates = false;
+
+  /// Rating floors in a batch (the batch rate plugin, tsdmapp 3.9.0) for a moderator of the thread's forum: the account
+  /// and forum asked for (`uid:fid`), and the answer once it offers the entry.
+  String? _batchRateAsked;
+  BatchRateInfo? _batchRate;
+
+  /// The batch rating offered on the thread in [state], asked once the account is known to moderate its forum.
+  BatchRateInfo? _batchRateFor(BuildContext context, ThreadState state) {
+    final uid = context.read<AuthenticationRepository>().effectiveCurrentUid;
+    final fid = state.fid;
+    final moderator = state.perms?.isModerator ?? _moderates;
+    final key = uid == null || fid == null || state.tid == null || state.isOffline || !moderator ? null : '$uid:$fid';
+    if (key == null) {
+      return null;
+    }
+    if (key != _batchRateAsked) {
+      _batchRateAsked = key;
+      _batchRate = null;
+      BatchRateAccess.check(uid!, fid: fid, stillCurrent: () => _batchRateAsked == key).then((info) {
+        if (mounted && _batchRateAsked == key && info != null && info.offersThread) {
+          setState(() => _batchRate = info);
+        }
+      }).ignore();
+    }
+    return _batchRate;
+  }
+
+  /// Pick floors of the thread in [state] to rate in a batch.
+  Future<void> _openBatchRate(BuildContext context, ThreadState state, BatchRateInfo info) async {
+    final tid = int.tryParse(state.tid ?? '');
+    if (tid == null) {
+      return;
+    }
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => BatchRateFloorsPage(
+          info: info,
+          tid: tid,
+          floors: [
+            for (final post in state.postList)
+              if ((int.tryParse(post.postID), post.postFloor) case (final pid?, final floor?))
+                (pid: pid, floor: floor, author: post.author.name),
+          ],
+        ),
+      ),
+    );
+  }
 
   /// Floors this moderator warned (true) or took the warning back of (false) while the thread is open, by pid: before
   /// plugin 3.7.0 the forum's app API does not tell a floor is warned, the page shows what was done all the same.
@@ -2817,6 +2867,12 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
                             icon: Icons.record_voice_over_outlined,
                             description: context.t.threadTts.menu,
                             onSelected: () async => _startTts(state),
+                          ),
+                        if (_batchRateFor(context, state) case final info?)
+                          MenuCustomItem(
+                            icon: Icons.thumbs_up_down_outlined,
+                            description: context.t.batchRate.title,
+                            onSelected: () async => _openBatchRate(context, state, info),
                           ),
                         // The floors of this thread the account bookmarked.
                         if (_threadBookmarks(context, state) case final bookmarks when bookmarks.isNotEmpty)

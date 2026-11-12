@@ -1,0 +1,255 @@
+{
+  "ok": 1,
+  "api": 1,
+  "time": 1700000000,
+  "uid": 31,
+  "formhash": "f1f2f3f4",
+  "type": "batchrate_list",
+  "schema": 35,
+  "page": 1,
+  "perpage": 30,
+  "count": 51,
+  "pages": 2,
+  "batches": [
+    {
+      "batchid": 51,
+      "uid": 32,
+      "username": "ag_admin",
+      "fid": 2,
+      "forum": "测试版块",
+      "tid": 1019,
+      "mode": 3,
+      "mode_text": "樓層範圍 2～9",
+      "floors": "2~",
+      "conds": [
+        "精灵 ≥ 5"
+      ],
+      "scores": [
+        {
+          "id": 1,
+          "title": "威望",
+          "score": 1
+        }
+      ],
+      "reason": "活動獎勵",
+      "exclude": [
+        "gl_dave"
+      ],
+      "antispam": {
+        "rated": 0,
+        "same": 1
+      },
+      "total": 8,
+      "applied": 2,
+      "skipped": 6,
+      "pending": 0,
+      "status": 1,
+      "status_text": "完成",
+      "dateline": 1792211668,
+      "can_continue": 0,
+      "can_undo": 1,
+      "can_undo_item": 1
+    },
+    {
+      "batchid": 50,
+      "uid": 33,
+      "username": "ag_mid",
+      "fid": 2,
+      "forum": "测试版块",
+      "tid": 1019,
+      "mode": 3,
+      "mode_text": "樓層範圍 7～7",
+      "floors": "7",
+      "conds": [],
+      "scores": [
+        {
+          "id": 6,
+          "title": "精灵",
+          "score": 6
+        }
+      ],
+      "reason": "評審",
+      "exclude": [
+        "gl_dave"
+      ],
+      "antispam": {
+        "rated": 1,
+        "same": 1
+      },
+      "total": 1,
+      "applied": 1,
+      "skipped": 0,
+      "pending": 0,
+      "status": 1,
+      "status_text": "完成",
+      "dateline": 1792211667,
+      "can_continue": 0,
+      "can_undo": 1,
+      "can_undo_item": 1
+    },
+    {
+      "batchid": 49,
+      "uid": 33,
+      "username": "ag_mid",
+      "fid": 2,
+      "forum": "测试版块",
+      "tid": 1019,
+      "mode": 3,
+      "mode_text": "樓層範圍 6～6",
+      "floors": "6",
+      "conds": [],
+      "scores": [
+        {
+          "id": 6,
+          "title": "精灵",
+          "score": 2
+        }
+      ],
+      "reason": "評審",
+      "exclude": [
+        "gl_dave"
+      ],
+      "antispam": {
+        "rated": 1,
+        "same": 1
+      },
+      "total": 1,
+      "applied": 1,
+      "skipped": 0,
+      "pending": 0,
+      "status": 1,
+      "status_text": "完成",
+      "dateline": 1792211666,
+      "can_continue": 0,
+      "can_undo": 1,
+      "can_undo_item": 1
+    },
+    {
+      "batchid": 11,
+      "uid": 7,
+      "username": "gl_dave",
+      "fid": 6,
+      "forum": "测试版块",
+      "tid": 1025,
+      "mode": 3,
+      "mode_text": "樓層範圍 2～10",
+      "floors": "",
+      "conds": [],
+      "scores": [
+        {
+          "id": 1,
+          "title": "威望",
+          "score": 2
+        }
+      ],
+      "reason": "鎖定測試",
+      "exclude": [],
+      "antispam": {
+        "rated": 1,
+        "same": 1
+      },
+      "total": 9,
+      "applied": 0,
+      "skipped": 8,
+      "pending": 1,
+      "status": 0,
+      "status_text": "處理中",
+      "dateline": 1788331745,
+      "can_continue": 1,
+      "can_undo": 0,
+      "can_undo_item": 1
+    },
+    {
+      "batchid": 10,
+      "uid": 7,
+      "username": "gl_dave",
+      "fid": 6,
+      "forum": "测试版块",
+      "tid": 1025,
+      "mode": 2,
+      "mode_text": "勾選樓層",
+      "floors": "",
+      "conds": [],
+      "scores": [
+        {
+          "id": 1,
+          "title": "威望",
+          "score": 3
+        }
+      ],
+      "reason": "允許重複",
+      "exclude": [],
+      "antispam": {
+        "rated": 0,
+        "same": 0
+      },
+      "total": 5,
+      "applied": 4,
+      "skipped": 0,
+      "pending": 0,
+      "status": 3,
+      "status_text": "部分撤回",
+      "dateline": 1788331707,
+      "can_continue": 0,
+      "can_undo": 1,
+      "can_undo_item": 1
+    }
+  ],
+  "forms": {
+    "confirm": {
+      "url": "plugin.php?id=batchrate:rate",
+      "method": "POST",
+      "fields": {
+        "formhash": "f1f2f3f4"
+      },
+      "mode_field": "brmode",
+      "modes": {
+        "list": 1,
+        "check": 2,
+        "range": 3
+      },
+      "fid_field": "fid",
+      "tid_field": "tid",
+      "tids_field": "tids",
+      "pids_field": "pids",
+      "floors_field": "floors",
+      "recalc_field": "recalc",
+      "submit_field": "ratesubmit",
+      "score_field": "score{id}",
+      "reason_field": "reason",
+      "notify_field": "sendreasonpm",
+      "exclude_field": "exclude",
+      "rated_field": "as_rated",
+      "same_field": "as_same",
+      "cond_field": "cond[{id}]",
+      "mult_field": "mult[{pid}]"
+    },
+    "run": {
+      "url": "plugin.php?id=batchrate:run",
+      "method": "POST",
+      "fields": {
+        "formhash": "f1f2f3f4"
+      },
+      "batch_field": "batchid"
+    },
+    "result_url": "plugin.php?id=batchrate:rate&brmode=result&batchid={batchid}",
+    "list_url": "plugin.php?id=batchrate:list",
+    "detail_url": "plugin.php?id=batchrate:list&bract=detail&batchid={batchid}",
+    "undo_item": {
+      "url": "plugin.php?id=batchrate:list&bract=undo_item",
+      "method": "POST",
+      "fields": {
+        "formhash": "f1f2f3f4"
+      },
+      "item_field": "itemid"
+    },
+    "undo_batch": {
+      "url": "plugin.php?id=batchrate:list&bract=undo_batch",
+      "method": "POST",
+      "fields": {
+        "formhash": "f1f2f3f4"
+      },
+      "batch_field": "batchid"
+    }
+  }
+}

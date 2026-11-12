@@ -1,0 +1,195 @@
+{
+  "ok": 1,
+  "api": 1,
+  "time": 1700000000,
+  "uid": 31,
+  "formhash": "f1f2f3f4",
+  "type": "batchrate_confirm",
+  "schema": 33,
+  "mode": 3,
+  "fid": 2,
+  "forum": "测试版块",
+  "tid": 1019,
+  "floors": "2~9",
+  "total": 8,
+  "apply": 0,
+  "multsum": 0,
+  "chunks": 1,
+  "credits": [
+    {
+      "id": 6,
+      "title": "精灵",
+      "unit": "",
+      "min": -20,
+      "max": 100,
+      "score": 1,
+      "cond": "5"
+    }
+  ],
+  "quota": [
+    {
+      "id": 6,
+      "title": "精灵",
+      "need": 0,
+      "left": 500,
+      "ok": 1
+    }
+  ],
+  "reason": {
+    "value": "",
+    "required": 0
+  },
+  "notify": {
+    "checked": 0,
+    "forced": 0
+  },
+  "antispam": {
+    "locked": 0,
+    "rated": 0,
+    "same": 0,
+    "rated_overridden": 1
+  },
+  "exclude": "",
+  "errors": [],
+  "blocked": 0,
+  "items": [
+    {
+      "itemid": 0,
+      "tid": 1019,
+      "pid": 37,
+      "position": 2,
+      "subject": "",
+      "authorid": 5,
+      "author": "gl_bob",
+      "status": "skip_credit",
+      "status_text": "本帖精灵合計 0，未達「精灵 ≥ 5」，跳過",
+      "mult": 1,
+      "url": "forum.php?mod=redirect&goto=findpost&ptid=1019&pid=37"
+    },
+    {
+      "itemid": 0,
+      "tid": 1019,
+      "pid": 38,
+      "position": 3,
+      "subject": "",
+      "authorid": 6,
+      "author": "gl_carol",
+      "status": "skip_dup",
+      "status_text": "已評過，跳過",
+      "mult": 1,
+      "url": "forum.php?mod=redirect&goto=findpost&ptid=1019&pid=38"
+    },
+    {
+      "itemid": 0,
+      "tid": 1019,
+      "pid": 39,
+      "position": 4,
+      "subject": "",
+      "authorid": 7,
+      "author": "gl_dave",
+      "status": "skip_credit",
+      "status_text": "本帖精灵合計 0，未達「精灵 ≥ 5」，跳過",
+      "mult": 1,
+      "url": "forum.php?mod=redirect&goto=findpost&ptid=1019&pid=39"
+    },
+    {
+      "itemid": 0,
+      "tid": 1019,
+      "pid": 40,
+      "position": 5,
+      "subject": "",
+      "authorid": 6,
+      "author": "gl_carol",
+      "status": "skip_dup",
+      "status_text": "已評過，跳過",
+      "mult": 1,
+      "url": "forum.php?mod=redirect&goto=findpost&ptid=1019&pid=40"
+    },
+    {
+      "itemid": 0,
+      "tid": 1019,
+      "pid": 41,
+      "position": 6,
+      "subject": "",
+      "authorid": 8,
+      "author": "gl_erin",
+      "status": "skip_credit",
+      "status_text": "本帖精灵合計 2，未達「精灵 ≥ 5」，跳過",
+      "mult": 1,
+      "url": "forum.php?mod=redirect&goto=findpost&ptid=1019&pid=41"
+    },
+    {
+      "itemid": 0,
+      "tid": 1019,
+      "pid": 43,
+      "position": 7,
+      "subject": "",
+      "authorid": 10,
+      "author": "ps_v2",
+      "status": "skip_dup",
+      "status_text": "已評過，跳過",
+      "mult": 1,
+      "url": "forum.php?mod=redirect&goto=findpost&ptid=1019&pid=43"
+    },
+    {
+      "itemid": 0,
+      "tid": 1019,
+      "pid": 45,
+      "position": 8,
+      "subject": "",
+      "authorid": 11,
+      "author": "ps_v3",
+      "status": "skip_credit",
+      "status_text": "本帖精灵合計 0，未達「精灵 ≥ 5」，跳過",
+      "mult": 1,
+      "url": "forum.php?mod=redirect&goto=findpost&ptid=1019&pid=45"
+    },
+    {
+      "itemid": 0,
+      "tid": 1019,
+      "pid": 46,
+      "position": 9,
+      "subject": "",
+      "authorid": 12,
+      "author": "ps_v4",
+      "status": "skip_credit",
+      "status_text": "本帖精灵合計 0，未達「精灵 ≥ 5」，跳過",
+      "mult": 1,
+      "url": "forum.php?mod=redirect&goto=findpost&ptid=1019&pid=46"
+    }
+  ],
+  "submit": {
+    "url": "plugin.php?id=batchrate:rate",
+    "method": "POST",
+    "fields": {
+      "formhash": "f1f2f3f4",
+      "brmode": "3",
+      "fid": "2",
+      "tid": "1019",
+      "tids": "",
+      "pids": "",
+      "floors": "2~9"
+    },
+    "mode_field": "brmode",
+    "modes": {
+      "list": 1,
+      "check": 2,
+      "range": 3
+    },
+    "fid_field": "fid",
+    "tid_field": "tid",
+    "tids_field": "tids",
+    "pids_field": "pids",
+    "floors_field": "floors",
+    "recalc_field": "recalc",
+    "submit_field": "ratesubmit",
+    "score_field": "score{id}",
+    "reason_field": "reason",
+    "notify_field": "sendreasonpm",
+    "exclude_field": "exclude",
+    "rated_field": "as_rated",
+    "same_field": "as_same",
+    "cond_field": "cond[{id}]",
+    "mult_field": "mult[{pid}]"
+  }
+}

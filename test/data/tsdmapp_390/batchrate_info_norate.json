@@ -1,0 +1,84 @@
+{
+  "ok": 1,
+  "api": 1,
+  "time": 1700000000,
+  "uid": 31,
+  "installed": 1,
+  "formhash": "f1f2f3f4",
+  "type": "batchrate",
+  "schema": 32,
+  "supported": 1,
+  "version": "1.3.2",
+  "can_list": 0,
+  "limits": {
+    "max_total": 500,
+    "chunk": 50,
+    "mult_max": 99,
+    "floor_segments": 50
+  },
+  "forms": {
+    "confirm": {
+      "url": "plugin.php?id=batchrate:rate",
+      "method": "POST",
+      "fields": {
+        "formhash": "f1f2f3f4"
+      },
+      "mode_field": "brmode",
+      "modes": {
+        "list": 1,
+        "check": 2,
+        "range": 3
+      },
+      "fid_field": "fid",
+      "tid_field": "tid",
+      "tids_field": "tids",
+      "pids_field": "pids",
+      "floors_field": "floors",
+      "recalc_field": "recalc",
+      "submit_field": "ratesubmit",
+      "score_field": "score{id}",
+      "reason_field": "reason",
+      "notify_field": "sendreasonpm",
+      "exclude_field": "exclude",
+      "rated_field": "as_rated",
+      "same_field": "as_same",
+      "cond_field": "cond[{id}]",
+      "mult_field": "mult[{pid}]"
+    },
+    "run": {
+      "url": "plugin.php?id=batchrate:run",
+      "method": "POST",
+      "fields": {
+        "formhash": "f1f2f3f4"
+      },
+      "batch_field": "batchid"
+    },
+    "result_url": "plugin.php?id=batchrate:rate&brmode=result&batchid={batchid}",
+    "list_url": "plugin.php?id=batchrate:list",
+    "detail_url": "plugin.php?id=batchrate:list&bract=detail&batchid={batchid}",
+    "undo_item": {
+      "url": "plugin.php?id=batchrate:list&bract=undo_item",
+      "method": "POST",
+      "fields": {
+        "formhash": "f1f2f3f4"
+      },
+      "item_field": "itemid"
+    },
+    "undo_batch": {
+      "url": "plugin.php?id=batchrate:list&bract=undo_batch",
+      "method": "POST",
+      "fields": {
+        "formhash": "f1f2f3f4"
+      },
+      "batch_field": "batchid"
+    }
+  },
+  "fid": 2,
+  "forum": "测试版块",
+  "can": 0,
+  "why": "norate",
+  "entry": {
+    "list": 1,
+    "thread": 1
+  }
+}

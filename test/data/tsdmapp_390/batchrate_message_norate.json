@@ -1,0 +1,9 @@
+{
+  "ok": 0,
+  "error": "message",
+  "message": "您在本版塊沒有評分權限，無法使用批量評分。",
+  "message_key": "",
+  "login": 0,
+  "uid": 31,
+  "form": "batchrate"
+}
