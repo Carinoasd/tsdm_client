@@ -239,9 +239,15 @@ final class BackgroundGrantInfo {
 /// What the background plugin answered to a sending: its message, and whether it is the one of a sending done.
 typedef BackgroundGrantResult = ({bool success, String message});
 
-/// The result of a sending from the plugin's [message]: done only when it starts with [successPrefix] (the plugin's
-/// messages carry no language key).
+/// The result of a sending from the plugin's [message]: done when it starts with [successPrefix] and, if a count
+/// follows it, that count is above 0 (the plugin's messages carry no language key).
 BackgroundGrantResult backgroundGrantResultOf(String message, String successPrefix) {
   final text = message.trim();
-  return (success: successPrefix.isNotEmpty && text.startsWith(successPrefix), message: text);
+  if (successPrefix.isEmpty || !text.startsWith(successPrefix)) {
+    return (success: false, message: text);
+  }
+  // Every UID unknown: the plugin still starts with the prefix (`已发放给 0 位会员…找不到的 UID 999999`). Nothing was
+  // sent, so it is not a success; the message is shown as it is.
+  final nobody = RegExp(r'^\s*0+(?!\d)').hasMatch(text.substring(successPrefix.length));
+  return (success: !nobody, message: text);
 }
