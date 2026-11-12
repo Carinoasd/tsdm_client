@@ -46,7 +46,8 @@ Future<void> main(List<String> args) async {
       _check(bundle);
     default:
       stderr.writeln('usage: dart scripts/desktop_icon_tree_shake.dart patch | check <bundle directory>');
-      exit(2);
+      exitCode = 2;
+      return;
   }
 }
 
@@ -55,7 +56,8 @@ Future<void> _patch() async {
   final result = await Process.run(flutter, ['--version', '--machine'], runInShell: Platform.isWindows);
   if (result.exitCode != 0) {
     stderr.writeln('flutter --version --machine failed: ${result.stderr}');
-    exit(1);
+    exitCode = 1;
+    return;
   }
   final stdoutText = result.stdout as String;
   final info = jsonDecode(stdoutText.substring(stdoutText.indexOf('{'))) as Map<String, dynamic>;
@@ -75,7 +77,8 @@ Future<void> _patch() async {
       'Flutter $version: expected exactly one TreeShakeIcons define in ${file.path} '
       '(found $broken quoted, $fixed unquoted); update scripts/desktop_icon_tree_shake.dart',
     );
-    exit(1);
+    exitCode = 1;
+    return;
   }
 }
 
@@ -83,7 +86,8 @@ void _check(String bundle) {
   final dir = Directory(bundle);
   if (!dir.existsSync()) {
     stderr.writeln('$bundle does not exist');
-    exit(1);
+    exitCode = 1;
+    return;
   }
   final fonts = {
     for (final f in dir.listSync(recursive: true).whereType<File>())
@@ -111,6 +115,7 @@ void _check(String bundle) {
   }
   if (failed) {
     stderr.writeln('icon fonts were not tree shaken');
-    exit(1);
+    exitCode = 1;
+    return;
   }
 }
