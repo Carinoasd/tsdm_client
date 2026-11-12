@@ -241,7 +241,7 @@ class _AdminBanPageState extends State<AdminBanPage> with AdminSessionLease {
               alignment: AlignmentDirectional.centerEnd,
               child: FilledButton.tonal(
                 key: const ValueKey('admin-ban-resume'),
-                onPressed: _writable && !_sending
+                onPressed: _writable && !_sending && !_loading
                     ? () async {
                         await _runClear(member.member.uid, kept.cursor, kept.total, kept.remaining);
                         if (mounted) await _load();
@@ -261,7 +261,7 @@ class _AdminBanPageState extends State<AdminBanPage> with AdminSessionLease {
         alignment: AlignmentDirectional.centerEnd,
         child: FilledButton.tonal(
           key: const ValueKey('admin-ban-clear-posts'),
-          onPressed: _sending
+          onPressed: _sending || _loading
               ? null
               : () async {
                   final total = member.postRows > member.posts + member.threads

@@ -75,6 +75,12 @@ class _AdminCreditPageState extends State<AdminCreditPage> with AdminSessionLeas
 
   void _formChanged() => _opId = null;
 
+  /// The members a text names, as compared with the last lookup (spaces and separators do not count).
+  static String _targetsKey(String text) {
+    final t = adminTargetsOf(text);
+    return '${t.uids.join(',')}\n${t.usernames.join('\n')}';
+  }
+
   Future<void> _loadWritable() async {
     if (widget.writable case final w?) {
       _writable = w;
@@ -115,7 +121,7 @@ class _AdminCreditPageState extends State<AdminCreditPage> with AdminSessionLeas
         return;
       }
       _info = info;
-      _lookedUp = text;
+      _lookedUp = _targetsKey(text);
       for (final c in info.credits) {
         _deltas.putIfAbsent(c.id, () {
           final controller = TextEditingController();
@@ -320,7 +326,8 @@ class _AdminCreditPageState extends State<AdminCreditPage> with AdminSessionLeas
                           alignment: AlignmentDirectional.centerEnd,
                           child: FilledButton(
                             key: const ValueKey('admin-credit-submit'),
-                            onPressed: _sending || _loading || info.members.isEmpty || _lookedUp != _targets.text
+                            onPressed:
+                                _sending || _loading || info.members.isEmpty || _lookedUp != _targetsKey(_targets.text)
                                 ? null
                                 : () => _submit(info),
                             child: Text(tr.submit),
