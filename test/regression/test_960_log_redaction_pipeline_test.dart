@@ -41,9 +41,11 @@ const _deviceId = '1b4e28ba-2fa1-41d2-883f-0016d3cca427';
 const _authCookie = 'a7Fk2%09QxAuthCookieZ';
 const _saltCookie = 'Sa1tKeyCk8';
 const _sidCookie = 'S1dCookieQ4';
+const _stCookie = 'StSign9a7c';
 const _formHash = 'f0e1d2c3';
 const _webdavUser = 'davuser.secret';
 const _webdavPassword = 'DavPass-31x!';
+const _digestResponse = 'DigestResp6629fae4';
 const _email = 'alice.secret@example.org';
 const _newEmail = 'new.mailbox@example.net';
 const _seccode = 'QK7P';
@@ -68,9 +70,11 @@ const _secrets = <String, String>{
   'forum cookie auth': _authCookie,
   'forum cookie saltkey': _saltCookie,
   'forum cookie sid': _sidCookie,
+  'forum cookie other': _stCookie,
   'formhash': _formHash,
   'webdav user': _webdavUser,
   'webdav password': _webdavPassword,
+  'webdav digest': _digestResponse,
   'email': _email,
   'new email': _newEmail,
   'captcha': _seccode,
@@ -112,7 +116,9 @@ String _allOutput() => [
 void _expectNoSecret(String output, {Iterable<String>? kinds, String? reason}) {
   final checked = kinds == null ? _secrets : {for (final k in kinds) k: _secrets[k]!};
   for (final MapEntry(key: kind, value: secret) in checked.entries) {
-    for (final form in _formsOf(secret)) {
+    // A secret with spaces must not leak in part either: each longer word of it is looked for too.
+    final words = secret.split(' ').where((w) => w.length >= 6 && w != secret);
+    for (final form in [..._formsOf(secret), ...words]) {
       expect(output, isNot(contains(form)), reason: '${reason ?? ''} $kind leaked as "$form"');
     }
   }
@@ -535,6 +541,20 @@ void main() {
       answer: null,
       name: 'Ystv_2132_sid',
     ),
+    'forum cookie other': (
+      request: RequestOptions(
+        method: 'GET',
+        baseUrl: baseUrl,
+        path: '/home.php?mod=space',
+        headers: {'Cookie': 'Ystv_2132_lastvisit=1; Ystv_2132_st_t=31|1700000000|$_stCookie'},
+        data: <String, dynamic>{'tid': '1'},
+      ),
+      headers: {
+        'set-cookie': ['Ystv_2132_st_t=31|1700000000|$_stCookie; path=/'],
+      },
+      answer: '',
+      name: 'Cookie',
+    ),
     'formhash': (
       request: requestWith('formhash', _formHash),
       headers: const {},
@@ -562,6 +582,17 @@ void main() {
       headers: const {},
       answer: '{"password":"$_webdavPassword"}',
       name: 'webdavPassword',
+    ),
+    'webdav digest': (
+      request: RequestOptions(
+        method: 'PROPFIND',
+        path: 'https://dav.example.com/dav/',
+        headers: {'Authorization': 'Digest username="dav", realm="dav", response="$_digestResponse"'},
+        data: <String, dynamic>{'depth': '1'},
+      ),
+      headers: const {},
+      answer: '',
+      name: 'Authorization',
     ),
     'email': (
       request: requestWith('email', _email),
@@ -620,7 +651,7 @@ void main() {
     'private message': (
       request: requestWith('message', _pmText, path: '/home.php'),
       headers: const {},
-      answer: '{"pmmessage":"$_pmText","touid":5}',
+      answer: '{"pmmessage":"he said \\"$_pmText\\" twice","touid":5}',
       name: 'message',
     ),
     'reply body': (
@@ -681,6 +712,8 @@ void main() {
           message: 'device $_deviceId failed: {"device":"$_deviceId","formhash":"$_formHash"}',
         ),
         TalkerError(ArgumentError('Cookie: Ystv_2132_auth=$_authCookie'), message: 'mail $_email'),
+        // Prose naming a secret field: the next word goes.
+        TalkerLog('saved admintoken: $_adminToken for 600 s, client secret: $_formHash'),
       ];
       final lines = entries.map(formatLogLine).join();
       _expectNoSecret(lines);
@@ -721,9 +754,11 @@ void main() {
       'forum cookie auth': old('debug', 'build cookie: {Ystv_2132_auth: $_authCookie, Ystv_2132_lastvisit: 1}'),
       'forum cookie saltkey': old('debug', 'set-cookie: [Ystv_2132_saltkey=$_saltCookie; path=/, a=1]'),
       'forum cookie sid': old('debug', 'Cookie: Ystv_2132_sid=$_sidCookie; Ystv_2132_lastvisit=1'),
+      'forum cookie other': old('debug', 'headers: {cookie: [Ystv_2132_st_t=31|1700000000|$_stCookie], accept: */*}'),
       'formhash': old('error', '<input type="hidden" name="formhash" value="$_formHash" />'),
       'webdav user': old('info', 'webdav: https://$_webdavUser:x@dav.example.com/dav/'),
       'webdav password': old('debug', 'Authorization: Basic $_webdavBasic'),
+      'webdav digest': old('debug', 'authorization: Digest username="dav", response="$_digestResponse"'),
       'email': old('debug', 'bound email $_email'),
       'new email': old('debug', 'emailnew=${Uri.encodeQueryComponent(_newEmail)}&formhash=x'),
       'captcha': old('debug', 'seccodeverify=$_seccode&seccodehash=cS0'),
