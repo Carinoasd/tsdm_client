@@ -223,7 +223,7 @@ class _BatchRateConfirmPageState extends State<BatchRateConfirmPage> {
         _busy ||
         _stale ||
         _sentUnknown ||
-        batchRateHolds(confirm, settings).isNotEmpty) {
+        batchRateHolds(confirm, settings, multMax: widget.info.multMax).isNotEmpty) {
       return;
     }
     final tr = context.t.batchRate;
@@ -262,6 +262,7 @@ class _BatchRateConfirmPageState extends State<BatchRateConfirmPage> {
       BatchRateHold.noScore => tr.holdNoScore,
       BatchRateHold.reason => tr.holdReason,
       BatchRateHold.quota => tr.holdQuota,
+      BatchRateHold.mult => tr.holdMult(max: widget.info.multMax),
       BatchRateHold.range => tr.holdRange,
     };
   }
@@ -412,7 +413,7 @@ class _BatchRateConfirmPageState extends State<BatchRateConfirmPage> {
   Widget _actions(BatchRateConfirm c, BatchRateSettings s) {
     final tr = context.t.batchRate;
     final colorScheme = Theme.of(context).colorScheme;
-    final holds = batchRateHolds(c, s);
+    final holds = batchRateHolds(c, s, multMax: widget.info.multMax);
     final notes = [
       if (_sentUnknown) tr.unconfirmed,
       if (_stale) tr.holdStale,

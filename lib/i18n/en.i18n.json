@@ -4280,6 +4280,7 @@
     "holdNoScore": "Enter a score",
     "holdReason": "Enter a reason",
     "holdQuota": "Not enough quota",
+    "holdMult": "Multiple must be 1 to $max",
     "holdRange": "Score × multiple out of range",
     "confirmSend": "Rate $apply floors",
     "running": "Running $done／$total",

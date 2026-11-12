@@ -29,8 +29,10 @@ class BatchRateRunPage extends StatefulWidget {
 }
 
 class _BatchRateRunPageState extends State<BatchRateRunPage> {
-  late int _done = widget.start.batch.applied;
-  late int _total = widget.start.batch.total;
+  /// Floors rated, and rated and to rate (the floors skipped left out), as the last part told; [_total] null before
+  /// the first.
+  int _done = 0;
+  int? _total;
   bool _running = false;
 
   /// Why the run stopped; null while it runs.
@@ -151,12 +153,15 @@ class _BatchRateRunPageState extends State<BatchRateRunPage> {
                     '#${batch.batchId} · ${context.displayText(batch.forum)} · ${context.displayText(batch.modeText)}',
                   ),
                   sizedBoxW12H12,
-                  LinearProgressIndicator(value: _total > 0 ? _done / _total : null),
-                  sizedBoxW8H8,
-                  Text(
-                    tr.running(done: _done, total: _total),
-                    key: const ValueKey('batch-rate-progress'),
-                  ),
+                  // Unknown before the first part answered, while it runs.
+                  LinearProgressIndicator(value: (_total ?? 0) > 0 ? _done / _total! : (_running ? null : 0)),
+                  if (_total case final total?) ...[
+                    sizedBoxW8H8,
+                    Text(
+                      tr.running(done: _done, total: total),
+                      key: const ValueKey('batch-rate-progress'),
+                    ),
+                  ],
                   if (_stopped case final reason?) ...[
                     sizedBoxW12H12,
                     Text(reason, style: TextStyle(color: colorScheme.error)),

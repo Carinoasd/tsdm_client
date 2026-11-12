@@ -165,6 +165,23 @@ void main() {
       expect(batchRateHolds(c, s), isEmpty);
     });
 
+    test('a multiple out of 1 to the forum highest', () {
+      final c = _confirm('batchrate_confirm_range');
+      final s = BatchRateSettings.of(c)..scores[6] = 1;
+      s.mults[37] = 0;
+      expect(batchRateHolds(c, s, multMax: 99), [BatchRateHold.mult]);
+      s.mults[37] = 100;
+      expect(batchRateHolds(c, s, multMax: 99), [BatchRateHold.mult]);
+      s.mults[37] = 50;
+      expect(batchRateHolds(c, s, multMax: 99), isEmpty);
+      expect(batchRateHolds(c, s, multMax: 10), [BatchRateHold.mult]);
+      // A floor skipped has no multiple to check.
+      s
+        ..mults[37] = 1
+        ..mults[38] = 0;
+      expect(batchRateHolds(c, s), isEmpty);
+    });
+
     test('a quota short is held although the plugin does not block it', () {
       final c = _confirm('batchrate_confirm_quota');
       expect(c.blocked, isFalse);

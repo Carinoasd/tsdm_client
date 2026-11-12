@@ -4280,6 +4280,7 @@
     "holdNoScore": "請填寫分值",
     "holdReason": "請填寫理由",
     "holdQuota": "額度不足",
+    "holdMult": "倍數須為 1～$max",
     "holdRange": "分值×倍數超出範圍",
     "confirmSend": "評分 $apply 則",
     "running": "執行中 $done／$total",

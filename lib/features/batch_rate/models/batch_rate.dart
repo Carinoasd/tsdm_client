@@ -768,13 +768,18 @@ final class BatchRateSettings {
 
 /// What keeps confirmation [c] with [settings] from being sent, checked before the plugin is asked: the plugin's
 /// [BatchRateConfirm.blocked], nothing rated, no score, a reason required but empty, a quota short (the plugin computes
-/// it but does not block on it), a score times a multiple out of the credit's range. Empty when it may be sent.
-List<BatchRateHold> batchRateHolds(BatchRateConfirm c, BatchRateSettings settings) => [
+/// it but does not block on it), a multiple out of 1 to [multMax], a score times a multiple out of the credit's range.
+/// Empty when it may be sent.
+List<BatchRateHold> batchRateHolds(BatchRateConfirm c, BatchRateSettings settings, {int multMax = 99}) => [
   if (c.blocked) BatchRateHold.blocked,
   if (c.apply == 0) BatchRateHold.nothing,
   if (settings.scored.isEmpty) BatchRateHold.noScore,
   if (c.reasonRequired && settings.reason.trim().isEmpty) BatchRateHold.reason,
   if (c.quota.any((q) => !q.ok)) BatchRateHold.quota,
+  if (c.items.any(
+    (i) => i.pending && ((settings.mults[i.pid] ?? i.mult) < 1 || (settings.mults[i.pid] ?? i.mult) > multMax),
+  ))
+    BatchRateHold.mult,
   if (batchRateOutOfRange(c, settings).isNotEmpty) BatchRateHold.range,
 ];
 
@@ -805,6 +810,9 @@ enum BatchRateHold {
 
   /// A quota is short.
   quota,
+
+  /// A multiple is out of its range.
+  mult,
 
   /// A score times a multiple is out of range.
   range,
