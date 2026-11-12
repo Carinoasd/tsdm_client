@@ -15,13 +15,29 @@ concurrency:
 
 env:
   CI_FLUTTER_VERSION: "3.41.5"
+  # Number of reports the aggregate job expects; a shard job fails when the matrix has a different size.
+  CI_TEST_SHARDS: "4"
 
 jobs:
-  flutter_test:
-    name: Flutter test
+  # The test files are split into shards that run in parallel; see scripts/ci_test_shard.py.
+  # Each file still runs on its own, exactly as with a plain `flutter test`.
+  flutter_test_shard:
+    name: Flutter test (${{ matrix.shard }}/${{ strategy.job-total }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Must be 1..N in order: report and artifact names use the value, the file split uses the index.
+        shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@v4
+      - name: Check shard setup
+        run: |
+          if [ "${{ strategy.job-total }}" != "$CI_TEST_SHARDS" ] || [ "${{ matrix.shard }}" != "$(( ${{ strategy.job-index }} + 1 ))" ]; then
+            echo "::error::The shard matrix must be 1..CI_TEST_SHARDS ($CI_TEST_SHARDS) in order"
+            exit 1
+          fi
+          python3 ./scripts/ci_test_shard.py check "${{ strategy.job-total }}"
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: ${{env.CI_FLUTTER_VERSION}}
@@ -30,13 +46,71 @@ jobs:
           sudo apt update -y
           sudo apt install -y ninja-build libgtk-3-dev sqlite3 libsqlite3-dev libayatana-appindicator3-dev
       - name: Precompile
+        id: precompile
         run: |
           git submodule update --init --recursive --force
           flutter pub get
           dart ./Makefile.dart
       - name: Run flutter analyze
+        # Analyzing is not sharded; one shard does it.
+        if: matrix.shard == 1
         run: |
           dart ./scripts/check_strict_analyzing.dart
       - name: Run flutter test
+        # Also runs when analyzing failed, so one push reports both.
+        if: ${{ !cancelled() && steps.precompile.outcome == 'success' }}
         run: |
-          flutter test
+          mapfile -t files < <(python3 ./scripts/ci_test_shard.py list "${{ strategy.job-total }}" "${{ strategy.job-index }}")
+          echo "Running ${#files[@]} test files"
+          flutter test --file-reporter "json:reports/shard-${{ matrix.shard }}/report.json" "${files[@]}"
+      - name: Summarize test results
+        if: ${{ !cancelled() && steps.precompile.outcome == 'success' }}
+        run: |
+          python3 ./scripts/ci_test_report.py --jobs-result "${{ job.status }}" "reports/shard-${{ matrix.shard }}/report.json" | tee -a "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: test-report-shard-${{ matrix.shard }}
+          path: reports/shard-${{ matrix.shard }}/report.json
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # Single check that stands for "analyzing and every shard passed"; keeps the check name of the former single job.
+  flutter_test:
+    name: Flutter test
+    needs: [flutter_test_shard]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts
+      - uses: actions/download-artifact@v4
+        # A shard that died before uploading is reported as "report missing" below.
+        continue-on-error: true
+        with:
+          pattern: test-report-shard-*
+          path: reports
+      - name: Summarize test results
+        env:
+          SHARD_RESULT: ${{ needs.flutter_test_shard.result }}
+        run: |
+          reports=()
+          for shard in $(seq 1 "$CI_TEST_SHARDS"); do
+            reports+=("reports/test-report-shard-$shard/report.json")
+          done
+          python3 ./scripts/ci_test_report.py --jobs-result "$SHARD_RESULT" "${reports[@]}" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Check shard results
+        env:
+          SHARD_RESULT: ${{ needs.flutter_test_shard.result }}
+        run: |
+          if [ "$SHARD_RESULT" != "success" ]; then
+            echo "::error::Flutter test shards finished with result: $SHARD_RESULT"
+            exit 1
+          fi
+          # Every shard must have left a complete report, so a shard that never ran cannot pass silently.
+          reports=()
+          for shard in $(seq 1 "$CI_TEST_SHARDS"); do
+            reports+=("reports/test-report-shard-$shard/report.json")
+          done
+          python3 ./scripts/ci_test_report.py --strict "${reports[@]}" > /dev/null
