@@ -182,6 +182,29 @@ void main() {
       await tester.pumpAndSettle();
     });
 
+    testWidgets('a part without `remaining`: the floors rated so far', (tester) async {
+      final pending = Completer<Object?>();
+      var posts = 0;
+      await _pump(
+        tester,
+        BatchRateRunPage(
+          start: BatchRateBatchPage.fromJson(_fixture('batchrate_batch_made'))!,
+          repository: BatchRateRepository(
+            ask: (_) async => null,
+            get: (_) async => null,
+            post: (_, _) async {
+              posts++;
+              return posts == 1 ? _step({'done': '1', 'total': '6', 'finished': '0'}) : await pending.future;
+            },
+            currentUid: () => 31,
+          ),
+        ),
+      );
+      expect(find.text('Running 1／6'), findsOneWidget);
+      pending.complete(null);
+      await tester.pumpAndSettle();
+    });
+
     testWidgets('a part without `remaining` that rates more is progress', (tester) async {
       final answers = <Object?>[
         for (var i = 1; i <= 5; i++) _step({'done': '$i', 'total': '6', 'finished': '0'}),

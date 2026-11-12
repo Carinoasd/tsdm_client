@@ -274,8 +274,8 @@ class _BatchRateConfirmPageState extends State<BatchRateConfirmPage> {
   String _holdText(BatchRateHold hold) {
     final tr = context.t.batchRate;
     return switch (hold) {
-      BatchRateHold.blocked || BatchRateHold.precheck => '',
-      BatchRateHold.nothing => '',
+      // Told by the plugin's own sentences (the reasons, the checks) and the count of floors rated, not here.
+      BatchRateHold.blocked || BatchRateHold.precheck || BatchRateHold.nothing => '',
       BatchRateHold.noScore => tr.holdNoScore,
       BatchRateHold.reason => tr.holdReason,
       BatchRateHold.quota => tr.holdQuota,
@@ -343,7 +343,7 @@ class _BatchRateConfirmPageState extends State<BatchRateConfirmPage> {
                           helperText: helper,
                           helperStyle: quota != null && !quota.ok ? TextStyle(color: colorScheme.error) : null,
                           errorText: _precheckOf(c, (e) => e.id == credit.id && e.id > 0),
-                          errorMaxLines: 3,
+                          errorMaxLines: 8,
                           border: const OutlineInputBorder(),
                         ),
                       ),

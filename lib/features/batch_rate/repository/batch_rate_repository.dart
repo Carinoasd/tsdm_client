@@ -204,7 +204,7 @@ class BatchRateRepository {
       ok: ok,
       done: n('done'),
       total: n('total'),
-      remaining: n('remaining'),
+      remaining: int.tryParse(v['remaining'] ?? ''),
       finished: ok && (finished == '1' || finished == 'true'),
       message: ok ? '' : (v['error'] ?? ''),
     );

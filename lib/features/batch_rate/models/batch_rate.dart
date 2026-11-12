@@ -1126,5 +1126,5 @@ final class BatchRateBatches {
 }
 
 /// The answer to a run or a taking back (a write result, `kind: handle`): what is `done` of `total`, what is
-/// `remaining`, `finished`; or the plugin's `message` when not `ok`.
-typedef BatchRateStep = ({bool ok, int done, int total, int remaining, bool finished, String message});
+/// `remaining` (null when not told), `finished`; or the plugin's `message` when not `ok`.
+typedef BatchRateStep = ({bool ok, int done, int total, int? remaining, bool finished, String message});
