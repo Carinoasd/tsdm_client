@@ -124,9 +124,9 @@ class _ReportHandlingPageState extends State<ReportHandlingPage> {
     setState(() {
       _whole = whole;
       _answer = null;
+      _scope = '';
       _clearChoices();
     });
-    _scope = '';
     await _load(scope: '');
   }
 
@@ -238,7 +238,7 @@ class _ReportHandlingPageState extends State<ReportHandlingPage> {
           (
             item: item,
             credit: reward == null ? 0 : (_credits[item.id] ?? 0),
-            message: reward == null ? '' : (_messages[item.id]?.text ?? ''),
+            message: reward == null && !list.messageWithoutReward ? '' : (_messages[item.id]?.text ?? ''),
           ),
     ];
     if (decisions.isEmpty) {
@@ -401,28 +401,30 @@ class _ReportHandlingPageState extends State<ReportHandlingPage> {
                     ),
                 ],
               ),
-              if (selected && reward != null)
+              if (selected && (reward != null || (list.canResolve && list.messageWithoutReward)))
                 Padding(
                   padding: const EdgeInsets.only(left: 12, top: 4),
                   child: Row(
                     children: [
-                      DropdownButton<int>(
-                        key: ValueKey('report-credit-${item.id}'),
-                        value: _credits[item.id] ?? 0,
-                        onChanged: _busy ? null : (v) => setState(() => _credits[item.id] = v ?? 0),
-                        items: [
-                          for (final v in reward.options)
-                            DropdownMenuItem(
-                              value: v,
-                              child: Text(
-                                v == 0
-                                    ? context.t.reportHandling.noReward
-                                    : '${context.displayText(reward.creditTitle)} ${_credit(reward, v)}',
+                      if (reward != null) ...[
+                        DropdownButton<int>(
+                          key: ValueKey('report-credit-${item.id}'),
+                          value: _credits[item.id] ?? 0,
+                          onChanged: _busy ? null : (v) => setState(() => _credits[item.id] = v ?? 0),
+                          items: [
+                            for (final v in reward.options)
+                              DropdownMenuItem(
+                                value: v,
+                                child: Text(
+                                  v == 0
+                                      ? context.t.reportHandling.noReward
+                                      : '${context.displayText(reward.creditTitle)} ${_credit(reward, v)}',
+                                ),
                               ),
-                            ),
-                        ],
-                      ),
-                      sizedBoxW12H12,
+                          ],
+                        ),
+                        sizedBoxW12H12,
+                      ],
                       Expanded(
                         child: TextField(
                           key: ValueKey('report-message-${item.id}'),

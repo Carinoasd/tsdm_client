@@ -116,8 +116,10 @@ final class ThreadAdminForm {
     final credit = tsdmAppMap(json['credit']);
     final reason = tsdmAppMap(json['reason']);
     final notify = tsdmAppMap(json['notify']);
+    // A field the app fills never takes the place of one served.
     final reasonName = tsdmAppText(reason['name']);
     final notifyName = tsdmAppText(notify['name']);
+    bool own(String name) => _field.hasMatch(name) && !fields.containsKey(name);
     return ThreadAdminForm(
       action: action,
       uid: uid,
@@ -131,13 +133,13 @@ final class ThreadAdminForm {
       income: tsdmAppInt(json['income']),
       submitUrl: url,
       fields: Map.unmodifiable(fields),
-      reasonField: _field.hasMatch(reasonName) ? reasonName : 'reason',
+      reasonField: own(reasonName) ? reasonName : 'reason',
       reasonRequired: tsdmAppInt(reason['required']) == 1,
       reasons: [
         for (final c in (reason['choices'] is List ? reason['choices'] as List : const <Object?>[]))
           if (c is String && c.trim().isNotEmpty && !RegExp(r'^-+$').hasMatch(c.trim())) c.trim(),
       ],
-      notifyField: _field.hasMatch(notifyName) ? notifyName : '',
+      notifyField: own(notifyName) ? notifyName : '',
       notifyValue: tsdmAppText(notify['value']).isEmpty ? 'on' : tsdmAppText(notify['value']),
       notifyForced: tsdmAppInt(notify['forced']) == 1,
     );

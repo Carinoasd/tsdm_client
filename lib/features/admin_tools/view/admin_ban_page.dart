@@ -212,7 +212,9 @@ class _AdminBanPageState extends State<AdminBanPage> with AdminSessionLease {
     if (outcome.done) {
       showSnackBar(context: context, message: context.t.adminTools.clearDone);
     } else if (outcome.reply case final reply?) {
-      if (reply.error == 'clear_start') _clear.add('post');
+      // The ban form is what starts a clearing again: it keeps the posts checked (the reload after keeps it unless the
+      // forum no longer offers clearing them).
+      if (reply.error == 'clear_start') setState(() => _clear.add('post'));
       showSnackBar(context: context, message: adminErrorText(context, reply));
     }
   }

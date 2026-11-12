@@ -254,6 +254,9 @@ class ReportList {
 
   /// The parts are a few tabs of the same list (waiting, handled), not places to choose from first.
   bool get scopeTabs => false;
+
+  /// A message goes to the reporter even when the forum sets no reward (the admin API's; the panel prints none then).
+  bool get messageWithoutReward => false;
 }
 
 /// How one report is handled: the reporter's reward (0 none) and a message to them (empty none).
@@ -471,6 +474,9 @@ final class AdminReportList extends ReportList {
 
   @override
   bool get scopeTabs => true;
+
+  @override
+  bool get messageWithoutReward => true;
 }
 
 /// The admin API's reports in the answer [json] served to the list [scopes] name; null when it is not one.

@@ -212,12 +212,18 @@ void main() {
       // The same write the forum did already.
       expect((await source.resolve(list, decisions)).getRight().toNullable(), isA<ReportDone>());
 
-      // No reward set: no reward nor message sent.
+      // No reward set: no reward sent, the message still (the admin API takes it alone).
       expect(AdminReportSource.resolveForm(decisions, withReward: false), {
         'op': 'resolve',
         'ids[0]': '168',
+        'msg[168]': '谢谢',
         'ids[1]': '167',
       });
+      // An answer without the ids is done all the same.
+      expect(
+        AdminReportSource.outcomeOf(const AdminReply({'ok': 1, 'uid': 32}), op: 'delete', count: 2),
+        isA<ReportDone>(),
+      );
       // Read-only: nothing sent.
       final readOnly = AdminReportSource(repository: forum.repository(), writable: false);
       final sent = forum.requests.length;

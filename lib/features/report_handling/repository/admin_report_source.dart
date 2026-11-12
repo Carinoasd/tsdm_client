@@ -67,7 +67,7 @@ final class AdminReportSource implements ReportSource {
     if (list is! AdminReportList || !list.canResolve || decisions.isEmpty) {
       return right(const ReportNotDone(''));
     }
-    return _write(list, resolveForm(decisions, withReward: list.reward != null));
+    return _write(list, resolveForm(decisions, withReward: list.reward != null), count: decisions.length);
   }
 
   @override
@@ -75,17 +75,18 @@ final class AdminReportSource implements ReportSource {
     if (list is! AdminReportList || !list.canDelete || items.isEmpty) {
       return right(const ReportNotDone(''));
     }
-    return _write(list, deleteForm(items));
+    return _write(list, deleteForm(items), count: items.length);
   }
 
-  /// The form of `op=resolve` (without `formhash` and `opid`): the ids indexed, each reporter's reward and message
-  /// only when [withReward] (the forum sets a reward) and not empty. The reporter is the forum's to tell.
+  /// The form of `op=resolve` (without `formhash` and `opid`): the ids indexed, each reporter's reward only when
+  /// [withReward] (the forum sets a reward) and not 0, the message when not empty (taken without a reward too). The
+  /// reporter is the forum's to tell.
   static Map<String, String> resolveForm(List<ReportDecision> decisions, {required bool withReward}) => {
     'op': 'resolve',
     for (final (i, d) in decisions.indexed) ...{
       'ids[$i]': '${d.item.id}',
       if (withReward && d.credit != 0) 'credits[${d.item.id}]': '${d.credit}',
-      if (withReward && d.message.trim().isNotEmpty) 'msg[${d.item.id}]': d.message.trim(),
+      if (d.message.trim().isNotEmpty) 'msg[${d.item.id}]': d.message.trim(),
     },
   };
 
@@ -95,7 +96,11 @@ final class AdminReportSource implements ReportSource {
     for (final (i, item) in items.indexed) 'ids[$i]': '${item.id}',
   };
 
-  Future<Either<AppException, ReportOutcome>> _write(AdminReportList list, Map<String, String> form) async {
+  Future<Either<AppException, ReportOutcome>> _write(
+    AdminReportList list,
+    Map<String, String> form, {
+    required int count,
+  }) async {
     if (list.uid != repository.currentUid) {
       return left(IdentityChangedException());
     }
@@ -114,11 +119,12 @@ final class AdminReportSource implements ReportSource {
       _opKey = null;
       _opId = null;
     }
-    return right(outcomeOf(reply, op: form['op']!));
+    return right(outcomeOf(reply, op: form['op']!, count: count));
   }
 
-  /// What became of a write [op] (`resolve`, `delete`) the forum answered with [reply].
-  static ReportOutcome outcomeOf(AdminReply reply, {required String op}) {
+  /// What became of a write [op] (`resolve`, `delete`) of [count] reports the forum answered with [reply]: done when
+  /// it is `ok` (an answer naming another `op` is not this write's); the ids it lists when it lists them.
+  static ReportOutcome outcomeOf(AdminReply reply, {required String op, required int count}) {
     final json = reply.json;
     if (json == null) {
       return const ReportUnknown();
@@ -127,21 +133,24 @@ final class AdminReportSource implements ReportSource {
       // The same write was done already: the request before it went through.
       return ReportDone('', describe: (context) => context.t.adminTools.errorDuplicate);
     }
-    if (reply.ok && json['op'] == op) {
-      List<int> ids(String key) => [
-        for (final v in (json[key] is List ? json[key] as List : const <Object?>[]))
-          if (tsdmAppInt(v) > 0) tsdmAppInt(v),
-      ];
+    if (reply.ok && (json['op'] == null || json['op'] == op)) {
+      List<int>? ids(String key) => json[key] is List
+          ? [
+              for (final v in json[key] as List)
+                if (tsdmAppInt(v) > 0) tsdmAppInt(v),
+            ]
+          : null;
       if (op == 'delete') {
-        final deleted = ids('deleted').length;
+        final deleted = ids('deleted')?.length ?? count;
         return ReportDone('', describe: (context) => context.t.reportHandling.deleted(n: deleted));
       }
-      final skipped = ids('skipped').length;
+      final skipped = ids('skipped')?.length ?? 0;
+      final resolved = ids('resolved')?.length ?? count - skipped;
       return ReportDone(
         '',
         describe: (context) => skipped == 0
             ? context.t.reportHandling.done
-            : context.t.reportHandling.doneSkipped(n: ids('resolved').length, skipped: skipped),
+            : context.t.reportHandling.doneSkipped(n: resolved, skipped: skipped),
       );
     }
     return ReportNotDone(
