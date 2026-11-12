@@ -2,12 +2,14 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
-/// Whether an account is of a management group (管理组), kept per account for ten minutes.
+/// Whether an account is of a management group (管理组), kept per account for six hours.
 ///
 /// The admin entries of other members' profiles are for these accounts only; every other account must not send
-/// further requests for them, so the answer is read from the account's own profile once and shared.
+/// further requests for them, so the answer is read from the account's own profile once and shared. The group of an
+/// account changes rarely and the "me" page refreshes the answer each time it reads the profile: kept long, so that
+/// an ordinary member opening other members' profiles does not read the own profile again every few minutes.
 abstract final class ManagementGroupCache {
-  static const _keep = Duration(minutes: 10);
+  static const _keep = Duration(hours: 6);
 
   static final _known = <int, ({bool value, DateTime at})>{};
   static final _asking = <int, Future<bool?>>{};
