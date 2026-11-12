@@ -713,6 +713,8 @@ void main() {
           message: 'device $_deviceId failed: {"device":"$_deviceId","formhash":"$_formHash"}',
         ),
         TalkerError(ArgumentError('Cookie: Ystv_2132_auth=$_authCookie'), message: 'mail $_email'),
+        // An authorization header of a scheme no other rule knows.
+        TalkerLog('Authorization: Custom $_digestResponse'),
         // Prose naming a secret field: the next word goes.
         TalkerLog('saved admintoken: $_adminToken for 600 s, client secret: $_formHash'),
       ];
@@ -829,6 +831,7 @@ void main() {
       expect(out, isNot(contains(_digestResponse)));
       expect(out, isNot(contains(_adminToken)));
       expect(out, contains('Digest'));
+      expect(out, contains('sent; then'));
     });
 
     test('a url with a port and an @ in its query keeps its host', () {
@@ -852,6 +855,12 @@ void main() {
     test('a text that looks like the email placeholder stays as it is', () {
       const text = 'a \u0000email7\u0000 b';
       expect(redactLogText(text, maskEmail: false), text);
+    });
+
+    test('an html input without its closing bracket is scanned once', () {
+      final watch = Stopwatch()..start();
+      redactSensitive('<input ' * 40000);
+      expect(watch.elapsed, lessThan(const Duration(seconds: 5)));
     });
 
     test('long runs of base64, letters or spaces are redacted in linear time', () {

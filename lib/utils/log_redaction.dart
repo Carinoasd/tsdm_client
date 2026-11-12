@@ -82,12 +82,15 @@ final _schemeTokenRe = RegExp(
   caseSensitive: false,
 );
 
-/// `Digest username="…", …, response="…"` outside a header line: its fields, to the end of the line.
-final _digestRe = RegExp(r'(?<key>\bDigest\s+)(?<value>\w+=[^\r\n]*)', caseSensitive: false);
+/// `Digest username="…", …, response="…"` outside a header line: its `key=value` fields, what follows them stays.
+final _digestRe = RegExp(
+  r'(?<key>\bDigest\s+)(?<value>\w+=(?:"[^"\r\n]*"|[^\s,]*)(?:[ \t]*,[ \t]*\w+=(?:"[^"\r\n]*"|[^\s,]*))*)',
+  caseSensitive: false,
+);
 
 /// Html form inputs of a secret field, the value before or after the name.
 final _secretInputRe = RegExp(
-  '(?<key><input\\b(?=[^>]*\\bname=["\']$sensitiveNamePattern["\'])[^>]*?\\bvalue=["\'])(?<value>[^"\']*)',
+  '(?<key><input\\b(?=[^<>]*\\bname=["\']$sensitiveNamePattern["\'])[^<>]*?\\bvalue=["\'])(?<value>[^"\']*)',
   caseSensitive: false,
 );
 
