@@ -1,10 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:tsdm_client/features/keyboard/models/keyboard_intents.dart';
-import 'package:tsdm_client/utils/platform.dart';
+import 'package:tsdm_client/features/keyboard/utils/hardware_keyboard_presence.dart';
 
-/// Whether the keyboard shortcuts are in use: on Windows, macOS and Linux only, overridable in tests.
-bool get keyboardShortcutsEnabled => KeyboardShortcutsHost.enabledOverride ?? isDesktop;
+/// Whether the keyboard shortcuts are in use: on Windows, macOS and Linux, and on iOS once a hardware keyboard is seen
+/// ([HardwareKeyboardPresence]); overridable in tests.
+bool get keyboardShortcutsEnabled =>
+    KeyboardShortcutsHost.enabledOverride ??
+    (HardwareKeyboardPresence.desktopPlatform ||
+        (HardwareKeyboardPresence.touchPlatform && HardwareKeyboardPresence.seen.value));
+
+/// Whether the widgets answering the keys are built: wherever the shortcuts are or may come in use.
+///
+/// Fixed for the platform, so the widget tree does not change when a hardware keyboard turns up: the pages below keep
+/// their state, the focused text field its focus. Until then the actions are off ([keyboardShortcutsEnabled]) and the
+/// keys go on as without them (and an iPhone without a keyboard has no key events at all).
+bool get keyboardShortcutsBuilt =>
+    KeyboardShortcutsHost.enabledOverride ??
+    (HardwareKeyboardPresence.desktopPlatform || HardwareKeyboardPresence.touchPlatform);
 
 /// Whether [context] is inside a text input: an [EditableText] (text fields) or any other editor that talks to the
 /// platform text input (the BBCode editor).
@@ -72,14 +85,18 @@ class KeyboardAction<T extends Intent> extends Action<T> {
   }
 }
 
-/// Keys of the whole app on Windows, macOS and Linux: the ones that open a page, and the table binding every key to
+/// Keys of the whole app on Windows, macOS and Linux, and on iOS with a hardware keyboard: the ones that open a page, and the table binding every key to
 /// the intents the pages answer (`KeyboardPageActions`).
 ///
 /// Sitting between the app's own shortcuts and the navigator, the table is seen by the focus first; a key whose
 /// intent no page around the focus answers goes on untouched.
 ///
+/// On iOS it starts watching for a hardware keyboard ([HardwareKeyboardPresence.watch]). The primary modifier is Ctrl
+/// or Cmd on every platform, as on macOS; none of the keys is one iPadOS keeps for itself (Cmd+H, Cmd+Space, Cmd+Tab,
+/// Cmd+Shift+3/4/5).
+///
 /// On other platforms this widget only builds [child].
-class KeyboardShortcutsHost extends StatelessWidget {
+class KeyboardShortcutsHost extends StatefulWidget {
   /// Constructor.
   const KeyboardShortcutsHost({
     required this.child,
@@ -135,6 +152,9 @@ class KeyboardShortcutsHost extends StatelessWidget {
     for (final (index, key) in _digits.indexed) ..._withPrimary(key, SelectPaneTabIntent(index)),
   };
 
+  @override
+  State<KeyboardShortcutsHost> createState() => _KeyboardShortcutsHostState();
+
   /// The keys 1 to 9, for the tabs of the detail pane.
   static const List<LogicalKeyboardKey> _digits = [
     LogicalKeyboardKey.digit1,
@@ -147,22 +167,32 @@ class KeyboardShortcutsHost extends StatelessWidget {
     LogicalKeyboardKey.digit8,
     LogicalKeyboardKey.digit9,
   ];
+}
+
+class _KeyboardShortcutsHostState extends State<KeyboardShortcutsHost> {
+  @override
+  void initState() {
+    super.initState();
+    HardwareKeyboardPresence.watch();
+  }
 
   @override
   Widget build(BuildContext context) {
-    if (!keyboardShortcutsEnabled) {
-      return child;
+    final widget = this.widget;
+    if (!keyboardShortcutsBuilt) {
+      return widget.child;
     }
+    final onQuickOpen = widget.onQuickOpen;
     return Shortcuts(
-      shortcuts: shortcuts,
+      shortcuts: KeyboardShortcutsHost.shortcuts,
       child: Actions(
         actions: {
           if (onQuickOpen != null)
-            OpenQuickOpenIntent: KeyboardAction<OpenQuickOpenIntent>(onQuickOpen!, pageRouteOnly: true),
-          OpenSearchIntent: KeyboardAction<OpenSearchIntent>(onSearch, pageRouteOnly: true),
-          OpenSettingsIntent: KeyboardAction<OpenSettingsIntent>(onSettings, pageRouteOnly: true),
+            OpenQuickOpenIntent: KeyboardAction<OpenQuickOpenIntent>(onQuickOpen, pageRouteOnly: true),
+          OpenSearchIntent: KeyboardAction<OpenSearchIntent>(widget.onSearch, pageRouteOnly: true),
+          OpenSettingsIntent: KeyboardAction<OpenSettingsIntent>(widget.onSettings, pageRouteOnly: true),
         },
-        child: child,
+        child: widget.child,
       ),
     );
   }

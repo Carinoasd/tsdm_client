@@ -15,8 +15,12 @@ import UIKit
 ///   link the app was opened with (`getInitialShortcut`, once) and is told the ones opened while it runs
 ///   (`onShortcut`); Dart parses the link (`AppShortcut.fromIdOrLink`).
 ///
-/// Links come with the scene events (the app uses the UIScene lifecycle), or with the application ones when it does
-/// not; every `tsdm://` link is taken here so that none reaches the router.
+/// The quick actions of a long press on the app icon (`UIApplicationShortcutItems` of Info.plist, titles in the
+/// `InfoPlist.strings` of each language) are the same links: an item's type is its `tsdm://shortcut/<id>` link, handed
+/// over the same way.
+///
+/// Links and quick actions come with the scene events (the app uses the UIScene lifecycle), or with the application
+/// ones when it does not; every `tsdm://` link is taken here so that none reaches the router.
 final class HomeWidgetBridge: NSObject, FlutterPlugin, FlutterSceneLifeCycleDelegate {
   static let homeWidgetChannel = "kzs.th000.tsdm_client/homeWidget"
   static let updateMethod = "update"
@@ -117,6 +121,12 @@ final class HomeWidgetBridge: NSObject, FlutterPlugin, FlutterSceneLifeCycleDele
     return true
   }
 
+  /// Take the quick action [item] when its type is a `tsdm://` link; another type is left to the system.
+  private func open(_ item: UIApplicationShortcutItem) -> Bool {
+    guard let url = URL(string: item.type) else { return false }
+    return open(url)
+  }
+
   private func open(_ contexts: Set<UIOpenURLContext>) -> Bool {
     var handled = false
     for context in contexts where open(context.url) {
@@ -137,13 +147,31 @@ final class HomeWidgetBridge: NSObject, FlutterPlugin, FlutterSceneLifeCycleDele
     willConnectTo session: UISceneSession,
     options connectionOptions: UIScene.ConnectionOptions?
   ) -> Bool {
-    guard let contexts = connectionOptions?.urlContexts else { return false }
-    return open(contexts)
+    guard let options = connectionOptions else { return false }
+    var handled = open(options.urlContexts)
+    // A cold start from a quick action: the item comes with the connection, not with performActionFor.
+    if let item = options.shortcutItem, open(item) {
+      handled = true
+    }
+    return handled
   }
 
   @objc(scene:openURLContexts:)
   func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) -> Bool {
     return open(URLContexts)
+  }
+
+  /// A quick action while the app runs (in the background or in front). The handler is called only for an item taken
+  /// here: Flutter hands the same handler on to the app delegate otherwise.
+  @objc(windowScene:performActionForShortcutItem:completionHandler:)
+  func windowScene(
+    _ windowScene: UIWindowScene,
+    performActionFor shortcutItem: UIApplicationShortcutItem,
+    completionHandler: @escaping (Bool) -> Void
+  ) -> Bool {
+    guard open(shortcutItem) else { return false }
+    completionHandler(true)
+    return true
   }
 
   // MARK: - Application events (without the UIScene lifecycle)
@@ -155,5 +183,16 @@ final class HomeWidgetBridge: NSObject, FlutterPlugin, FlutterSceneLifeCycleDele
     options: [UIApplication.OpenURLOptionsKey: Any] = [:]
   ) -> Bool {
     return open(url)
+  }
+
+  @objc(application:performActionForShortcutItem:completionHandler:)
+  func application(
+    _ application: UIApplication,
+    performActionFor shortcutItem: UIApplicationShortcutItem,
+    completionHandler: @escaping (Bool) -> Void
+  ) -> Bool {
+    guard open(shortcutItem) else { return false }
+    completionHandler(true)
+    return true
   }
 }

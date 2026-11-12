@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:tsdm_client/features/keyboard/utils/hardware_keyboard_presence.dart';
 import 'package:tsdm_client/features/keyboard/widgets/keyboard_shortcuts_host.dart';
-import 'package:tsdm_client/utils/platform.dart';
 
 /// Lets desktop users go back with the keyboard and the mouse (GitHub #138).
 ///
@@ -25,6 +25,9 @@ import 'package:tsdm_client/utils/platform.dart';
 /// the sheet first and the page only on the next press. Pages refusing to pop (an unsaved draft asking first) keep
 /// deciding through their `PopScope`.
 ///
+/// On iOS `Esc` does the same once a hardware keyboard is seen (`keyboardShortcutsEnabled`); the widget is there from
+/// the start so the tree below does not change when the keyboard turns up.
+///
 /// On other platforms this widget only builds [child].
 class DesktopBackHandler extends StatelessWidget {
   /// Constructor.
@@ -37,7 +40,10 @@ class DesktopBackHandler extends StatelessWidget {
   @visibleForTesting
   static bool? enabledOverride;
 
-  static bool get _enabled => enabledOverride ?? isDesktop;
+  static bool get _built =>
+      enabledOverride ?? (HardwareKeyboardPresence.desktopPlatform || HardwareKeyboardPresence.touchPlatform);
+
+  static bool get _keysEnabled => enabledOverride ?? keyboardShortcutsEnabled;
 
   /// Pops the page holding the primary focus, when it is a page route that can be popped.
   ///
@@ -69,13 +75,13 @@ class DesktopBackHandler extends StatelessWidget {
   }
 
   void _onPointerDown(PointerDownEvent event) {
-    if (event.kind == PointerDeviceKind.mouse && event.buttons & kBackMouseButton != 0) {
+    if (_keysEnabled && event.kind == PointerDeviceKind.mouse && event.buttons & kBackMouseButton != 0) {
       goBack();
     }
   }
 
   KeyEventResult _onKeyEvent(FocusNode node, KeyEvent event) {
-    if (event is! KeyDownEvent || event.logicalKey != LogicalKeyboardKey.escape) {
+    if (!_keysEnabled || event is! KeyDownEvent || event.logicalKey != LogicalKeyboardKey.escape) {
       return KeyEventResult.ignored;
     }
     return goBack() ? KeyEventResult.handled : KeyEventResult.ignored;
@@ -83,7 +89,7 @@ class DesktopBackHandler extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!_enabled) {
+    if (!_built) {
       return child;
     }
     return Listener(

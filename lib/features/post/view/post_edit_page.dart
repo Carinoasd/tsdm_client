@@ -2438,10 +2438,10 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
     );
   }
 
-  /// Ctrl+Enter (Cmd+Enter) publishes while the title or the editor has the focus; desktop only, as on mobile the input
-  /// method owns the Enter key.
+  /// Ctrl+Enter (Cmd+Enter) publishes while the title or the editor has the focus; on desktop and iOS (a hardware
+  /// keyboard: the on-screen one sends no keys there), as on Android the input method owns the Enter key.
   Widget _wrapWithSendShortcut({required VoidCallback onSend, required Widget child}) {
-    if (!keyboardShortcutsEnabled) {
+    if (!keyboardShortcutsBuilt) {
       return child;
     }
     return CallbackShortcuts(

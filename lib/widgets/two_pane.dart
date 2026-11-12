@@ -356,9 +356,9 @@ class TwoPaneScope extends InheritedNotifier<TwoPaneTabs> {
 
 /// Whether a click now asks for a new tab: Ctrl (Cmd) held.
 ///
-/// Cmd on macOS, where Ctrl with a click is the right click; Ctrl elsewhere.
+/// Cmd on macOS (and iPadOS, following it), where Ctrl with a click is the right click; Ctrl elsewhere.
 bool _newTabRequested() =>
-    isMacOS ? HardwareKeyboard.instance.isMetaPressed : HardwareKeyboard.instance.isControlPressed;
+    isMacOS || isIOS ? HardwareKeyboard.instance.isMetaPressed : HardwareKeyboard.instance.isControlPressed;
 
 /// Open the thread of [queryParameters] (the query of [ScreenPaths.threadV1]) in the detail pane of the layout
 /// [context] is in: from the list it replaces what the tab shown holds, from the detail pane it goes on top. With

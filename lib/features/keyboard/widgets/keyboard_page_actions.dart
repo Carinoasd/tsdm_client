@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:tsdm_client/features/keyboard/models/keyboard_intents.dart';
+import 'package:tsdm_client/features/keyboard/utils/hardware_keyboard_presence.dart';
 import 'package:tsdm_client/features/keyboard/widgets/keyboard_shortcuts_host.dart';
 
 /// Lets a page answer the keys of [KeyboardShortcutsHost]: every callback given is the page's own reaction to the
@@ -12,6 +13,10 @@ import 'package:tsdm_client/features/keyboard/widgets/keyboard_shortcuts_host.da
 ///
 /// Only the page in view answers: a page behind another keeps the focus out of its subtree. Where the page is a tab
 /// kept alive off screen, [active] tells whether the tab is the one shown.
+///
+/// On iOS the page neither takes the focus nor answers a key until a hardware keyboard is seen
+/// ([HardwareKeyboardPresence]): a tap on an iPhone page never moves the focus away from its text field. When the
+/// keyboard turns up the page keeps its state (its child is kept by a global key) and takes the focus.
 class KeyboardPageActions extends StatefulWidget {
   /// Constructor.
   const KeyboardPageActions({
@@ -79,9 +84,21 @@ class _KeyboardPageActionsState extends State<KeyboardPageActions> {
   /// actions, rather than on the route above them.
   final _scopeNode = FocusScopeNode(debugLabel: 'KeyboardPageActions');
 
+  /// Keeps the state of the page when the actions are put around it.
+  final GlobalKey _childKey = GlobalKey(debugLabel: 'KeyboardPageActions.child');
+
   @override
   void initState() {
     super.initState();
+    HardwareKeyboardPresence.seen.addListener(_onKeyboardSeen);
+    _takeFocusWhenFree();
+  }
+
+  void _onKeyboardSeen() {
+    if (!mounted || !HardwareKeyboardPresence.seen.value) {
+      return;
+    }
+    setState(() {});
     _takeFocusWhenFree();
   }
 
@@ -96,6 +113,7 @@ class _KeyboardPageActionsState extends State<KeyboardPageActions> {
 
   @override
   void dispose() {
+    HardwareKeyboardPresence.seen.removeListener(_onKeyboardSeen);
     _scopeNode.dispose();
     super.dispose();
   }
@@ -142,8 +160,9 @@ class _KeyboardPageActionsState extends State<KeyboardPageActions> {
   @override
   Widget build(BuildContext context) {
     final widget = this.widget;
+    final child = KeyedSubtree(key: _childKey, child: widget.child);
     if (!keyboardShortcutsEnabled) {
-      return widget.child;
+      return child;
     }
     final onRefresh = widget.onRefresh;
     final onCopyLink = widget.onCopyLink;
@@ -179,7 +198,7 @@ class _KeyboardPageActionsState extends State<KeyboardPageActions> {
       child: Listener(
         behavior: HitTestBehavior.translucent,
         onPointerDown: _onPointerDown,
-        child: FocusScope(node: _scopeNode, child: widget.child),
+        child: FocusScope(node: _scopeNode, child: child),
       ),
     );
   }

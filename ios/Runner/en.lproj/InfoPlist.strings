@@ -1,0 +1,5 @@
+/* The titles of the quick actions (UIApplicationShortcutItems of Info.plist), keyed by the title there. */
+"Check in" = "Check in";
+"Messages" = "Messages";
+"Favorites" = "Favorites";
+"Search" = "Search";

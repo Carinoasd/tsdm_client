@@ -1,11 +1,11 @@
 import 'package:collection/collection.dart';
 
-/// A shortcut of a long press on the app icon (Android, `android/app/src/main/res/xml/shortcuts.xml`), or a tap on the
-/// home screen widget.
+/// A shortcut of a long press on the app icon (Android: `android/app/src/main/res/xml/shortcuts.xml`; iOS: the
+/// `UIApplicationShortcutItems` of `ios/Runner/Info.plist`), or a tap on the home screen widget.
 ///
 /// The id is the last segment of the `tsdm://shortcut/<id>` data of the shortcut's intent, handed over by the native
-/// `ShortcutsHandler` (Android). The iOS widget opens the same link, which `HomeWidgetBridge` hands over whole
-/// ([fromLink]).
+/// `ShortcutsHandler` (Android). On iOS the widget opens the same link and a quick action's type is that link, which
+/// `HomeWidgetBridge` hands over whole ([fromLink]).
 enum AppShortcut {
   /// Check in for today.
   checkin('checkin'),
