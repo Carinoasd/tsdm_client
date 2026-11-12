@@ -52,6 +52,9 @@ final class _FakeAdapter implements HttpClientAdapter {
   final String body;
   final requests = <RequestOptions>[];
 
+  /// The requests of the forum's pages, not of its app API.
+  List<RequestOptions> get pageRequests => requests.where((e) => e.uri.queryParameters['id'] != 'tsdmapp:api').toList();
+
   @override
   Future<ResponseBody> fetch(
     RequestOptions options,
@@ -191,7 +194,8 @@ void main() {
     await Future<void>.delayed(Duration.zero);
     await sub.cancel();
 
-    expect(adapter.requests, hasLength(1), reason: 'only the auth check, there is no session to end');
+    // The forum's app API is asked first; without it (this forum answers a page) the settings page tells.
+    expect(adapter.pageRequests, hasLength(1), reason: 'only the auth check, there is no session to end');
     expect(await uids(), [1001, 1002], reason: 'the row used to stay and the account stayed "online"');
     expect(auth.currentUser, isNull);
     expect(statuses, contains(isA<AuthStatusNotAuthed>()));
@@ -215,7 +219,7 @@ void main() {
     await Future<void>.delayed(Duration.zero);
     await sub.cancel();
 
-    expect(adapter.requests, hasLength(1));
+    expect(adapter.pageRequests, hasLength(1));
     expect(await uids(), [1000, 1001, 1002], reason: 'the page says nothing about the session: the row stays');
     expect(auth.currentUser, isNull, reason: 'the previous behaviour: only the authed state is left');
     expect(statuses, contains(isA<AuthStatusNotAuthed>()));
