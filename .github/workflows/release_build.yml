@@ -63,8 +63,13 @@ jobs:
           git submodule update --init --recursive --force
           flutter pub get
           dart ./Makefile.dart
+      - name: Tree shake desktop icon fonts
+        # Flutter < 3.47 never tree shakes icon fonts on Windows and Linux; see the script header.
+        run: dart scripts/desktop_icon_tree_shake.dart patch
       - name: Build Linux
         run: flutter build linux --release
+      - name: Check icon fonts are tree shaken
+        run: dart scripts/desktop_icon_tree_shake.dart check build/linux/x64/release/bundle
       - name: Pre Packing
         run: |
           pushd build/linux/x64/release/
@@ -222,8 +227,13 @@ jobs:
           mkdir -p build/windows/x64
           gh release download assets-ci-1 --repo "$GITHUB_REPOSITORY" -p 'mpv-dev-x86_64-20230924-git-652a1dd.7z' -D build/windows/x64 --clobber \
             || echo "fallback copy unavailable, CMake will download"
+      - name: Tree shake desktop icon fonts
+        # Flutter < 3.47 never tree shakes icon fonts on Windows and Linux; see the script header.
+        run: dart scripts/desktop_icon_tree_shake.dart patch
       - name: Build Windows
         run: flutter build windows --release
+      - name: Check icon fonts are tree shaken
+        run: dart scripts/desktop_icon_tree_shake.dart check build/windows/x64/runner/Release
       - name: Pre Packing
         shell: pwsh
         run: |
