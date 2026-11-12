@@ -64,6 +64,8 @@ class SettingsMap with SettingsMapMappable {
     this.threadCardExternalThumbnails = false,
     this.homeLayout = '',
     this.windowMaximized = false,
+    this.desktopTrayIcon = false,
+    this.closeToTray = false,
     this.enableBackgroundMessageService = false,
     this.notificationPermissionPrompted = false,
     this.backgroundSyncAllAccounts = false,
@@ -129,6 +131,12 @@ class SettingsMap with SettingsMapMappable {
   final bool windowRememberPosition;
   final Offset windowPosition;
   final bool windowInCenter;
+
+  /// See `SettingsKeys.desktopTrayIcon`. Not required: backups from older versions lack it.
+  final bool desktopTrayIcon;
+
+  /// See `SettingsKeys.closeToTray`. Not required: backups from older versions lack it.
+  final bool closeToTray;
   final String loginUsername;
   final int loginUid;
   final String loginEmail;
@@ -406,6 +414,8 @@ class SettingsMap with SettingsMapMappable {
       SettingsKeys.windowRememberPosition => copyWith(windowRememberPosition: value as bool?),
       SettingsKeys.windowPosition => copyWith(windowPosition: value as Offset?),
       SettingsKeys.windowInCenter => copyWith(windowInCenter: value as bool?),
+      SettingsKeys.desktopTrayIcon => copyWith(desktopTrayIcon: value as bool?),
+      SettingsKeys.closeToTray => copyWith(closeToTray: value as bool?),
       SettingsKeys.loginUsername => copyWith(loginUsername: value as String?),
       SettingsKeys.loginUid => copyWith(loginUid: value as int?),
       SettingsKeys.loginEmail => copyWith(loginEmail: value as String?),

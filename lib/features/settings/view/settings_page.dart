@@ -81,12 +81,14 @@ import 'package:tsdm_client/utils/app_icon.dart';
 import 'package:tsdm_client/utils/app_language.dart';
 import 'package:tsdm_client/utils/chinese_display/chinese_converter.dart';
 import 'package:tsdm_client/utils/clipboard.dart';
+import 'package:tsdm_client/utils/desktop_tray_policy.dart';
 import 'package:tsdm_client/utils/html/post_typography.dart';
 import 'package:tsdm_client/utils/log_redaction.dart';
 import 'package:tsdm_client/utils/platform.dart';
 import 'package:tsdm_client/utils/show_bottom_sheet.dart';
 import 'package:tsdm_client/utils/show_dialog.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
+import 'package:tsdm_client/utils/tray_helper.dart';
 import 'package:tsdm_client/utils/window_configs.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/color_palette.dart';
@@ -732,6 +734,8 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
     final windowRememberSize = state.settingsMap.windowRememberSize;
     final windowRememberPosition = state.settingsMap.windowRememberPosition;
     final windowInCenter = state.settingsMap.windowInCenter;
+    final desktopTrayIcon = state.settingsMap.desktopTrayIcon;
+    final closeToTray = state.settingsMap.closeToTray;
 
     return AppTileGroup(
       title: tr.title,
@@ -766,8 +770,69 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
           value: windowInCenter,
           onChanged: (v) => context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.windowInCenter, v)),
         ),
+        if (_trayPlatform.hasTrayIconSwitch)
+          SectionSwitchListTile(
+            secondary: const Icon(Icons.push_pin_outlined),
+            title: Text(_trayPlatform == TrayPlatform.macOS ? tr.menuBarIcon : tr.trayIcon),
+            value: desktopTrayIcon,
+            onChanged: _switchingTray ? null : (v) => _toggleTrayIcon(context, enable: v),
+          ),
+        if (_trayPlatform.hasCloseToTraySwitch)
+          SectionSwitchListTile(
+            secondary: const Icon(Icons.close_fullscreen_outlined),
+            title: Text(_trayPlatform == TrayPlatform.macOS ? tr.closeToMenuBar : tr.closeToTray),
+            value: closeToTray && (!_trayPlatform.hasTrayIconSwitch || desktopTrayIcon),
+            // macOS: only with the menu bar icon, the window would have no way back.
+            onChanged: _switchingTray || (_trayPlatform.hasTrayIconSwitch && !desktopTrayIcon)
+                ? null
+                : (v) => _toggleCloseToTray(context, enable: v),
+          ),
       ],
     );
+  }
+
+  /// The platform for the tray switches of [_buildWindowSection].
+  static final TrayPlatform _trayPlatform = TrayPlatform.host;
+
+  /// Set while the tray icon is being put up or removed.
+  bool _switchingTray = false;
+
+  /// macOS, Linux: put the tray icon up or remove it. Not possible: the switch stays off and a short message says why.
+  Future<void> _toggleTrayIcon(BuildContext context, {required bool enable}) async {
+    final settings = getIt.get<SettingsRepository>();
+    final tr = context.t.settingsPage.windowSection;
+    setState(() => _switchingTray = true);
+    TrayStartResult? result;
+    try {
+      if (enable) {
+        result = await TrayHelper.instance.start();
+        await settings.setValue(SettingsKeys.desktopTrayIcon, !turnsTraySwitchOff(_trayPlatform, result));
+      } else {
+        await settings.setValue(SettingsKeys.desktopTrayIcon, false);
+        await TrayHelper.instance.dispose();
+      }
+    } finally {
+      if (mounted) setState(() => _switchingTray = false);
+    }
+    if (!context.mounted) return;
+    switch (result) {
+      case TrayStartResult.unavailable:
+        showSnackBar(context: context, message: tr.trayUnavailable);
+      case TrayStartResult.failed:
+        showSnackBar(context: context, message: tr.trayFailed);
+      case TrayStartResult.started || null:
+        break;
+    }
+  }
+
+  /// Windows, macOS: close the window into the tray. Turned on only while the icon is up: on Windows its start may
+  /// have failed at launch, the window would then be hidden with no way back.
+  Future<void> _toggleCloseToTray(BuildContext context, {required bool enable}) async {
+    if (enable && !TrayHelper.instance.running.value) {
+      showSnackBar(context: context, message: context.t.settingsPage.windowSection.trayFailed);
+      return;
+    }
+    await getIt.get<SettingsRepository>().setValue(SettingsKeys.closeToTray, enable);
   }
 
   Future<void> _applyBackgroundSyncSettings(BuildContext context) async {

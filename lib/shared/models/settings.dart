@@ -63,6 +63,14 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
   /// [windowRememberPosition].
   windowInCenter<bool>(name: 'windowInCenter', type: bool, defaultValue: false),
 
+  /// macOS and Linux: show the tray (menu bar) icon, as Windows always does. Off by default; Linux turns it back off
+  /// when the desktop has no tray (`desktop_tray_policy.dart`). Tied to the device: not synced.
+  desktopTrayIcon<bool>(name: 'desktopTrayIcon', type: bool, defaultValue: false),
+
+  /// Windows and macOS: closing the window hides it and the app stays in the tray, still syncing notices. Off by
+  /// default (closing the window quits, as it always did); only applied while the tray icon is up. Not synced.
+  closeToTray<bool>(name: 'closeToTray', type: bool, defaultValue: false),
+
   /// Login user username.
   loginUsername<String>(name: 'loginUsername', type: String, defaultValue: ''),
 

@@ -4,6 +4,49 @@
 
 #include "flutter/generated_plugin_registrant.h"
 
+namespace {
+
+// Marks the main window of this app among the windows of every Flutter app,
+// which all share one window class.
+constexpr wchar_t kMainWindowProp[] = L"kzs.th000.tsdm_client.MainWindow";
+
+// Answer of a hidden main window that showed itself.
+constexpr LRESULT kHiddenInstanceShown = 0x7473646D;
+
+UINT ShowHiddenInstanceMessage() {
+  static const UINT message =
+      ::RegisterWindowMessageW(L"kzs.th000.tsdm_client.ShowHiddenInstance");
+  return message;
+}
+
+BOOL CALLBACK ShowIfHidden(HWND hwnd, LPARAM lparam) {
+  const UINT message = ShowHiddenInstanceMessage();
+  if (message == 0 || !::GetPropW(hwnd, kMainWindowProp) ||
+      ::IsWindowVisible(hwnd)) {
+    return TRUE;
+  }
+  DWORD process_id = 0;
+  ::GetWindowThreadProcessId(hwnd, &process_id);
+  // This launch is in the foreground: let the earlier one take it.
+  ::AllowSetForegroundWindow(process_id);
+  DWORD_PTR reply = 0;
+  if (::SendMessageTimeoutW(hwnd, message, 0, 0, SMTO_ABORTIFHUNG, 3000,
+                            &reply) &&
+      reply == static_cast<DWORD_PTR>(kHiddenInstanceShown)) {
+    *reinterpret_cast<bool*>(lparam) = true;
+    return FALSE;
+  }
+  return TRUE;
+}
+
+}  // namespace
+
+bool ShowHiddenInstance() {
+  bool shown = false;
+  ::EnumWindows(ShowIfHidden, reinterpret_cast<LPARAM>(&shown));
+  return shown;
+}
+
 FlutterWindow::FlutterWindow(const flutter::DartProject& project)
     : project_(project) {}
 
@@ -25,6 +68,7 @@ bool FlutterWindow::OnCreate() {
     return false;
   }
   RegisterPlugins(flutter_controller_->engine());
+  ::SetPropW(GetHandle(), kMainWindowProp, reinterpret_cast<HANDLE>(1));
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
@@ -40,6 +84,7 @@ bool FlutterWindow::OnCreate() {
 }
 
 void FlutterWindow::OnDestroy() {
+  ::RemovePropW(GetHandle(), kMainWindowProp);
   if (flutter_controller_) {
     flutter_controller_ = nullptr;
   }
@@ -51,6 +96,17 @@ LRESULT
 FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
                               WPARAM const wparam,
                               LPARAM const lparam) noexcept {
+  // A later launch found this window hidden in the tray (ShowHiddenInstance).
+  const UINT show_hidden = ShowHiddenInstanceMessage();
+  if (show_hidden != 0 && message == show_hidden) {
+    if (::IsWindowVisible(hwnd)) {
+      return 0;
+    }
+    ::ShowWindow(hwnd, ::IsIconic(hwnd) ? SW_RESTORE : SW_SHOW);
+    ::SetForegroundWindow(hwnd);
+    return kHiddenInstanceShown;
+  }
+
   // Give Flutter, including plugins, an opportunity to handle window messages.
   if (flutter_controller_) {
     std::optional<LRESULT> result =

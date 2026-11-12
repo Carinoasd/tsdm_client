@@ -13,6 +13,12 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
     CreateAndAttachConsole();
   }
 
+  // The app hidden in the tray by "close to tray" comes back instead of a second
+  // copy starting on the same data. Nothing changes otherwise.
+  if (ShowHiddenInstance()) {
+    return EXIT_SUCCESS;
+  }
+
   // Initialize COM, so that it is available for use in the library and/or
   // plugins.
   ::CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);

@@ -13,35 +13,60 @@ import 'package:tsdm_client/routes/app_routes.dart';
 import 'package:tsdm_client/routes/popup_route_observer.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
+import 'package:tsdm_client/utils/desktop_tray_policy.dart';
+import 'package:tsdm_client/utils/linux_tray_host.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/widgets/shutdown.dart';
 import 'package:window_manager/window_manager.dart';
 
-/// 系统托盘管理助手（仅 Windows）。
+/// The desktop has no tray to put the icon in (Linux, [TrayPlatform.probesTrayHost]).
+class TrayUnavailableException implements Exception {
+  @override
+  String toString() => 'TrayUnavailableException: no tray host on this desktop';
+}
+
+/// 系统托盘管理助手（Windows 一直有；macOS、Linux 由 `SettingsKeys.desktopTrayIcon` 打开）。
 ///
-/// 负责初始化托盘图标、处理右键菜单点击。本类**不拦截**窗口关闭事件：点击
-/// 标题栏 X 时由 Windows 默认行为直接退出应用
+/// 负责初始化托盘图标、处理右键菜单点击。本类**不拦截**窗口关闭事件：那是 `close_to_tray.dart` 的事，且只在
+/// `SettingsKeys.closeToTray` 打开、托盘真的在时才拦；否则点击标题栏 X 时由原生默认行为直接退出应用
 /// （`windows/runner/main.cpp` 中已设置 `SetQuitOnClose(true)`）。
 ///
 /// 托盘菜单的翻译由 [updateTranslations] 从 `App.build` 注入，保证语言切换
 /// 后菜单文字跟着变。
 class TrayHelper with TrayListener, LoggerMixin {
-  TrayHelper._(this._router, this._popupObserver, this._shutdown);
+  TrayHelper._(this._router, this._popupObserver, this._shutdown, this._platform, this._trayHostAvailable);
 
   /// Exercises native events against a real test navigator without terminating the test process.
+  ///
+  /// [platform] defaults to Windows, the tray the existing tests were written for.
   @visibleForTesting
   TrayHelper.forTesting({
     required GoRouter appRouter,
     required PopupRouteObserver popupObserver,
     required Future<void> Function() shutdown,
-  }) : this._(appRouter, popupObserver, shutdown);
+    TrayPlatform platform = TrayPlatform.windows,
+    Future<bool> Function()? trayHostAvailable,
+  }) : this._(appRouter, popupObserver, shutdown, platform, trayHostAvailable ?? (() async => true));
 
   /// 全局单例。
-  static final TrayHelper instance = TrayHelper._(router, popupRouteObserver, exitApp);
+  static final TrayHelper instance = TrayHelper._(
+    router,
+    popupRouteObserver,
+    exitApp,
+    TrayPlatform.host,
+    linuxTrayHostAvailable,
+  );
 
   final GoRouter _router;
   final PopupRouteObserver _popupObserver;
   final Future<void> Function() _shutdown;
+  final TrayPlatform _platform;
+  final Future<bool> Function() _trayHostAvailable;
+
+  final _running = ValueNotifier<bool>(false);
+
+  /// Whether the icon is up: what closing the window into the tray waits for (`close_to_tray.dart`).
+  ValueListenable<bool> get running => _running;
 
   /// 设置流订阅，用于在登录用户名或语言变化时刷新菜单。
   StreamSubscription<SettingsMap>? _settingsSubscription;
@@ -51,6 +76,9 @@ class TrayHelper with TrayListener, LoggerMixin {
 
   /// 上次构建菜单时的 locale，用于对比是否需要刷新菜单。
   String _lastLocale = '';
+
+  /// [SettingsKeys.closeToTray] when the menu was last built: it adds "show window" on Windows.
+  bool _lastCloseToTray = false;
 
   /// 最近一次由 [updateTranslations] 注入的翻译表。
   Translations? _translations;
@@ -64,23 +92,48 @@ class TrayHelper with TrayListener, LoggerMixin {
 
   /// 初始化托盘。
   ///
-  /// 应在 `windowManager.ensureInitialized()` 后调用；只在 Windows 上调用。
+  /// 应在 `windowManager.ensureInitialized()` 后调用。Throws [TrayUnavailableException] when the desktop has no tray
+  /// (Linux), anything the native side throws otherwise; [start] turns both into a result.
   Future<void> init() => _initialization ??= _initialize();
 
+  /// [init] for callers that only need the outcome: failures are logged, nothing is thrown.
+  Future<TrayStartResult> start() async {
+    try {
+      await init();
+      return TrayStartResult.started;
+    } on TrayUnavailableException catch (e) {
+      info('$e');
+      return TrayStartResult.unavailable;
+      // Asset loading may throw FlutterError as well as platform exceptions.
+    } on Object catch (e, st) {
+      talker.handle(e, st, 'tray init failed');
+      return TrayStartResult.failed;
+    }
+  }
+
   Future<void> _initialize() async {
+    if (_platform.probesTrayHost && !await _trayHostAvailable()) {
+      _initialization = null;
+      throw TrayUnavailableException();
+    }
     trayManager.addListener(this);
     _registered = true;
     try {
-      final iconPath = await prepareAppIcon();
+      final iconPath = _platform == TrayPlatform.windows ? await prepareAppIcon() : trayIconAsset;
       await trayManager.setIcon(iconPath);
       _iconCreated = true;
-      await trayManager.setToolTip('tsdm_client');
+      if (_platform.supportsToolTip) {
+        await trayManager.setToolTip('tsdm_client');
+      }
       await _updateContextMenu();
 
       _started = true;
+      _running.value = true;
       final settingsRepo = getIt.get<SettingsRepository>();
       _settingsSubscription = settingsRepo.settings.listen((settings) {
-        if (settings.loginUsername != _lastUsername || settings.locale != _lastLocale) {
+        if (settings.loginUsername != _lastUsername ||
+            settings.locale != _lastLocale ||
+            settings.closeToTray != _lastCloseToTray) {
           unawaited(_refreshContextMenu());
         }
       });
@@ -142,19 +195,23 @@ class TrayHelper with TrayListener, LoggerMixin {
     final username = settings.loginUsername;
     _lastUsername = username;
     _lastLocale = settings.locale;
+    _lastCloseToTray = settings.closeToTray;
 
     final tr = _t;
     final userLabel = tr.tray.user(name: username.isEmpty ? tr.tray.notLoggedIn : username);
 
     final menu = Menu(
       items: [
-        MenuItem(key: 'userInfo', label: userLabel, disabled: true),
-        MenuItem.separator(),
-        MenuItem(key: 'history', label: tr.tray.history),
-        MenuItem(key: 'favorite', label: tr.tray.favorite),
-        MenuItem(key: 'manageAccount', label: tr.tray.manageAccount),
-        MenuItem.separator(),
-        MenuItem(key: 'exit', label: tr.tray.exit),
+        for (final entry in trayMenuEntries(_platform, closeToTraySetting: settings.closeToTray))
+          switch (entry) {
+            TrayMenuEntry.userInfo => MenuItem(key: 'userInfo', label: userLabel, disabled: true),
+            TrayMenuEntry.showWindow => MenuItem(key: 'showWindow', label: tr.tray.showWindow),
+            TrayMenuEntry.history => MenuItem(key: 'history', label: tr.tray.history),
+            TrayMenuEntry.favorite => MenuItem(key: 'favorite', label: tr.tray.favorite),
+            TrayMenuEntry.manageAccount => MenuItem(key: 'manageAccount', label: tr.tray.manageAccount),
+            TrayMenuEntry.exit => MenuItem(key: 'exit', label: tr.tray.exit),
+            TrayMenuEntry.separator => MenuItem.separator(),
+          },
       ],
     );
     await trayManager.setContextMenu(menu);
@@ -172,6 +229,9 @@ class TrayHelper with TrayListener, LoggerMixin {
   /// The plugin's default skips SetForegroundWindow; this option activates its top-level owner.
   @override
   void onTrayIconRightMouseDown() {
+    if (!_platform.popsUpMenu) {
+      return;
+    }
     // Supported by tray_manager 0.5.x; needed until the Windows backend handles this unconditionally.
     // ignore: deprecated_member_use
     unawaited(trayManager.popUpContextMenu(bringAppToFront: true));
@@ -185,6 +245,10 @@ class TrayHelper with TrayListener, LoggerMixin {
 
   Future<void> _handleMenuItemClick(MenuItem menuItem) async {
     if (!_started) {
+      return;
+    }
+    if (menuItem.key == 'showWindow') {
+      await _bringToFront();
       return;
     }
     final destination = switch (menuItem.key) {
@@ -228,6 +292,10 @@ class TrayHelper with TrayListener, LoggerMixin {
   }
 
   /// Remove the tray, then let the shared shutdown flow close storage before terminating.
+  ///
+  /// Also what closing the window does when it is intercepted but cannot be hidden (`close_to_tray.dart`).
+  Future<void> quit() => _exitApp();
+
   Future<void> _exitApp() async {
     await dispose();
     await _shutdown();
@@ -236,6 +304,7 @@ class TrayHelper with TrayListener, LoggerMixin {
   /// Release subscriptions and remove the native icon, including after partial initialization.
   Future<void> dispose() async {
     _started = false;
+    _running.value = false;
     _initialization = null;
     _translations = null;
     try {
