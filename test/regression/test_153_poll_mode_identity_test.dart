@@ -78,7 +78,7 @@ final class _ModeHarness {
     await tester.enterText(find.widgetWithText(TextField, 'Subject'), _privateSubject);
     await tester.enterText(find.widgetWithText(TextField, 'Body (optional)'), _privateBody);
     await tester.pump();
-    expect(find.byTooltip('Switch to ordinary thread'), findsOneWidget);
+    expect(find.byTooltip('Switch to normal thread'), findsOneWidget);
   }
 }
 
@@ -91,7 +91,7 @@ void main() {
 
     // Do not emit auth.status: the source fields still belong to account A at this point.
     harness.auth.uid = 1001;
-    await tester.tap(find.byTooltip('Switch to ordinary thread'));
+    await tester.tap(find.byTooltip('Switch to normal thread'));
     await tester.pumpAndSettle();
 
     // Either refuse the switch, omit the transfer, or retain its original owner so B cannot accept it.
@@ -107,7 +107,7 @@ void main() {
   testWidgets('a same-account mode switch keeps subject and body bound to their original owner', (tester) async {
     final harness = _ModeHarness();
     await harness.open(tester);
-    await tester.tap(find.byTooltip('Switch to ordinary thread'));
+    await tester.tap(find.byTooltip('Switch to normal thread'));
     await tester.pumpAndSettle();
 
     expect(find.text('Ordinary editor destination'), findsOneWidget);

@@ -351,7 +351,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('bggrant-send')));
       await tester.pumpAndSettle();
       expect(find.byType(AlertDialog), findsOneWidget);
-      expect(find.text('UID 35、36'), findsOneWidget);
+      expect(find.text('UID 35, 36'), findsOneWidget);
       await tester.tap(find.descendant(of: find.byType(AlertDialog), matching: find.byType(FilledButton)));
       await tester.pumpAndSettle();
 

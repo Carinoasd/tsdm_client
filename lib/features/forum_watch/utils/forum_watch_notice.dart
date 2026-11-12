@@ -76,13 +76,16 @@ ForumWatchNoticeContent forumWatchNoticeContentOf(
       body = tr.keywordMany(n: n);
       lines = const [];
     } else if (single != null) {
-      noticeTitle = tr.keywordOne(keyword: single.keywords.join('、'));
+      noticeTitle = tr.keywordOne(keyword: single.keywords.join(translations.general.listSeparator));
       body = line(single);
       lines = const [];
     } else {
       noticeTitle = channels.keywordAlert;
       body = tr.keywordMany(n: n);
-      lines = [for (final a in alerts) tr.keywordLine(keyword: a.keywords.join('、'), title: title(a))];
+      lines = [
+        for (final a in alerts)
+          tr.keywordLine(keyword: a.keywords.join(translations.general.listSeparator), title: title(a)),
+      ];
     }
   } else {
     target = single != null ? LocalNoticeTarget(tid: single.tid) : LocalNoticeTarget(fid: batch.fid);

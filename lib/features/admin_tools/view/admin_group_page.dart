@@ -135,6 +135,8 @@ class _AdminGroupPageState extends State<AdminGroupPage> with AdminSessionLease 
 
   List<String> _changeLines(AdminGroupInfo info, AdminGroupDraft a, AdminGroupDraft b) {
     final tr = context.t.adminTools;
+    final general = context.t.general;
+    String line(String label, String value) => general.labelValue(label: label, value: value);
     String exp(AdminGroupDraft d) => d.expiry.isEmpty
         ? tr.permanent
         : '${d.expiry} → ${_groupTitle(info, d.expGroupId, from: info.expGroups)}'
@@ -148,19 +150,24 @@ class _AdminGroupPageState extends State<AdminGroupPage> with AdminSessionLease 
                   if ((d.extExpiry[g] ?? '').isNotEmpty) d.extExpiry[g],
                 ].join(' '),
               )
-              .join('、');
+              .join(general.listSeparator);
     String extExp(AdminGroupDraft d) => d.extGroupIds
         .map((g) => '${_groupTitle(info, g, from: info.extGroups)} ${_date(d.extExpiry[g] ?? '')}')
-        .join('、');
+        .join(general.listSeparator);
     return [
       for (final f in adminGroupChanges(a, b))
         switch (f) {
-          AdminGroupField.group => '${tr.mainGroup}：${_groupTitle(info, a.groupId)} → ${_groupTitle(info, b.groupId)}',
-          AdminGroupField.adminId =>
-            '${tr.adminLevel}：${adminLevelLabel(context, a.adminId)} → ${adminLevelLabel(context, b.adminId)}',
-          AdminGroupField.expiry => '${tr.expiry}：${exp(a)} → ${exp(b)}',
-          AdminGroupField.extGroups => '${tr.extGroups}：${ext(a)} → ${ext(b)}',
-          AdminGroupField.extExpiry => '${tr.extGroups}：${extExp(b)}',
+          AdminGroupField.group => line(
+            tr.mainGroup,
+            '${_groupTitle(info, a.groupId)} → ${_groupTitle(info, b.groupId)}',
+          ),
+          AdminGroupField.adminId => line(
+            tr.adminLevel,
+            '${adminLevelLabel(context, a.adminId)} → ${adminLevelLabel(context, b.adminId)}',
+          ),
+          AdminGroupField.expiry => line(tr.expiry, '${exp(a)} → ${exp(b)}'),
+          AdminGroupField.extGroups => line(tr.extGroups, '${ext(a)} → ${ext(b)}'),
+          AdminGroupField.extExpiry => line(tr.extGroups, extExp(b)),
         },
     ];
   }

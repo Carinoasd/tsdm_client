@@ -117,7 +117,7 @@ void main() {
       expect(answers, isEmpty);
       expect(gets, ['$baseUrl/plugin.php?id=batchrate:rate&brmode=result&batchid=52']);
       expect(find.byType(BatchRateRunPage), findsNothing);
-      expect(find.text('Batch rate #51'), findsOneWidget);
+      expect(find.text('Batch rating #51'), findsOneWidget);
     });
 
     testWidgets('a refusal stops the run with its reason; run on by hand', (tester) async {
@@ -145,7 +145,7 @@ void main() {
       );
       expect(posts, 2);
       expect(find.text('您不是本版塊的版主或管理員，無法撤回。'), findsOneWidget);
-      expect(find.text('Running 2／4'), findsOneWidget);
+      expect(find.text('Running 2 / 4'), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('batch-rate-resume')));
       await tester.pumpAndSettle();
       // Not answered: stopped again, not sent again by itself.
@@ -154,7 +154,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('batch-rate-resume')));
       await tester.pumpAndSettle();
       expect(posts, 4);
-      expect(find.text('Batch rate #51'), findsOneWidget);
+      expect(find.text('Batch rating #51'), findsOneWidget);
     });
 
     testWidgets('the progress counts down what is left', (tester) async {
@@ -177,7 +177,7 @@ void main() {
           ),
         ),
       );
-      expect(find.text('Running 4／10'), findsOneWidget);
+      expect(find.text('Running 4 / 10'), findsOneWidget);
       pending.complete(null);
       await tester.pumpAndSettle();
     });
@@ -200,7 +200,7 @@ void main() {
           ),
         ),
       );
-      expect(find.text('Running 1／6'), findsOneWidget);
+      expect(find.text('Running 1 / 6'), findsOneWidget);
       pending.complete(null);
       await tester.pumpAndSettle();
     });
@@ -223,7 +223,7 @@ void main() {
         ),
       );
       expect(answers, isEmpty);
-      expect(find.text('Batch rate #51'), findsOneWidget);
+      expect(find.text('Batch rating #51'), findsOneWidget);
     });
 
     testWidgets('a run that takes nothing off stops; an answer for another account stops', (tester) async {

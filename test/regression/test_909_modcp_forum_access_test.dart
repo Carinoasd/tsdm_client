@@ -315,7 +315,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(posted.single.$2, containsPair('deleteaccess', '1'));
       expect(posted.single.$2['new_user'], 'ag_low2');
-      expect(find.text('Set in the admin centre: moderators can not change it'), findsOneWidget);
+      expect(find.text('Set in the admin center; moderators cannot change it'), findsOneWidget);
     });
 
     testWidgets("the panel's password asked while looking a member up: looked up again once logged in", (tester) async {

@@ -171,7 +171,7 @@ class _MedalGrantPageState extends State<MedalGrantPage> {
       }
       var message = tr.grantImported(subject: r.subject, total: r.total, added: put.length);
       if (r.total > r.uids.length || add.length > put.length) {
-        message += '；${tr.grantImportFull(max: info.maxUsers)}';
+        message += '${context.t.general.clauseSeparator}${tr.grantImportFull(max: info.maxUsers)}';
       }
       showSnackBar(context: context, message: message);
     } on Exception {
@@ -232,21 +232,30 @@ class _MedalGrantPageState extends State<MedalGrantPage> {
       content: [
         Text(tr.grantSummary(users: users.length, medals: _chosen.length, give: give, skip: skip)),
         sizedBoxW8H8,
-        Text(_chosen.map((m) => '「${context.displayText(names[m] ?? '#$m')}」').join()),
+        Text(
+          _chosen
+              .map((m) => context.t.general.quoted(text: context.displayText(names[m] ?? '#$m')))
+              .join(context.t.general.quotedSeparator),
+        ),
         sizedBoxW8H8,
-        Text(users.map((u) => '${u.name}（${u.uid}）').join('、'), style: Theme.of(context).textTheme.bodySmall),
+        Text(
+          users
+              .map((u) => context.t.general.withNote(text: u.name, note: '${u.uid}'))
+              .join(context.t.general.listSeparator),
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
         if (found.missing.isNotEmpty) ...[
           sizedBoxW8H8,
           AppNoticeBanner(
             tone: AppNoticeTone.warning,
-            message: tr.grantMissing(list: found.missing.join('、')),
+            message: tr.grantMissing(list: found.missing.join(context.t.general.listSeparator)),
           ),
         ],
         if (split.bad.isNotEmpty) ...[
           sizedBoxW8H8,
           AppNoticeBanner(
             tone: AppNoticeTone.warning,
-            message: tr.grantBad(list: split.bad.join('、')),
+            message: tr.grantBad(list: split.bad.join(context.t.general.listSeparator)),
           ),
         ],
         sizedBoxW8H8,

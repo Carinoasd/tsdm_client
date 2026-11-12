@@ -162,7 +162,13 @@
     "now": "刚刚",
     "settings": "设置",
     "openInBrowser": "在浏览器中打开",
-    "close": "关闭"
+    "close": "关闭",
+    "listSeparator": "、",
+    "clauseSeparator": "；",
+    "labelValue": "$label：$value",
+    "quoted": "「$text」",
+    "withNote": "$text（$note）",
+    "quotedSeparator": ""
   },
   "loadState": {
     "loading": "正在加载…",
@@ -992,7 +998,8 @@
     },
     "signUp": "注册",
     "lostPassword": "找回密码",
-    "perhapsExpired": "登录失败，可能身份已过期，请重新登录"
+    "perhapsExpired": "登录失败，可能身份已过期，请重新登录",
+    "noSecurityQuestion": "无安全问题"
   },
   "rootPage": {
     "initFailed": "初始化失败: $err",
@@ -2720,7 +2727,8 @@
       "bmCount": "${n} 条公共消息",
       "pmLine": "${user}：${msg}",
       "bmLine": "[公共消息] ${msg}",
-      "more": "还有 ${n} 条"
+      "more": "还有 ${n} 条",
+      "threadTitle": "《$title》"
     }
   },
   "backgroundService": {
@@ -3149,7 +3157,8 @@
     "statusBarNeedLogin": "请先登录后再操作",
     "statusBarNotApplied": "状态栏操作未生效，请重试",
     "formHashFailed": "登录校验已失效，请重试",
-    "actionUnsupported": "该功能当前不可用：服务器插件版本不支持"
+    "actionUnsupported": "该功能当前不可用：服务器插件版本不支持",
+    "unequipItem": "卸下「$name」"
   },
   "adventure": {
     "title": "冒险",

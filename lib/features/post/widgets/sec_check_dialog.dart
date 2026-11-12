@@ -259,7 +259,9 @@ class _SecCheckDialogState extends State<SecCheckDialog> with LoggerMixin {
                   }
                   final question = snapshot.data;
                   return Text(
-                    question == null ? tr.loadFailed : '${tr.question}：$question',
+                    question == null
+                        ? tr.loadFailed
+                        : context.t.general.labelValue(label: tr.question, value: question),
                     key: const ValueKey('sec-check-question'),
                     style: textTheme.bodyLarge,
                   );

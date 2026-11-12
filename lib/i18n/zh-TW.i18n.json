@@ -162,7 +162,13 @@
     "now": "剛剛",
     "settings": "設定",
     "openInBrowser": "在瀏覽器中開啟",
-    "close": "關閉"
+    "close": "關閉",
+    "listSeparator": "、",
+    "clauseSeparator": "；",
+    "labelValue": "$label：$value",
+    "quoted": "「$text」",
+    "withNote": "$text（$note）",
+    "quotedSeparator": ""
   },
   "loadState": {
     "loading": "正在載入…",
@@ -992,7 +998,8 @@
     },
     "signUp": "註冊",
     "lostPassword": "找回密碼",
-    "perhapsExpired": "登入失敗，可能身分已過期，請重新登入"
+    "perhapsExpired": "登入失敗，可能身分已過期，請重新登入",
+    "noSecurityQuestion": "無安全問題"
   },
   "rootPage": {
     "initFailed": "初始化失敗: $err",
@@ -2720,7 +2727,8 @@
       "bmCount": "${n} 則公用訊息",
       "pmLine": "${user}：${msg}",
       "bmLine": "[公用訊息] ${msg}",
-      "more": "還有 ${n} 則"
+      "more": "還有 ${n} 則",
+      "threadTitle": "《$title》"
     }
   },
   "backgroundService": {
@@ -3149,7 +3157,8 @@
     "statusBarNeedLogin": "請先登入後再操作",
     "statusBarNotApplied": "狀態欄操作未生效，請重試",
     "formHashFailed": "登入驗證已失效，請重試",
-    "actionUnsupported": "該功能目前無法使用：伺服器外掛版本不支援"
+    "actionUnsupported": "該功能目前無法使用：伺服器外掛版本不支援",
+    "unequipItem": "卸下「$name」"
   },
   "adventure": {
     "title": "冒險",

@@ -130,7 +130,7 @@ class _BackgroundGrantPageState extends State<BackgroundGrantPage> {
     if (members.bad.isNotEmpty) {
       showSnackBar(
         context: context,
-        message: tr.badMembers(list: members.bad.join('、')),
+        message: tr.badMembers(list: members.bad.join(context.t.general.listSeparator)),
       );
       return;
     }
@@ -148,7 +148,7 @@ class _BackgroundGrantPageState extends State<BackgroundGrantPage> {
         if (picked != null) ...[ToolsImage(picked.imageUrl, width: 160, height: 90), sizedBoxW8H8],
         Text(picked == null ? image : '${context.displayText(picked.name)} · ${picked.file}'),
         sizedBoxW8H8,
-        Text('UID ${members.uids.join('、')}'),
+        Text('UID ${members.uids.join(context.t.general.listSeparator)}'),
         sizedBoxW8H8,
         Text(_expiryText(expiry)),
       ],

@@ -344,7 +344,7 @@ void main() {
       expect(posted[3], {'formhash': 'f1f2f3f4', 'batchid': '52'});
       expect(gets.single, '$baseUrl/plugin.php?id=batchrate:rate&brmode=result&batchid=52');
       expect(find.byType(BatchRateRunPage), findsNothing);
-      expect(find.text('Batch rate #51'), findsOneWidget);
+      expect(find.text('Batch rating #51'), findsOneWidget);
     });
 
     testWidgets('nothing typed while sending; a batch with nothing to run shown as it is', (tester) async {
@@ -376,7 +376,7 @@ void main() {
       pending.complete({..._fixture('batchrate_result_done'), 'run': 0});
       await tester.pumpAndSettle();
       expect(find.byType(BatchRateRunPage), findsNothing);
-      expect(find.text('Batch rate #51'), findsOneWidget);
+      expect(find.text('Batch rating #51'), findsOneWidget);
       expect(posts, 2, reason: 'nothing run');
     });
 
@@ -570,7 +570,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(posts, 2);
       expect(tester.widget<FilledButton>(send).onPressed, isNull);
-      expect(find.text('Could not confirm the result; check the batch rates'), findsWidgets);
+      expect(find.text('Could not confirm the result; check the batch rating log'), findsWidgets);
     });
   });
 }

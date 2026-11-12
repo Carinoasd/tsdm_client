@@ -78,7 +78,11 @@ Future<void> showOperationLogDialog(BuildContext context, String tid) async {
                           ),
                           sizedBoxW4H4,
                           Text(
-                            context.displayText('${e.action}${e.duration != null ? "（${e.duration}）" : ""}'),
+                            context.displayText(
+                              e.duration != null
+                                  ? context.t.general.withNote(text: e.action, note: e.duration!)
+                                  : e.action,
+                            ),
                             style: textTheme.bodyMedium?.copyWith(color: colorScheme.primary),
                           ),
                         ],

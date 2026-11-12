@@ -176,7 +176,10 @@ class _CollectionDetailPageState extends State<CollectionDetailPage> {
           ],
           if (detail.teamworkers.isNotEmpty) ...[
             sizedBoxW4H4,
-            Text(tr.teamworkers(names: detail.teamworkers.map((e) => e.name).join('、')), style: outline),
+            Text(
+              tr.teamworkers(names: detail.teamworkers.map((e) => e.name).join(context.t.general.listSeparator)),
+              style: outline,
+            ),
           ],
           sizedBoxW12H12,
           Row(

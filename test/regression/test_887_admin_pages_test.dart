@@ -282,7 +282,10 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('admin-group-submit')));
       await tester.pumpAndSettle();
-      expect(find.textContaining('${t.adminTools.extGroups}：${t.adminTools.none} → 字幕组'), findsOneWidget);
+      expect(
+        find.textContaining(t.general.labelValue(label: t.adminTools.extGroups, value: '${t.adminTools.none} → 字幕组')),
+        findsOneWidget,
+      );
       await _confirm(tester);
       final post = forum.of('admingroup', 'POST').single.data;
       expect(post['groupid'], '10');

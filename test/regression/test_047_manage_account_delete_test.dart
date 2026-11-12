@@ -420,7 +420,7 @@ void main() {
       await tester.pumpWidget(host());
       await settle(tester, find.text('Alice'));
       expect(find.text('Carol'), findsOneWidget);
-      expect(find.text('Manage account'), findsOneWidget);
+      expect(find.text('Manage accounts'), findsOneWidget);
       expect(find.text('Not checked in today'), findsNWidgets(3));
 
       await tester.longPress(find.text('Bob'));
@@ -438,9 +438,9 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(AlertDialog), findsOneWidget);
       expect(find.textContaining('Delete 2 account(s)'), findsOneWidget);
-      expect(find.textContaining('signed out'), findsOneWidget);
+      expect(find.textContaining('logged out'), findsOneWidget);
 
-      await tester.tap(find.text('Ok'));
+      await tester.tap(find.text('OK'));
       await tester.pump();
       await settle(tester, find.text('Deleted 2 account(s)'));
       // Let the dialog finish closing.
@@ -450,7 +450,7 @@ void main() {
       expect(find.text('Alice'), findsNothing);
       expect(find.text('Bob'), findsNothing);
       expect(find.text('Carol'), findsOneWidget);
-      expect(find.text('Manage account'), findsOneWidget, reason: 'selection mode is left');
+      expect(find.text('Manage accounts'), findsOneWidget, reason: 'selection mode is left');
       expect(find.text('Online'), findsNothing, reason: 'the current account was removed');
       expect(await uids(), [1002]);
       expect(auth.currentUser, isNull);
@@ -477,14 +477,14 @@ void main() {
 
       await tester.tap(find.byIcon(Icons.close));
       await tester.pump();
-      expect(find.text('Manage account'), findsOneWidget);
+      expect(find.text('Manage accounts'), findsOneWidget);
 
       await tester.longPress(find.text('Carol'));
       await tester.pump();
       expect(find.text('1 selected'), findsOneWidget);
       await tester.binding.handlePopRoute();
       await tester.pump();
-      expect(find.text('Manage account'), findsOneWidget, reason: 'back leaves selection mode instead of the page');
+      expect(find.text('Manage accounts'), findsOneWidget, reason: 'back leaves selection mode instead of the page');
       expect(await uids(), [1000, 1001, 1002], reason: 'nothing was deleted');
       await dispose(tester);
     });
@@ -504,8 +504,8 @@ void main() {
       await tester.pump();
       await tester.tap(find.byIcon(Icons.delete_outline));
       await tester.pumpAndSettle();
-      expect(find.textContaining('signed out'), findsOneWidget, reason: 'removing it signs this device out');
-      await tester.tap(find.text('Ok'));
+      expect(find.textContaining('logged out'), findsOneWidget, reason: 'removing it signs this device out');
+      await tester.tap(find.text('OK'));
       await tester.pump();
       await settle(tester, find.text('Deleted 1 account(s)'));
       await tester.pumpAndSettle();

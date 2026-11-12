@@ -201,7 +201,7 @@ const _threadTitleLength = 24;
         return (title: tr.noticeTitle, body: msg);
       }
       final detail = [
-        if (threadTitle != null) '《${threadTitle.truncate(_threadTitleLength, ellipsis: true)}》',
+        if (threadTitle != null) tr.threadTitle(title: threadTitle.truncate(_threadTitleLength, ellipsis: true)),
         ?quote,
       ].join(' ');
       return (title: action, body: detail.isEmpty ? msg : detail);

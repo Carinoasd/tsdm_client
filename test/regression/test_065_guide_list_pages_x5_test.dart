@@ -251,7 +251,7 @@ void main() {
     testWidgets('an empty page (最新精华) says so instead of showing a blank list', (tester) async {
       final repo = _FixtureRepository('guide_digest_x5.html');
       await pump(tester, LatestThreadPage(url: guideUrl('digest'), repository: repo));
-      expect(find.widgetWithText(AppBar, 'Latest Thread'), findsOneWidget, reason: 'generic title without one');
+      expect(find.widgetWithText(AppBar, 'Latest threads'), findsOneWidget, reason: 'generic title without one');
       expect(find.byType(LatestThreadCard), findsNothing);
       expect(find.text('No threads yet'), findsOneWidget);
       expect(tester.takeException(), isNull);

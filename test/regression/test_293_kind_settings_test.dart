@@ -268,7 +268,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Switch to ordinary thread'));
+    await tester.tap(find.byTooltip('Switch to normal thread'));
     await tester.pumpAndSettle();
     final transfer = carried! as ThreadModeTransfer;
     // This form offers no thread type: the one carried goes back.
@@ -331,7 +331,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('Synthetic type'), findsOneWidget);
-    await tester.tap(find.byTooltip('Switch to ordinary thread'));
+    await tester.tap(find.byTooltip('Switch to normal thread'));
     await tester.pumpAndSettle();
     final transfer = carried! as ThreadModeTransfer;
     expect(transfer.rewardPrice, 50);

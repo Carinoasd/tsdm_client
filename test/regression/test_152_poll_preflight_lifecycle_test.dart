@@ -387,7 +387,7 @@ void main() {
       await tester.enterText(find.widgetWithText(TextField, 'Subject'), 'Edited subject');
       await tester.pump();
 
-      await tester.tap(find.byTooltip('Switch to ordinary thread'));
+      await tester.tap(find.byTooltip('Switch to normal thread'));
       await tester.pumpAndSettle();
       expect(find.text('Ordinary editor'), findsOneWidget);
       expect(find.byType(PollCreatePage), findsNothing);
