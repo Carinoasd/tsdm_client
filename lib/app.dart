@@ -272,7 +272,7 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
     windowSizeTimer?.cancel();
     unawaited(_highRefreshRate?.dispose());
     unawaited(_appIcon?.dispose());
-    if (isWindows) {
+    if (isDesktop) {
       unawaited(TrayHelper.instance.dispose());
     }
     super.dispose();
@@ -342,7 +342,7 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
     final tr = context.t.globalStatePage;
 
     // Keep the native menu in the same language as the UI, including device locale changes.
-    if (isWindows) {
+    if (isDesktop) {
       TrayHelper.instance.updateTranslations(context.t);
     }
 

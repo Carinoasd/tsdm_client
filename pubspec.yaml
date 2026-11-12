@@ -27,6 +27,8 @@ dependencies:
     path: ./packages/dart_bbcode_web_colors
   dart_mappable: ^4.6.1
   dart_quill_delta: ^10.8.3
+  # Linux: is there a tray host on the session bus (pure Dart, already pulled by flutter_local_notifications).
+  dbus: ^0.7.12
   desktop_drop: ^0.8.4
   dio: ^5.9.1
   dio_brotli_transformer: ^2.0.0

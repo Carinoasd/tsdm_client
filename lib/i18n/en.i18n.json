@@ -132,6 +132,7 @@
     "history": "📖 History",
     "favorite": "📁 Favorites",
     "manageAccount": "👥 Manage accounts",
+    "showWindow": "🖥️ Show window",
     "exit": "❌ Exit app"
   },
   "appName": "TSDM",
@@ -593,7 +594,13 @@
       "windowInCenter": {
         "title": "Center window",
         "detail": "Always center the window at startup"
-      }
+      },
+      "trayIcon": "Tray icon",
+      "menuBarIcon": "Menu bar icon",
+      "closeToTray": "Close to tray",
+      "closeToMenuBar": "Keep in menu bar when closed",
+      "trayUnavailable": "This desktop has no tray",
+      "trayFailed": "The tray icon could not be shown"
     },
     "behaviorSection": {
       "title": "Behavior",

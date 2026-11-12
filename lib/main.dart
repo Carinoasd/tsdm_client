@@ -24,11 +24,14 @@ import 'package:tsdm_client/features/settings/repositories/webdav_backup_reposit
 import 'package:tsdm_client/features/update/repository/windows_update_installer.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
+import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/providers/providers.dart';
 import 'package:tsdm_client/shared/providers/proxy_provider/proxy_provider.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/models/database/connection/native.dart';
 import 'package:tsdm_client/utils/android_activity.dart';
 import 'package:tsdm_client/utils/app_language.dart';
+import 'package:tsdm_client/utils/close_to_tray.dart';
+import 'package:tsdm_client/utils/desktop_tray_policy.dart';
 import 'package:tsdm_client/utils/platform.dart';
 import 'package:tsdm_client/utils/tray_helper.dart';
 import 'package:tsdm_client/utils/window_configs.dart';
@@ -100,15 +103,18 @@ Future<void> _boot(List<String> args) async {
     }
   }
 
-  // System tray is Windows-only. It must never break app startup, so any failure
-  // here is logged and swallowed.
-  if (isWindows) {
-    try {
-      await TrayHelper.instance.init();
-      // Asset loading can also throw FlutterError; the optional tray must not prevent startup.
-    } on Object catch (e, st) {
-      talker.handle(e, st, 'tray init failed');
+  // System tray: always on Windows, behind a switch (off by default) on macOS and Linux. It must never break app
+  // startup: any failure is logged and swallowed ([TrayHelper.start]); on macOS and Linux the switch goes back off,
+  // the app stays as it was without it.
+  if (trayWanted(TrayPlatform.host, trayIconSetting: settings.desktopTrayIcon)) {
+    final result = await TrayHelper.instance.start();
+    if (turnsTraySwitchOff(TrayPlatform.host, result)) {
+      await getIt.get<SettingsRepository>().setValue(SettingsKeys.desktopTrayIcon, false);
     }
+  }
+  // Windows and macOS: closing the window into the tray, only once turned on; `--no-window-configs` keeps it off.
+  if (isDesktop && !cmdArgs.noWindowConfigs) {
+    CloseToTray.instance.start();
   }
 
   // System color.

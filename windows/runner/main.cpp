@@ -17,10 +17,18 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   // plugins.
   ::CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
 
-  flutter::DartProject project(L"data");
-
   std::vector<std::string> command_line_arguments =
       GetCommandLineArguments();
+
+  // The app hidden in the tray by "close to tray" comes back instead of a second
+  // copy starting on the same data. Nothing changes otherwise; a launch with
+  // arguments (--no-window-configs...) always starts as before.
+  if (command_line_arguments.empty() && ShowHiddenInstance()) {
+    ::CoUninitialize();
+    return EXIT_SUCCESS;
+  }
+
+  flutter::DartProject project(L"data");
 
   project.set_dart_entrypoint_arguments(std::move(command_line_arguments));
 

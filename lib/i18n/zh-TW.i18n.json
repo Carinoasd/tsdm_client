@@ -132,6 +132,7 @@
     "history": "📖 歷史",
     "favorite": "📁 收藏",
     "manageAccount": "👥 管理帳戶",
+    "showWindow": "🖥️ 顯示視窗",
     "exit": "❌ 結束程式"
   },
   "appName": "天使動漫",
@@ -593,7 +594,13 @@
       "windowInCenter": {
         "title": "視窗居中",
         "detail": "強制視窗居中，並在每次啟動時套用"
-      }
+      },
+      "trayIcon": "托盤圖示",
+      "menuBarIcon": "選單列圖示",
+      "closeToTray": "關閉視窗時縮到托盤",
+      "closeToMenuBar": "關閉視窗時留在選單列",
+      "trayUnavailable": "這個桌面環境沒有托盤",
+      "trayFailed": "托盤圖示無法顯示"
     },
     "behaviorSection": {
       "title": "行為",

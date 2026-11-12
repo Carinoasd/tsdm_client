@@ -30,4 +30,10 @@ class FlutterWindow : public Win32Window {
   std::unique_ptr<flutter::FlutterViewController> flutter_controller_;
 };
 
+// Asks the window of an earlier launch that is hidden in the tray ("close to
+// tray") to show itself. True when one did: this launch then has nothing to do.
+// A visible or minimized window of an earlier launch is left alone, the launch
+// goes on as it always did.
+bool ShowHiddenInstance();
+
 #endif  // RUNNER_FLUTTER_WINDOW_H_

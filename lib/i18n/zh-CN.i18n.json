@@ -132,6 +132,7 @@
     "history": "📖 历史",
     "favorite": "📁 收藏",
     "manageAccount": "👥 管理账户",
+    "showWindow": "🖥️ 显示窗口",
     "exit": "❌ 退出软件"
   },
   "appName": "天使动漫",
@@ -593,7 +594,13 @@
       "windowInCenter": {
         "title": "窗口居中",
         "detail": "启动时强制窗口居中"
-      }
+      },
+      "trayIcon": "托盘图标",
+      "menuBarIcon": "菜单栏图标",
+      "closeToTray": "关闭窗口时最小化到托盘",
+      "closeToMenuBar": "关闭窗口时保留在菜单栏",
+      "trayUnavailable": "此桌面环境没有托盘",
+      "trayFailed": "托盘图标无法显示"
     },
     "behaviorSection": {
       "title": "行为",

@@ -120,6 +120,8 @@ final class SettingsRepository with LoggerMixin {
       windowRememberPosition: s.extract(_SK.windowRememberPosition),
       windowPosition: s.extract(_SK.windowPosition),
       windowInCenter: s.extract(_SK.windowInCenter),
+      desktopTrayIcon: s.extract(_SK.desktopTrayIcon),
+      closeToTray: s.extract(_SK.closeToTray),
       loginUsername: s.extract(_SK.loginUsername),
       loginUid: s.extract(_SK.loginUid),
       loginEmail: s.extract(_SK.loginEmail),
