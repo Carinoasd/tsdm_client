@@ -141,6 +141,42 @@ void main() {
       expect(posts[1].headers, {adminTokenHeader: _token});
     });
 
+    test('busy right after the login: the same write once more after the wait, same opid', () async {
+      final ok = {'ok': 1, 'type': 'adminban', 'schema': 30, 'op': 'ban', 'cleared': <Object>[], 'clear_posts': null};
+      final forum = FakeAdminForum({
+        'GET:admin': [adminFixture('admin_member_manager')],
+        'POST:adminban': [
+          adminError('admin_login'),
+          adminError('busy', {'retry_after': 3}),
+          ok,
+        ],
+      });
+      final reply = await forum.repository().request(
+        AdminActions.ban,
+        form: {'op': 'ban', 'uid': '99', 'bannew': 'post', 'opid': 'op-zzzzzzzz'},
+        reauth: (_) async {
+          forum.session.keep(96, _token);
+          return true;
+        },
+      );
+      expect(reply.ok, isTrue);
+      final posts = forum.of('adminban', 'POST');
+      expect(posts, hasLength(3));
+      expect(posts.map((p) => p.data['opid']).toSet(), {'op-zzzzzzzz'});
+      expect(forum.waits, [const Duration(milliseconds: 3300)]);
+    });
+
+    test('a POST without JSON (the core refusing the form hash) asks the form hash again', () async {
+      final forum = FakeAdminForum({
+        'GET:admin': [adminFixture('admin_member_manager')],
+        'POST:adminban': [null],
+      });
+      final repo = forum.repository();
+      await repo.request(AdminActions.ban, form: {'op': 'clear', 'uid': '99', 'cursor': '0-0'});
+      await repo.request(AdminActions.ban, form: {'op': 'clear', 'uid': '99', 'cursor': '0-0'});
+      expect(forum.of('admin', 'GET'), hasLength(2));
+    });
+
     test('a second admin_login is given back; a cancelled login sends nothing more', () async {
       final forum = FakeAdminForum({
         'GET:adminban': [adminError('admin_login')],

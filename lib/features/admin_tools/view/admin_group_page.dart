@@ -49,6 +49,9 @@ class _AdminGroupPageState extends State<AdminGroupPage> with AdminSessionLease 
   bool _writable = true;
   String? _opId;
 
+  /// Answers read: the form is built anew for each, so no field keeps the member read before.
+  int _loads = 0;
+
   @override
   void initState() {
     super.initState();
@@ -86,6 +89,7 @@ class _AdminGroupPageState extends State<AdminGroupPage> with AdminSessionLease 
     setState(() {
       _loading = false;
       _opId = null;
+      _loads++;
       _info = info;
       _failure = info == null ? reply : null;
       _initial = info == null ? null : AdminGroupDraft.of(info);
@@ -437,7 +441,7 @@ class _AdminGroupPageState extends State<AdminGroupPage> with AdminSessionLease 
               message: adminWhyText(context, info.why),
             )
           else if (info != null && initial != null && draft != null)
-            _form(info, initial, draft),
+            KeyedSubtree(key: ValueKey('admin-group-form-$_loads'), child: _form(info, initial, draft)),
         ],
       ),
     );

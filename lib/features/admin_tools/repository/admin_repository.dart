@@ -138,11 +138,17 @@ String newAdminOpId() => const Uuid().v4();
 /// changed, is dropped ([AdminReply.changed]). The forum decides everything; the app only shows what it answered.
 final class AdminRepository {
   /// Constructor; transports are injected so the flows are tested without a forum.
-  AdminRepository({required AdminGet get, required AdminPost post, int Function()? currentUid, AdminSession? session})
-    : _get = get,
-      _post = post,
-      _currentUid = currentUid ?? currentLoginUid,
-      _session = session ?? AdminSession.instance;
+  AdminRepository({
+    required AdminGet get,
+    required AdminPost post,
+    int Function()? currentUid,
+    AdminSession? session,
+    Future<void> Function(Duration wait)? wait,
+  }) : _get = get,
+       _post = post,
+       _currentUid = currentUid ?? currentLoginUid,
+       _session = session ?? AdminSession.instance,
+       _wait = wait ?? Future<void>.delayed;
 
   /// Uses the app's client: GETs wait for `busy` as other API pages do, POSTs are sent once and `busy` (HTTP 429)
   /// comes back as an answer.
@@ -156,6 +162,7 @@ final class AdminRepository {
   final AdminPost _post;
   final int Function() _currentUid;
   final AdminSession _session;
+  final Future<void> Function(Duration wait) _wait;
 
   String _formHash = '';
 
@@ -189,6 +196,10 @@ final class AdminRepository {
         : await _get(action, query ?? const {}, headers);
     if (_currentUid() != uid) {
       return AdminReply.changed;
+    }
+    if (form != null && json == null) {
+      // A form hash the forum does not take is refused by Discuz itself (HTTP 503, no JSON): ask it again next time.
+      _formHash = '';
     }
     // A batch of the clearing names the member cleared as `uid` (spec 3.9.0 §6); every other answer the account.
     if (json != null && json['op'] != 'clear' && json['uid'] is int && json['uid'] != uid && json['uid'] != 0) {
@@ -237,7 +248,17 @@ final class AdminRepository {
     if (_currentUid() != uid) {
       return AdminReply.changed;
     }
-    return _send(action, query: query, form: form);
+    final again = await _send(action, query: query, form: form);
+    // The forum checks the interval before the token: the request sent right after the login may be answered `busy`.
+    // Nothing was done then (and a write carries the same `opid`), so it is sent once more after the wait asked.
+    if (again.error == 'busy' && again.retryAfter <= 10) {
+      await _wait(Duration(milliseconds: (again.retryAfter > 0 ? again.retryAfter : 1) * 1000 + 300));
+      if (_currentUid() != uid) {
+        return AdminReply.changed;
+      }
+      return _send(action, query: query, form: form);
+    }
+    return again;
   }
 
   /// The entry `action=admin`: what the account may use (with the token when one is kept, so `session.active` tells
@@ -290,7 +311,7 @@ final class AdminRepository {
 /// What an account may do with the forum's admin actions, asked once per account and kept for ten minutes.
 ///
 /// Asked only for an account of a management group (the callers check it first), so an ordinary member sends nothing.
-/// First the forum's switch (`status.admin`, asked once when no `status` told it in this run), then `action=admin`.
+/// First the forum's switch (`status.admin`, asked for the account), then `action=admin`.
 /// An answer that could not be had is not kept; `eligible 0` and the switch off are answers and are kept.
 abstract final class AdminAccessCache {
   static const _keep = Duration(minutes: 10);
@@ -332,10 +353,9 @@ abstract final class AdminAccessCache {
     ).whenComplete(() => unawaited(_asking.remove(uid)));
   }
 
+  /// Asked for the account each time (once per account and ten minutes): the plugin answers `admin: 1` only to an
+  /// administrator logged in, so what another account's `status` told does not hold for this one.
   static Future<bool?> _switchOn() async {
-    if (TsdmAppApi.knowsAdmin case final known?) {
-      return known;
-    }
     final status = await TsdmAppApi.askWaiting(getIt.get<NetClientProvider>(), 'status');
     if (status == null || status['ok'] != 1) {
       return null;

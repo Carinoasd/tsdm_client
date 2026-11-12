@@ -55,7 +55,11 @@ final class FakeAdminForum {
     },
     currentUid: () => uid,
     session: session,
+    wait: (d) async => waits.add(d),
   );
+
+  /// The waits the repository asked for.
+  final waits = <Duration>[];
 
   /// The requests to [action] by [method].
   List<AdminRequest> of(String action, [String? method]) =>

@@ -6,6 +6,7 @@ import 'package:tsdm_client/features/admin_tools/models/admin_models.dart';
 import 'package:tsdm_client/features/admin_tools/repository/admin_repository.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
+import 'package:tsdm_client/utils/show_toast.dart';
 
 /// What to tell about an admin answer that is not the page or the result: the forum's refusal, or why the request
 /// gave nothing.
@@ -108,11 +109,12 @@ class _AdminLoginDialogState extends State<AdminLoginDialog> {
   String? _message;
   DateTime? _lockedUntil;
   Timer? _tick;
-  late final int _uid = widget.repository.currentUid;
+  late final int _uid;
 
   @override
   void initState() {
     super.initState();
+    _uid = widget.repository.currentUid;
     if (widget.login.locked) {
       _lock(widget.login.retryAfter);
     }
@@ -167,6 +169,8 @@ class _AdminLoginDialogState extends State<AdminLoginDialog> {
       return;
     }
     if (reply.identityChanged || reply.error == 'admin_off' || reply.error == 'admin_noperm') {
+      // The page then shows the login it asked for: the real reason is told here.
+      showSnackBar(context: context, message: adminErrorText(context, reply));
       navigator.pop(false);
       return;
     }

@@ -266,6 +266,33 @@ void main() {
       expect(forum.of('admingroup', 'GET'), hasLength(2), reason: 'read again after the change');
     });
 
+    testWidgets('another member looked up: the form is theirs, not the one before', (tester) async {
+      final other = adminFixture('group_founder_view')..['uid'] = 96;
+      final forum = FakeAdminForum({
+        'GET:admingroup': [adminFixture('group_member'), other],
+      });
+      await _pump(tester, AdminGroupPage(repository: forum.repository(), initialMember: '101', writable: true));
+      expect(
+        tester.widget<DropdownButtonFormField<int>>(find.byKey(const ValueKey('admin-group-main'))).initialValue,
+        10,
+      );
+      await tester.enterText(find.byKey(const ValueKey('admin-target')), '37');
+      await tester.tap(find.byKey(const ValueKey('admin-lookup')));
+      await tester.pumpAndSettle();
+      expect(forum.of('admingroup').last.data, {'uid': '37'});
+      final field = find.byKey(const ValueKey('admin-group-main'));
+      expect(find.descendant(of: field, matching: find.text('字幕组')), findsOneWidget);
+      expect(find.descendant(of: field, matching: find.text('新手上路')), findsNothing);
+    });
+
+    test('a member object without founder (only a founder is told it) reads as not one', () {
+      final json = adminFixture('group_member');
+      (json['member'] as Map<String, dynamic>).remove('founder');
+      expect(AdminGroupInfo.fromJson(json)!.member.member.founder, isFalse);
+      final admin = adminFixture('admin_member_manager')..remove('founder');
+      expect(AdminAccess.fromJson(admin)!.founder, isFalse);
+    });
+
     testWidgets('groups not allowed cannot be chosen; can 0 shows only the reason', (tester) async {
       final forum = FakeAdminForum({
         'GET:admingroup': [adminFixture('group_member')],
