@@ -160,13 +160,15 @@ void main() {
     getIt.registerSingleton<CookieProvider>(CookieProvider(_alice, _cookieOf(_alice)));
     final seen = <bool>[];
     AuthenticationRepository.beforeIdentityChange = ({required canSend}) async => seen.add(canSend);
+    // The guest's page: the login form, no user. Every client of the repository answers it (nothing goes out).
+    NetClientProvider guest(CookieProvider cookie) => NetClientProvider.buildNoCookie(
+      dio: Dio(BaseOptions(baseUrl: baseUrl))..httpClientAdapter = _FixedAdapter('<form id="lsform"></form>'),
+      cookie: cookie,
+    );
     final auth = AuthenticationRepository(
       user: _alice,
-      clientFactory: (cookie) => NetClientProvider.buildNoCookie(
-        // The guest's page: the login form, no user.
-        dio: Dio(BaseOptions(baseUrl: baseUrl))..httpClientAdapter = _FixedAdapter('<form id="lsform"></form>'),
-        cookie: cookie,
-      ),
+      clientFactory: guest,
+      currentUserClientFactory: (user) => guest(CookieProvider(user, _cookieOf(_alice))),
     );
     addTearDown(auth.dispose);
     final out = await auth.logout().run();
