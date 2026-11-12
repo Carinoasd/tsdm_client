@@ -50,6 +50,8 @@ import 'package:tsdm_client/shared/providers/providers.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/models/database/database.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 import 'package:tsdm_client/shared/repositories/fragments_repository/fragments_repository.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_converter.dart';
+import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/widgets/card/thread_card/thread_card.dart';
 
 const _dir = 'test/data/tsdmapp';
@@ -607,6 +609,7 @@ void main() {
       MemberThreadTab tab = MemberThreadTab.thread,
       String? uid = '31',
       String? username,
+      ChineseDisplayMode? display,
     }) async {
       final cubit = _cubit(uid: uid, username: username);
       final block = UserBlockCubit(
@@ -636,7 +639,10 @@ void main() {
                 BlocProvider<SettingsBloc>.value(value: settingsBloc),
                 BlocProvider<UserBlockCubit>.value(value: block),
               ],
-              child: MaterialApp.router(routerConfig: router),
+              child: MaterialApp.router(
+                routerConfig: router,
+                builder: display == null ? null : (_, child) => ChineseDisplayHost(mode: display, child: child!),
+              ),
             ),
           ),
         ),
@@ -732,6 +738,18 @@ void main() {
     testWidgets('another page than the list: the notice, not "no data"', (tester) async {
       _use(_Forum((_) => _api({'ok': 1, 'api': 1, 'uid': 35, 'type': 'profile', 'schema': 4})));
       await pump(tester);
+      expect(find.text(_tr.memberThreadPage.notList), findsOneWidget);
+    });
+
+    testWidgets("another page than the list in the Traditional display: the app's notice stays as it is", (
+      tester,
+    ) async {
+      ChineseDisplay.instance.useConverters(
+        s2t: ChineseConverter.parse(File('assets/text/opencc/s2t.txt').readAsStringSync()),
+      );
+      addTearDown(ChineseDisplay.instance.useConverters);
+      _use(_Forum((_) => _api({'ok': 1, 'api': 1, 'uid': 35, 'type': 'profile', 'schema': 4})));
+      await pump(tester, display: ChineseDisplayMode.traditional);
       expect(find.text(_tr.memberThreadPage.notList), findsOneWidget);
     });
   });
