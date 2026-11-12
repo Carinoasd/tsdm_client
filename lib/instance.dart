@@ -5,7 +5,6 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:get_it/get_it.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 import 'package:tsdm_client/cmd.dart';
-import 'package:tsdm_client/utils/log_redaction.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/redacting_talker.dart';
 
@@ -48,29 +47,12 @@ late final FlutterLocalNotificationsPlugin flnp;
 /// Do NOT use this global key directly, call `showSnackBar` function instead.
 final GlobalKey<ScaffoldMessengerState> snackbarKey = GlobalKey<ScaffoldMessengerState>();
 
-class _TalkerObserver implements TalkerObserver {
-  _TalkerObserver();
-
-  /// Init the file to save log, this function MUST be called as early as possible.
-  Future<void> initLogFile() async {}
-
-  /// Entries are already redacted by [RedactingTalker]; redact the generated text once more so the file never carries
-  /// a secret even if an entry was built outside the talker methods.
-  void _write(TalkerData data) {
-    if (_logSinkClosed) {
-      return;
-    }
-    _logSink.write('${redactSensitive(data.generateTextMessage())}\n');
+/// Write a log line ([formatLogLine], already redacted) to the log file, unless the file is closed.
+void _writeLogLine(String line) {
+  if (_logSinkClosed) {
+    return;
   }
-
-  @override
-  void onError(TalkerError err) => _write(err);
-
-  @override
-  void onException(TalkerException err) => _write(err);
-
-  @override
-  void onLog(TalkerData log) => _write(log);
+  _logSink.write(line);
 }
 
 /// Init talker logger.
@@ -98,11 +80,7 @@ Future<void> initLogger() async {
 
   // Secrets (cookies, passwords, form hashes, private form contents) are redacted before a log entry exists, see
   // [RedactingTalker]; the console output mirrors TalkerFlutter.init on Android.
-  talker = RedactingTalker(
-    logger: TalkerLogger(output: (message) => debugPrint(message)),
-    settings: TalkerSettings(colors: {TalkerKey.debug: AnsiPen()..xterm(60)}),
-    observer: _TalkerObserver(),
-  );
+  talker = buildRedactingTalker(console: (message) => debugPrint(message), writeLine: _writeLogLine);
 }
 
 /// Close the log sink.

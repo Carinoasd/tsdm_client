@@ -1631,7 +1631,7 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
               title: Text(tr.exportLog.title),
               subtitle: _logExportPath == null ? null : Text(tr.exportLog.detail(path: _logExportPath!)),
               onTap: () async {
-                final logData = talker.history.map((e) => redactSensitive(e.generateTextMessage())).join('\n');
+                final logData = talker.history.map((e) => redactLogText(e.generateTextMessage())).join('\n');
                 final outputFile = await FilePicker.platform.saveFile(
                   fileName: 'log_${DateTime.now().millisecondsSinceEpoch}.txt',
                   bytes: utf8.encode(logData),

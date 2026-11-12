@@ -218,7 +218,7 @@ class _DebugHistoricalLogDetailPageState extends State<DebugHistoricalLogDetailP
         }
 
         // Older log files may predate redaction; never show or export a secret from them.
-        _logData = redactSensitive(snapshot.data!);
+        _logData = redactLogText(snapshot.data!);
 
         // Monospaced text in a rounded block; long lines wrap, the page scrolls.
         return SingleChildScrollView(
