@@ -118,6 +118,11 @@ class _AdminGroupPageState extends State<AdminGroupPage> with AdminSessionLease 
 
   String _date(String date) => date.isEmpty ? context.t.adminTools.permanent : date;
 
+  Future<void> _pickExpiry(AdminGroupDraft draft) async {
+    final d = await _pickDate(draft.expiry);
+    if (d != null && mounted) _edit(draft.copyWith(expiry: d));
+  }
+
   Future<String?> _pickDate(String current) async {
     final now = DateTime.now();
     final first = DateTime(now.year, now.month, now.day + 1);
@@ -269,26 +274,37 @@ class _AdminGroupPageState extends State<AdminGroupPage> with AdminSessionLease 
             ),
           ],
           sizedBoxW12H12,
-          InputDecorator(
-            decoration: InputDecoration(border: const OutlineInputBorder(), labelText: tr.expiry),
-            child: Row(
-              children: [
-                Expanded(child: Text(_date(draft.expiry), key: const ValueKey('admin-group-expiry'))),
-                IconButton(
-                  icon: const Icon(Icons.event_outlined),
-                  onPressed: enabled
-                      ? () async {
-                          final d = await _pickDate(draft.expiry);
-                          if (d != null && mounted) _edit(draft.copyWith(expiry: d));
-                        }
-                      : null,
+          // The button sits in the field's suffix, so it is as tall as the dropdowns around it.
+          InkWell(
+            onTap: enabled ? () => _pickExpiry(draft) : null,
+            child: InputDecorator(
+              decoration: InputDecoration(
+                border: const OutlineInputBorder(),
+                labelText: tr.expiry,
+                enabled: enabled,
+                suffixIcon: draft.expiry.isEmpty
+                    ? IconButton(
+                        key: const ValueKey('admin-group-expiry-pick'),
+                        icon: const Icon(Icons.event_outlined),
+                        onPressed: enabled ? () => _pickExpiry(draft) : null,
+                      )
+                    : IconButton(
+                        key: const ValueKey('admin-group-expiry-clear'),
+                        icon: const Icon(Icons.close),
+                        onPressed: enabled
+                            ? () => _edit(draft.copyWith(expiry: '', expGroupId: 0, expAdminId: 0))
+                            : null,
+                      ),
+              ),
+              // The content of a dense dropdown (the other fields) is 24 tall.
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 24),
+                child: Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  heightFactor: 1,
+                  child: Text(_date(draft.expiry), key: const ValueKey('admin-group-expiry')),
                 ),
-                if (draft.expiry.isNotEmpty)
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: enabled ? () => _edit(draft.copyWith(expiry: '', expGroupId: 0, expAdminId: 0)) : null,
-                  ),
-              ],
+              ),
             ),
           ),
           if (draft.expiry.isNotEmpty) ...[

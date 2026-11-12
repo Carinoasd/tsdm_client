@@ -168,18 +168,21 @@ class _ModeratorLogPageState extends State<ModeratorLogPage> {
       title: Text(context.t.modcp.log),
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(64),
+        // As wide as the list below it.
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-          child: TextField(
-            key: const ValueKey('modcp-log-keyword'),
-            controller: _keyword,
-            textInputAction: TextInputAction.search,
-            onSubmitted: (_) => _load(),
-            decoration: InputDecoration(
-              isDense: true,
-              hintText: context.t.modcp.keyword,
-              prefixIcon: const Icon(Icons.search),
-              border: const OutlineInputBorder(),
+          child: AppContentWidth(
+            child: TextField(
+              key: const ValueKey('modcp-log-keyword'),
+              controller: _keyword,
+              textInputAction: TextInputAction.search,
+              onSubmitted: (_) => _load(),
+              decoration: InputDecoration(
+                isDense: true,
+                hintText: context.t.modcp.keyword,
+                prefixIcon: const Icon(Icons.search),
+                border: const OutlineInputBorder(),
+              ),
             ),
           ),
         ),

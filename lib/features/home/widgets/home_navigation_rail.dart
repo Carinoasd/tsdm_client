@@ -1,5 +1,11 @@
 part of 'widgets.dart';
 
+/// Size of the app icon heading [HomeNavigationRail].
+const homeNavigationRailLogoSize = 36.0;
+
+/// Where the destinations of [HomeNavigationRail] sit in the room below the app icon: the middle.
+const homeNavigationRailGroupAlignment = 0.0;
+
 /// [NavigationRail] used in home page.
 ///
 /// Use in medium window size.
@@ -19,9 +25,21 @@ class _HomeNavigationRailState extends State<HomeNavigationRail> {
     final barItems = _buildNavigationItems(context);
     final colorScheme = Theme.of(context).colorScheme;
 
-    // Same look as the bottom bar and the drawer: low container color, rounded indicator, labels always shown.
+    // Same look as the bottom bar and the drawer: low container color, rounded indicator, labels always shown. The app
+    // icon heads the rail (GitHub #236), the destinations sit in the middle of the room below it.
     final rail = NavigationRail(
-      groupAlignment: -1,
+      groupAlignment: homeNavigationRailGroupAlignment,
+      leading: ExcludeSemantics(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: SvgPicture.asset(
+            assetsLogoSvgPath,
+            key: const ValueKey('home-navigation-rail-logo'),
+            width: homeNavigationRailLogoSize,
+            height: homeNavigationRailLogoSize,
+          ),
+        ),
+      ),
       backgroundColor: colorScheme.surfaceContainerLow,
       indicatorShape: _navigationIndicatorShape,
       labelType: NavigationRailLabelType.all,
