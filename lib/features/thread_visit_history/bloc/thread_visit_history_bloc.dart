@@ -58,18 +58,29 @@ final class ThreadVisitHistoryBloc extends Bloc<ThreadVisitHistoryEvent, ThreadV
 
   Future<void> _onUpdateRequested(ThreadVisitHistoryModel model, _Emit emit) async {
     emit(state.copyWith(status: ThreadVisitHistoryStatus.savingData));
-    // TODO: Define the error here and handle it.
-    await _repo.saveHistory(model).run();
-    for (final (i, item) in state.history.indexed) {
-      if (item.uid == model.uid && item.threadId == model.threadId) {
-        final h2 = state.history;
-        h2[i] = model;
-        emit(state.copyWith(status: ThreadVisitHistoryStatus.success, history: h2));
-        return;
-      }
+    // A record that was not stored is not shown as stored: the history kept is what the storage holds. Before, a
+    // failed save (a storage error thrown out of the handler) was dropped and the record was updated all the same.
+    final Object? failure;
+    try {
+      failure = switch (await _repo.saveHistory(model).run()) {
+        Left(:final value) => value,
+        Right() => null,
+      };
+    } on Exception catch (e, st) {
+      handleRaw(e, st);
+      emit(state.copyWith(status: ThreadVisitHistoryStatus.failure));
+      return;
     }
-
-    emit(state.copyWith(status: ThreadVisitHistoryStatus.success));
+    if (failure != null) {
+      error('failed to save thread visit history of tid ${model.threadId}: $failure');
+      emit(state.copyWith(status: ThreadVisitHistoryStatus.failure));
+      return;
+    }
+    // A new list: the one of the state before is not changed in place.
+    final history = [
+      for (final item in state.history) (item.uid == model.uid && item.threadId == model.threadId) ? model : item,
+    ];
+    emit(state.copyWith(status: ThreadVisitHistoryStatus.success, history: history));
   }
 
   Future<void> _onDeleteRecordRequested(_Emit emit, {required int uid, required int tid}) async {

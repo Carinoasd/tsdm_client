@@ -19,18 +19,29 @@ final class CheckinRepository with LoggerMixin {
   /// Only what the app did itself: a check-in made on the website is not known until the next attempt here.
   Future<bool> checkedInToday(int uid) async => isCheckedInToday(await _storageProvider.getLastCheckinTime(uid));
 
-  /// Perform a checkin for user [uid].
-  Future<CheckinResult> checkin(int uid, CheckinFeeling feeling, String message) async {
-    final netClient = getIt.get<NetClientProvider>();
-    final checkinResult = await doCheckin(netClient, feeling, message).run();
+  /// Check-ins of the account in use running right now ([checkin]).
+  static int _running = 0;
 
-    // FIXME: Here is a time gap between start checkin and checkin finished.
-    // If any login-user related operation acted, for example logout or switch
-    // to another user, the current user below is unexpected behavior.
-    // So it's better to make a lock when doing checkin.
-    if (checkinResult is CheckinResultSuccess || checkinResult is CheckinResultAlreadyChecked) {
-      await _storageProvider.updateLastCheckinTime(uid, DateTime.now()).run();
+  /// Whether a check-in of the account in use is running.
+  ///
+  /// An account switch waits for it, as for a reply being sent (`ReplyBloc.sendingAny`): the check-in is sent with the
+  /// cookie of the account in use, read anew by each of its requests, so a switch meanwhile posted the form (and the
+  /// form hash) of one account with the session of the other, and its result was recorded for the first one. The auto
+  /// check-in sends each account with a client of its own cookie, the switch does not reach it.
+  static bool get checkingInAny => _running > 0;
+
+  /// Perform a checkin for user [uid], the account in use.
+  Future<CheckinResult> checkin(int uid, CheckinFeeling feeling, String message) async {
+    _running++;
+    try {
+      final netClient = getIt.get<NetClientProvider>();
+      final checkinResult = await doCheckin(netClient, feeling, message).run();
+      if (checkinResult is CheckinResultSuccess || checkinResult is CheckinResultAlreadyChecked) {
+        await _storageProvider.updateLastCheckinTime(uid, DateTime.now()).run();
+      }
+      return checkinResult;
+    } finally {
+      _running--;
     }
-    return checkinResult;
   }
 }

@@ -380,10 +380,9 @@ class _MunchState {
   /// The link the text is in is underlined, as on the web page (`.t_f a { text-decoration: underline }`).
   bool linkUnderline = false;
 
-  // TODO: Handle indent level when list type nested.
-  /// All munching state of list types.
+  /// All munching state of list types, the list the item is in last.
   ///
-  /// Can be nested.
+  /// Can be nested: an item of a list in a list starts further in, see [_Muncher._listIndent].
   final listStack = <_ListType>[];
 
   /// The style in use now, to put back with [restore]. A copy: what is munched meanwhile does not change it.
@@ -2365,6 +2364,9 @@ final class _Muncher with LoggerMixin {
 
   List<InlineSpan>? _buildH4(uh.Element element) => _munchHeading(element, FontSize.size3.value());
 
+  /// How much further in an item of a list in a list starts than one of the list it is in, in the size of its text.
+  static const _listIndent = 2.0;
+
   /// `<ul>` and `<ol>`, a block of the web page ([_munchBlock]) whose items each start a line.
   ///
   /// The marks are the web page's. The forum's style sheet takes the marks off every list (`ol, ul { list-style:
@@ -2424,7 +2426,15 @@ final class _Muncher with LoggerMixin {
           return '•  ';
         }(), // Unreachable but handle it.
       };
-      return [if (leading.isNotEmpty) TextSpan(text: leading, style: _buildTextStyle()), ...content];
+      // An item of a list in a list starts further in, a step a level, as the web page indents each list in a post
+      // (`.t_f ul { margin-left: 14px }`, `.t_f li { margin-left: 2em }`); the outermost list stays where the text
+      // is. Its first line only: a line of the text wraps to the start of the content.
+      final depth = state.listStack.length;
+      return [
+        if (depth > 1) WidgetSpan(child: SizedBox(width: (depth - 1) * _listIndent * _fontSize)),
+        if (leading.isNotEmpty) TextSpan(text: leading, style: _buildTextStyle()),
+        ...content,
+      ];
     });
 
     final ret = _munchStyledBlock(element, munchItem);

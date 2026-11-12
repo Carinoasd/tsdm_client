@@ -30,10 +30,8 @@ class LanguageDialog extends StatelessWidget {
           const Divider(indent: 24, endIndent: 24),
           ...AppLocale.values.map(
             (e) => SelectableListTile(
-              // TODO: Check if is caused by lazy loading.
-              // Traditional Chinese language tag is displayed as "English".
-              title: // Text(e.translations.locale),
-              Text(switch (e.languageTag) {
+              // Named here, not by `e.translations.locale`: a locale not loaded yet named Traditional Chinese "English".
+              title: Text(switch (e.languageTag) {
                 'en' => 'English',
                 'zh-CN' => '简体中文',
                 'zh-TW' => '繁體中文',

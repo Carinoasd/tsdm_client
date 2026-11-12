@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/features/app_lock/cubit/app_lock_cubit.dart';
+import 'package:tsdm_client/features/checkin/repository/checkin_repository.dart';
 import 'package:tsdm_client/features/multi_user/bloc/switch_user_bloc.dart';
 import 'package:tsdm_client/features/notification/bloc/auto_notification_cubit.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
@@ -28,6 +29,9 @@ enum SwitchAccountResult {
 
   /// A reply or a message was being sent, on any page: nothing was tried.
   replyBusy,
+
+  /// A check-in was running ([CheckinRepository.checkingInAny]): nothing was tried.
+  checkinBusy,
 
   /// The page holding the [SwitchUserBloc] went away before the switch ended; only returned once the switch itself
   /// ended, whatever it did.
@@ -78,10 +82,8 @@ Future<SwitchAccountResult> switchAccount(
     talker.debug('switch account: another switch is running, ignored');
     return SwitchAccountResult.alreadySwitching;
   }
-  if (ReplyBloc.sendingAny) {
-    talker.debug('switch account: a reply is being sent, not switching');
-    showSnackBar(context: context, message: context.t.currentAccount.replyBusy);
-    return SwitchAccountResult.replyBusy;
+  if (_busy(context) case final busy?) {
+    return busy;
   }
   _switching = true;
   if (getIt.isRegistered<AppLockCubit>() && getIt.get<AppLockCubit>().requiresUnlockForAccountSwitch) {
@@ -92,10 +94,9 @@ Future<SwitchAccountResult> switchAccount(
       _switching = false;
       return SwitchAccountResult.unlockCancelled;
     }
-    if (ReplyBloc.sendingAny) {
+    if (_busy(context) case final busy?) {
       _switching = false;
-      showSnackBar(context: context, message: context.t.currentAccount.replyBusy);
-      return SwitchAccountResult.replyBusy;
+      return busy;
     }
   }
   // App wide, outlives the dialog; missing only in tests that do not provide it.
@@ -115,6 +116,7 @@ Future<SwitchAccountResult> switchAccount(
       SwitchAccountResult.syncBusy => tr.currentAccount.switchBusy,
       SwitchAccountResult.alreadySwitching ||
       SwitchAccountResult.replyBusy ||
+      SwitchAccountResult.checkinBusy ||
       SwitchAccountResult.abandoned ||
       SwitchAccountResult.unlockCancelled => null,
     };
@@ -125,6 +127,23 @@ Future<SwitchAccountResult> switchAccount(
   } finally {
     _switching = false;
   }
+}
+
+/// Why no switch may start now, told to the user; null when one may: a reply or a message being sent
+/// ([ReplyBloc.sendingAny]), or a check-in running ([CheckinRepository.checkingInAny]). Either one is sent with the
+/// cookie of the account in use while it runs: switched meanwhile, the check-in page of one account was posted with
+/// the session of another, and the answer dropped.
+SwitchAccountResult? _busy(BuildContext context) {
+  final (result, message) = switch ((ReplyBloc.sendingAny, CheckinRepository.checkingInAny)) {
+    (true, _) => (SwitchAccountResult.replyBusy, context.t.currentAccount.replyBusy),
+    (_, true) => (SwitchAccountResult.checkinBusy, context.t.currentAccount.checkinBusy),
+    _ => (null, null),
+  };
+  if (result != null) {
+    talker.debug('switch account: ${result.name}, not switching');
+    showSnackBar(context: context, message: message!);
+  }
+  return result;
 }
 
 Future<(SwitchAccountResult, AppException?)> _run(

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:bloc/bloc.dart';
+import 'package:collection/collection.dart';
 import 'package:dart_mappable/dart_mappable.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/extensions/date_time.dart';
@@ -578,27 +579,18 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
       (x) => info.broadcastMessageList.any((y) => x.uid == uid && x.pmid == y.pmid),
     );
 
-    // Here simply prepend fetching notification a front of all current
-    // messages.
-    //
-    // This works because:
-    //
-    // * If user already fetched notice before, the new coming notice are only
-    //   the ones generated after last fetch notice time, so notice in response
-    //   are only the ones that never fetched before.
-    // * If user haven't fetched notice on this machine before, current state
-    //   holds nothing.
-    //
-    // It is expected that all local notice is older than server ones.
-    // TODO: Sort notice by timestamp.
+    // The fetched notifications and the stored ones, each list newest first ([_newestFirst]). The fetched ones used
+    // to be put before the stored ones as they came, taken to be newer, which they need not be: a broadcast message
+    // carries the time it was written, not when it came (#154), and the bound of a fetch reaches back a margin. The
+    // notification page sorts what it shows; the search page showed the lists in this order.
 
-    final allNotice = [
+    final allNotice = _newestFirst([
       ...info.noticeList,
       ...localNoticeData.noticeList.map(
         noticeEntityToV2,
       ),
-    ];
-    final allPersonalMessage = [
+    ], (e) => e.timestamp);
+    final allPersonalMessage = _newestFirst([
       ...info.personalMessageList,
       ...localNoticeData.personalMessageList.map(
         (e) => PersonalMessageV2(
@@ -610,14 +602,14 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
           alreadyRead: e.alreadyRead,
         ),
       ),
-    ];
-    final allBroadcastMessage = [
+    ], (e) => e.timestamp);
+    final allBroadcastMessage = _newestFirst([
       ...info.broadcastMessageList,
       ...localNoticeData.broadcastMessageList.map(
         (e) =>
             BroadcastMessageV2(timestamp: e.timestamp, data: e.data, pmid: e.pmid, alreadyRead: e.alreadyRead ?? false),
       ),
-    ];
+    ], (e) => e.timestamp);
 
     // Post the latest unread notification info to global state cubit: recounted from storage like every other path,
     // so notices of locally blocked users and conversations with them (or all attributed ones while the list can not
@@ -655,6 +647,12 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> with L
         ownerUid: uid,
       ),
     );
+  }
+
+  /// [list] newest first by [timeOf], the order among the same time kept, as the notification page sorts its tabs.
+  static List<T> _newestFirst<T>(List<T> list, int Function(T) timeOf) {
+    mergeSort<T>(list, compare: (a, b) => timeOf(b).compareTo(timeOf(a)));
+    return list;
   }
 
   /// The current account changed while a fetch result of another account was handled: nothing of that result is

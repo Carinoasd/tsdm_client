@@ -282,9 +282,7 @@ final class ReplyRepository with LoggerMixin {
       'reppid': repPid,
       'reppost': repPost,
       'usesig': useSig ?? '1',
-      // TODO: Build subject instead of const empty string.
       'subject': subject ?? '',
-      // TODO: Support reply with rich text.
       'message': toOfficialMentions(replyMessage),
       'stand': ?stand?.toString(),
       for (final aid in attachNew) 'attachnew[$aid][description]': '',

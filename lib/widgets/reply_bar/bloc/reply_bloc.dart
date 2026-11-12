@@ -330,7 +330,7 @@ class ReplyBloc extends Bloc<ReplyEvent, ReplyState> with LoggerMixin {
 
   Future<void> _onReplyChatHistoryRequested(ReplyChatHistoryRequested event, _Emit emit) async {
     emit(state.copyWith(status: ReplyStatus.loading));
-    // TODO: Update chat history with returned pmid.
+    // The page shows the message sent by fetching the dialog again on success (GitHub #76), no local copy to update.
     final result = await _replyRepository
         .replyHistoryPersonalMessage(targetUrl: event.targetUrl, formHash: event.formHash, message: event.message)
         .run();
@@ -352,7 +352,7 @@ class ReplyBloc extends Bloc<ReplyEvent, ReplyState> with LoggerMixin {
 
   Future<void> _onReplyChatRequested(ReplyChatRequested event, _Emit emit) async {
     emit(state.copyWith(status: ReplyStatus.loading));
-    // TODO: Update chat history with returned pmid.
+    // Shown by fetching the dialog again on success, see the chat history.
     final result = await _replyRepository.replyPersonalMessage(event.touid, event.formData).run();
     if (result.isLeft()) {
       final err = result.unwrapErr();
