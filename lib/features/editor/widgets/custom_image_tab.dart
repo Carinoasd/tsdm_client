@@ -153,7 +153,14 @@ class CustomImageTab extends StatelessWidget {
                       type: MaterialType.transparency,
                       child: InkWell(
                         borderRadius: BorderRadius.circular(appInnerRadius),
-                        onTap: () => onPicked != null ? onPicked!(bbcode) : Navigator.of(context).pop(bbcode),
+                        onTap: () {
+                          final picked = onPicked;
+                          if (picked != null) {
+                            picked(bbcode);
+                          } else {
+                            Navigator.of(context).pop(bbcode);
+                          }
+                        },
                         onLongPress: () async {
                           final confirmed = await showQuestionDialog(
                             context: context,

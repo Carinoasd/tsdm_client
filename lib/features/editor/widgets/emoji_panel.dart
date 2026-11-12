@@ -34,9 +34,9 @@ Uint8List? _cachedEmoji(String code) {
 }
 
 /// The emoji panel of the reply box: the emojis inserted lately first (kept on this device, [RecentEmojiStore]), the
-/// user's saved images (the editor's [CustomImageTab]), the user's custom emoji packs (with [sendCustomEmoji], those with images), then the forum's
-/// emoji groups. A tap gives [onPicked] the emoji code (`{:12_865:}`), the image's BBCode (`[img]…[/img]`,
-/// [isCustomImageBBCode]) or the attachment of a custom emoji once [sendCustomEmoji] gave it
+/// user's saved images (the editor's [CustomImageTab]), the user's custom emoji packs (with [sendCustomEmoji], those
+/// with images), then the forum's emoji groups. A tap gives [onPicked] the emoji code (`{:12_865:}`), the image's
+/// BBCode (`[img]…[/img]`, [isCustomImageBBCode]) or the attachment of a custom emoji once [sendCustomEmoji] gave it
 /// (`[attachimg]aid[/attachimg]`, [isCustomEmojiBBCode]); the panel stays open for the next one.
 ///
 /// [groups] replaces the forum's groups (tests), [emojiImage] the emoji cache.
