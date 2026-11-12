@@ -35,6 +35,8 @@ import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/widgets/munched_html.dart';
 import 'package:universal_html/parsing.dart';
 
+import 'fixtures/same_members.dart';
+
 /// The recorded texts: `before` and `after` of a sample that changed, the one text of a sample that did not.
 const _goldenPath = 'test/data/munch_whitespace_x5.json';
 
@@ -355,7 +357,7 @@ void main() {
     final tables =
         (jsonDecode(File(_tablesGoldenPath).readAsStringSync()) as Map<String, dynamic>)['samples']
             as Map<String, dynamic>;
-    expect(samples.keys.toSet(), golden.keys.toSet(), reason: 'a sample added or gone: record the texts again');
+    expectSameMembers(samples.keys, golden.keys, reason: 'a sample added or gone: record the texts again');
     expect(samples.length, greaterThanOrEqualTo(250));
     var changed = 0;
     for (final MapEntry(key: id, value: html) in samples.entries) {
