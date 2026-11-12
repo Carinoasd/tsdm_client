@@ -112,7 +112,7 @@ Future<void> _boot(List<String> args) async {
     }
   }
   // Windows and macOS: closing the window into the tray, only once turned on; `--no-window-configs` keeps it off.
-  if (!cmdArgs.noWindowConfigs) {
+  if (isDesktop && !cmdArgs.noWindowConfigs) {
     CloseToTray.instance.start();
   }
 
