@@ -125,4 +125,15 @@ void main() {
     expect(CheckinRepository.checkingInAny, isFalse);
     await tester.pump(const Duration(seconds: 5));
   });
+  test('counted: held until its body ended, however it ended (the page counts its whole check-in with it)', () async {
+    final gate = Completer<void>();
+    final running = CheckinRepository.counted(() async {
+      await gate.future;
+      throw StateError('the check-in failed');
+    });
+    expect(CheckinRepository.checkingInAny, isTrue);
+    gate.complete();
+    await expectLater(running, throwsStateError);
+    expect(CheckinRepository.checkingInAny, isFalse);
+  });
 }

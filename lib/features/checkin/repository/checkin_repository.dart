@@ -30,18 +30,24 @@ final class CheckinRepository with LoggerMixin {
   /// check-in sends each account with a client of its own cookie, the switch does not reach it.
   static bool get checkingInAny => _running > 0;
 
-  /// Perform a checkin for user [uid], the account in use.
-  Future<CheckinResult> checkin(int uid, CheckinFeeling feeling, String message) async {
+  /// [body] counted in [checkingInAny] until it ends, however it ends: a check-in, or the whole of a page's check-in
+  /// from the moment it shows it runs (the settings it reads first included).
+  static Future<T> counted<T>(Future<T> Function() body) async {
     _running++;
     try {
-      final netClient = getIt.get<NetClientProvider>();
-      final checkinResult = await doCheckin(netClient, feeling, message).run();
-      if (checkinResult is CheckinResultSuccess || checkinResult is CheckinResultAlreadyChecked) {
-        await _storageProvider.updateLastCheckinTime(uid, DateTime.now()).run();
-      }
-      return checkinResult;
+      return await body();
     } finally {
       _running--;
     }
   }
+
+  /// Perform a checkin for user [uid], the account in use.
+  Future<CheckinResult> checkin(int uid, CheckinFeeling feeling, String message) => counted(() async {
+    final netClient = getIt.get<NetClientProvider>();
+    final checkinResult = await doCheckin(netClient, feeling, message).run();
+    if (checkinResult is CheckinResultSuccess || checkinResult is CheckinResultAlreadyChecked) {
+      await _storageProvider.updateLastCheckinTime(uid, DateTime.now()).run();
+    }
+    return checkinResult;
+  });
 }

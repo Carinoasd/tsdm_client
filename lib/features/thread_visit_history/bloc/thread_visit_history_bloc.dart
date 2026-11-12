@@ -60,19 +60,15 @@ final class ThreadVisitHistoryBloc extends Bloc<ThreadVisitHistoryEvent, ThreadV
     emit(state.copyWith(status: ThreadVisitHistoryStatus.savingData));
     // A record that was not stored is not shown as stored: the history kept is what the storage holds. Before, a
     // failed save (a storage error thrown out of the handler) was dropped and the record was updated all the same.
-    final Object? failure;
+    // The failure here is that of this save only, the history is still the one loaded; the bloc of the app saves the
+    // visits, the history page loads a bloc of its own and shows its loading failures only.
     try {
-      failure = switch (await _repo.saveHistory(model).run()) {
-        Left(:final value) => value,
-        Right() => null,
-      };
+      if (await _repo.saveHistory(model).run() case Left(:final value)) {
+        throw value;
+      }
     } on Exception catch (e, st) {
+      error('failed to save thread visit history of tid ${model.threadId}');
       handleRaw(e, st);
-      emit(state.copyWith(status: ThreadVisitHistoryStatus.failure));
-      return;
-    }
-    if (failure != null) {
-      error('failed to save thread visit history of tid ${model.threadId}: $failure');
       emit(state.copyWith(status: ThreadVisitHistoryStatus.failure));
       return;
     }
