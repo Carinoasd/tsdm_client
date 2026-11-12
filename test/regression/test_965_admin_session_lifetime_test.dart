@@ -224,6 +224,12 @@ void main() {
       await AdminRepository.logoutBeforeIdentityChange(repository: forum.repository());
       expect(forum.requests, isEmpty);
 
+      // The forum's session gone: only forgotten.
+      forum.session.keep(96, _token);
+      await AdminRepository.logoutBeforeIdentityChange(canSend: false, repository: forum.repository());
+      expect(forum.requests, isEmpty);
+      expect(forum.session.holds(96), isFalse);
+
       forum.session.keep(96, _token);
       await AdminRepository.logoutBeforeIdentityChange(repository: forum.repository());
       expect(forum.of('admin', 'POST').single.headers[adminTokenHeader], _token);

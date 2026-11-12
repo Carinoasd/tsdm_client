@@ -417,12 +417,18 @@ final class AdminRepository {
 
   /// Log out of the token of the account in use when one is kept ([logout]), before the account in use changes (a
   /// switch, a login, a logout, a removal): the forum ends a token only for the account it belongs to, so it cannot be
-  /// ended once the cookie is another account's. Waits [limit] at most; the token is dropped here all the same.
+  /// ended once the cookie is another account's. Waits [limit] at most; the token is dropped here all the same. Only
+  /// dropped when not [canSend] (the forum's session is gone: a logout would be refused).
   static Future<void> logoutBeforeIdentityChange({
+    bool canSend = true,
     AdminRepository? repository,
     Duration limit = const Duration(seconds: 4),
   }) async {
     final repo = repository ?? AdminRepository.network();
+    if (!canSend) {
+      repo.session.drop();
+      return;
+    }
     final uid = repo.currentUid;
     if (uid <= 0 || !repo.session.holds(uid)) {
       return;

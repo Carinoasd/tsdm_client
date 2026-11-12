@@ -1,7 +1,8 @@
 /// The admin token is ended before the account in use changes (`AuthenticationRepository.beforeIdentityChange`, set to
 /// `AdminRepository.logoutBeforeIdentityChange` by the app): run while the cookie and the settings still name the
 /// account the token belongs to (the forum ends a token only for its own account), for a switch and a removal; not
-/// for a switch that does not happen.
+/// for a switch that does not happen or one to the account in use; only forgotten (nothing sent) when a logout finds
+/// the forum's session gone already.
 library;
 
 import 'dart:typed_data';
@@ -98,9 +99,9 @@ void main() {
     getIt.registerSingleton<CookieProvider>(CookieProvider(_alice, _cookieOf(_alice)));
 
     // What the admin logout would send as: the account in use (the settings) and the cookie's account.
-    final seen = <(int, int?)>[];
-    AuthenticationRepository.beforeIdentityChange = () async =>
-        seen.add((currentLoginUid(), getIt.get<CookieProvider>().userLoginInfo.uid));
+    final seen = <(int, int?, bool)>[];
+    AuthenticationRepository.beforeIdentityChange = ({required canSend}) async =>
+        seen.add((currentLoginUid(), getIt.get<CookieProvider>().userLoginInfo.uid, canSend));
 
     var page = _loggedPage(_alice);
     final auth = AuthenticationRepository(
@@ -117,15 +118,20 @@ void main() {
     expect(refused.isLeft(), isTrue);
     expect(seen, isEmpty);
 
+    // The account in use again: what is bound to it stays.
+    final same = await auth.switchUser(_alice).run();
+    expect(same.isRight(), isTrue, reason: '$same');
+    expect(seen, isEmpty);
+
     page = _loggedPage(_bob);
     final switched = await auth.switchUser(_bob).run();
     expect(switched.isRight(), isTrue, reason: '$switched');
-    expect(seen, [(1000, 1000)]);
+    expect(seen, [(1000, 1000, true)]);
     expect(currentLoginUid(), 1001);
 
     final forgot = await auth.forgetCurrentUser().run();
     expect(forgot.isRight(), isTrue, reason: '$forgot');
-    expect(seen, [(1000, 1000), (1001, 1001)]);
+    expect(seen, [(1000, 1000, true), (1001, 1001, true)]);
   });
 
   test('a hook that fails changes nothing', () async {
@@ -133,7 +139,7 @@ void main() {
     await settings.setValue<int>(SettingsKeys.loginUid, 1000);
     await settings.setValue<String>(SettingsKeys.loginUsername, 'Alice');
     getIt.registerSingleton<CookieProvider>(CookieProvider(_alice, _cookieOf(_alice)));
-    AuthenticationRepository.beforeIdentityChange = () async => throw Exception('no network');
+    AuthenticationRepository.beforeIdentityChange = ({required canSend}) async => throw Exception('no network');
     final auth = AuthenticationRepository(
       user: _alice,
       clientFactory: (cookie) => NetClientProvider.buildNoCookie(
@@ -145,5 +151,26 @@ void main() {
     final forgot = await auth.forgetCurrentUser().run();
     expect(forgot.isRight(), isTrue, reason: '$forgot');
     expect(auth.currentUser, isNull);
+  });
+
+  test('a logout finding the session gone already only forgets, sends nothing', () async {
+    await storage.saveCookie(username: 'Alice', uid: 1000, cookie: _cookieOf(_alice));
+    await settings.setValue<int>(SettingsKeys.loginUid, 1000);
+    await settings.setValue<String>(SettingsKeys.loginUsername, 'Alice');
+    getIt.registerSingleton<CookieProvider>(CookieProvider(_alice, _cookieOf(_alice)));
+    final seen = <bool>[];
+    AuthenticationRepository.beforeIdentityChange = ({required canSend}) async => seen.add(canSend);
+    final auth = AuthenticationRepository(
+      user: _alice,
+      clientFactory: (cookie) => NetClientProvider.buildNoCookie(
+        // The guest's page: the login form, no user.
+        dio: Dio(BaseOptions(baseUrl: baseUrl))..httpClientAdapter = _FixedAdapter('<form id="lsform"></form>'),
+        cookie: cookie,
+      ),
+    );
+    addTearDown(auth.dispose);
+    final out = await auth.logout().run();
+    expect(out.isRight(), isTrue, reason: '$out');
+    expect(seen, [false]);
   });
 }

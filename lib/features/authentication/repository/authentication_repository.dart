@@ -95,15 +95,16 @@ class AuthenticationRepository with LoggerMixin {
 
   void _changedIdentity() => _identityEpoch++;
 
-  /// Run right before the session this device acts with is replaced (a switch, a login with the password, a logout, a
-  /// removal of the account in use), while requests still go as the account in use: what is bound to that account on
-  /// the forum is ended with it (the admin token, see `AdminRepository.logoutBeforeIdentityChange`). Set once by the
-  /// app; bounded by the hook itself, a failure changes nothing.
-  static Future<void> Function()? beforeIdentityChange;
+  /// Run right before the session this device acts with is replaced by another account's or none (a switch, a login
+  /// with the password, a logout, a removal of the account in use), while requests still go as the account in use:
+  /// what is bound to that account on the forum is ended with it (the admin token, see
+  /// `AdminRepository.logoutBeforeIdentityChange`). `canSend` is false when the forum's session is known to be gone
+  /// already: only forgotten here then. Set once by the app; bounded by the hook itself, a failure changes nothing.
+  static Future<void> Function({required bool canSend})? beforeIdentityChange;
 
-  Future<void> _beforeIdentityChange() async {
+  Future<void> _beforeIdentityChange({bool canSend = true}) async {
     try {
-      await beforeIdentityChange?.call();
+      await beforeIdentityChange?.call(canSend: canSend);
     } on Object catch (e) {
       warning('before the identity change: $e');
     }
@@ -278,7 +279,9 @@ class AuthenticationRepository with LoggerMixin {
       }
       // Here we get complete user info.
       final userInfo = resultEither.unwrap();
-      await _beforeIdentityChange();
+      // The account in use logged in again keeps what is bound to it (the admin token is the account's, not the
+      // session's).
+      if (userInfo.uid != effectiveCurrentUid) await _beforeIdentityChange();
       _changedIdentity();
       // First combine user info and cookie together.
       await cookie.updateUserInfo(userInfo);
@@ -439,7 +442,6 @@ class AuthenticationRepository with LoggerMixin {
       warning('logout of uid ${"$target".obscured(4)} asked, the account in use changed meanwhile: nothing done');
       return left(IdentityChangedException());
     }
-    await _beforeIdentityChange();
     final user = effectiveCurrentUser;
     final netClient = _currentUserClientFactory(
       UserLoginInfo(username: user?.uid == target ? user?.username : null, uid: target),
@@ -450,7 +452,7 @@ class AuthenticationRepository with LoggerMixin {
     final served = await _statusIdentityOf(netClient);
     if (served != null && served.uid == 0) {
       info('logout: session already gone on the server (app api), remove the saved login');
-      await _forgetCurrentUser();
+      await _forgetCurrentUser(canSend: false);
       return rightVoid();
     }
     if (served case (:final uid, formHash: final String hash) when uid == target) {
@@ -471,10 +473,11 @@ class AuthenticationRepository with LoggerMixin {
         if (_isGuestPage(document)) {
           // Not logged in any more: nothing to end on the server, drop the saved login.
           info('logout: session already gone on the server, remove the saved login');
-          await _forgetCurrentUser();
+          await _forgetCurrentUser(canSend: false);
           return rightVoid();
         }
         warning('logout: no logged user on an unrecognized page, keep the saved login');
+        await _beforeIdentityChange(canSend: false);
         await _markUnauthenticated();
         return rightVoid();
       }
@@ -485,6 +488,7 @@ class AuthenticationRepository with LoggerMixin {
       formHash = pageHash;
     }
 
+    await _beforeIdentityChange();
     final logoutRespEither = await netClient.get(_buildLogoutUrl(formHash)).run();
     if (logoutRespEither.isLeft()) {
       return left(logoutRespEither.unwrapErr());
@@ -543,8 +547,9 @@ class AuthenticationRepository with LoggerMixin {
     );
   }
 
-  Future<void> _forgetCurrentUser() async {
-    await _beforeIdentityChange();
+  /// [canSend] false: the forum's session is gone already, what is bound to it is only forgotten here.
+  Future<void> _forgetCurrentUser({bool canSend = true}) async {
+    await _beforeIdentityChange(canSend: canSend);
     _changedIdentity();
     // Resolve the account before the provider forgets it.
     final uid = effectiveCurrentUid;
@@ -611,7 +616,7 @@ class AuthenticationRepository with LoggerMixin {
         warning('switch to uid ${"${userInfo.uid}".obscured(4)}: its saved login was removed meanwhile');
         return left(LoginInvalidCredentialException());
       }
-      await _beforeIdentityChange();
+      if (parsedUserInfo.uid != effectiveCurrentUid) await _beforeIdentityChange();
       _changedIdentity();
       if (!await getIt.get<CookieProvider>().loadCookieFromStorage(parsedUserInfo)) {
         return left(LoginInvalidCredentialException());
