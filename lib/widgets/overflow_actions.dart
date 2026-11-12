@@ -38,7 +38,8 @@ class OverflowAction {
   final OverflowPlacement placement;
 
   /// The section of the overflow menu the action is listed in: the menu lists the sections in increasing order, apart
-  /// by dividers. Null for a menu without sections (every action of a list sets it, or none does).
+  /// by dividers. Null for a menu without sections (every action of a list sets it, or none does; a null one is taken
+  /// for section 0).
   final int? section;
 }
 
@@ -74,7 +75,7 @@ class OverflowActions extends StatelessWidget {
             onSelected: (a) => a.onPressed(),
             itemBuilder: (context) => [
               for (final (i, a) in menu.indexed) ...[
-                if (i > 0 && a.section != menu[i - 1].section) const PopupMenuDivider(height: 8),
+                if (i > 0 && (a.section ?? 0) != (menu[i - 1].section ?? 0)) const PopupMenuDivider(height: 8),
                 PopupMenuItem(
                   value: a,
                   child: Row(children: [Icon(a.icon), sizedBoxPopupMenuItemIconSpacing, Text(a.label)]),

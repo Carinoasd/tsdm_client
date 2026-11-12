@@ -50,10 +50,10 @@ enum _PanelGroup {
   moderation(Icons.gavel_outlined),
 
   /// The members and the forums: their permissions, the review of new members, the rules, the announcements.
-  members(Icons.manage_accounts_outlined),
+  members(Icons.groups_outlined),
 
   /// What is given to members: medals, titles, backgrounds, the batch rates.
-  rewards(Icons.card_giftcard_outlined),
+  rewards(Icons.redeem_outlined),
 
   /// The forum's admin actions on members: credits, user groups, cleaning up a spammer.
   site(Icons.admin_panel_settings_outlined)
@@ -319,7 +319,6 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
     final entries = <(_PanelGroup, Key, IconData, String, Widget Function())>[
       (
         _PanelGroup.moderation,
-
         const ValueKey('modcp-queue'),
         Icons.fact_check_outlined,
         t.moderate.queue,
@@ -332,7 +331,6 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
       ),
       (
         _PanelGroup.moderation,
-
         const ValueKey('modcp-recycle-bin'),
         Icons.delete_sweep_outlined,
         t.modcp.recycleBin,
@@ -340,7 +338,6 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
       ),
       (
         _PanelGroup.moderation,
-
         const ValueKey('modcp-log'),
         Icons.history_outlined,
         t.modcp.log,
@@ -351,7 +348,6 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
       if (_modcpPages.contains('home'))
         (
           _PanelGroup.moderation,
-
           const ValueKey('modcp-notes'),
           Icons.sticky_note_2_outlined,
           t.modcpPages.notes,
@@ -360,7 +356,6 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
       if (_modcpPages.contains('thread')) ...[
         (
           _PanelGroup.moderation,
-
           const ValueKey('modcp-threads'),
           Icons.topic_outlined,
           t.modcpPages.threads,
@@ -368,7 +363,6 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
         ),
         (
           _PanelGroup.moderation,
-
           const ValueKey('modcp-posts'),
           Icons.article_outlined,
           t.modcpPages.posts,
@@ -378,7 +372,6 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
       if (_modcpPages.contains('forumaccess') && _offers((m) => m.has('forumaccess')))
         (
           _PanelGroup.members,
-
           const ValueKey('modcp-forum-access'),
           Icons.admin_panel_settings_outlined,
           t.modcpPages.access,
@@ -387,7 +380,6 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
       if (_offers((m) => m.canManageMembers))
         (
           _PanelGroup.members,
-
           const ValueKey('modcp-members'),
           Icons.manage_accounts_outlined,
           t.modcp.members,
@@ -395,7 +387,6 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
         ),
       (
         _PanelGroup.members,
-
         const ValueKey('modcp-member-review'),
         Icons.how_to_reg_outlined,
         t.modcp.memberReview,
@@ -404,7 +395,6 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
       if (_offers((m) => m.canEditForum))
         (
           _PanelGroup.members,
-
           const ValueKey('modcp-rules'),
           Icons.rule_outlined,
           t.modcp.rules,
@@ -413,7 +403,6 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
       if (_offers((m) => m.canAnnounce))
         (
           _PanelGroup.members,
-
           const ValueKey('modcp-announcements'),
           Icons.campaign_outlined,
           t.modcp.announcements,
@@ -423,7 +412,6 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
       if (_admin?.canRead(AdminActions.report) ?? false)
         (
           _PanelGroup.moderation,
-
           const ValueKey('modcp-report'),
           Icons.flag_outlined,
           t.reportHandling.title,
@@ -436,7 +424,6 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
       else if (_panel?.modcpReport ?? false)
         (
           _PanelGroup.moderation,
-
           const ValueKey('modcp-report'),
           Icons.flag_outlined,
           t.reportHandling.title,
@@ -445,7 +432,6 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
       if (_staff?.grant ?? false)
         (
           _PanelGroup.rewards,
-
           const ValueKey('modcp-medal-grant'),
           Icons.card_giftcard_outlined,
           t.medalTitleTools.grantTitle,
@@ -454,7 +440,6 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
       if (_staff?.issue ?? false)
         (
           _PanelGroup.rewards,
-
           const ValueKey('modcp-title-issue'),
           Icons.verified_outlined,
           t.medalTitleTools.issueTitle,
@@ -463,7 +448,6 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
       if (_panel?.background ?? false)
         (
           _PanelGroup.rewards,
-
           const ValueKey('modcp-background-grant'),
           Icons.wallpaper_outlined,
           t.backgroundGrant.title,
@@ -472,7 +456,6 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
       if (_batchRate?.listUrl case final listUrl?)
         (
           _PanelGroup.rewards,
-
           const ValueKey('modcp-batch-rate'),
           Icons.thumbs_up_down_outlined,
           t.batchRate.batches,
@@ -481,7 +464,6 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
       if (_admin?.canRead(AdminActions.credit) ?? false)
         (
           _PanelGroup.site,
-
           const ValueKey('modcp-admin-credit'),
           Icons.savings_outlined,
           t.adminTools.credit,
@@ -493,7 +475,6 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
       if (_admin?.canRead(AdminActions.group) ?? false)
         (
           _PanelGroup.site,
-
           const ValueKey('modcp-admin-group'),
           Icons.group_outlined,
           t.adminTools.group,
@@ -505,7 +486,6 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
       if (_admin?.canRead(AdminActions.ban) ?? false)
         (
           _PanelGroup.site,
-
           const ValueKey('modcp-admin-ban'),
           Icons.cleaning_services_outlined,
           t.adminTools.ban,
