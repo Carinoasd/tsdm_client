@@ -340,7 +340,8 @@ void main() {
       await tester.pumpAndSettle();
       final dialog = find.byType(AlertDialog);
       expect(dialog, findsOneWidget);
-      expect(find.descendant(of: dialog, matching: find.text('ag_low2 · 天使币 -2')), findsOneWidget);
+      // The message sent goes with the reward in the confirmation (since #386).
+      expect(find.descendant(of: dialog, matching: find.text('ag_low2 · 天使币 -2 · 已核实')), findsOneWidget);
       expect(find.descendant(of: dialog, matching: find.text('ag_t01')), findsOneWidget);
       await tester.tap(find.descendant(of: dialog, matching: find.byType(FilledButton)));
       await tester.pumpAndSettle();
