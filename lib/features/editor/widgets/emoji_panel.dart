@@ -11,11 +11,11 @@ import 'package:tsdm_client/features/editor/bloc/emoji_bloc.dart';
 import 'package:tsdm_client/features/editor/repository/editor_repository.dart';
 import 'package:tsdm_client/features/editor/repository/recent_emoji_store.dart';
 import 'package:tsdm_client/features/editor/utils/custom_image_input.dart';
+import 'package:tsdm_client/features/editor/widgets/custom_image_tab.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/providers/image_cache_provider/image_cache_provider.dart';
-import 'package:tsdm_client/shared/providers/storage_provider/models/database/database.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 import 'package:tsdm_client/utils/retry_button.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
@@ -34,9 +34,9 @@ Uint8List? _cachedEmoji(String code) {
 }
 
 /// The emoji panel of the reply box: the emojis inserted lately first (kept on this device, [RecentEmojiStore]), the
-/// user's saved images, the user's custom emoji packs (with [sendCustomEmoji], those with images), then the forum's
-/// emoji groups. A tap gives [onPicked] the emoji code (`{:12_865:}`), the image's BBCode (`[img]…[/img]`,
-/// [isCustomImageBBCode]) or the attachment of a custom emoji once [sendCustomEmoji] gave it
+/// user's saved images (the editor's [CustomImageTab]), the user's custom emoji packs (with [sendCustomEmoji], those
+/// with images), then the forum's emoji groups. A tap gives [onPicked] the emoji code (`{:12_865:}`), the image's
+/// BBCode (`[img]…[/img]`, [isCustomImageBBCode]) or the attachment of a custom emoji once [sendCustomEmoji] gave it
 /// (`[attachimg]aid[/attachimg]`, [isCustomEmojiBBCode]); the panel stays open for the next one.
 ///
 /// [groups] replaces the forum's groups (tests), [emojiImage] the emoji cache.
@@ -151,13 +151,13 @@ class _EmojiPanelState extends State<EmojiPanel> with TickerProviderStateMixin {
     );
   }
 
-  Widget _grid(List<String> codes, {double extent = 48}) => GridView.builder(
+  Widget _grid(List<String> codes) => GridView.builder(
     padding: edgeInsetsL12T8R12B8,
-    gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-      maxCrossAxisExtent: extent,
+    gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+      maxCrossAxisExtent: 48,
       mainAxisSpacing: 6,
       crossAxisSpacing: 6,
-      mainAxisExtent: extent,
+      mainAxisExtent: 48,
     ),
     itemCount: codes.length,
     itemBuilder: (context, index) => _emojiTile(codes[index]),
@@ -197,16 +197,8 @@ class _EmojiPanelState extends State<EmojiPanel> with TickerProviderStateMixin {
     if (!getIt.isRegistered<StorageProvider>()) {
       return _hint(context, Icons.collections_outlined, context.t.bbcodeEditor.customImage.empty);
     }
-    return StreamBuilder<List<CustomImageEntity>>(
-      stream: getIt.get<StorageProvider>().watchCustomImages(),
-      builder: (context, snapshot) {
-        final images = snapshot.data ?? const <CustomImageEntity>[];
-        if (images.isEmpty) {
-          return _hint(context, Icons.collections_outlined, context.t.bbcodeEditor.customImage.empty);
-        }
-        return _grid(images.map((e) => customImageBBCode(e.url)).toList(), extent: 64);
-      },
-    );
+    // The same tab as the editor's sheet: add, long press to delete.
+    return CustomImageTab(onPicked: _pick, padding: edgeInsetsL12T8R12B8);
   }
 
   /// The tabs, with the custom emoji packs that have images when the reply can take them ([EmojiPanel.sendCustomEmoji]).

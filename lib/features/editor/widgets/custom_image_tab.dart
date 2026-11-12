@@ -87,12 +87,20 @@ class _CustomImageAddDialogState extends State<_CustomImageAddDialog> {
   }
 }
 
-/// The "my images" tab of the emoji picker: saved stickers in a grid, an add tile first (#5).
+/// The "my images" tab of both emoji pickers, the editor's sheet and the reply bar's panel: saved stickers in a grid,
+/// an add tile first (#5, #338).
 ///
-/// Tapping a sticker pops the enclosing route with its `[img]` BBCode; long press deletes it.
+/// Tapping a sticker gives its `[img]` BBCode to [onPicked], or pops the enclosing route with it when there is none;
+/// long press deletes it.
 class CustomImageTab extends StatelessWidget {
   /// Constructor.
-  const CustomImageTab({super.key});
+  const CustomImageTab({this.onPicked, this.padding = edgeInsetsL12R12, super.key});
+
+  /// Called with the `[img]` BBCode of the sticker tapped, instead of popping the route.
+  final void Function(String bbcode)? onPicked;
+
+  /// Padding of the grid.
+  final EdgeInsetsGeometry padding;
 
   @override
   Widget build(BuildContext context) {
@@ -113,7 +121,7 @@ class CustomImageTab extends StatelessWidget {
             Flexible(
               child: GridView.builder(
                 shrinkWrap: true,
-                padding: edgeInsetsL12R12,
+                padding: padding,
                 gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
                   maxCrossAxisExtent: 72,
                   mainAxisSpacing: 10,
@@ -137,25 +145,37 @@ class CustomImageTab extends StatelessWidget {
                     );
                   }
                   final image = images[index - 1];
+                  final bbcode = customImageBBCode(image.url);
                   return Tooltip(
                     message: image.name.isEmpty ? image.url : image.name,
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(appInnerRadius),
-                      onTap: () => Navigator.of(context).pop(customImageBBCode(image.url)),
-                      onLongPress: () async {
-                        final confirmed = await showQuestionDialog(
-                          context: context,
-                          title: tr.delete,
-                          message: tr.deleteConfirm,
-                          dangerous: true,
-                        );
-                        if (confirmed ?? false) {
-                          await storage.deleteCustomImage(image.id);
-                        }
-                      },
-                      child: ClipRRect(
+                    // The reply bar's panel paints its own background: the splash needs a material above it.
+                    child: Material(
+                      type: MaterialType.transparency,
+                      child: InkWell(
                         borderRadius: BorderRadius.circular(appInnerRadius),
-                        child: CachedImage(image.url, width: 72, height: 72, fit: BoxFit.cover),
+                        onTap: () {
+                          final picked = onPicked;
+                          if (picked != null) {
+                            picked(bbcode);
+                          } else {
+                            Navigator.of(context).pop(bbcode);
+                          }
+                        },
+                        onLongPress: () async {
+                          final confirmed = await showQuestionDialog(
+                            context: context,
+                            title: tr.delete,
+                            message: tr.deleteConfirm,
+                            dangerous: true,
+                          );
+                          if (confirmed ?? false) {
+                            await storage.deleteCustomImage(image.id);
+                          }
+                        },
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(appInnerRadius),
+                          child: CachedImage(image.url, width: 72, height: 72, fit: BoxFit.cover),
+                        ),
                       ),
                     ),
                   );
