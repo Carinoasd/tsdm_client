@@ -141,7 +141,8 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
       return;
     }
     final key = '$uid:$fid';
-    BatchRateAccess.check(uid, fid: fid, stillCurrent: () => _moderatorAsked == key).then((info) {
+    final auth = context.read<AuthenticationRepository>();
+    BatchRateAccess.check(uid, fid: fid, stillCurrent: () => auth.effectiveCurrentUid == uid).then((info) {
       if (mounted && info != null && info.offersList && _moderatorAsked == key) {
         setState(() => _batchRate = (key: key, info: info));
       }

@@ -216,7 +216,9 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(BatchRateRunPage), findsNothing, reason: 'run to the end, then the result');
       expect(runs, 1);
-      expect(find.text('Batch rate #51'), findsOneWidget);
+      // Back on the detail, read again; not a second page of the result.
+      expect(find.text('Batch rate #11'), findsOneWidget);
+      expect(find.byType(BatchRateBatchView), findsOneWidget);
     });
 
     testWidgets("the plugin's refusal of the list shown as it said it", (tester) async {

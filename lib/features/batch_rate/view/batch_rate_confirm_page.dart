@@ -7,6 +7,7 @@ import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/features/batch_rate/models/batch_rate.dart';
 import 'package:tsdm_client/features/batch_rate/repository/batch_rate_repository.dart';
 import 'package:tsdm_client/features/batch_rate/utils/batch_rate_access.dart';
+import 'package:tsdm_client/features/batch_rate/view/batch_rate_batch_page.dart';
 import 'package:tsdm_client/features/batch_rate/view/batch_rate_run_page.dart';
 import 'package:tsdm_client/features/batch_rate/widgets/batch_rate_widgets.dart';
 import 'package:tsdm_client/features/medal_title_tools/widgets/common.dart';
@@ -120,11 +121,12 @@ class _BatchRateConfirmPageState extends State<BatchRateConfirmPage> {
         _take(confirm);
       case BatchRateAnswered(value: final BatchRateBatchPage page):
         BatchRateAccess.forget(page.uid, fid: widget.info.fid);
-        await Navigator.of(
-          context,
-        ).pushReplacement(
+        // A batch with nothing left to run (`run 0`) is shown as it is.
+        await Navigator.of(context).pushReplacement(
           MaterialPageRoute<void>(
-            builder: (_) => BatchRateRunPage(start: page, repository: _repo),
+            builder: (_) => page.run
+                ? BatchRateRunPage(start: page, repository: _repo)
+                : BatchRateBatchView(url: page.links.resultUrl, initial: page, repository: _repo),
           ),
         );
       case BatchRateRefused() || BatchRateFailed():
@@ -282,6 +284,7 @@ class _BatchRateConfirmPageState extends State<BatchRateConfirmPage> {
             sizedBoxW12H12,
             TextField(
               key: const ValueKey('batch-rate-floors'),
+              enabled: !_busy,
               controller: _floors,
               decoration: InputDecoration(labelText: tr.floors, border: const OutlineInputBorder()),
             ),
@@ -316,6 +319,7 @@ class _BatchRateConfirmPageState extends State<BatchRateConfirmPage> {
                     Expanded(
                       child: TextField(
                         key: ValueKey('batch-rate-score-${credit.id}'),
+                        enabled: !_busy,
                         controller: _scores[credit.id],
                         keyboardType: const TextInputType.numberWithOptions(signed: true),
                         inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^-?\d*'))],
@@ -333,8 +337,10 @@ class _BatchRateConfirmPageState extends State<BatchRateConfirmPage> {
                         width: 120,
                         child: TextField(
                           key: ValueKey('batch-rate-cond-${credit.id}'),
+                          enabled: !_busy,
                           controller: _conds[credit.id],
                           keyboardType: const TextInputType.numberWithOptions(signed: true),
+                          inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^-?\d*'))],
                           decoration: InputDecoration(
                             labelText: tr.atLeast(title: context.displayText(credit.title)),
                             border: const OutlineInputBorder(),
@@ -350,6 +356,7 @@ class _BatchRateConfirmPageState extends State<BatchRateConfirmPage> {
           ],
           TextField(
             key: const ValueKey('batch-rate-reason'),
+            enabled: !_busy,
             controller: _reason,
             decoration: InputDecoration(
               labelText: c.reasonRequired ? '${tr.reason} *' : tr.reason,
@@ -363,7 +370,7 @@ class _BatchRateConfirmPageState extends State<BatchRateConfirmPage> {
               runSpacing: 6,
               children: [
                 for (final r in widget.info.reasonChoices)
-                  ActionChip(label: Text(context.displayText(r)), onPressed: () => _reason.text = r),
+                  ActionChip(label: Text(context.displayText(r)), onPressed: _busy ? null : () => _reason.text = r),
               ],
             ),
           ],
@@ -372,7 +379,7 @@ class _BatchRateConfirmPageState extends State<BatchRateConfirmPage> {
             contentPadding: EdgeInsets.zero,
             title: Text(tr.notify),
             value: s.notify || c.notifyForced,
-            onChanged: c.notifyForced ? null : (v) => _setSwitch((s) => s.notify = v),
+            onChanged: c.notifyForced || _busy ? null : (v) => _setSwitch((s) => s.notify = v),
           ),
         ],
       ),
@@ -388,6 +395,7 @@ class _BatchRateConfirmPageState extends State<BatchRateConfirmPage> {
         children: [
           TextField(
             key: const ValueKey('batch-rate-exclude'),
+            enabled: !_busy,
             controller: _exclude,
             decoration: InputDecoration(labelText: tr.exclude, border: const OutlineInputBorder()),
           ),
@@ -396,14 +404,14 @@ class _BatchRateConfirmPageState extends State<BatchRateConfirmPage> {
             contentPadding: EdgeInsets.zero,
             title: Text(tr.skipRated),
             value: !c.ratedOverridden && (s.rated || locked),
-            onChanged: locked || c.ratedOverridden ? null : (v) => _setSwitch((s) => s.rated = v),
+            onChanged: locked || c.ratedOverridden || _busy ? null : (v) => _setSwitch((s) => s.rated = v),
           ),
           SwitchListTile(
             key: const ValueKey('batch-rate-same'),
             contentPadding: EdgeInsets.zero,
             title: Text(tr.skipSame),
             value: s.same || locked,
-            onChanged: locked ? null : (v) => _setSwitch((s) => s.same = v),
+            onChanged: locked || _busy ? null : (v) => _setSwitch((s) => s.same = v),
           ),
         ],
       ),
@@ -466,6 +474,7 @@ class _BatchRateConfirmPageState extends State<BatchRateConfirmPage> {
                       width: 64,
                       child: TextField(
                         key: ValueKey('batch-rate-mult-${item.pid}'),
+                        enabled: !_busy,
                         controller: _mults[item.pid],
                         keyboardType: TextInputType.number,
                         inputFormatters: [FilteringTextInputFormatter.digitsOnly],

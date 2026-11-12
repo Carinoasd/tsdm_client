@@ -5,6 +5,7 @@ import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/features/batch_rate/models/batch_rate.dart';
 import 'package:tsdm_client/features/batch_rate/repository/batch_rate_repository.dart';
+import 'package:tsdm_client/features/batch_rate/utils/batch_rate_access.dart';
 import 'package:tsdm_client/features/batch_rate/view/batch_rate_run_page.dart';
 import 'package:tsdm_client/features/batch_rate/widgets/batch_rate_widgets.dart';
 import 'package:tsdm_client/features/medal_title_tools/widgets/common.dart';
@@ -107,6 +108,7 @@ class _BatchRateBatchViewState extends State<BatchRateBatchView> {
             links: page.links,
           ),
           repository: widget.repository,
+          popWhenDone: true,
         ),
       ),
     );
@@ -140,7 +142,11 @@ class _BatchRateBatchViewState extends State<BatchRateBatchView> {
         return;
       }
       message = switch (reply) {
-        BatchRateAnswered(value: final step) when step.ok => tr.undone,
+        BatchRateAnswered(value: final step) when step.ok => () {
+          // The quota of the moderator came back: the entries read it again.
+          BatchRateAccess.forget(page.uid, fid: page.batch.fid);
+          return tr.undone;
+        }(),
         BatchRateAnswered(value: final step) => step.message.isEmpty ? fallback : context.displayText(step.message),
         _ => batchRateReplyText(context, reply, fallback),
       };
@@ -188,11 +194,12 @@ class _BatchRateBatchViewState extends State<BatchRateBatchView> {
         if (reply case BatchRateAnswered(value: final step) when step.ok) {
           setState(() => _undoing = (_undoing ?? 0) + step.done);
           if (step.finished) {
+            BatchRateAccess.forget(page.uid, fid: page.batch.fid);
             message = tr.undone;
             break;
           }
           // A part that takes nothing back three times in a row stops: never a loop without end.
-          still = lastRemaining != null && step.remaining >= lastRemaining ? still + 1 : 0;
+          still = lastRemaining != null && step.remaining >= lastRemaining && step.done == 0 ? still + 1 : 0;
           lastRemaining = step.remaining;
           if (still >= 3) {
             message = fallback;

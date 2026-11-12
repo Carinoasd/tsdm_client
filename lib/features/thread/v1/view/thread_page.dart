@@ -261,7 +261,8 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
     if (key != _batchRateAsked) {
       _batchRateAsked = key;
       _batchRate = null;
-      BatchRateAccess.check(uid!, fid: fid, stillCurrent: () => _batchRateAsked == key).then((info) {
+      final auth = context.read<AuthenticationRepository>();
+      BatchRateAccess.check(uid!, fid: fid, stillCurrent: () => auth.effectiveCurrentUid == uid).then((info) {
         if (mounted && _batchRateAsked == key && info != null && info.offersThread) {
           setState(() => _batchRate = info);
         }

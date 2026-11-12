@@ -156,6 +156,27 @@ void main() {
       expect(find.text('Batch rate #51'), findsOneWidget);
     });
 
+    testWidgets('a part without `remaining` that rates more is progress', (tester) async {
+      final answers = <Object?>[
+        for (var i = 1; i <= 5; i++) _step({'done': '$i', 'total': '6', 'finished': '0'}),
+        _fixture('batchrate_run_done'),
+      ];
+      await _pump(
+        tester,
+        BatchRateRunPage(
+          start: BatchRateBatchPage.fromJson(_fixture('batchrate_batch_made'))!,
+          repository: BatchRateRepository(
+            ask: (_) async => null,
+            get: (_) async => _fixture('batchrate_result_done'),
+            post: (_, _) async => answers.removeAt(0),
+            currentUid: () => 31,
+          ),
+        ),
+      );
+      expect(answers, isEmpty);
+      expect(find.text('Batch rate #51'), findsOneWidget);
+    });
+
     testWidgets('a run that takes nothing off stops; an answer for another account stops', (tester) async {
       var posts = 0;
       await _pump(

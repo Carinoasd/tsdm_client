@@ -399,11 +399,11 @@ final class TsdmAppPluginInfo {
 
   /// The info of an action answer [json], null when it names no `version` (or `plugin_version`, which comes first).
   static TsdmAppPluginInfo? fromAnswer(Map<String, dynamic> json) {
-    // `batchrate` (3.9.0) names the batch rate plugin's version `version`: it tells nothing of this plugin.
-    if (json['type'] == 'batchrate') {
-      return null;
-    }
-    final version = json.containsKey('plugin_version') ? json['plugin_version'] : json['version'];
+    // `batchrate` (3.9.0) names the batch rate plugin's version `version`: it tells nothing of this plugin, only a
+    // `plugin_version` would.
+    final version = json.containsKey('plugin_version')
+        ? json['plugin_version']
+        : (json['type'] == 'batchrate' ? null : json['version']);
     if (version is! String || version.isEmpty) {
       return null;
     }

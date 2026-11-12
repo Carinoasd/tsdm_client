@@ -16,13 +16,16 @@ import 'package:tsdm_client/widgets/app_surface.dart';
 /// reason and a button to run on; leaving the page stops it too (the batches page runs it on later).
 class BatchRateRunPage extends StatefulWidget {
   /// Constructor.
-  const BatchRateRunPage({required this.start, required this.repository, super.key});
+  const BatchRateRunPage({required this.start, required this.repository, this.popWhenDone = false, super.key});
 
   /// The batch to run.
   final BatchRateBatchPage start;
 
   /// The account's requests.
   final BatchRateRepository repository;
+
+  /// Once finished, go back (to the batch's detail, which reads it again) instead of opening the result.
+  final bool popWhenDone;
 
   @override
   State<BatchRateRunPage> createState() => _BatchRateRunPageState();
@@ -66,6 +69,7 @@ class _BatchRateRunPageState extends State<BatchRateRunPage> {
     final fallback = context.t.batchRate.stopped;
     // A part that takes nothing off three times in a row stops the run: never a loop without end.
     int? lastRemaining;
+    int? lastDone;
     var still = 0;
     while (mounted) {
       BatchRateReply<BatchRateStep> reply;
@@ -93,8 +97,11 @@ class _BatchRateRunPageState extends State<BatchRateRunPage> {
             await _showResult();
             return;
           }
-          still = lastRemaining != null && step.remaining >= lastRemaining ? still + 1 : 0;
+          still = lastRemaining != null && step.remaining >= lastRemaining && step.done <= (lastDone ?? 0)
+              ? still + 1
+              : 0;
           lastRemaining = step.remaining;
+          lastDone = step.done;
           if (still >= 3) {
             setState(() {
               _running = false;
@@ -119,6 +126,10 @@ class _BatchRateRunPageState extends State<BatchRateRunPage> {
   }
 
   Future<void> _showResult() async {
+    if (widget.popWhenDone) {
+      Navigator.of(context).pop();
+      return;
+    }
     final url = widget.start.links.resultUrl;
     await Navigator.of(context).pushReplacement(
       MaterialPageRoute<void>(

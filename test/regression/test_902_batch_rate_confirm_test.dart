@@ -7,6 +7,7 @@
 /// The confirmations are the test forum's (scrubbed); the batch made is shaped as the spec gives it.
 library;
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -169,11 +170,11 @@ void main() {
       final c = _confirm('batchrate_confirm_range');
       final s = BatchRateSettings.of(c)..scores[6] = 1;
       s.mults[37] = 0;
-      expect(batchRateHolds(c, s, multMax: 99), [BatchRateHold.mult]);
+      expect(batchRateHolds(c, s), [BatchRateHold.mult]);
       s.mults[37] = 100;
-      expect(batchRateHolds(c, s, multMax: 99), [BatchRateHold.mult]);
+      expect(batchRateHolds(c, s), [BatchRateHold.mult]);
       s.mults[37] = 50;
-      expect(batchRateHolds(c, s, multMax: 99), isEmpty);
+      expect(batchRateHolds(c, s), isEmpty);
       expect(batchRateHolds(c, s, multMax: 10), [BatchRateHold.mult]);
       // A floor skipped has no multiple to check.
       s
@@ -286,6 +287,39 @@ void main() {
       expect(gets.single, '$baseUrl/plugin.php?id=batchrate:rate&brmode=result&batchid=52');
       expect(find.byType(BatchRateRunPage), findsNothing);
       expect(find.text('Batch rate #51'), findsOneWidget);
+    });
+
+    testWidgets('nothing typed while the plugin computes; a batch with nothing to run shown as it is', (tester) async {
+      final pending = Completer<Object?>();
+      final answers = <Object?>[_fixture('batchrate_confirm_recalc')];
+      var posts = 0;
+      await _pump(
+        tester,
+        BatchRateConfirmPage(
+          info: BatchRateInfo.fromJson(_fixture('batchrate_info_can'))!,
+          selection: const BatchRateSelection.floors(fid: 2, tid: 1019, floors: '2~4 7 9~'),
+          repository: BatchRateRepository(
+            ask: (_) async => null,
+            get: (_) async => _fixture('batchrate_result_done'),
+            post: (_, _) async {
+              posts++;
+              return posts == 2 ? pending.future : answers.removeAt(0);
+            },
+            currentUid: () => 31,
+          ),
+        ),
+      );
+      await tester.tap(find.byKey(const ValueKey('batch-rate-send')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.descendant(of: find.byType(AlertDialog), matching: find.byType(FilledButton)));
+      await tester.pump();
+      expect(tester.widget<TextField>(find.byKey(const ValueKey('batch-rate-score-6'))).enabled, isFalse);
+      expect(tester.widget<TextField>(find.byKey(const ValueKey('batch-rate-reason'))).enabled, isFalse);
+      pending.complete({..._fixture('batchrate_result_done'), 'run': 0});
+      await tester.pumpAndSettle();
+      expect(find.byType(BatchRateRunPage), findsNothing);
+      expect(find.text('Batch rate #51'), findsOneWidget);
+      expect(posts, 2, reason: 'nothing run');
     });
 
     testWidgets("the plugin's refusal shown as it said it, and nothing else", (tester) async {
