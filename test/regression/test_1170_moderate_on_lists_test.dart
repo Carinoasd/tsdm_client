@@ -108,6 +108,49 @@ Map<String, dynamic> _forumPage(int fid, {required int uid}) => {
   'perms': {'ismoderator': 1, 'allow_close': 1},
 };
 
+/// A list of [threads] (replaced by the test) picked with [ListThreadPicking], each row a plain tile.
+class _Host extends StatefulWidget {
+  const _Host({required this.threads, required this.repository});
+
+  final List<ListPickableThread> threads;
+  final ModerateRepository repository;
+
+  @override
+  State<_Host> createState() => _HostState();
+}
+
+class _HostState extends State<_Host> with ListThreadPicking {
+  @override
+  ModerateRepository get pickingRepository => widget.repository;
+
+  @override
+  Widget build(BuildContext context) {
+    watchPickingAccount(context);
+    return buildPickingPopScope(
+      child: Scaffold(
+        appBar: buildPickingAppBar(context, widget.threads, onDone: () {}) ?? AppBar(),
+        body: ListView(
+          children: [
+            for (final t in widget.threads)
+              buildPickableCard(
+                context,
+                t,
+                (onPick, onStartPicking) => ListTile(
+                  key: ValueKey('row-${t.tid}'),
+                  title: Text(t.title),
+                  onTap: onPick,
+                  onLongPress: onStartPicking,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+ListPickableThread _row(String tid, int fid) => (tid: tid, title: 'T$tid', fid: fid, authorUid: null, filtered: false);
+
 void main() {
   late AppDatabase db;
   late StorageProvider storage;
@@ -352,6 +395,132 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text(t.moderate.batch.select), findsNothing);
       expect(asked, isEmpty);
+    });
+  });
+
+  group('the list changing while picking', () {
+    setUp(() => ManagementGroupCache.remember(_moderator, value: true));
+
+    Future<(_Auth, StateSetter)> host(
+      WidgetTester tester,
+      List<ListPickableThread> Function() threads,
+      ModerateRepository Function(_Auth) repository,
+    ) async {
+      final auth = _Auth(_moderator);
+      addTearDown(auth.dispose);
+      late StateSetter rebuild;
+      await tester.pumpWidget(
+        TranslationProvider(
+          child: RepositoryProvider<AuthenticationRepository>.value(
+            value: auth,
+            child: MaterialApp(
+              home: StatefulBuilder(
+                builder: (context, setState) {
+                  rebuild = setState;
+                  return _Host(threads: threads(), repository: repository(auth));
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      return (auth, rebuild);
+    }
+
+    testWidgets('another list without the threads picked: picking stops, any forum may start it', (tester) async {
+      var rows = [_row('1', 4), _row('2', 4), _row('3', 7)];
+      final (auth, rebuild) = await host(tester, () => rows, moderation);
+      await tester.longPress(find.byKey(const ValueKey('row-1')));
+      await tester.pumpAndSettle();
+      expect(find.byType(ThreadPickingAppBar), findsOneWidget);
+      // Another page of the search: none of the threads picked is there.
+      rebuild(() => rows = [_row('8', 7), _row('9', 4)]);
+      await tester.pumpAndSettle();
+      expect(find.byType(ThreadPickingAppBar), findsNothing);
+      await tester.longPress(find.byKey(const ValueKey('row-8')));
+      await tester.pumpAndSettle();
+      expect(find.text(t.moderate.batch.selected(count: 1)), findsOneWidget);
+      expect(checkboxOf(tester, '9').onChanged, isNull);
+      // A refresh that keeps one of two picked: the count is what is shown.
+      rebuild(() => rows = [_row('8', 7), _row('10', 7)]);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('row-10')));
+      await tester.pumpAndSettle();
+      expect(find.text(t.moderate.batch.selected(count: 2)), findsOneWidget);
+      rebuild(() => rows = [_row('10', 7)]);
+      await tester.pumpAndSettle();
+      expect(find.text(t.moderate.batch.selected(count: 1)), findsOneWidget);
+      // Unpicking it stops picking.
+      await tester.tap(find.byKey(const ValueKey('row-10')));
+      await tester.pumpAndSettle();
+      expect(find.byType(ThreadPickingAppBar), findsNothing);
+      expect(auth.uid, _moderator);
+    });
+
+    testWidgets('picking stopped while the forum page is asked: no management opens', (tester) async {
+      final hold = Completer<void>();
+      final rows = [_row('1', 4), _row('2', 4)];
+      await host(
+        tester,
+        () => rows,
+        (auth) => ModerateRepository(
+          get: (url) async {
+            asked.add(url);
+            await hold.future;
+            return right((statusCode: 200, data: _forumPage(4, uid: _moderator)));
+          },
+          post: (url, body) async => throw StateError('no post'),
+          currentUid: () => auth.uid ?? 0,
+        ),
+      );
+      asked.clear();
+      await tester.longPress(find.byKey(const ValueKey('row-1')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('thread-picking-moderate')));
+      await tester.pump();
+      expect(asked, hasLength(1));
+      await tester.tap(find.byTooltip(MaterialLocalizations.of(tester.element(find.byType(_Host))).closeButtonTooltip));
+      await tester.pump();
+      hold.complete();
+      await tester.pumpAndSettle();
+      expect(find.text(t.moderate.close), findsNothing);
+      expect(find.byType(BottomSheet), findsNothing);
+    });
+
+    testWidgets('a thread unpicked while the forum page is asked is not managed', (tester) async {
+      final hold = Completer<void>();
+      final rows = [_row('1', 4), _row('2', 4)];
+      final windows = <String>[];
+      await host(
+        tester,
+        () => rows,
+        (auth) => ModerateRepository(
+          get: (url) async {
+            if (url.contains('mod=forumdisplay')) {
+              await hold.future;
+              return right((statusCode: 200, data: _forumPage(4, uid: _moderator)));
+            }
+            windows.add(url);
+            return left(HttpRequestFailedException(500));
+          },
+          post: (url, body) async => throw StateError('no post'),
+          currentUid: () => auth.uid ?? 0,
+        ),
+      );
+      await tester.longPress(find.byKey(const ValueKey('row-1')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('row-2')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('thread-picking-moderate')));
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('row-2')));
+      await tester.pump();
+      hold.complete();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(t.moderate.close));
+      await tester.pumpAndSettle();
+      expect(Uri.parse(windows.single).queryParametersAll['moderate[]'], ['1']);
     });
   });
 

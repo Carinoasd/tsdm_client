@@ -165,27 +165,27 @@ class _LatestThreadPageState extends State<LatestThreadPage> with ListThreadPick
           final bloc = context.read<LatestThreadBloc>();
           return buildPickingPopScope(
             child: Scaffold(
-              appBar: isPicking
-                  ? buildPickingAppBar(
-                      context,
-                      [for (final thread in state.threadList) _pickable(thread)],
-                      onDone: () {
-                        if (!bloc.isClosed) {
-                          bloc.add(LatestThreadRefreshRequested(widget.url));
-                        }
-                      },
-                    )
-                  : AppBar(
-                      title: Text(
-                        widget.title ??
-                            switch (state.tagName) {
-                              final name? => context.t.tagPage.title(name: name),
-                              // A tag page is named before the page tells the tag (loading, failed).
-                              null when widget.url.contains('mod=tag') => context.t.tagPage.cloudTitle,
-                              null => context.t.latestThreadPage.title,
-                            },
-                      ),
+              appBar:
+                  buildPickingAppBar(
+                    context,
+                    [for (final thread in state.threadList) _pickable(thread)],
+                    onDone: () {
+                      if (!bloc.isClosed) {
+                        bloc.add(LatestThreadRefreshRequested(widget.url));
+                      }
+                    },
+                  ) ??
+                  AppBar(
+                    title: Text(
+                      widget.title ??
+                          switch (state.tagName) {
+                            final name? => context.t.tagPage.title(name: name),
+                            // A tag page is named before the page tells the tag (loading, failed).
+                            null when widget.url.contains('mod=tag') => context.t.tagPage.cloudTitle,
+                            null => context.t.latestThreadPage.title,
+                          },
                     ),
+                  ),
               body: SafeArea(bottom: false, child: body),
             ),
           );

@@ -132,7 +132,7 @@ Future<bool> knownManagementGroup(int uid, {ProfileRepository? profiles}) async 
 /// management is opened).
 ///
 /// The page calls [watchPickingAccount] when it builds, builds its cards with [buildPickableCard], its app bar with
-/// [buildPickingAppBar] while [isPicking], and wraps its page in [buildPickingPopScope].
+/// [buildPickingAppBar] (null: its own app bar), and wraps its page in [buildPickingPopScope].
 mixin ListThreadPicking<T extends StatefulWidget> on State<T> {
   /// Where the forum page and the management go.
   ModerateRepository get pickingRepository;
@@ -265,22 +265,37 @@ mixin ListThreadPicking<T extends StatefulWidget> on State<T> {
   ];
 
   /// The app bar while picking among [threads] (the list's rows, in its order); [onDone] shows the list as it is now
-  /// once the threads were managed.
-  PreferredSizeWidget buildPickingAppBar(
+  /// once the threads were managed. Null when not picking, or when none of the threads picked is in the list any more
+  /// (another page of the search, a refresh): picking stops then, and any forum may start it again.
+  PreferredSizeWidget? buildPickingAppBar(
     BuildContext context,
     List<ListPickableThread> threads, {
     required VoidCallback onDone,
     PreferredSizeWidget? bottom,
   }) {
-    final picked = _picked ?? const <String>{};
-    final pickable = _pickable(context, threads);
-    final count = pickable.where((e) => picked.contains(e.tid)).length;
+    final shown = _pickable(context, threads);
+    var picked = _picked;
+    if (picked != null) {
+      // Only the threads picked the list still shows; built anew, no setState needed.
+      final kept = {for (final t in shown) t.tid}.intersection(picked);
+      if (kept.isEmpty) {
+        _picked = null;
+        _pickedFid = null;
+      } else if (kept.length != picked.length) {
+        _picked = kept;
+      }
+      picked = _picked;
+    }
+    if (picked == null) {
+      return null;
+    }
+    final count = picked.length;
     return ThreadPickingAppBar(
       count: count,
       onClose: stopPicking,
-      onSelectAll: pickable.every((e) => picked.contains(e.tid))
+      onSelectAll: shown.every((e) => picked!.contains(e.tid))
           ? null
-          : () => setState(() => _picked = {...picked, for (final e in pickable) e.tid}),
+          : () => setState(() => _picked = {...picked!, for (final e in shown) e.tid}),
       onModerate: _pickingBusy ? null : () async => _moderatePicked(context, threads, onDone),
       bottom: bottom,
     );
@@ -299,18 +314,24 @@ mixin ListThreadPicking<T extends StatefulWidget> on State<T> {
       return;
     }
     // One forum only: the forum manages the threads of the forum of a request and leaves the others untouched.
-    final chosen = [
+    List<(String, String)> chosenOf(Set<String> picked) => [
       for (final t in _pickable(context, threads))
         if (picked.contains(t.tid)) (t.tid, t.title),
     ];
-    if (chosen.isEmpty) {
+    if (chosenOf(picked).isEmpty) {
       return;
     }
     setState(() => _pickingBusy = true);
     final ModerateBatchReport? report;
     try {
       final moderation = await pickingRepository.moderationOf(fid);
-      if (!mounted || !context.mounted || _pickingUid != uid) {
+      if (!mounted || !context.mounted || _pickingUid != uid || _pickedFid != fid) {
+        return;
+      }
+      // What is picked now: picking may have stopped, or threads been unpicked, while the forum answered.
+      final now = _picked;
+      final chosen = now == null ? const <(String, String)>[] : chosenOf(now);
+      if (chosen.isEmpty) {
         return;
       }
       report = await showBatchModerateSheet(

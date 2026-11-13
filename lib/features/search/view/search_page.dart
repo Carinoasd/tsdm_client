@@ -850,39 +850,39 @@ class _SearchPageState extends State<SearchPage> with LoggerMixin, ListThreadPic
           final bloc = context.read<SearchBloc>();
           return buildPickingPopScope(
             child: Scaffold(
-              appBar: isPicking
-                  ? buildPickingAppBar(
-                      context,
-                      [for (final thread in state.searchResult?.data ?? const <SearchedThread>[]) _pickable(thread)],
-                      // The search again from its first page, by the search id kept: not a new search.
-                      onDone: () {
-                        if (!bloc.isClosed && state.searchResult != null) {
-                          bloc.add(const SearchJumpPageRequested(1));
-                        }
-                      },
-                    )
-                  : AppBar(
-                      title: Text(context.t.searchPage.title),
-                      actions: [
-                        const OpenInAppPageButton(),
-                        IconButton(
-                          icon: const Icon(Icons.sell_outlined),
-                          tooltip: context.t.tagPage.cloudTitle,
-                          onPressed: () async => context.pushNamed(ScreenPaths.tagCloud),
-                        ),
-                        IconButton(
-                          icon: Icon(expandForm ? Icons.expand_less : Icons.expand_more),
-                          tooltip: expandForm
-                              ? MaterialLocalizations.of(context).expandedIconTapHint
-                              : MaterialLocalizations.of(context).collapsedIconTapHint,
-                          onPressed: () {
-                            setState(() {
-                              expandForm = !expandForm;
-                            });
-                          },
-                        ),
-                      ],
-                    ),
+              appBar:
+                  buildPickingAppBar(
+                    context,
+                    [for (final thread in state.searchResult?.data ?? const <SearchedThread>[]) _pickable(thread)],
+                    // The search again from its first page, by the search id kept: not a new search.
+                    onDone: () {
+                      if (!bloc.isClosed && state.searchResult != null) {
+                        bloc.add(const SearchJumpPageRequested(1));
+                      }
+                    },
+                  ) ??
+                  AppBar(
+                    title: Text(context.t.searchPage.title),
+                    actions: [
+                      const OpenInAppPageButton(),
+                      IconButton(
+                        icon: const Icon(Icons.sell_outlined),
+                        tooltip: context.t.tagPage.cloudTitle,
+                        onPressed: () async => context.pushNamed(ScreenPaths.tagCloud),
+                      ),
+                      IconButton(
+                        icon: Icon(expandForm ? Icons.expand_less : Icons.expand_more),
+                        tooltip: expandForm
+                            ? MaterialLocalizations.of(context).expandedIconTapHint
+                            : MaterialLocalizations.of(context).collapsedIconTapHint,
+                        onPressed: () {
+                          setState(() {
+                            expandForm = !expandForm;
+                          });
+                        },
+                      ),
+                    ],
+                  ),
               body: SafeArea(bottom: false, child: _buildBody(context, state)),
             ),
           );

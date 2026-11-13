@@ -304,38 +304,38 @@ class _MemberThreadPageState extends State<MemberThreadPage> with SingleTickerPr
             );
             return buildPickingPopScope(
               child: Scaffold(
-                appBar: isPicking
-                    ? buildPickingAppBar(
-                        context,
-                        [for (final thread in state.thread.items) _pickable(thread)],
-                        onDone: () {
-                          if (!_cubit.isClosed) {
-                            unawaited(_cubit.load(MemberThreadTab.thread));
-                          }
-                        },
-                        bottom: tabBar,
-                      )
-                    : AppBar(
-                        title: Text(
-                          own
-                              ? context.t.myThreadPage.title
-                              : (name == null || name.isEmpty ? tr.titleUnknown : tr.title(name: name)),
-                        ),
-                        actions: [
-                          IconButton(
-                            icon: const Icon(Icons.person_outline),
-                            tooltip: context.t.profilePage.title,
-                            onPressed: () async => context.pushNamed(
-                              ScreenPaths.profile,
-                              queryParameters: {
-                                'uid': ?(state.ownerUid?.toString() ?? widget.uid),
-                                if (state.ownerUid == null && widget.uid == null) 'username': ?name,
-                              },
-                            ),
-                          ),
-                        ],
-                        bottom: tabBar,
+                appBar:
+                    buildPickingAppBar(
+                      context,
+                      [for (final thread in state.thread.items) _pickable(thread)],
+                      onDone: () {
+                        if (!_cubit.isClosed) {
+                          unawaited(_cubit.load(MemberThreadTab.thread));
+                        }
+                      },
+                      bottom: tabBar,
+                    ) ??
+                    AppBar(
+                      title: Text(
+                        own
+                            ? context.t.myThreadPage.title
+                            : (name == null || name.isEmpty ? tr.titleUnknown : tr.title(name: name)),
                       ),
+                      actions: [
+                        IconButton(
+                          icon: const Icon(Icons.person_outline),
+                          tooltip: context.t.profilePage.title,
+                          onPressed: () async => context.pushNamed(
+                            ScreenPaths.profile,
+                            queryParameters: {
+                              'uid': ?(state.ownerUid?.toString() ?? widget.uid),
+                              if (state.ownerUid == null && widget.uid == null) 'username': ?name,
+                            },
+                          ),
+                        ),
+                      ],
+                      bottom: tabBar,
+                    ),
                 body: SafeArea(bottom: false, child: _buildBody(context, state)),
               ),
             );
