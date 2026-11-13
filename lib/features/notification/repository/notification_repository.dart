@@ -586,10 +586,7 @@ final class NotificationRepository with LoggerMixin {
       }
       read++;
       notices.addAll(tsdmAppList(next['notices']).where((n) => ids.add(n['id'])));
-      // The first page with every notice read; its cursor tells nothing of the list given.
-      page = {...page, 'notices': notices}
-        ..remove('has_more')
-        ..remove('next');
+      page = {...page, 'notices': notices};
       hasMore = next['has_more'] == 1;
       final moved = tsdmAppText(next['next']);
       if (hasMore && moved == cursor) {
@@ -601,7 +598,13 @@ final class NotificationRepository with LoggerMixin {
     if (read > 1) {
       debug('read ${notices.length} notices in $read pages of notify');
     }
-    return (json: page, complete: true);
+    // The first page with every notice read; its cursor tells nothing of the list given.
+    return (
+      json: {...page}
+        ..remove('has_more')
+        ..remove('next'),
+      complete: true,
+    );
   }
 
   /// Whether the answer [json] lists an unread notice older than [since] (seconds): `notify` lists them newest first,

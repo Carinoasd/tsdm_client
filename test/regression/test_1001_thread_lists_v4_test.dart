@@ -286,6 +286,18 @@ void main() {
       expect(items.last.duration, 'somewhere');
     });
 
+    test('a refusal of the plugin, a message without words: the window', () async {
+      knowV4Status();
+      for (final answer in [
+        const {'ok': 0, 'error': 'privacy', 'uid': _uid},
+        const {'ok': 0, 'error': 'message', 'message': ' ', 'message_key': '', 'login': 0, 'uid': _uid},
+      ]) {
+        final forum = _forum(api: answer, window: v4Raw('thread_mod_v50_window.xml'));
+        expect(await fetch(forum), hasLength(63), reason: '$answer');
+        expect(forum.requests, hasLength(2));
+      }
+    });
+
     test('"no log": an empty list; another message: the refusal', () async {
       knowV4Status();
       expect(
