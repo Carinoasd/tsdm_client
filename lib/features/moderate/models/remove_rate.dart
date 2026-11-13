@@ -1,5 +1,7 @@
 import 'package:tsdm_client/constants/url.dart';
+import 'package:tsdm_client/features/tsdmapp/small_form.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
+import 'package:tsdm_client/features/tsdmapp/v4.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:universal_html/html.dart' as uh;
 import 'package:universal_html/parsing.dart';
@@ -51,6 +53,7 @@ final class RemoveRateForm {
     this.uid = 0,
     this.canNotify = false,
     this.notifyForced = false,
+    this.v4 = false,
   });
 
   /// The thread.
@@ -58,6 +61,10 @@ final class RemoveRateForm {
 
   /// The floor.
   final String pid;
+
+  /// The window was served as the small form `removerate` of the forum's app API (plugin 4.0.0, [fromApi]): it is
+  /// posted with [tsdmAppV4Query] too ([postUrl]).
+  final bool v4;
 
   /// The hidden fields served ([removeRateServedFields]).
   final Map<String, String> fields;
@@ -76,6 +83,9 @@ final class RemoveRateForm {
 
   /// The url the window is posted to, as an AJAX request.
   static const submitUrl = '$baseUrl/forum.php?mod=misc&action=removerate&ratesubmit=yes&infloat=yes&inajax=1';
+
+  /// The url this window is posted to: [submitUrl], with [tsdmAppV4Query] for a window of the app API.
+  String get postUrl => v4 ? withTsdmAppV4Write(submitUrl) : submitUrl;
 
   /// The url the window of floor [pid] of thread [tid] is asked at, as the floor's 撤销评分 link opens it.
   static String windowUrl({required String tid, required String pid}) =>
@@ -150,6 +160,75 @@ final class RemoveRateForm {
       canNotify: notify != null,
       notifyForced:
           notify != null && notify.attributes.containsKey('disabled') && notify.attributes.containsKey('checked'),
+    );
+  }
+
+  /// The window of floor [pid] of thread [tid] in the small form [answer] of the forum's app API (plugin 4.0.0,
+  /// `form: removerate`), served to [uid]: the window [parse] reads from the web page, read from its fields. A rate's
+  /// time is printed as the web page's exact time (`Y-n-j H:i` of the forum's clock), its credit as the page prints it
+  /// (`威望 +1`). Null when it is not that window (another floor or thread, a target that is not the forum's own, a
+  /// form hash missing).
+  static RemoveRateForm? fromApi(SmallFormFields answer, {required String tid, required String pid, int uid = 0}) {
+    final json = answer.json;
+    if (json['form'] != SmallFormKind.removerate.name ||
+        answer.submitUrl('forum.php', {'mod': 'misc', 'action': 'removerate', 'ratesubmit': 'yes'}) == null) {
+      return null;
+    }
+    final fields = <String, String>{
+      for (final MapEntry(:key, :value) in answer.submitFields.entries)
+        if (removeRateServedFields.contains(key)) key: value,
+    };
+    if ((fields['formhash'] ?? '').isEmpty || fields['tid'] != tid || fields['pid'] != pid) {
+      return null;
+    }
+    final offset = switch (json['timeoffset']) {
+      final num n => n,
+      final String s => num.tryParse(s.trim()) ?? 8,
+      _ => 8,
+    };
+    final entries = <RemoveRateEntry>[];
+    for (final log in tsdmAppList(json['logs'])) {
+      final logId = switch (log['value']) {
+        final String s => s,
+        final int n => '$n',
+        _ => '',
+      };
+      if (logId.trim().isEmpty || entries.any((e) => e.logId == logId)) {
+        continue;
+      }
+      final credit = tsdmAppMap(log['credit']);
+      final score = tsdmAppInt(log['score']);
+      final time = tsdmAppWallClockTime(log['dateline'], offset);
+      entries.add(
+        RemoveRateEntry(
+          logId: logId,
+          username: tsdmAppText(log['username']).trim(),
+          uid: tsdmAppInt(log['uid']),
+          time: time == null
+              ? ''
+              : '${time.year}-${time.month}-${time.day} ${time.hour.toString().padLeft(2, '0')}:'
+                    '${time.minute.toString().padLeft(2, '0')}',
+          credit: '${tsdmAppText(credit['title'])} ${score > 0 ? '+' : ''}$score ${tsdmAppText(credit['unit'])}'
+              .replaceAll(RegExp(r'\s+'), ' ')
+              .trim(),
+          reason: tsdmAppText(log['reason']).replaceAll(RegExp(r'\s+'), ' ').trim(),
+        ),
+      );
+    }
+    if (entries.isEmpty && tsdmAppList(json['logs']).isNotEmpty) {
+      // Rates the app could not read: the web page's window is read instead.
+      return null;
+    }
+    final notify = json['notify'] is Map ? tsdmAppMap(json['notify']) : null;
+    return RemoveRateForm(
+      tid: tid,
+      pid: pid,
+      fields: fields,
+      entries: entries,
+      uid: uid,
+      canNotify: notify != null,
+      notifyForced: notify != null && notify['forced'] == 1,
+      v4: true,
     );
   }
 
@@ -272,9 +351,19 @@ String deleteAttachmentUrl({required String tid, required String pid, required i
 /// thing it answers (the app API's `page` whose document is that number, or the AJAX fragment). One is done; none is
 /// a refusal without words (not the post's author nor a moderator of the forum, a form hash expired, an attachment
 /// gone already); null when [data] is no such answer.
+///
+/// Asked with [tsdmAppV4Query] (plugin 4.0.0) the result carries the number itself (`count`) and the plugin's own
+/// `message_key`: `deleteattach_succeed` with some deleted, `deleteattach_none` with none.
 FloorOpOutcome? deleteAttachmentOutcomeOf(Object? data) {
   final String text;
   if (tsdmAppWriteResultOf(data) case final result?) {
+    if (result.json['count'] case final num count) {
+      return switch (result.messageKey) {
+        'deleteattach_succeed' when count > 0 => const FloorOpSucceeded(),
+        'deleteattach_none' || 'deleteattach_succeed' => const FloorOpRefused(),
+        _ => result.login ? FloorOpRefused(result.reason) : null,
+      };
+    }
     if (result.kind != TsdmAppWriteKind.page) {
       return result.login ? FloorOpRefused(result.reason) : null;
     }

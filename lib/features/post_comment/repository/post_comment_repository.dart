@@ -4,6 +4,7 @@ import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/features/post_comment/models/post_comment.dart';
 import 'package:tsdm_client/features/tsdmapp/small_form.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
+import 'package:tsdm_client/features/tsdmapp/v4.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:universal_html/html.dart' as uh;
@@ -107,7 +108,13 @@ typedef PostCommentPost = Future<Object?> Function(String url, Map<String, Strin
 /// the forum's fragment), which is read as before: one request either way.
 final class PostCommentRepository with LoggerMixin {
   /// Constructor; transports are injected so the flow is tested without the forum.
-  PostCommentRepository({required this.get, required this.post});
+  PostCommentRepository({
+    required this.get,
+    required this.post,
+    Future<void> Function()? ensureStatus,
+    int Function()? currentUid,
+  }) : _ensureStatus = ensureStatus ?? _statusKnown,
+       _currentUid = currentUid;
 
   /// Uses [client]: a GET with the result parameter, a POST through [NetClientProvider.postForm] (which adds it).
   factory PostCommentRepository.network(NetClientProvider client) => PostCommentRepository(
@@ -119,7 +126,18 @@ final class PostCommentRepository with LoggerMixin {
       Right(:final value) => value.data,
       Left(:final value) => throw value,
     },
+    ensureStatus: () => TsdmAppApi.ensureStatus(client),
+    currentUid: currentLoginUid,
   );
+
+  /// The account logged in now, which a window of plugin 4.0.0 must have been served to; null checks nothing.
+  final int Function()? _currentUid;
+
+  /// Asks the `status` of the forum's app API when it is not known yet ([TsdmAppApi.ensureStatus]); without one, what
+  /// is known is used.
+  final Future<void> Function() _ensureStatus;
+
+  static Future<void> _statusKnown() async {}
 
   /// Page and window reads.
   final PostCommentGet get;
@@ -219,10 +237,42 @@ final class PostCommentRepository with LoggerMixin {
       _send(form, {'message': message}, doneKeys: const {'comment_add_succeed'});
 
   /// The moderators' window deleting comment [commentId] of thread [tid], as `modaction('delcomment', ID)` asks it.
-  Future<PostCommentWindow> openDelete({required String tid, required int commentId}) {
+  ///
+  /// Plugin 4.0.0 answers it as the small form `delcomment` when `status` lists it ([TsdmAppV4.has]): the form
+  /// ([_deleteFormOf], posted with [tsdmAppV4Query]) or the forum's message instead of it. Any other answer (a form the
+  /// app can not send as served, an answer that is not the form) is asked again the way it always was.
+  Future<PostCommentWindow> openDelete({required String tid, required int commentId}) async {
     final url =
         '$baseUrl/forum.php?mod=topicadmin&action=delcomment&tid=$tid&handlekey=mods&infloat=yes&nopost=yes'
         '&topiclist[]=$commentId&inajax=1';
+    await _ensureStatus();
+    if (TsdmAppV4.has(TsdmAppV4Group.forms, SmallFormKind.delcomment.name)) {
+      final Object? data;
+      try {
+        data = await get(withTsdmAppV4Form(url));
+      } on Object catch (e) {
+        error('delete comment window read failed: ${e.runtimeType}');
+        return const PostCommentWindowFailed();
+      }
+      final answer = smallFormAnswerOf(data, SmallFormKind.delcomment);
+      if (answer != null && _currentUid != null) {
+        if (answer.identityProblem(_currentUid()) case final problem?) {
+          // Served to a guest (the session ended) or to another account: never used.
+          return PostCommentWindowRefused(problem);
+        }
+      }
+      switch (answer) {
+        case final SmallFormMessage message:
+          return PostCommentWindowRefused(message.reason);
+        case final SmallFormFields fields:
+          if (_deleteFormOf(fields, tid: tid, commentId: commentId) case final form?) {
+            return PostCommentWindowForm(form);
+          }
+        case null:
+          // Asked as `status` said and answered as without it: the flag is stale.
+          TsdmAppApi.forgetStatus();
+      }
+    }
     return _window(url, (doc) {
       final form = doc.querySelector('form#topicadminform');
       if (form == null || !(form.attributes['action'] ?? '').contains('delcomment')) {
@@ -230,6 +280,30 @@ final class PostCommentRepository with LoggerMixin {
       }
       return (form: form, button: 'modsubmit', maxLength: 0);
     });
+  }
+
+  /// The form of the delete window [answer] of plugin 4.0.0 (`form: delcomment`) for comment [commentId] of thread
+  /// [tid]: where it posts (`submit.url`, the forum's `topicadmin` target, with [tsdmAppV4Query]) and its fields as
+  /// served (`submit.fields`: the form hash, the forum, the thread, the comment, the button's). Null when the app can not
+  /// send it as served, or it is not the window of that comment.
+  static PostCommentForm? _deleteFormOf(SmallFormFields answer, {required String tid, required int commentId}) {
+    if (!answer.usable) {
+      return null;
+    }
+    final action = answer.submitUrl('forum.php', {'mod': 'topicadmin', 'action': 'delcomment', 'modsubmit': 'yes'});
+    final fields = answer.submitFields;
+    if (action == null ||
+        (fields['formhash'] ?? '').isEmpty ||
+        fields['tid'] != tid ||
+        fields['topiclist'] != '$commentId') {
+      return null;
+    }
+    return PostCommentForm(
+      action: withTsdmAppV4Write(withSmallFormInAjax(action)),
+      fields: fields,
+      uid: answer.uid,
+      maxLength: 0,
+    );
   }
 
   /// Delete the comment of [form] ([openDelete]), with the moderator's [reason] (may be empty).

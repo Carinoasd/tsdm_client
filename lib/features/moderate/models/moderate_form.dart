@@ -1,7 +1,11 @@
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart' show immutable;
 import 'package:tsdm_client/constants/url.dart';
+import 'package:tsdm_client/features/moderate/models/moderate_posts.dart';
 import 'package:tsdm_client/features/thread_link_card/utils/thread_link.dart';
+import 'package:tsdm_client/features/tsdmapp/small_form.dart';
+import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
+import 'package:tsdm_client/features/tsdmapp/v4.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:universal_html/html.dart' as uh;
 
@@ -243,8 +247,8 @@ const moderateActionServedFields = {'formhash', 'fid', 'tid', 'handlekey'};
 
 /// The management window of the forum (`form#moderateform`) for one thread, as served to the account that asked.
 ///
-/// Read from the window `forum.php?mod=topicadmin&action=moderate&optgroup=N` ([ModerateForm.parse]); the forum's
-/// app API has no structured form for it (plugin 3.x `forms` lists rate, report, buy, usergroup and profile only).
+/// Read from the window `forum.php?mod=topicadmin&action=moderate&optgroup=N` ([ModerateForm.parse]), or from the small
+/// form `moderate` of the forum's app API when its `status` lists it (plugin 4.0.0, [ModerateForm.fromApi]).
 /// An operation of [ModerateOperation.group] 0 has a window `form#topicadminform` of its own action instead, but
 /// [ModerateOperation.repair], which has none ([ModerateForm.repair]).
 final class ModerateForm {
@@ -266,6 +270,7 @@ final class ModerateForm {
     this.recommendTitle,
     this.recommendFields = const {},
     this.choices = const [],
+    this.v4 = false,
   });
 
   /// The repair of thread [tid] in forum [fid] by account [uid]: the forum has no window of it (asking one repairs
@@ -283,7 +288,8 @@ final class ModerateForm {
       highlight = null,
       recommendTitle = null,
       recommendFields = const {},
-      choices = const [];
+      choices = const [],
+      v4 = false;
 
   /// The operation the window is for: the one asked, but close and open as the window checks it (the one that
   /// changes the thread as the forum sees it now).
@@ -342,6 +348,10 @@ final class ModerateForm {
   /// icon, `0` for a category), in the forum's order, the thread's own selected. Empty for the other operations.
   final List<ModerateChoice> choices;
 
+  /// The window was served as the small form `moderate` of the forum's app API (plugin 4.0.0, [fromApi]): it is posted
+  /// with [tsdmAppV4Query] too, the forum's verdict told by its `message_key`.
+  final bool v4;
+
   /// The stamp, icon or category the thread has now (the selected one); null when none is selected.
   ModerateChoice? get currentChoice => choices.firstWhereOrNull((e) => e.selected);
 
@@ -351,7 +361,9 @@ final class ModerateForm {
 
   /// The url the window is posted to: the forum's own target of [operation]'s group, as an AJAX request; the target
   /// of the window of an action of its own; the url the repair is asked at.
-  String get submitUrl => switch (operation) {
+  String get submitUrl => v4 ? withTsdmAppV4Write(_submitUrl) : _submitUrl;
+
+  String get _submitUrl => switch (operation) {
     ModerateOperation.repair => _actionUrl(operation, tid: tid, fid: fid),
     _ when operation.group == 0 =>
       '$baseUrl/forum.php?mod=topicadmin&action=${operation.action}&modsubmit=yes&infloat=yes&modclick=yes&inajax=1',
@@ -750,8 +762,12 @@ final class ModerateForm {
       ModerateOperation.recommend => 'expiration${operation.value}',
       _ => null,
     };
-    final value = name == null ? null : form.querySelector('input[name="$name"]')?.attributes['value']?.trim();
-    final match = RegExp(r'^(\d{4})-(\d{1,2})-(\d{1,2})').firstMatch(value ?? '');
+    return _dayAfterToday(name == null ? null : form.querySelector('input[name="$name"]')?.attributes['value']);
+  }
+
+  /// The day an end time [value] (`Y-m-d H:i`) names, when after today.
+  static DateTime? _dayAfterToday(String? value) {
+    final match = RegExp(r'^(\d{4})-(\d{1,2})-(\d{1,2})').firstMatch(value?.trim() ?? '');
     if (match == null) {
       return null;
     }
@@ -830,6 +846,393 @@ final class ModerateForm {
     );
     return window == null ? null : ModerateBatchForm(window: window, tids: served.toList());
   }
+
+  /// The window of operation [asked] for thread [tid] in forum [fid] in the small form [answer] of the forum's app API
+  /// (plugin 4.0.0, `form: moderate`), served to [uid]: the window [parse] reads from the web page, read from its
+  /// fields instead. Null when [answer] is not that window (another action, group, thread or forum, a target that is not
+  /// the forum's own, a form hash missing) or lacks what the operation needs ([lacksOperationApi] tells a window served
+  /// without it); a repair has none.
+  static ModerateForm? fromApi(
+    SmallFormFields answer,
+    ModerateOperation asked, {
+    required String tid,
+    required int fid,
+    int uid = 0,
+  }) {
+    if (asked == ModerateOperation.repair) {
+      return null;
+    }
+    if (asked.group == 0) {
+      return _actionFromApi(answer, asked, tid: tid, fid: fid, uid: uid);
+    }
+    final served = answer.submitLists['moderate[]'] ?? const [];
+    // Two threads: not the window of one thread.
+    if (served.length != 1 || served.single != tid) {
+      return null;
+    }
+    return _fromApi(answer, asked, tid: tid, fid: fid, uid: uid, keepThread: true);
+  }
+
+  /// The window of several threads in [answer], as [parseBatch] reads it from the web page: the threads the forum
+  /// takes are `submit.lists["moderate[]"]`, each one asked, none twice.
+  static ModerateBatchForm? batchFromApi(
+    SmallFormFields answer,
+    ModerateOperation asked, {
+    required List<String> tids,
+    required int fid,
+    int uid = 0,
+  }) {
+    if (asked.group == 0) {
+      return null;
+    }
+    final asks = tids.toSet();
+    final served = <String>{};
+    for (final tid in answer.submitLists['moderate[]'] ?? const <String>[]) {
+      if (!asks.contains(tid) || !served.add(tid)) {
+        return null;
+      }
+    }
+    if (served.isEmpty) {
+      return null;
+    }
+    final window = _fromApi(
+      answer,
+      asked,
+      tid: served.first,
+      fid: fid,
+      uid: uid,
+      keepThread: false,
+      followChecked: false,
+    );
+    return window == null ? null : ModerateBatchForm(window: window, tids: served.toList());
+  }
+
+  /// [answer] is the forum's window of [operation]'s group for thread [tid] (or threads [tids]) of forum [fid] served
+  /// without [operation], as [lacksOperation] tells it of the web page: the account may not do it, the forum does not
+  /// offer it there (recommendation off, no categories: the window holds only the forum's words, `notice`).
+  static bool lacksOperationApi(
+    SmallFormFields answer,
+    ModerateOperation operation, {
+    required int fid,
+    String? tid,
+    List<String>? tids,
+  }) {
+    final json = answer.json;
+    if (operation.group == 0 ||
+        json['action'] != 'moderate' ||
+        tsdmAppInt(json['optgroup']) != operation.group ||
+        tsdmAppInt(json['fid']) != fid) {
+      return false;
+    }
+    final served = [for (final e in json['tids'] is List ? json['tids'] as List : const []) '$e'];
+    final asked = tids?.toSet() ?? {?tid};
+    return served.isNotEmpty &&
+        served.every(asked.contains) &&
+        (tids != null || served.length == 1) &&
+        !_apiOperations(json).containsKey(operation.value);
+  }
+
+  /// The `operations[]` items of the answer [json] by their value.
+  static Map<String, Map<String, dynamic>> _apiOperations(Map<String, dynamic> json) => {
+    for (final op in tsdmAppList(json['operations'])) ?_apiText(op['value']): op,
+  };
+
+  /// The window of [asked] read from [answer], the threads it holds left out of [fields] when not [keepThread].
+  static ModerateForm? _fromApi(
+    SmallFormFields answer,
+    ModerateOperation asked, {
+    required String tid,
+    required int fid,
+    required int uid,
+    required bool keepThread,
+    bool followChecked = true,
+  }) {
+    var operation = asked;
+    final json = answer.json;
+    if (json['action'] != 'moderate' ||
+        tsdmAppInt(json['optgroup']) != operation.group ||
+        answer.submitUrl('forum.php', {
+              'mod': 'topicadmin',
+              'action': 'moderate',
+              'modsubmit': 'yes',
+              'optgroup': '${operation.group}',
+            }) ==
+            null) {
+      return null;
+    }
+    final fields = _apiServedFields(answer, moderateServedFields);
+    if (fields == null) {
+      return null;
+    }
+    if (keepThread) {
+      fields['moderate[]'] = tid;
+    }
+    if ((fields['formhash'] ?? '').isEmpty || fields['fid'] != '$fid') {
+      return null;
+    }
+
+    final ops = _apiOperations(json);
+    final op = ops[operation.value];
+    var levels = const <ModerateChoice>[];
+    var forums = const <ModerateChoice>[];
+    var canRedirect = false;
+    ModerateHighlight? highlight;
+    String? recommendTitle;
+    var recommendFields = const <String, String>{};
+    var choices = const <ModerateChoice>[];
+    switch (operation) {
+      case ModerateOperation.stick || ModerateOperation.digest:
+        levels = _apiChoices(op?['level']).where((e) => int.tryParse(e.value) != null).toList();
+        if (levels.isEmpty) {
+          return null;
+        }
+      case ModerateOperation.highlight:
+        if (op == null || op['color'] is! Map) {
+          return null;
+        }
+        final styles = {
+          for (final style in tsdmAppList(op['style'])) ?_apiText(style['name']): _apiText(style['value']) ?? '',
+        };
+        // The window of several threads serves them empty: none.
+        final index = int.tryParse(_apiText(tsdmAppMap(op['color'])['value'])?.trim() ?? '') ?? 0;
+        final background = _apiText(tsdmAppMap(op['bgcolor'])['value'])?.trim() ?? '';
+        highlight = ModerateHighlight(
+          color: index >= 0 && index < moderateHighlightColors.length ? index : 0,
+          bold: styles['highlight_style[1]']?.trim() == '1',
+          italic: styles['highlight_style[2]']?.trim() == '1',
+          underline: styles['highlight_style[3]']?.trim() == '1',
+          background: background.replaceAll(RegExp('[^A-Za-z0-9#]'), ''),
+        );
+      case ModerateOperation.recommend:
+        final values = {for (final c in tsdmAppList(tsdmAppMap(op?['isrecommend'])['choices'])) _apiText(c['value'])};
+        if (op == null || !values.containsAll(['1', '0'])) {
+          return null;
+        }
+        if (op['reducetitle'] case final Map<String, dynamic> title) {
+          recommendTitle = _apiText(title['value']) ?? '';
+        }
+        final position = op['position'] is Map ? _apiText(tsdmAppMap(op['position'])['value']) : null;
+        final image = op['image'] is Map ? tsdmAppMap(op['image']) : null;
+        recommendFields = {
+          'position': ?position,
+          // The one recommended before, or the first: as the select is served.
+          if (image != null) 'selectattach': _apiText(image['value']) ?? '',
+        };
+      case ModerateOperation.close || ModerateOperation.open:
+        final open = ops[ModerateOperation.open.value];
+        final close = ops[ModerateOperation.close.value];
+        if (open == null || close == null) {
+          return null;
+        }
+        // The forum checks the one that changes the thread as it is now (open for a closed thread).
+        final checked = [
+          if (open['checked'] == 1) ModerateOperation.open,
+          if (close['checked'] == 1) ModerateOperation.close,
+        ];
+        if (followChecked && checked.length == 1) {
+          operation = checked.single;
+        }
+      case ModerateOperation.move:
+        forums = _apiForums(json['forums'], fid);
+        if (forums.isEmpty) {
+          return null;
+        }
+        canRedirect = tsdmAppList(tsdmAppMap(json['movetype'])['choices']).any((c) => c['value'] == 'redirect');
+      case ModerateOperation.type:
+        choices = _apiChoices(json['typeid']);
+        if (op == null || choices.isEmpty) {
+          return null;
+        }
+      case ModerateOperation.stamp ||
+          ModerateOperation.stamplist ||
+          ModerateOperation.copy ||
+          ModerateOperation.merge ||
+          ModerateOperation.split ||
+          ModerateOperation.repair:
+        return null;
+      case ModerateOperation.delete:
+        if (op == null) {
+          return null;
+        }
+      case ModerateOperation.bump || ModerateOperation.down:
+        if (!ops.containsKey(ModerateOperation.bump.value) || !ops.containsKey(ModerateOperation.down.value)) {
+          return null;
+        }
+    }
+
+    final notify = json['notify'] is Map ? tsdmAppMap(json['notify']) : null;
+    return ModerateForm(
+      operation: operation,
+      tid: tid,
+      fid: fid,
+      fields: fields,
+      uid: uid,
+      levels: levels,
+      forums: forums,
+      canRedirect: canRedirect,
+      reasons: moderateApiReasons(json),
+      canNotify: notify != null,
+      notifyForced: notify != null && notify['forced'] == 1,
+      expiration: switch (operation) {
+        ModerateOperation.stick ||
+        ModerateOperation.digest ||
+        ModerateOperation.highlight ||
+        ModerateOperation.recommend => _dayAfterToday(_apiText(tsdmAppMap(op?['expiration'])['value'])),
+        _ => null,
+      },
+      highlight: highlight,
+      recommendTitle: recommendTitle,
+      recommendFields: recommendFields,
+      choices: choices,
+      v4: true,
+    );
+  }
+
+  /// The window of [asked], an action of its own, for thread [tid] in forum [fid] in [answer], served to [uid], as
+  /// [_parseAction] reads it from the web page.
+  static ModerateForm? _actionFromApi(
+    SmallFormFields answer,
+    ModerateOperation asked, {
+    required String tid,
+    required int fid,
+    required int uid,
+  }) {
+    final json = answer.json;
+    if (json['action'] != asked.action ||
+        answer.submitUrl('forum.php', {'mod': 'topicadmin', 'action': asked.action, 'modsubmit': 'yes'}) == null) {
+      return null;
+    }
+    final fields = _apiServedFields(answer, moderateActionServedFields);
+    if (fields == null || (fields['formhash'] ?? '').isEmpty || fields['tid'] != tid || fields['fid'] != '$fid') {
+      return null;
+    }
+    var choices = const <ModerateChoice>[];
+    var forums = const <ModerateChoice>[];
+    switch (asked) {
+      case ModerateOperation.stamp || ModerateOperation.stamplist:
+        final select = tsdmAppMap(json[asked.name]);
+        final images = <String, String>{
+          for (final MapEntry(:key, :value) in tsdmAppMap(select['images']).entries)
+            if (_apiText(value) case final String url when _isWebUrl(url)) key: url,
+        };
+        choices = _apiChoices(select, images: images);
+        // The window always offers none (an empty value).
+        if (!choices.any((e) => e.value.isEmpty)) {
+          return null;
+        }
+      case ModerateOperation.copy:
+        // Copying to the forum the thread is in is a copy as any other.
+        forums = _apiForums(json['forums'], 0);
+        if (forums.isEmpty) {
+          return null;
+        }
+      case ModerateOperation.merge:
+        if (json['othertid'] is! Map) {
+          return null;
+        }
+      case ModerateOperation.split:
+        if (json['subject'] is! Map || json['split'] is! Map) {
+          return null;
+        }
+      case ModerateOperation.stick ||
+          ModerateOperation.digest ||
+          ModerateOperation.highlight ||
+          ModerateOperation.recommend ||
+          ModerateOperation.close ||
+          ModerateOperation.open ||
+          ModerateOperation.move ||
+          ModerateOperation.type ||
+          ModerateOperation.repair ||
+          ModerateOperation.delete ||
+          ModerateOperation.bump ||
+          ModerateOperation.down:
+        return null;
+    }
+    final notify = json['notify'] is Map ? tsdmAppMap(json['notify']) : null;
+    return ModerateForm(
+      operation: asked,
+      tid: tid,
+      fid: fid,
+      fields: fields,
+      uid: uid,
+      forums: forums,
+      reasons: moderateApiReasons(json),
+      canNotify: notify != null,
+      notifyForced: notify != null && notify['forced'] == 1,
+      choices: choices,
+      v4: true,
+    );
+  }
+
+  /// The fields of `submit` named in [names] as served (`moderate[]` left out: the caller adds the thread it holds);
+  /// null when one is served twice (in `fields` and in `lists`, or twice in `lists`).
+  static Map<String, String>? _apiServedFields(SmallFormFields answer, Set<String> names) {
+    final fields = <String, String>{
+      for (final MapEntry(:key, :value) in answer.submitFields.entries)
+        if (names.contains(key) && key != 'moderate[]') key: value,
+    };
+    for (final MapEntry(:key, :value) in answer.submitLists.entries) {
+      if (names.contains(key) && key != 'moderate[]' && (fields.containsKey(key) || value.length != 1)) {
+        return null;
+      }
+    }
+    return fields;
+  }
+
+  /// The choices of select [value] of an answer (`{value, choices: [{value, label}]}`), as [_choices] reads those of
+  /// the web page: a value listed twice kept once where it is listed last. The forum serves the selected one as
+  /// `value`, or the first when none is: the first counts as selected only when it is no "none" (`0`, empty), as the
+  /// web page never marks those.
+  static List<ModerateChoice> _apiChoices(Object? value, {Map<String, String> images = const {}}) {
+    final select = tsdmAppMap(value);
+    final current = _apiText(select['value']);
+    final choices = <ModerateChoice>[];
+    for (final (i, choice) in tsdmAppList(select['choices']).indexed) {
+      final value = _apiText(choice['value']);
+      if (value == null) {
+        continue;
+      }
+      final selected =
+          (value == current && (i > 0 || (value.isNotEmpty && value != '0'))) ||
+          choices.any((e) => e.value == value && e.selected);
+      choices
+        ..removeWhere((e) => e.value == value)
+        ..add(
+          ModerateChoice(
+            value: value,
+            label: (_apiText(choice['label']) ?? '').trim(),
+            selected: selected,
+            image: images[value],
+          ),
+        );
+    }
+    return choices;
+  }
+
+  /// The forums of an answer (`forums[]`: `fid`, `name`, `category`, `sub`), forum [fid] left out, as [_forums] reads
+  /// them from the web page's select.
+  static List<ModerateChoice> _apiForums(Object? value, int fid) => [
+    for (final forum in tsdmAppList(value))
+      if (tsdmAppInt(forum['fid']) case final id when id > 0 && id != fid)
+        if ((_apiText(forum['name']) ?? '').trim() case final name when name.isNotEmpty)
+          ModerateChoice(
+            value: '$id',
+            label: name,
+            depth: tsdmAppInt(forum['sub']),
+            group: _apiText(forum['category'])?.trim(),
+          ),
+  ];
+
+  static bool _isWebUrl(String url) {
+    final uri = Uri.tryParse(url);
+    return uri != null && (uri.scheme == 'https' || uri.scheme == 'http') && uri.host.isNotEmpty;
+  }
+
+  static String? _apiText(Object? value) => switch (value) {
+    final String s => s,
+    final num n => '$n',
+    _ => null,
+  };
 
   static bool _isTarget(String action, int group) {
     final Uri uri;
