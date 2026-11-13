@@ -6,7 +6,7 @@ import 'package:dart_bbcode_parser/dart_bbcode_parser.dart';
 import 'package:dart_quill_delta/dart_quill_delta.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show Clipboard, ClipboardData;
+import 'package:flutter/services.dart' show Clipboard;
 import 'package:flutter_bbcode_editor/flutter_bbcode_editor.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:tsdm_client/constants/layout.dart';
@@ -23,6 +23,7 @@ import 'package:tsdm_client/features/editor/widgets/username_picker_dialog.dart'
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/utils/bbcode/spoiler_normalizer.dart';
+import 'package:tsdm_client/utils/clipboard.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/platform.dart';
 import 'package:tsdm_client/utils/show_bottom_sheet.dart';
@@ -214,7 +215,7 @@ class EditorToolbar extends StatelessWidget with LoggerMixin {
           leading: const Icon(Icons.copy_outlined),
           title: Text(tr.copyBBCode),
           onTap: () async {
-            await Clipboard.setData(ClipboardData(text: controller.toForumBBCode()));
+            await setClipboardText(controller.toForumBBCode());
             if (!context.mounted) {
               return;
             }
@@ -291,7 +292,7 @@ class EditorToolbar extends StatelessWidget with LoggerMixin {
           title: Text(tr.copyQuilllDelta),
           onTap: () async {
             final data = EditorDocument.build(collectMetadata?.call(), controller.toQuillDeltaJson());
-            await Clipboard.setData(ClipboardData(text: data.toJson()));
+            await setClipboardText(data.toJson());
             if (!context.mounted) {
               return;
             }

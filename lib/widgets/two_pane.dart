@@ -396,6 +396,35 @@ bool openThreadInPane(BuildContext context, Map<String, String?> queryParameters
   return true;
 }
 
+/// The [TwoPaneLayout]s mounted, the one mounted last at the end.
+final _mountedLayouts = <_TwoPaneLayoutState>[];
+
+/// A context in the list page of the [TwoPaneLayout] in view: the one of the page on top of the app (no other page, no
+/// dialog or sheet above it) in the branch shown. Null when the page on top is no such list page.
+///
+/// A link opened from it ([DispatchUrl.dispatchAsUrl]) goes where a link tapped in that list goes: a thread to the
+/// detail pane while the panes show, a page of its own otherwise. For what is opened from outside the pages (a snack
+/// bar of the root messenger).
+///
+/// Every list page is a page of the root navigator, as dialogs and sheets are: one above the list page makes it no
+/// longer current. A list page put in a branch of the home shell would need another check for a dialog above it.
+BuildContext? twoPaneListContextInView() {
+  for (final layout in _mountedLayouts.reversed) {
+    if (!layout.mounted) {
+      continue;
+    }
+    final context = layout.context;
+    // An offstage branch of the home shell, another page or a dialog above it: not in view.
+    if (!TickerMode.getValuesNotifier(context).value.enabled || !(ModalRoute.of(context)?.isCurrent ?? false)) {
+      continue;
+    }
+    if (layout._listKey.currentContext case final list?) {
+      return list;
+    }
+  }
+  return null;
+}
+
 /// A list page ([list]) on the left and the thread opened from it on the right, while the window is at least
 /// [twoPaneMinWidth] wide and the `twoPaneLayout` setting is on ([twoPaneEnabled]); [list] alone otherwise, as on
 /// phones.
@@ -465,7 +494,14 @@ class _TwoPaneLayoutState extends State<TwoPaneLayout> {
   var _collapsed = false;
 
   @override
+  void initState() {
+    super.initState();
+    _mountedLayouts.add(this);
+  }
+
+  @override
   void dispose() {
+    _mountedLayouts.remove(this);
     _tabs.dispose();
     super.dispose();
   }
