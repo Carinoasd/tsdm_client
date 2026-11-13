@@ -5,6 +5,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:tsdm_client/features/update/models/changelog_release.dart';
+import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 import 'package:tsdm_client/utils/git_info.dart';
 
@@ -74,42 +75,56 @@ class WhatsNewController {
   /// The offer, null when there is nothing to offer.
   final ValueNotifier<WhatsNewPrompt?> prompt = ValueNotifier(null);
 
-  /// `x.y.z` of the running app.
-  String get _currentVersion => _appVersion.split('+').first.trim();
-
   /// Decide the offer of this start.
   ///
   /// [hadPriorData] tells whether the app stored anything before this start: no record of a seen version and no
   /// prior data is a new install, no record with prior data an update from an app that kept none.
   Future<void> resolve({required bool hadPriorData}) async {
-    final current = _currentVersion;
+    // A pre-release build records nothing, so its testers still get the offer of the release that follows.
+    if (!isReleaseVersion(_appVersion)) {
+      return;
+    }
+    final current = releaseVersionName(_appVersion);
     final seen = await _read(storageKey);
     if (seen == null && !hadPriorData) {
       await _write(storageKey, current);
       return;
     }
-    if (!isReleaseVersion(_appVersion) || !_releasedVersions().contains(current)) {
+    if (seen != null && compareVersions(current, seen) <= 0) {
       return;
     }
-    if (seen != null && compareVersions(current, seen) <= 0) {
+    // The changelog is read only when there may be something to offer.
+    if (!_releasedVersions().contains(current)) {
       return;
     }
     prompt.value = WhatsNewPrompt(version: current, since: seen);
   }
 
   /// The user dismissed the offer or opened the news: do not offer this version again.
+  ///
+  /// A failed write is logged; the offer then comes back at the next start.
   Future<void> markSeen() async {
     final p = prompt.value;
     if (p == null) {
       return;
     }
     prompt.value = null;
-    await _write(storageKey, p.version);
+    try {
+      await _write(storageKey, p.version);
+    } on Object catch (e, st) {
+      talker.handle(e, st, 'failed to record the update news as seen');
+    }
   }
 
   /// Release resources.
   void dispose() => prompt.dispose();
 }
+
+/// `x.y.z` of [version] (`1.55.0+170` gives `1.55.0`).
+String releaseVersionName(String version) => version.split('+').first.trim();
+
+/// `x.y.z` of the running app.
+String get runningVersionName => releaseVersionName(appVersion);
 
 /// The `CHANGELOG.md` built into the app (see `scripts/read_changelog.dart`).
 String bundledChangelog() => utf8.decode(base64Decode(encodedChangelog));

@@ -12,7 +12,6 @@ import 'package:tsdm_client/features/update/repository/whats_new_controller.dart
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
-import 'package:tsdm_client/utils/git_info.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/indicator.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -49,7 +48,7 @@ class WhatsNewPage extends StatefulWidget {
 class _WhatsNewPageState extends State<WhatsNewPage> {
   late final Future<List<ChangelogRelease>> _releases = (widget.loadReleases ?? loadBundledReleases)();
 
-  String get _currentVersion => widget.currentVersion ?? appVersion.split('+').first;
+  String get _currentVersion => widget.currentVersion ?? runningVersionName;
 
   @override
   Widget build(BuildContext context) {

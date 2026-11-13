@@ -1,6 +1,8 @@
 // What's new (P8): when the homepage offers the changelog of the installed version, and what is recorded.
 import 'package:flutter_test/flutter_test.dart';
+import 'package:talker_flutter/talker_flutter.dart';
 import 'package:tsdm_client/features/update/repository/whats_new_controller.dart';
+import 'package:tsdm_client/instance.dart';
 
 const _released = ['1.55.0', '1.54.1', '1.54.0', '1.53.2', '1.10.0', '1.9.0'];
 
@@ -19,6 +21,8 @@ final class _Store {
 
 void main() {
   late _Store store;
+
+  setUpAll(() => talker = TalkerFlutter.init(settings: TalkerSettings(enabled: false)));
 
   setUp(() => store = _Store());
 
@@ -116,6 +120,45 @@ void main() {
     );
     await released.resolve(hadPriorData: true);
     expect(released.prompt.value, const WhatsNewPrompt(version: '1.56.0', since: '1.54.1'));
+  });
+
+  test('a new install of a pre-release build records nothing: the release after it is offered', () async {
+    final c = controller('1.55.0-blocking.3+82');
+    await c.resolve(hadPriorData: false);
+    expect(store.writes, 0);
+
+    final released = controller('1.55.0+170');
+    await released.resolve(hadPriorData: true);
+    expect(released.prompt.value, const WhatsNewPrompt(version: '1.55.0', since: null));
+  });
+
+  test('the changelog is read only when there may be an offer', () async {
+    var reads = 0;
+    store.values[WhatsNewController.storageKey] = '1.55.0';
+    final c = WhatsNewController(
+      read: store.read,
+      write: store.write,
+      appVersion: '1.55.0+170',
+      releasedVersions: () {
+        reads++;
+        return _released;
+      },
+    );
+    await c.resolve(hadPriorData: true);
+    expect(reads, 0);
+  });
+
+  test('a failed write is not thrown at the caller', () async {
+    store.values[WhatsNewController.storageKey] = '1.54.1';
+    final c = WhatsNewController(
+      read: store.read,
+      write: (_, _) async => throw StateError('disk full'),
+      appVersion: '1.55.0+170',
+      releasedVersions: () => _released,
+    );
+    await c.resolve(hadPriorData: true);
+    await c.markSeen();
+    expect(c.prompt.value, isNull);
   });
 
   test('a pre-release build offers nothing', () async {
