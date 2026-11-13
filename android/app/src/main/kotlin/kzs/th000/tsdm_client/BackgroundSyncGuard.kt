@@ -41,8 +41,8 @@ import id.flutter.flutter_background_service.BackgroundService
  * A service that stops itself (its isolate failed to start) is not the system's doing: started again by the job, it
  * would go again at once. A restart that is gone again at the next check, without being seen running in between,
  * waits twice as long before the next one (one period, two, four… up to [MAX_BACKOFF_STEPS] doublings); seen running,
- * or told by Dart again, the count starts over. The activity coming to the front restarts it whatever the count, as
- * the app itself does when it starts.
+ * or told by Dart again, the count starts over. The activity coming to the front follows the same count (it comes to
+ * the front many times in a session); a cold start of the app tries once more anyway (`BackgroundSyncController`).
  *
  * A periodic job also follows the app standby buckets: about once a day in the `rare` bucket, hardly ever in the
  * `restricted` one (Android 12+, an app not opened for long), besides waiting for the maintenance windows of Doze.
@@ -56,8 +56,11 @@ class BackgroundSyncGuard : JobService() {
         /** Running: nothing to do (a notification about an earlier stop goes). */
         NOTHING,
 
-        /** Wanted and gone: start it again. */
+        /** Wanted and gone: started again (or the system refused). */
         RESTART,
+
+        /** Wanted and gone again after restarts that did not last: waiting before the next one. */
+        WAITING,
     }
 
     companion object {
@@ -130,7 +133,8 @@ class BackgroundSyncGuard : JobService() {
          * [restartedAt]. The wait doubles with each of them.
          */
         fun backingOff(streak: Int, restartedAt: Long, now: Long): Boolean {
-            if (streak <= 0) return false
+            // A clock set back would make the wait as long as the step back: not waiting then.
+            if (streak <= 0 || now < restartedAt) return false
             val wait = PERIOD_MS shl (streak - 1).coerceAtMost(MAX_BACKOFF_STEPS)
             // Less a minute: the job does not run on the very millisecond.
             return now - restartedAt < wait - 60_000L
@@ -165,6 +169,7 @@ class BackgroundSyncGuard : JobService() {
             val prefs = prefs(context)
             val step = decide(prefs.getBoolean(KEY_WANTED, false), running(context))
             when (step) {
+                Step.WAITING -> Unit
                 Step.STOP_GUARDING -> {
                     (context.getSystemService(Context.JOB_SCHEDULER_SERVICE) as? JobScheduler)?.cancel(JOB_ID)
                     clearNotice(context)
@@ -179,9 +184,9 @@ class BackgroundSyncGuard : JobService() {
                 Step.RESTART -> try {
                     val streak = prefs.getInt(KEY_STREAK, 0)
                     val at = now()
-                    if (!inFront && backingOff(streak, prefs.getLong(KEY_RESTARTED_AT, 0L), at)) {
-                        Log.i(TAG, "background service gone again after $streak restarts: waiting")
-                        return Step.RESTART
+                    if (backingOff(streak, prefs.getLong(KEY_RESTARTED_AT, 0L), at)) {
+                        Log.i(TAG, "background service gone again after $streak restarts: waiting (in front: $inFront)")
+                        return Step.WAITING
                     }
                     start(context)
                     prefs.edit().putInt(KEY_STREAK, streak + 1).putLong(KEY_RESTARTED_AT, at).apply()

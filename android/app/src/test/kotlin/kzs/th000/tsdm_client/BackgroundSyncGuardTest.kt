@@ -133,6 +133,8 @@ class BackgroundSyncGuardTest {
         assertFalse(BackgroundSyncGuard.backingOff(3, 0L, 4 * p))
         assertTrue(BackgroundSyncGuard.backingOff(50, 0L, 31 * p))
         assertFalse(BackgroundSyncGuard.backingOff(50, 0L, 32 * p))
+        // The clock set back: not waiting for the step back.
+        assertFalse(BackgroundSyncGuard.backingOff(3, 10 * p, 0L))
     }
 
     @Test fun serviceThatStopsItselfIsNotRestartedEveryPeriod() {
@@ -145,14 +147,14 @@ class BackgroundSyncGuardTest {
         tick() // Gone again: second restart, one period later.
         assertEquals(2, starts)
         clock += p
-        tick() // Two periods to wait now.
+        assertEquals(BackgroundSyncGuard.Step.WAITING, tick()) // Two periods to wait now.
+        assertEquals(2, starts)
+        // The app coming to the front follows the count too: it comes many times in a session.
+        BackgroundSyncGuard.check(context, inFront = true, running = { false }, start = started, now = { clock })
         assertEquals(2, starts)
         clock += p
-        tick()
+        assertEquals(BackgroundSyncGuard.Step.RESTART, tick())
         assertEquals(3, starts)
-        // The app in front restarts it whatever the count.
-        BackgroundSyncGuard.check(context, inFront = true, running = { false }, start = started, now = { clock })
-        assertEquals(4, starts)
     }
 
     @Test fun seenRunningOrToldAgainStartsTheCountOver() {
