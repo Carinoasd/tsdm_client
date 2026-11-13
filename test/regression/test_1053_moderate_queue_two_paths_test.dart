@@ -63,7 +63,7 @@ void main() {
     expect(web.hasNext, api.hasNext);
   });
 
-  test('the time as the forum prints it, without the panel\'s prefix', () {
+  test("the time as the forum prints it, without the panel's prefix", () {
     for (final kind in [ModerateQueueKind.threads, ModerateQueueKind.replies]) {
       for (final item in _web(kind).items) {
         expect(item.time, matches(RegExp(r'^\d{4}-\d{1,2}-\d{1,2} \d{2}:\d{2}$')), reason: '${kind.name} ${item.id}');

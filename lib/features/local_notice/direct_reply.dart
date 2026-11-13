@@ -644,11 +644,7 @@ final class DirectReplyUnconfirmed extends DirectReplyOutcome {
 /// not be reached at all mean nothing was posted.
 bool directReplyMayHaveSent(AppException e) => switch (e) {
   ReplyWindowFetchFailedException() => false,
-  HttpHandshakeFailedException(statusCode: null) ||
-  HttpRequestFailedException(statusCode: null) => !isNoNetworkFailure(e),
-  HttpHandshakeFailedException(:final statusCode?) ||
-  HttpRequestFailedException(:final statusCode?) => statusCode >= 500 || (statusCode >= 300 && statusCode < 400),
-  _ => false,
+  _ => writeMayHaveLanded(e),
 };
 
 /// Post the message of a [DirectReplyRequest] with the client of its account.

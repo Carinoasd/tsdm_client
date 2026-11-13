@@ -543,7 +543,7 @@ void main() {
       expect(posts.single.$2, containsPair('subject', '新主题'));
       expect(find.byType(SplitThreadPage), findsNothing);
       // The new thread is opened by its earliest floor.
-      expect(done, (subject: '新主题', pid: '103', message: '管理操作成功'));
+      expect(done, (subject: '新主题', pid: '103', message: '管理操作成功', unconfirmed: false));
     });
 
     testWidgets('every floor picked: not sent, the thread would be left without a floor', (tester) async {

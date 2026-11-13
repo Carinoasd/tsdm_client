@@ -2349,6 +2349,7 @@
     "moveRedirect": "保留转向",
     "done": "管理操作成功",
     "failed": "操作失败",
+    "unconfirmed": "无法确认操作结果，请到版块确认",
     "warn": "警告",
     "unwarn": "解除警告",
     "ban": "屏蔽",

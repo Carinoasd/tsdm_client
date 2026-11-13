@@ -153,6 +153,19 @@ final class HttpHandshakeFailedException extends AppException with HttpHandshake
 /// HTTP error, not an answer of the forum (a permission message, a login page), not a dropped request.
 bool isNoNetworkFailure(AppException e) => e is HttpHandshakeFailedException && e.connectionFailed;
 
+/// Whether the failure [e] of a request that writes (a post sent once, `singleAttempt`) may hide a write the forum
+/// made: the request left and nothing came back (a timeout, a dropped connection), or a server error or a redirect
+/// came back. A forum that could not be reached at all ([isNoNetworkFailure]) or answered another status wrote
+/// nothing.
+bool writeMayHaveLanded(AppException e) => switch (e) {
+  HttpHandshakeFailedException(statusCode: null) || HttpRequestFailedException(statusCode: null) => !isNoNetworkFailure(
+    e,
+  ),
+  HttpHandshakeFailedException(:final statusCode?) ||
+  HttpRequestFailedException(:final statusCode?) => statusCode >= 500 || (statusCode >= 300 && statusCode < 400),
+  _ => false,
+};
+
 /// Server responded an error.
 ///
 /// Not like 5xx status code, the message carried in `Div#messagetext`.

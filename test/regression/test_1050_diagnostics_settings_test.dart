@@ -62,7 +62,7 @@ void main() {
   test('every value of the allow list is a plain one, whatever its type', () {
     for (final (name, value) in diagnosticSettingsSummary(diagnosticSettingsOf(settings))) {
       // `<Type>` is what an unknown kind of value is told as: every setting of the list must be one it knows.
-      expect(value, isNot(matches(RegExp(r'^<[A-Za-z_]'))), reason: name);
+      expect(value, isNot(matches(RegExp('^<[A-Za-z_]'))), reason: name);
     }
   });
 

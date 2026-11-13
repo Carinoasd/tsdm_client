@@ -292,6 +292,13 @@ Future<ModerateDone?> showThreadModerateSheet(
     if (split == null) {
       return null;
     }
+    if (split.unconfirmed) {
+      // The new thread may or may not be there: nothing offered to open.
+      if (context.mounted) {
+        showSnackBar(context: context, message: context.t.moderate.unconfirmed);
+      }
+      return ModerateDone.changed;
+    }
     if (context.mounted) {
       showSnackBar(
         context: context,
@@ -655,6 +662,10 @@ class _ModerateDialogState extends State<ModerateDialog> {
           _sending = false;
           _error = message.isNotEmpty ? context.displayText(message) : context.t.moderate.failed;
         });
+      case Left(:final value) when form.operation.resultUnknownOn(value):
+        // A copy or a merge may be done all the same: said so, the thread read again, nothing offered to send twice.
+        showSnackBar(context: context, message: context.t.moderate.unconfirmed);
+        Navigator.of(context).pop(true);
       case Left(:final value):
         setState(() {
           _sending = false;
