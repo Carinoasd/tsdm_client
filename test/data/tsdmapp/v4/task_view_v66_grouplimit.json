@@ -1,0 +1,47 @@
+{
+ "ok": 1,
+ "api": 1,
+ "time": 1700000000,
+ "uid": 31,
+ "formhash": "f1f2f3f4",
+ "checknewpm": "",
+ "type": "task",
+ "schema": 66,
+ "timeoffset": 8,
+ "taskid": 4,
+ "name": "管理员专属",
+ "description": "仅限管理人员申请。",
+ "description_html": "仅限管理人员申请。",
+ "icon": "https://forum.test/static/image/task/task.gif",
+ "period": null,
+ "endtime": 0,
+ "reward": {
+  "type": "credit",
+  "credit": {
+   "id": 2,
+   "title": "天使币",
+   "unit": ""
+  },
+  "amount": 10
+ },
+ "condition_html": "",
+ "condition": "",
+ "conditions": [],
+ "apply_condition": {
+  "groups": "",
+  "perm": "admin",
+  "related": null,
+  "exclusive": null,
+  "limit": 0,
+  "vars": []
+ },
+ "applicants": 0,
+ "parter_url": "",
+ "state": -2,
+ "csc": null,
+ "dateline": 0,
+ "next": "",
+ "apply_url": "",
+ "draw_url": "",
+ "delete_url": ""
+}

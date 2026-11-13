@@ -374,7 +374,8 @@
         "forumWatch": "新帖與關鍵字提醒",
         "replyTemplates": "回覆模板",
         "readLater": "稍後閱讀",
-        "followedThreads": "追蹤的帖子"
+        "followedThreads": "追蹤的帖子",
+        "customImages": "我的圖片"
       },
       "loginDevices": "登入裝置",
       "security": "密碼與安全",
@@ -2454,8 +2455,6 @@
     "readPerm": "讀取權限",
     "emoji": {
       "title": "表情",
-      "downloading": "正在下載表情（大約10MB內容），這可能需要一些時間。。",
-      "loadingAssets": "正在載入已打包的表情…",
       "recent": "最近使用",
       "noRecent": "用過的表情會出現在這裡",
       "removeRecent": "從最近使用中移除"
@@ -3302,6 +3301,10 @@
     "unconfirmed": "無法確認「${name}」的結果，請先查看列表再重試。",
     "confirmApply": "申請「${name}」？",
     "confirmClaim": "領取「${name}」的獎勵？",
+    "detailTitle": "任務詳情",
+    "giveUp": "放棄任務",
+    "confirmGiveUp": "放棄「${name}」？",
+    "gaveUp": "已放棄「${name}」。",
     "forumWords": {
       "rewardCredit": "積分 $credit $amount $unit",
       "rewardMagic": "道具 $name $amount 張",
@@ -3313,7 +3316,37 @@
       "noPermission": "您所在的用戶組無法申請此任務",
       "full": "人數已滿",
       "completedOn": "完成於 $time",
-      "applyAgainAfter": "$time 後可以再次申請"
+      "applyAgainAfter": "$time 後可以再次申請",
+      "reward": "獎勵",
+      "completeCondition": "完成此任務所需條件",
+      "applyCondition": "申請此任務所需條件",
+      "unlimited": "不限",
+      "generalUsers": "普通會員",
+      "admins": "管理人員",
+      "usergroup": "用戶組: $groups",
+      "relatedTask": "必須完成指定任務",
+      "exclusiveTask": "必須未領取指定任務",
+      "numLimit": "人次上限: $limit",
+      "periodHour": "每隔 $period 小時允許申請一次",
+      "periodDay": "每 $period 天允許申請一次",
+      "periodWeek": "每週 $day 允許申請一次",
+      "periodMonth": "每月 $period 日允許申請一次",
+      "endTime": "目前任務下線時間為 $time",
+      "failedOn": "失敗於 $time",
+      "applyAgainNow": "現在可以再次申請",
+      "reapplyAfter": "$time 後可以重新申請",
+      "reapplyNow": "現在可以重新申請",
+      "applicants": "已有 $count 位會員參與此任務",
+      "parterDone": "已完成",
+      "parterFailed": "失敗",
+      "weekday1": "週一",
+      "weekday2": "週二",
+      "weekday3": "週三",
+      "weekday4": "週四",
+      "weekday5": "週五",
+      "weekday6": "週六",
+      "weekday7": "週日",
+      "rewardNone": "無"
     }
   },
   "magicCenter": {
@@ -3342,6 +3375,8 @@
     "rejected": "論壇未完成「${name}」的操作",
     "unknown": "已送出「${name}」，但無法確認結果。再次操作前請先看「我的道具」裡的數量。",
     "windowFailed": "無法開啟道具視窗",
+    "log": "道具記錄",
+    "logEmpty": "暫無記錄",
     "forumWords": {
       "capacity": "$used/$max",
       "balance": "目前有 $credit $amount",
@@ -3351,7 +3386,16 @@
       "myBalance": "我目前有$credit $amount",
       "weight": "重量: $weight",
       "freeWeight": "我的道具包可用容量 $weight",
-      "stock": "庫存: $stock 張"
+      "stock": "庫存: $stock 張",
+      "logUse": "使用記錄",
+      "logBuy": "購買記錄",
+      "logGive": "贈送記錄",
+      "logReceive": "獲贈記錄",
+      "target": "查看對象",
+      "sold": "出售",
+      "dropped": "丟棄",
+      "givenTo": "贈送給 $name",
+      "givenBy": "贈送人 $name"
     }
   },
   "editUserProfilePage": {

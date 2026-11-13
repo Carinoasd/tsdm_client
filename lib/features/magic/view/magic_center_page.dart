@@ -367,6 +367,13 @@ class _MagicCenterPageState extends State<MagicCenterPage> {
           appBar: AppBar(
             title: Text(tr.title),
             actions: [
+              if (state.logAvailable)
+                IconButton(
+                  key: const ValueKey('magic-log'),
+                  tooltip: tr.log,
+                  icon: const Icon(Icons.history),
+                  onPressed: () async => context.pushNamed(ScreenPaths.magicLog),
+                ),
               IconButton(
                 tooltip: tr.refresh,
                 icon: const Icon(Icons.refresh),

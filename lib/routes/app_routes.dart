@@ -49,6 +49,7 @@ import 'package:tsdm_client/features/latest_thread/view/latest_thread_page.dart'
 import 'package:tsdm_client/features/local_draft/view/local_draft_page.dart';
 import 'package:tsdm_client/features/login_device/view/login_devices_page.dart';
 import 'package:tsdm_client/features/magic/view/magic_center_page.dart';
+import 'package:tsdm_client/features/magic/view/magic_log_page.dart';
 import 'package:tsdm_client/features/me/view/me_page.dart';
 import 'package:tsdm_client/features/medal_center/view/medal_center_page.dart';
 import 'package:tsdm_client/features/medal_center/view/medal_title_hub_page.dart';
@@ -120,6 +121,7 @@ import 'package:tsdm_client/features/space/view/space_page.dart';
 import 'package:tsdm_client/features/space/view/space_poke_page.dart';
 import 'package:tsdm_client/features/tag/view/tag_cloud_page.dart';
 import 'package:tsdm_client/features/task_center/view/task_center_page.dart';
+import 'package:tsdm_client/features/task_center/view/task_detail_page.dart';
 import 'package:tsdm_client/features/thread/v1/models/thread_reply_prefill.dart';
 import 'package:tsdm_client/features/thread/v1/view/share_floor_image_page.dart';
 import 'package:tsdm_client/features/thread/v1/view/thread_page.dart';
@@ -421,6 +423,7 @@ final List<RouteBase> _appRoutes = [
   AppRoute(path: ScreenPaths.switchTitle, builder: (_) => const MyTitlesPage()),
   AppRoute(path: ScreenPaths.titleShop, builder: (_) => const TitleShopPage()),
   AppRoute(path: ScreenPaths.magicCenter, builder: (_) => const MagicCenterPage()),
+  AppRoute(path: ScreenPaths.magicLog, builder: (_) => const MagicLogPage()),
   AppRoute(path: ScreenPaths.userBlock, builder: (_) => const UserBlockPage()),
   AppRoute(path: ScreenPaths.websiteBlocklist, builder: (_) => const WebsiteBlocklistPage()),
   AppRoute(path: ScreenPaths.medalCenter, builder: (_) => const MedalCenterPage()),
@@ -458,6 +461,10 @@ final List<RouteBase> _appRoutes = [
   ),
   AppRoute(path: ScreenPaths.bank, builder: (_) => const BankPage()),
   AppRoute(path: ScreenPaths.taskCenter, builder: (_) => const TaskCenterPage()),
+  AppRoute(
+    path: ScreenPaths.taskDetail,
+    builder: (state) => TaskDetailPage(taskId: int.tryParse(state.pathParameters['taskId'] ?? '') ?? 0),
+  ),
   AppRoute(
     path: ScreenPaths.pokemon,
     builder: (state) => PokemonPage(initialTab: (state.extra as int?) ?? 0),

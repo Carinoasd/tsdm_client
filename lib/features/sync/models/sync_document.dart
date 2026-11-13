@@ -86,6 +86,15 @@ const syncFollowedThreadsMax = 200;
 /// device.
 const int syncFollowedThreadsMaxBytes = 6 * 1024;
 
+/// Most saved images ("my images") a document carries: the latest saved or renamed (the budget,
+/// [syncCustomImagesMaxBytes], comes first with usual addresses).
+const syncCustomImagesMax = 100;
+
+/// Most bytes the saved images take in a document, the records of the deleted ones with them: an image hosted on the
+/// forum with a short Chinese name takes about 120 bytes, so the latest 50 or so go with the sync and the older ones
+/// stay on their device.
+const int syncCustomImagesMaxBytes = 6 * 1024;
+
 /// What one account keeps on the forum for its devices (plugin 3.4.0, `sync`): a JSON object the plugin stores as it
 /// is. This version reads and writes `schema` 1:
 ///
@@ -122,7 +131,9 @@ const int syncFollowedThreadsMaxBytes = 6 * 1024;
 ///  "read_later": {"<tid>": {"updated": ms, "title": "…", "author": "…", "forum": "…"},
 ///                 "<tid>": {"updated": ms, "deleted": true}},
 ///  "follows":    {"<tid>": {"updated": ms, "title": "…"},
-///                 "<tid>": {"updated": ms, "deleted": true}}}
+///                 "<tid>": {"updated": ms, "deleted": true}},
+///  "custom_images": {"<url>": {"updated": ms, "name": "…"},
+///                    "<url>": {"updated": ms, "deleted": true}}}
 /// ```
 ///
 /// `rate_templates` and `settings` are one item each, like `phrases`: the later `updated` wins, whole (the values of
@@ -155,7 +166,11 @@ const int syncFollowedThreadsMaxBytes = 6 * 1024;
 /// (`read_later_sync.dart`), `follows` the threads it follows (`followed_thread_sync.dart`; what a device's check of
 /// them knows never goes with them): item by item the later wins, a thread taken off leaves the record of when, the
 /// latest [syncReadLaterMax] and [syncFollowedThreadsMax] within [syncReadLaterMaxBytes] and
-/// [syncFollowedThreadsMaxBytes]. The settings of `settings` grow the same way: a setting added to it later
+/// [syncFollowedThreadsMaxBytes]. `custom_images` came last, the same way: the saved images of the emoji pickers
+/// (`custom_image_sync.dart`) by their address, the address and the name only (never the image), item by item the
+/// later wins and a deleted one leaves the record of when, the latest [syncCustomImagesMax] within
+/// [syncCustomImagesMaxBytes]; like the reply templates they are the device's, so every account synced on it carries
+/// them. The settings of `settings` grow the same way: a setting added to it later
 /// (`syncedSettingsAddedLater`) takes, on a device that synced settings before, the forum's value where the device
 /// has the default.
 ///
@@ -259,6 +274,7 @@ final class SyncDocument {
     'watch_keywords',
     'read_later',
     'follows',
+    'custom_images',
   ];
 
   /// The sections this version reads as one item each.

@@ -4,16 +4,16 @@ part of 'emoji_bloc.dart';
 @MappableClass()
 sealed class EmojiEvent with EmojiEventMappable {}
 
-/// Fetch emoji from server
-@MappableClass()
-final class EmojiFetchFromServerEvent extends EmojiEvent with EmojiFetchFromServerEventMappable {}
-
-/// Fetch emoji from cache.
+/// Load the emoji groups: the list saved on this device, else the forum's.
 @MappableClass()
 final class EmojiFetchFromCacheEvent extends EmojiEvent with EmojiFetchFromCacheEventMappable {}
 
-/// Fetch emoji from app asset.
-///
-/// This is totally offline.
+/// Download the images of the group [groupId] not downloaded yet: when the group is shown, or again after a failure.
 @MappableClass()
-final class EmojiFetchFromAssetEvent extends EmojiEvent with EmojiFetchFromAssetEventMappable {}
+final class EmojiFetchGroupEvent extends EmojiEvent with EmojiFetchGroupEventMappable {
+  /// Constructor.
+  EmojiFetchGroupEvent(this.groupId);
+
+  /// Id of the group.
+  final String groupId;
+}

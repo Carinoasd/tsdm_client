@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:tsdm_client/features/authentication/utils/logged_user_parser.dart';
 import 'package:tsdm_client/features/task_center/models/task_center.dart';
+import 'package:tsdm_client/features/task_center/models/task_detail.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:tsdm_client/features/tsdmapp/v4.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
@@ -14,6 +15,15 @@ final class TaskCenterIdentityException implements Exception {
 
   /// The page was served to a guest: the session expired.
   final bool guest;
+}
+
+/// The forum answered a task's page with its message (the task does not exist or is offline, the task system closed).
+final class TaskDetailMessage implements Exception {
+  /// Constructor.
+  const TaskDetailMessage(this.message);
+
+  /// The forum's words.
+  final String message;
 }
 
 /// The answer of a GET that writes: its body and, for a redirect it did not follow, the target.
@@ -139,5 +149,57 @@ class TaskCenterRepository {
     }
     final answer = await getWrite(taskDrawUrl(id));
     return taskDrawResultOf(answer.data, id: id);
+  }
+
+  /// A task's page is answered as fields (plugin 4.0.0: `status` lists `task` in `task_pages`). Without it the app has
+  /// no task page: the web page is not read.
+  Future<bool> detailAvailable() async {
+    if (getV4Page == null || getV4Write == null) return false;
+    await ensureStatus?.call();
+    return TsdmAppV4.has(TsdmAppV4Group.taskPages, 'task');
+  }
+
+  /// Fetch the page of task [id] served to [uid] ([taskDetailFromApi]).
+  ///
+  /// Another account's page is refused, the login prompt is the login, the forum's message is [TaskDetailMessage];
+  /// any other answer fails (there is no web page to fall back to).
+  Future<TaskDetail> fetchDetail(int id, int uid) async {
+    if (uid <= 0) throw const TaskCenterIdentityException(guest: true);
+    if (!await detailAvailable()) throw StateError('Task page unavailable');
+    final answer = tsdmAppV4AnswerOf(await getV4Page!(taskViewUrl(id)), type: 'task', schema: 66);
+    if (answer != null && answer.uid != uid) throw TaskCenterIdentityException(guest: answer.uid == 0);
+    switch (answer) {
+      case TsdmAppV4Page(:final json) when tsdmAppInt(json['taskid']) == id:
+        return taskDetailFromApi(json);
+      case TsdmAppV4Message(:final login) when login:
+        throw const TaskCenterIdentityException(guest: true);
+      case TsdmAppV4Message(:final message) when message.trim().isNotEmpty:
+        throw TaskDetailMessage(message.trim());
+      case _:
+        throw const FormatException('Not the task page');
+    }
+  }
+
+  /// The latest members who applied for task [id], served to [uid]; empty when the plugin does not answer them
+  /// (`task_parter` not in `task_pages`) or answers something else.
+  Future<List<TaskParter>> fetchParters(int id, int uid) async {
+    if (getV4Page == null) return const [];
+    await ensureStatus?.call();
+    if (!TsdmAppV4.has(TsdmAppV4Group.taskPages, 'task_parter')) return const [];
+    final answer = tsdmAppV4AnswerOf(await getV4Page!(taskParterUrl(id)), type: 'task_parter', schema: 67);
+    if (answer != null && answer.uid != uid) throw TaskCenterIdentityException(guest: answer.uid == 0);
+    return switch (answer) {
+      TsdmAppV4Page(:final json) when tsdmAppInt(json['taskid']) == id => taskPartersFromApi(json),
+      _ => const [],
+    };
+  }
+
+  /// Give task [id] up once (`do=delete`, a GET that writes, only with plugin 4.0.0: only its task page offers it).
+  /// Only `task_deleted` counts as given up.
+  Future<TaskActionResult> giveUp(int id) async {
+    if (getV4Write == null) throw StateError('Give-up unavailable');
+    final data = await getV4Write!(taskV4GiveUpUrl(id));
+    return taskV4ActionResultOf(data, id: id, kind: TaskActionKind.giveUp) ??
+        TaskActionResult(taskId: id, outcome: TaskActionOutcome.unconfirmed);
   }
 }

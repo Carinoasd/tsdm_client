@@ -24,8 +24,8 @@ import 'package:tsdm_client/utils/logger.dart';
 /// When the cross-device sync runs: a pull when the app starts with an account and at every login, again when the app
 /// comes to the front after [pullAgainAfter] in the background; a push a while after the visit records, the quick
 /// phrases, the block list, the fast rate templates, the synced settings, the local drafts, the floor bookmarks, the
-/// pinned forums, what is watched for new threads, the fast reply templates, the read later list or the followed
-/// threads of the account change on this device. Nothing while the setting is off; a pull when it (or one of its
+/// pinned forums, what is watched for new threads, the fast reply templates, the read later list, the followed
+/// threads or the saved images of the account change on this device. Nothing while the setting is off; a pull when it (or one of its
 /// categories) is switched on.
 final class SyncCoordinator with LoggerMixin {
   /// Constructor.
@@ -92,6 +92,7 @@ final class SyncCoordinator with LoggerMixin {
     SyncCategory.replyTemplates => settings.crossDeviceSyncReplyTemplates,
     SyncCategory.readLater => settings.crossDeviceSyncReadLater,
     SyncCategory.followedThreads => settings.crossDeviceSyncFollowedThreads,
+    SyncCategory.customImages => settings.crossDeviceSyncCustomImages,
   };
 
   static String _settingsSnapshotOf(SettingsMap settings) =>
@@ -127,6 +128,7 @@ final class SyncCoordinator with LoggerMixin {
   StreamSubscription<List<FastReplyTemplateModel>>? _replyTemplatesSub;
   String? _replyTemplates;
   StreamSubscription<void>? _readLaterSub;
+  StreamSubscription<void>? _customImagesSub;
   String? _pinned;
   String? _settingsSnapshot;
   String? _templates;
@@ -233,6 +235,21 @@ final class SyncCoordinator with LoggerMixin {
       },
       onError: (Object e, StackTrace st) => error('sync: failed to watch the reply templates: $e', e, st),
     );
+    // The saved images are the device's: a change is written for the account in use.
+    var firstImages = true;
+    _customImagesSub = _storage.watchCustomImages().listen(
+      (_) {
+        // The first value is the current state, not a change.
+        if (firstImages) {
+          firstImages = false;
+          return;
+        }
+        if (_uid case final uid?) {
+          _repository.schedulePush(uid);
+        }
+      },
+      onError: (Object e, StackTrace st) => error('sync: failed to watch the saved images: $e', e, st),
+    );
   }
 
   static String? _pinnedOf(SettingsMap settings, int? uid) =>
@@ -299,6 +316,7 @@ final class SyncCoordinator with LoggerMixin {
     await _followedSub?.cancel();
     await _replyTemplatesSub?.cancel();
     await _readLaterSub?.cancel();
+    await _customImagesSub?.cancel();
     await _repository.dispose();
   }
 }

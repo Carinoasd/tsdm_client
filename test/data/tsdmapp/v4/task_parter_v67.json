@@ -1,0 +1,20 @@
+{
+ "ok": 1,
+ "api": 1,
+ "time": 1700000000,
+ "uid": 31,
+ "formhash": "f1f2f3f4",
+ "checknewpm": "",
+ "type": "task_parter",
+ "schema": 67,
+ "taskid": 2,
+ "list": [
+  {
+   "uid": 31,
+   "username": "ag_low2",
+   "avatar": "https://forum.test/data/avatar/000/00/00/31_avatar_small.jpg",
+   "status": 1,
+   "csc": 100
+  }
+ ]
+}

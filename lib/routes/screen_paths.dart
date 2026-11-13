@@ -98,6 +98,9 @@ class ScreenPaths {
   /// The forum's magic shop and the account's magic items.
   static const String magicCenter = '/magicCenter';
 
+  /// The account's magic item log: used, bought, given and received.
+  static const String magicLog = '/magicCenter/log';
+
   /// Local block list and server notice ignore rules of the current account.
   static const String userBlock = '/userBlock';
 
@@ -149,6 +152,9 @@ class ScreenPaths {
 
   /// The forum's task center: tasks to apply for, in progress and completed.
   static const String taskCenter = '/taskCenter';
+
+  /// One task of the task center. Need to specify the task id (`taskId`).
+  static const String taskDetail = '/taskCenter/task/:taskId';
 
   /// The pokemon center (宠物中心): my pokemon, healing, inventory and shop.
   static const String pokemon = '/pokemon';

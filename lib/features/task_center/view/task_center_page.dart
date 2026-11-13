@@ -84,6 +84,7 @@ class _TaskCenterPageState extends State<TaskCenterPage> with SingleTickerProvid
     final (text, tone, icon) = switch (result.outcome) {
       TaskActionOutcome.applied => (tr.applied(name: name), AppNoticeTone.info, Icons.check_circle_outline),
       TaskActionOutcome.rewarded => (tr.rewarded(name: name), AppNoticeTone.info, Icons.redeem_outlined),
+      TaskActionOutcome.gaveUp => (tr.gaveUp(name: name), AppNoticeTone.info, Icons.check_circle_outline),
       TaskActionOutcome.inProgress => (tr.inProgress(name: name), AppNoticeTone.warning, Icons.timelapse),
       TaskActionOutcome.failed => (tr.failed(name: name), AppNoticeTone.error, Icons.error_outline),
       TaskActionOutcome.refused => (tr.refused(name: name), AppNoticeTone.error, Icons.block_outlined),
@@ -113,15 +114,21 @@ class _TaskCenterPageState extends State<TaskCenterPage> with SingleTickerProvid
     );
   }
 
+  /// Something sent from a task's page changes the lists: they are all loaded again.
+  Future<void> _openDetail(ForumTask task) async {
+    final acted = await context.pushNamed<bool>(ScreenPaths.taskDetail, pathParameters: {'taskId': '${task.id}'});
+    if (acted ?? false) await _cubit.reloadAll(_tab);
+  }
+
   /// The apply and the claim are GETs that write: sent only once the user confirmed, once.
   Future<void> _confirmAndAct(TaskCenterTab tab, ForumTask task, TranslationsTaskCenterEn tr) async {
     final name = context.displayText(task.name);
-    final apply = task.action == TaskActionKind.apply;
-    final ok = await showQuestionDialog(
-      context: context,
-      title: apply ? tr.apply : tr.claim,
-      message: apply ? tr.confirmApply(name: name) : tr.confirmClaim(name: name),
-    );
+    final (title, message) = switch (task.action!) {
+      TaskActionKind.apply => (tr.apply, tr.confirmApply(name: name)),
+      TaskActionKind.draw => (tr.claim, tr.confirmClaim(name: name)),
+      TaskActionKind.giveUp => (tr.giveUp, tr.confirmGiveUp(name: name)),
+    };
+    final ok = await showQuestionDialog(context: context, title: title, message: message);
     if (ok != true || !mounted) return;
     await _cubit.act(tab, task);
   }
@@ -153,6 +160,13 @@ class _TaskCenterPageState extends State<TaskCenterPage> with SingleTickerProvid
         icon: const Icon(Icons.redeem_outlined),
         label: Text(tr.claim),
       ),
+      // The lists never offer it (only a task's page does); listed for an exhaustive switch.
+      TaskActionKind.giveUp => TextButton.icon(
+        key: ValueKey('task-give-up-${task.id}'),
+        onPressed: onPressed,
+        icon: const Icon(Icons.close),
+        label: Text(tr.giveUp),
+      ),
     };
   }
 
@@ -163,6 +177,7 @@ class _TaskCenterPageState extends State<TaskCenterPage> with SingleTickerProvid
     final progress = task.progress;
     return AppSurface(
       key: ValueKey('task-${tab.item}-${task.id}'),
+      onTap: state.detailAvailable ? () => unawaited(_openDetail(task)) : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
