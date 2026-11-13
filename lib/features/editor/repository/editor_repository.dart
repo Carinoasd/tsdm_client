@@ -1,5 +1,6 @@
 import 'dart:io' if (dart.libaray.js) 'package:web/web.dart';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:fpdart/fpdart.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
@@ -18,6 +19,18 @@ import 'package:tsdm_client/utils/logger.dart';
 /// * Emoji
 ///
 final class EditorRepository with LoggerMixin {
+  /// Constructor.
+  ///
+  /// [netClientProvider] fetches the emoji list (a client without cookies by default), [imageCacheProvider] keeps the
+  /// emoji (the app's by default).
+  EditorRepository({NetClientProvider? netClientProvider, ImageCacheProvider? imageCacheProvider})
+    : _netClientProvider = netClientProvider,
+      _imageCacheProvider = imageCacheProvider;
+
+  final NetClientProvider? _netClientProvider;
+
+  final ImageCacheProvider? _imageCacheProvider;
+
   /// Url to fetch all available emoji info.
   ///
   /// It's a one-line javascript file expected in the following format:
@@ -156,7 +169,9 @@ final class EditorRepository with LoggerMixin {
         final id = dd[1];
         final code = dd[3].replaceAll(_escapedQuotePlaceholder, "'");
         final fileName = dd[5];
-        emojiList.add(Emoji(id: id, code: code, url: '$_emojiFileUrlHead${group.routeName}/$fileName'));
+        // Some files have spaces in their names (`1 (15).gif`).
+        final url = '$_emojiFileUrlHead${Uri.encodeComponent(group.routeName)}/${Uri.encodeComponent(fileName)}';
+        emojiList.add(Emoji(id: id, code: code, url: url));
       }
       emojiGroupMap[groupId] = group.copyWith(emojiList: [...group.emojiList, ...emojiList]);
     }
@@ -168,122 +183,73 @@ final class EditorRepository with LoggerMixin {
     return emojiGroupMap.values.where((e) => e.emojiList.isNotEmpty).toList();
   }
 
-  Future<bool> _generateDownloadEmojiTask(
-    NetClientProvider netClient,
-    ImageCacheProvider cacheProvider,
-    EmojiGroup emojiGroup,
-    Emoji emoji, {
-    bool force = false,
-  }) async {
-    if (_disposed) {
-      // Terminate task generation if disposed.
-      return false;
-    }
-    // Skip if have cache.
-    if (!force && cacheProvider.hasEmojiCacheFile(emojiGroup.id, emoji.id)) {
-      return true;
-    }
-    var retryTimes = 2;
-    while (retryTimes >= 0) {
-      retryTimes -= 1;
-      // No more retry here.
-      final respEither = await netClient.getImage(emoji.url).run();
-      if (_disposed) {
-        return false;
-      }
-      if (respEither.isLeft()) {
-        if (retryTimes < 0) {
-          handle(respEither.unwrapErr());
-          error(
-            'failed to download emoji ${emojiGroup.id}_${emoji.id}: '
-            'exceed max retry times',
-          );
-          return false;
-        }
-        continue;
-      }
-      final resp = respEither.unwrap();
-      if (resp.statusCode != HttpStatus.ok) {
-        return false;
-      }
-      await cacheProvider.updateEmojiCache(emojiGroup.id, emoji.id, resp.data as List<int>);
-    }
-    return true;
-  }
+  /// Parse [info], the content of the forum's emoji list ([_emojiInfoUrl]).
+  @visibleForTesting
+  List<EmojiGroup> parseEmojiInfo(String info) => _parseEmojiInfo(info);
 
-  /// Force load all emoji from server through [_emojiInfoUrl].
-  ///
-  /// No cookie needed in this process.
-  ///
-  /// Return false when single emoji file exceed max retry times.
-  Future<bool> loadEmojiFromServer() async {
-    info('load emoji from server');
-    // TODO: Use injected net client.
-    final netClient = getIt.get<NetClientProvider>(instanceName: ServiceKeys.noCookie);
+  ImageCacheProvider get _imageCache => _imageCacheProvider ?? getIt.get<ImageCacheProvider>();
+
+  /// Load the emoji groups into [emojiGroupList]: the list saved on this device, else the forum's list (saved for the
+  /// next time). Only the list: the images of a group are downloaded when it is shown ([downloadEmojiGroup]).
+  AsyncVoidEither loadEmojiFromCacheOrServer() => AsyncVoidEither(() async {
+    final saved = await _imageCache.loadEmojiInfo();
+    if (saved != null && saved.isNotEmpty) {
+      emojiGroupList = saved;
+      return rightVoid();
+    }
+    info('load emoji list from server');
+    final netClient = _netClientProvider ?? getIt.get<NetClientProvider>(instanceName: ServiceKeys.noCookie);
     final respEither = await netClient.get(_emojiInfoUrl).run();
     if (respEither.isLeft()) {
       handle(respEither.unwrapErr());
-      return false;
+      return left(EmojiLoadFailedException());
     }
     final resp = respEither.unwrap();
-    if (resp.statusCode != HttpStatus.ok) {
+    if (resp.statusCode != HttpStatus.ok || resp.data is! String) {
       error('failed to load emoji info: StatusCode=${resp.statusCode}');
-      return false;
+      return left(EmojiLoadFailedException());
     }
-    emojiGroupList = _parseEmojiInfo(resp.data as String);
-    final cacheProvider = getIt.get<ImageCacheProvider>();
-    // Save emoji info.
-    await cacheProvider.saveEmojiInfo(emojiGroupList!);
-    // TODO: Download emoji in parallel.
-    // Download emoji data.
-    for (final emojiGroup in emojiGroupList!) {
-      if (_disposed) {
-        // Terminate job if disposed.
-        return false;
-      }
-      final downloadList = emojiGroup.emojiList.map(
-        (e) => _generateDownloadEmojiTask(netClient, cacheProvider, emojiGroup, e),
-      );
-      debug('download for emoji group: ${emojiGroup.id}');
-      debug('emoji group ${emojiGroup.id} ${emojiGroup.emojiList.first.url}');
-      await Future.wait(downloadList);
+    final groups = _parseEmojiInfo(resp.data as String);
+    if (groups.isEmpty) {
+      return left(EmojiLoadFailedException());
     }
-    info('load emoji from server finished');
-    return true;
+    emojiGroupList = groups;
+    await _imageCache.saveEmojiInfo(groups);
+    return rightVoid();
+  });
+
+  /// Download the images of [group] not in the emoji cache yet, a few at once ([ImageCacheProvider.getOrMakeEmojiCache]
+  /// limits all emoji downloads together); [onProgress] is
+  /// told how many of all the group has are there.
+  ///
+  /// Returns how many are still missing: failed to download, or left when the repository was disposed.
+  Future<int> downloadEmojiGroup(EmojiGroup group, {void Function(int done, int total)? onProgress}) async {
+    final cache = _imageCache;
+    final total = group.emojiList.length;
+    final missing = group.emojiList.where((e) => !cache.hasEmojiCacheFile(group.id, e.id)).toList();
+    var done = total - missing.length;
+    var failed = 0;
+    onProgress?.call(done, total);
+    await Future.wait(
+      missing.map(
+        (emoji) async {
+          final data = await cache.getOrMakeEmojiCache(group.id, emoji.id, url: emoji.url, wanted: () => !_disposed);
+          if (data == null) {
+            failed++;
+            return;
+          }
+          done++;
+          if (!_disposed) {
+            onProgress?.call(done, total);
+          }
+        },
+      ),
+    );
+    if (failed > 0) {
+      warning('emoji group ${group.id}: $failed of $total not downloaded');
+    }
+    return failed;
   }
-
-  /// Load all emoji data from
-  /// * cache: if have.
-  /// * server: when cache is invalid.
-  ///
-  /// Only load the emoji info, do not load the emoji image data.
-  ///
-  /// Currently there there is no validation on emoji and emoji groups.
-  AsyncVoidEither loadEmojiFromCacheOrServer() => AsyncVoidEither(() async {
-    final cacheProvider = getIt.get<ImageCacheProvider>();
-    if (await cacheProvider.validateEmojiCache()) {
-      // Have valid emoji cache.
-      emojiGroupList = await cacheProvider.loadEmojiInfo();
-    } else {
-      // Do not have valid emoji cache, reload from server.
-      final ret = await loadEmojiFromServer();
-      if (!ret) {
-        return left(EmojiLoadFailedException());
-      }
-    }
-    return rightVoid();
-  });
-
-  /// Some should be because still developing.
-  AsyncVoidEither loadEmojiFromAsset() => AsyncVoidEither(() async {
-    final cacheProvider = getIt.get<ImageCacheProvider>();
-    if (await cacheProvider.validateEmojiCache()) {
-      emojiGroupList = await cacheProvider.loadEmojiInfo();
-    } else {
-      emojiGroupList = await cacheProvider.loadEmojiFromAsset();
-    }
-    return rightVoid();
-  });
 
   /// Load the official `@` user list, cached after the first success unless [force].
   AsyncEither<List<String>> _loadAtUsers({bool force = false}) {
