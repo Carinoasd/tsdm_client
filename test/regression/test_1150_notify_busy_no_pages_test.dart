@@ -26,6 +26,9 @@ const _uid = 34;
 final int _now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
 final int _since = _now - 3600;
 
+/// A notification page with nothing on it.
+const _emptyPage = '<html><body><div id="um"></div><div class="nts"></div></body></html>';
+
 /// `notify` of plugin 1.9.0 and later with nothing since [_since].
 Map<String, Object?> _nothingNew() => {
   'ok': 1,
@@ -125,13 +128,16 @@ void main() {
         'notify' when !refused => (refused = true) ? const V4Reply.busy(3) : null,
         'notify' => V4Reply(_nothingNew()),
         'pmlist' => V4Reply({..._nothingNew(), 'pms': <Object>[]}),
+        'seen' => V4Reply({'ok': 1, 'api': 1, 'time': _now, 'uid': _uid, 'notice': 0, 'newer': 0, 'pm': 1}),
+        null => const V4Reply(_emptyPage),
         _ => null,
       };
     });
     final (_, result) = await _fetch(forum, timestamp: _since, bypassGate: true);
     expect(forum.names.take(2), ['notify', 'notify']);
     expect(forum.names.where((n) => n.contains('do=notice')), isEmpty, reason: 'the notice page is never read');
-    expect(result, isNot(_tooManyRequests));
+    expect(forum.unexpected, isEmpty);
+    expect(result, isA<FetchedNotification>());
   });
 
   test('no plugin on the forum: the three pages as before', () async {
@@ -139,7 +145,7 @@ void main() {
       if (o.uri.queryParameters['action'] == 'notify') {
         return const V4Reply('<html><body><div id="messagetext"><p>插件不存在或已关闭</p></div></body></html>');
       }
-      return const V4Reply('<html><body><div id="um"></div><div class="nts"></div></body></html>');
+      return const V4Reply(_emptyPage);
     });
     final (_, result) = await _fetch(forum, timestamp: _since);
     expect(forum.names.first, 'notify');

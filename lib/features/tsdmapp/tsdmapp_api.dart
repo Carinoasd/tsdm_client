@@ -22,7 +22,7 @@ import 'package:universal_html/parsing.dart';
 /// Version 1 (plugin 1.0.0) is read-only: `status`, `notify`, `checkin`. Fields are only ever added; `api` is raised
 /// when the meaning of a field changes. Since plugin 1.1.0 the forum can switch the API off (`error: off`, treated as
 /// missing) and answers calls too close together with HTTP 429 (`error: busy`, a failed request here: the web path
-/// is used for that one call).
+/// is used for that one call, except for the notification poll, see [askWaitingKeepingBusy]).
 ///
 /// Plugin 1.9.0 adds the private conversation list (`pmlist`) and `seen`, the only action that writes: it does what
 /// opening the notice page and the private message page on the web does to the forum (the notices marked read, the
@@ -324,9 +324,8 @@ abstract final class TsdmAppApi {
   /// [ask], and an answer "too soon" of at most [maxWait] seconds is waited for and asked once more; a longer wait or
   /// a second "too soon" gives null, as [ask] does.
   ///
-  /// For the notification poll (GitHub #235): the background service and the page poll the same account at the same
-  /// moment (app start, an account switch), the second one was answered 429 and read the three notification pages
-  /// instead, three requests heavier than waiting a second for the plugin.
+  /// For `status` ([ensureStatus]): asked on the way to a page, which goes on without it. The notification poll waits
+  /// longer and never reads its pages for a "too soon" ([askWaitingKeepingBusy]).
   static Future<Map<String, dynamic>?> askWaitingBriefly(
     NetClientProvider client,
     String action, [
