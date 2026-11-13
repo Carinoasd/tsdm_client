@@ -30,6 +30,7 @@ import 'package:tsdm_client/features/keyboard/widgets/keyboard_selectable.dart';
 import 'package:tsdm_client/features/moderate/repository/moderate_repository.dart';
 import 'package:tsdm_client/features/moderate/view/moderate_queue_page.dart';
 import 'package:tsdm_client/features/moderate/widgets/moderate_sheet.dart';
+import 'package:tsdm_client/features/moderate/widgets/thread_picking.dart';
 import 'package:tsdm_client/features/need_login/view/need_login_page.dart';
 import 'package:tsdm_client/features/post/models/models.dart';
 import 'package:tsdm_client/features/share_qr/share_qr_dialog.dart';
@@ -227,21 +228,14 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
   PreferredSizeWidget _buildPickingAppBar(BuildContext context, ForumState state, Set<String> picked) {
     final pickable = _pickable(context, state);
     final count = pickable.where((e) => picked.contains(e.threadID)).length;
-    return AppBar(
-      leading: IconButton(
-        icon: const Icon(Icons.close),
-        tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
-        onPressed: _stopPicking,
-      ),
-      title: Text(context.t.moderate.batch.selected(count: count)),
+    return ThreadPickingAppBar(
+      count: count,
+      onClose: _stopPicking,
+      onSelectAll: pickable.every((e) => picked.contains(e.threadID))
+          ? null
+          : () => setState(() => _picked = {...picked, for (final e in pickable) e.threadID}),
+      onModerate: () async => _moderatePicked(context, state),
       actions: [
-        IconButton(
-          icon: const Icon(Icons.select_all_outlined),
-          tooltip: context.t.moderate.batch.selectAll,
-          onPressed: pickable.every((e) => picked.contains(e.threadID))
-              ? null
-              : () => setState(() => _picked = {...picked, for (final e in pickable) e.threadID}),
-        ),
         if (_batchRate case (:final key, :final info) when key == _moderatorAsked)
           IconButton(
             key: const ValueKey('forum-batch-rate'),
@@ -249,11 +243,6 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
             tooltip: context.t.batchRate.title,
             onPressed: count == 0 ? null : () async => _batchRatePicked(context, state, info),
           ),
-        IconButton(
-          icon: const Icon(Icons.admin_panel_settings_outlined),
-          tooltip: context.t.moderate.menu,
-          onPressed: count == 0 ? null : () async => _moderatePicked(context, state),
-        ),
       ],
       bottom: _buildTabBar(context, state),
     );
@@ -274,13 +263,10 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
         },
       );
     }
-    return Row(
-      children: [
-        Checkbox(value: picked.contains(thread.threadID), onChanged: (_) => _togglePicked(thread.threadID)),
-        Expanded(
-          child: NormalThreadCard(thread, onPick: () => _togglePicked(thread.threadID)),
-        ),
-      ],
+    return PickableThreadRow(
+      picked: picked.contains(thread.threadID),
+      onToggle: () => _togglePicked(thread.threadID),
+      child: NormalThreadCard(thread, onPick: () => _togglePicked(thread.threadID)),
     );
   }
 

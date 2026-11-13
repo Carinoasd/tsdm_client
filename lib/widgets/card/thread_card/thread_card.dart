@@ -669,10 +669,16 @@ class NormalThreadCard extends StatelessWidget {
 /// Card to show a thread in search result.
 class SearchedThreadCard extends StatelessWidget {
   /// Constructor.
-  const SearchedThreadCard(this.thread, {super.key});
+  const SearchedThreadCard(this.thread, {this.onPick, this.onStartPicking, super.key});
 
   /// Thread model.
   final SearchedThread thread;
+
+  /// See [NormalThreadCard.onPick].
+  final VoidCallback? onPick;
+
+  /// See [NormalThreadCard.onStartPicking].
+  final VoidCallback? onStartPicking;
 
   @override
   Widget build(BuildContext context) {
@@ -689,6 +695,8 @@ class SearchedThreadCard extends StatelessWidget {
       author: thread.author,
       publishTime: thread.publishTime,
       progress: readingProgressOf(context, '${thread.threadID}'),
+      onPick: onPick,
+      onStartPicking: onStartPicking,
     );
   }
 }
@@ -696,10 +704,16 @@ class SearchedThreadCard extends StatelessWidget {
 /// Card to show current user's thread info in "My Thread" page.
 class MyThreadCard extends StatelessWidget {
   /// Constructor.
-  const MyThreadCard(this.thread, {super.key});
+  const MyThreadCard(this.thread, {this.onPick, this.onStartPicking, super.key});
 
   /// Thread model.
   final MyThread thread;
+
+  /// See [NormalThreadCard.onPick].
+  final VoidCallback? onPick;
+
+  /// See [NormalThreadCard.onStartPicking].
+  final VoidCallback? onStartPicking;
 
   @override
   Widget build(BuildContext context) {
@@ -717,6 +731,8 @@ class MyThreadCard extends StatelessWidget {
       replyCount: thread.replyCount,
       viewCount: thread.viewCount,
       progress: readingProgressOf(context, thread.threadID),
+      onPick: onPick,
+      onStartPicking: onStartPicking,
     );
   }
 }
@@ -724,10 +740,16 @@ class MyThreadCard extends StatelessWidget {
 /// Card to show result in "Latest thread" page.
 class LatestThreadCard extends StatelessWidget {
   /// Constructor.
-  const LatestThreadCard(this.thread, {super.key});
+  const LatestThreadCard(this.thread, {this.onPick, this.onStartPicking, super.key});
 
   /// Thread model.
   final LatestThread thread;
+
+  /// See [NormalThreadCard.onPick].
+  final VoidCallback? onPick;
+
+  /// See [NormalThreadCard.onStartPicking].
+  final VoidCallback? onStartPicking;
 
   @override
   Widget build(BuildContext context) {
@@ -748,6 +770,8 @@ class LatestThreadCard extends StatelessWidget {
       // The forum's own excerpt of a search row goes with the excerpts setting; a reply quoted always shows.
       quotedMessage: thread.quoteIsExcerpt && !showExcerpt ? null : thread.quotedMessage,
       progress: readingProgressOf(context, thread.threadID),
+      onPick: onPick,
+      onStartPicking: onStartPicking,
     );
   }
 }

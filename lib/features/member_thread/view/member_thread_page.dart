@@ -11,6 +11,9 @@ import 'package:tsdm_client/features/blocking/repository/user_block_repository.d
 import 'package:tsdm_client/features/blocking/utils/block_filter.dart';
 import 'package:tsdm_client/features/member_thread/cubit/member_thread_cubit.dart';
 import 'package:tsdm_client/features/member_thread/utils/member_thread_url.dart';
+import 'package:tsdm_client/features/moderate/repository/moderate_repository.dart';
+import 'package:tsdm_client/features/moderate/widgets/thread_picking.dart';
+import 'package:tsdm_client/features/my_thread/models/models.dart';
 import 'package:tsdm_client/features/my_thread/repository/my_thread_repository.dart';
 import 'package:tsdm_client/features/need_login/view/need_login_page.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
@@ -32,7 +35,14 @@ import 'package:tsdm_client/widgets/two_pane.dart';
 /// "my threads" page. A member blocked on this device has their lists hidden, as their threads are everywhere else.
 class MemberThreadPage extends StatefulWidget {
   /// Constructor.
-  const MemberThreadPage({this.uid, this.username, this.initialTab = MemberThreadTab.thread, this.cubit, super.key});
+  const MemberThreadPage({
+    this.uid,
+    this.username,
+    this.initialTab = MemberThreadTab.thread,
+    this.cubit,
+    this.moderateRepository,
+    super.key,
+  });
 
   /// Uid of the member.
   final String? uid;
@@ -46,12 +56,28 @@ class MemberThreadPage extends StatefulWidget {
   /// Test seam: a cubit owned by the caller.
   final MemberThreadCubit? cubit;
 
+  /// Where the management of the threads picked goes (tests); the app's client when null.
+  final ModerateRepository? moderateRepository;
+
   @override
   State<MemberThreadPage> createState() => _MemberThreadPageState();
 }
 
-class _MemberThreadPageState extends State<MemberThreadPage> with SingleTickerProviderStateMixin {
+class _MemberThreadPageState extends State<MemberThreadPage> with SingleTickerProviderStateMixin, ListThreadPicking {
   late final TabController _tabController;
+
+  @override
+  late final ModerateRepository pickingRepository = widget.moderateRepository ?? ModerateRepository.network();
+
+  /// [thread], a row of the threads tab, as a moderator may pick it.
+  static ListPickableThread _pickable(MyThread thread) => (
+    tid: thread.threadID,
+    title: thread.title,
+    fid: fidOfForumUrl(thread.forumUrl),
+    authorUid: null,
+    filtered: false,
+  );
+
   late final MemberThreadCubit _cubit;
   final Map<MemberThreadTab, EasyRefreshController> _refreshControllers = {
     for (final tab in MemberThreadTab.values) tab: EasyRefreshController(controlFinishRefresh: true),
@@ -66,6 +92,12 @@ class _MemberThreadPageState extends State<MemberThreadPage> with SingleTickerPr
       initialIndex: widget.initialTab.index,
       vsync: this,
     );
+    // Threads are picked in the threads tab only.
+    _tabController.addListener(() {
+      if (_tabController.index != MemberThreadTab.thread.index) {
+        stopPicking();
+      }
+    });
     _cubit =
         widget.cubit ?? MemberThreadCubit(repository: MyThreadRepository(), uid: widget.uid, username: widget.username);
     // What the forum shows of the member depends on who asks: another account coming into use reloads both lists,
@@ -169,7 +201,15 @@ class _MemberThreadPageState extends State<MemberThreadPage> with SingleTickerPr
                 // The end of the list is its last item: built when it comes near, it asks the next page.
                 itemCount: list.items.length + 1,
                 itemBuilder: (context, index) => index < list.items.length
-                    ? MyThreadCard(list.items[index])
+                    ? switch (tab) {
+                        MemberThreadTab.thread => buildPickableCard(
+                          context,
+                          _pickable(list.items[index]),
+                          (onPick, onStartPicking) =>
+                              MyThreadCard(list.items[index], onPick: onPick, onStartPicking: onStartPicking),
+                        ),
+                        MemberThreadTab.reply => MyThreadCard(list.items[index]),
+                      }
                     : ListFooter(
                         status: listFooterStatus(
                           hasMore: list.nextPageUrl != null,
@@ -254,35 +294,50 @@ class _MemberThreadPageState extends State<MemberThreadPage> with SingleTickerPr
             // A link naming the account in use in a way the route could not tell (`uid=00`, a name spelt otherwise):
             // the forum answered the own list.
             final own = state.ownerUid != null && state.ownerUid == state.viewerUid;
-            return Scaffold(
-              appBar: AppBar(
-                title: Text(
-                  own
-                      ? context.t.myThreadPage.title
-                      : (name == null || name.isEmpty ? tr.titleUnknown : tr.title(name: name)),
-                ),
-                actions: [
-                  IconButton(
-                    icon: const Icon(Icons.person_outline),
-                    tooltip: context.t.profilePage.title,
-                    onPressed: () async => context.pushNamed(
-                      ScreenPaths.profile,
-                      queryParameters: {
-                        'uid': ?(state.ownerUid?.toString() ?? widget.uid),
-                        if (state.ownerUid == null && widget.uid == null) 'username': ?name,
+            watchPickingAccount(context);
+            final tabBar = TabBar(
+              controller: _tabController,
+              tabs: [
+                Tab(child: Text(context.t.myThreadPage.threadTab.title)),
+                Tab(child: Text(context.t.myThreadPage.replyTab.title)),
+              ],
+            );
+            return buildPickingPopScope(
+              child: Scaffold(
+                appBar:
+                    buildPickingAppBar(
+                      context,
+                      [for (final thread in state.thread.items) _pickable(thread)],
+                      onDone: () {
+                        if (!_cubit.isClosed) {
+                          unawaited(_cubit.load(MemberThreadTab.thread));
+                        }
                       },
+                      bottom: tabBar,
+                    ) ??
+                    AppBar(
+                      title: Text(
+                        own
+                            ? context.t.myThreadPage.title
+                            : (name == null || name.isEmpty ? tr.titleUnknown : tr.title(name: name)),
+                      ),
+                      actions: [
+                        IconButton(
+                          icon: const Icon(Icons.person_outline),
+                          tooltip: context.t.profilePage.title,
+                          onPressed: () async => context.pushNamed(
+                            ScreenPaths.profile,
+                            queryParameters: {
+                              'uid': ?(state.ownerUid?.toString() ?? widget.uid),
+                              if (state.ownerUid == null && widget.uid == null) 'username': ?name,
+                            },
+                          ),
+                        ),
+                      ],
+                      bottom: tabBar,
                     ),
-                  ),
-                ],
-                bottom: TabBar(
-                  controller: _tabController,
-                  tabs: [
-                    Tab(child: Text(context.t.myThreadPage.threadTab.title)),
-                    Tab(child: Text(context.t.myThreadPage.replyTab.title)),
-                  ],
-                ),
+                body: SafeArea(bottom: false, child: _buildBody(context, state)),
               ),
-              body: SafeArea(bottom: false, child: _buildBody(context, state)),
             );
           },
         ),
