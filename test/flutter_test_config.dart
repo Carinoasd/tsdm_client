@@ -12,14 +12,14 @@ Future<void> testExecutable(FutureOr<void> Function() testMain) async {
   setUp(() {
     // Blocked before this test started: in `setUpAll`, or by work the previous test left running.
     final earlier = takeBlockedConnections();
+    resetNetworkGuard();
+    reinstallHttpGuard();
     if (earlier.isNotEmpty) {
       fail(
         'Something before this test (setUpAll, or the previous test) tried to reach the real network '
         '(測試不得連真實網路); inject a fake client (請注入假 client):\n  ${earlier.join('\n  ')}',
       );
     }
-    resetNetworkGuard();
-    reinstallHttpGuard();
   });
   tearDown(() {
     final blocked = takeBlockedConnections();
