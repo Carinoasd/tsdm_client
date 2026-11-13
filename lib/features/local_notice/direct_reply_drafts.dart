@@ -29,9 +29,10 @@ import 'package:tsdm_client/utils/log_redaction.dart';
 /// carries the id ([LocalNoticeTarget.draftEvent]), and a tap on it after its text was moved does not keep it again
 /// (the user may have changed, sent or deleted the draft since).
 ///
-/// The file is `{"v": 1, "id": …, "uid": …, "tid": …, "pid": …, "peer": …, "text": …, "ms": bool, "at": <ms>}`: the
-/// account the notification was about, the floor (`tid` and `pid`) or the conversation (`peer`), what was typed,
-/// whether it may have been sent after all, and when it failed. At most [maxPending] wait, the oldest go first; one
+/// The file is
+/// `{"v": 1, "id": …, "uid": …, "tid": …, "pid": …, "peer": …, "text": …, "ms": bool, "at": <ms>, "title": …}`: the account the notification was about, the floor (`tid` and `pid`) or the conversation (`peer`),
+/// what was typed, whether it may have been sent after all, when it failed, and the title of the thread (the name of
+/// the peer) the notification named, when it named one ([LocalNoticeTarget.title]; absent in files of older versions). At most [maxPending] wait, the oldest go first; one
 /// older than [keepFor] is dropped; a file that does not parse is deleted.
 final class DirectReplyDraftInbox {
   /// Constructor: the files in [directory] (`draft_inbox` in the app's support directory by default).
@@ -97,6 +98,7 @@ final class DirectReplyDraftInbox {
           'text': text,
           'ms': maybeSent,
           'at': at.millisecondsSinceEpoch,
+          if (target.title case final title? when title.trim().isNotEmpty) 'title': LocalNoticeTarget.clipTitle(title),
         }),
         flush: true,
       );
@@ -227,6 +229,7 @@ final class DirectReplyDraftInbox {
               text: item.text,
               at: item.at,
               maybeSent: item.maybeSent,
+              title: item.title,
             );
             moved.add(item.id);
           }
@@ -253,7 +256,17 @@ final class DirectReplyDraftInbox {
 }
 
 final class _Pending {
-  _Pending(this.id, this.uid, this.tid, this.pid, this.peer, this.text, this.at, {required this.maybeSent});
+  _Pending(
+    this.id,
+    this.uid,
+    this.tid,
+    this.pid,
+    this.peer,
+    this.text,
+    this.at, {
+    required this.maybeSent,
+    this.title,
+  });
 
   static _Pending? parse(String id, String raw) {
     try {
@@ -287,6 +300,10 @@ final class _Pending {
         text,
         DateTime.fromMillisecondsSinceEpoch(at),
         maybeSent: json['ms'] == true,
+        title: switch (json['title']) {
+          final String title when title.trim().isNotEmpty => LocalNoticeTarget.clipTitle(title.trim()),
+          _ => null,
+        },
       );
     } on Object {
       return null;
@@ -301,11 +318,17 @@ final class _Pending {
   final String text;
   final DateTime at;
   final bool maybeSent;
+  final String? title;
   late final File file;
 }
 
 /// Keep [text], a reply typed in a notification at [at] that was not sent, as the local draft of account [uid] for the
-/// floor [pid] of thread [tid], or the conversation with [peer], and return once it is written.
+/// floor [pid] of thread [tid], or the conversation with [peer], and return once it is written. [title] (the thread's
+/// title, the peer's name, as the notification named it) is the name the list of drafts shows; without it the list
+/// falls back on what the device knows of the target.
+///
+/// An editor open on the target is told ([LocalDraftStore.announceArrived]) of the draft the text was kept as, and
+/// offers it (`DraftAutosaver`); what the user is typing there is never replaced.
 ///
 /// The convention of the drafts: one draft per target, the newer text in front. The same text there already is left
 /// alone (marked maybe sent when this one is). Another text there already is moved aside (`backupAt`, listed, never
@@ -320,6 +343,7 @@ Future<void> keepFailedReplyDraft(
   required String text,
   required DateTime at,
   bool maybeSent = false,
+  String? title,
 }) async {
   final LocalDraftKey key;
   if (tid != null && pid != null) {
@@ -337,22 +361,31 @@ Future<void> keepFailedReplyDraft(
     tid: tid == null ? null : '$tid',
     replyAction: tid != null && pid != null ? directReplyActionUrl(tid: tid, pid: pid) : null,
     maybeSent: maybeSent,
+    title: title,
   );
+  // The key the text is kept under, null when it was there already.
+  LocalDraftKey? kept;
   if (existing == null) {
     store.save(uid, draft);
+    kept = key;
   } else if (existing.body == text) {
     if (maybeSent && !existing.maybeSent) {
       store.markMaybeSent(uid, key);
     }
   } else if (existing.updatedAt.isAfter(at)) {
-    store.save(uid, draft.withKey(key.backupAt(at.millisecondsSinceEpoch)));
+    kept = key.backupAt(at.millisecondsSinceEpoch);
+    store.save(uid, draft.withKey(kept));
   } else {
     store
       ..save(uid, existing.withKey(key.backupAt(existing.updatedAt.millisecondsSinceEpoch)))
       ..save(uid, draft);
+    kept = key;
   }
   // Every read and write of the store runs in one queue: this read returns once the writes above are done.
   await store.load(uid, key);
+  if (kept != null) {
+    store.announceArrived(uid, kept);
+  }
 }
 
 /// Log [message] without ever throwing: in the failing isolate the log may be what could not be set up (`talker` is
@@ -446,6 +479,7 @@ Future<void> keepDirectReplyDraftOfTap(
     text: target.draft!,
     at: now ?? DateTime.now(),
     maybeSent: target.maybeSent,
+    title: target.title,
   );
   // Its file, if it is still there (it could not be moved now), is not moved again later. Outside the queue of the
   // collects on purpose: one moving the same file meanwhile keeps the same text, which [keepFailedReplyDraft] leaves

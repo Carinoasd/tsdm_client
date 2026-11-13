@@ -321,7 +321,9 @@ final class _ReplyDraftSession {
   LocalDraft? takeOffer() {
     final draft = saver.takeOffer();
     final target = _target;
-    if (draft == null || target == null || draft.key == target.key) {
+    // A draft offered from aside goes back to its target: written for the target from now on, never for the stamp.
+    final key = draft?.key.target;
+    if (draft == null || target == null || key == target.key) {
       return draft;
     }
     if (draft.key.kind == LocalDraftKind.floorReply && draft.replyAction != null) {
@@ -331,7 +333,7 @@ final class _ReplyDraftSession {
         .._quotedAction = draft.quote ? null : action.replaceFirst('reppost=', 'repquote=');
       _target = _ReplyDraftTarget(
         uid: target.uid,
-        key: draft.key,
+        key: key!,
         fid: draft.fid ?? target.fid,
         replyAction: action,
         hint: draft.hint,
@@ -339,7 +341,7 @@ final class _ReplyDraftSession {
       );
     } else if (draft.key.kind == LocalDraftKind.threadReply) {
       _controller._replyToThread();
-      _target = _ReplyDraftTarget(uid: target.uid, key: draft.key, fid: draft.fid ?? target.fid);
+      _target = _ReplyDraftTarget(uid: target.uid, key: key!, fid: draft.fid ?? target.fid);
     }
     revision.value++;
     return draft;

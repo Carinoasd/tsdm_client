@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
@@ -86,6 +87,18 @@ bool isDirectReplyNoticeId(int? id) => id != null && (id & ~_pinnedIdMask) == _p
 String directReplyTag(int slot, String key) => '$_tagPrefix$slot:$key';
 
 const _tagPrefix = 'dr:';
+
+/// The group ([localNoticeGroupOf]) of the notification posted with [tag] ([directReplyTag]): the one of the account
+/// of its target; null when [tag] is not one of these.
+String? _groupOfTag(String tag) {
+  if (!tag.startsWith(_tagPrefix)) {
+    return null;
+  }
+  // `dr:<slot>:<uid>:…`
+  final parts = tag.substring(_tagPrefix.length).split(':');
+  final uid = parts.length > 2 ? int.tryParse(parts[1]) : null;
+  return uid == null || uid <= 0 ? null : localNoticeGroupOf(uid);
+}
 
 /// Which target each id of the notifications offering the direct reply was given to, kept in the settings table so the
 /// app and the background message service (which both post them) and the isolate of the reply (which checks them)
@@ -282,7 +295,14 @@ AndroidNotificationAction directReplyActionOf(Translations translations) {
 const directReplySealedFor = Duration(seconds: 1);
 
 /// A notification offering the direct reply as the shade holds it.
-typedef _HeldNotice = ({String tag, String? channelId, String? title, String? body, String? bigText});
+typedef _HeldNotice = ({
+  String tag,
+  String? channelId,
+  String? groupKey,
+  String? title,
+  String? body,
+  String? bigText,
+});
 
 /// What the notification a reply was typed in says once it is closed, when what it said before is not known
 /// ([RepliedNotice.seal]): the outcome of the reply, in the channel of the outcome.
@@ -325,6 +345,9 @@ final class RepliedNotice {
   DateTime? _sealedAt;
   bool _sealing = false;
 
+  /// The texts [seal] was given, for the summaries of the groups once the notification is gone ([remove]).
+  Translations? _translations;
+
   /// The notification under [id] (the id of the action's response, null for none) as the shade of [plugin] holds it
   /// now. [lastTag] gives the tag [id] was last posted with ([DirectReplyPins.tagOf]).
   static Future<RepliedNotice?> of(
@@ -348,7 +371,7 @@ final class RepliedNotice {
     for (final n in await plugin.getActiveNotifications())
       if (n.id == id)
         if (n.tag case final tag? when tag.startsWith(_tagPrefix))
-          (tag: tag, channelId: n.channelId, title: n.title, body: n.body, bigText: n.bigText),
+          (tag: tag, channelId: n.channelId, groupKey: n.groupKey, title: n.title, body: n.body, bigText: n.bigText),
   ];
 
   static bool _sameTexts(_HeldNotice a, _HeldNotice b) => a.title == b.title && a.body == b.body;
@@ -370,6 +393,7 @@ final class RepliedNotice {
       return;
     }
     _sealing = true;
+    _translations = translations;
     try {
       final now = await _read(_plugin, id);
       final held = _held ?? now;
@@ -394,7 +418,14 @@ final class RepliedNotice {
         if (tag != null && now.every((e) => e.tag != tag)) {
           await _post(
             translations,
-            (tag: tag, channelId: told.category.channelId, title: told.title, body: told.body, bigText: null),
+            (
+              tag: tag,
+              channelId: told.category.channelId,
+              groupKey: _groupOfTag(tag),
+              title: told.title,
+              body: told.body,
+              bigText: null,
+            ),
             told.category,
             payload: payload,
             shown: false,
@@ -438,6 +469,8 @@ final class RepliedNotice {
               ? null
               : BigTextStyleInformation(notice.bigText ?? body, contentTitle: notice.title),
           tag: notice.tag,
+          // Kept in its group ([localNoticeGroupOf]): posted again outside it, it would leave the group's summary alone.
+          groupKey: notice.groupKey,
         ),
       ),
     );
@@ -468,6 +501,7 @@ final class RepliedNotice {
     } finally {
       _sealed.clear();
     }
+    await syncLocalNoticeGroupSummaries(_plugin, translations: _translations);
   }
 }
 
@@ -527,6 +561,7 @@ final class DirectReplyRequest {
         tid: floor ? target.tid : null,
         pid: floor ? target.pid : null,
         peerUid: floor ? null : target.peerUid,
+        title: target.title,
       ),
       message: message,
     );
@@ -569,6 +604,7 @@ final class DirectReplyRequest {
       draft: message,
       maybeSent: maybeSent,
       draftEvent: draftEvent,
+      title: target.title,
     ),
   );
 
@@ -772,13 +808,19 @@ NoticeCategory _outcomeCategoryOf(DirectReplyRequest request) =>
 const directReplySentShownFor = Duration(seconds: 4);
 
 /// Post the notification telling [outcome] of [request] through [plugin], in the channel of replies or of private
-/// messages; [draftEvent] as for [directReplyOutcomeContentOf].
+/// messages; [draftEvent] as for [directReplyOutcomeContentOf]. [android] (the platform by default) says whether the
+/// summaries of the groups are kept up.
+///
+/// One telling it was not sent stays until the user deals with it: it goes into the group of its account
+/// ([localNoticeGroupOf]) with the summary of that group ([syncLocalNoticeGroupSummaries]). The quiet "sent" one goes
+/// away by itself after a few seconds, which no summary would follow: it is posted outside any group.
 Future<void> showDirectReplyOutcome({
   required FlutterLocalNotificationsPlugin plugin,
   required Translations translations,
   required DirectReplyRequest request,
   required DirectReplyOutcome outcome,
   String? draftEvent,
+  @visibleForTesting bool? android,
 }) async {
   final content = directReplyOutcomeContentOf(translations, request, outcome, draftEvent: draftEvent);
   final category = _outcomeCategoryOf(request);
@@ -798,7 +840,11 @@ Future<void> showDirectReplyOutcome({
         silent: content.sent,
         timeoutAfter: content.sent ? directReplySentShownFor.inMilliseconds : null,
         styleInformation: BigTextStyleInformation(content.body, contentTitle: content.title),
+        groupKey: content.sent ? null : localNoticeGroupOf(request.uid),
       ),
     ),
   );
+  if (android ?? isAndroid) {
+    await syncLocalNoticeGroupSummaries(plugin, translations: translations);
+  }
 }

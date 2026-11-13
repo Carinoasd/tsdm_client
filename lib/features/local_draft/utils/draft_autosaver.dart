@@ -31,7 +31,9 @@ final class DraftAutosaver implements DraftFlusher {
     this.interval = defaultInterval,
     DateTime Function()? now,
   }) : _store = store ?? LocalDraftStore.app,
-       _now = now ?? DateTime.now;
+       _now = now ?? DateTime.now {
+    _arrivals = _store?.arrived.listen((e) => unawaited(_offerArrived(e.uid, e.key)));
+  }
 
   /// How long changes gather before they are written.
   static const defaultInterval = Duration(seconds: 2);
@@ -47,6 +49,12 @@ final class DraftAutosaver implements DraftFlusher {
 
   /// The stored draft offered to restore, null when none is.
   final offer = ValueNotifier<DraftOffer?>(null);
+
+  /// The account and the test of the last [offerStored]: the drafts this editor offers.
+  int? _offerUid;
+  bool Function(LocalDraftKey key)? _offerTest;
+
+  StreamSubscription<({int uid, LocalDraftKey key})>? _arrivals;
 
   Timer? _timer;
   bool _paused = false;
@@ -194,7 +202,12 @@ final class DraftAutosaver implements DraftFlusher {
 
   /// Offer the newest stored draft of [uid] whose key [test] accepts (a draft moved aside is never offered), unless the
   /// editor already holds the same; [onOffered] runs when one is. A draft offered before is withdrawn first.
+  ///
+  /// A draft arriving later for a target [test] accepts ([LocalDraftStore.announceArrived], the text of a reply typed
+  /// in a notification that was not sent) is offered the same way while the editor is open, a draft moved aside too.
   Future<void> offerStored(int uid, bool Function(LocalDraftKey key) test, {VoidCallback? onOffered}) async {
+    _offerUid = uid;
+    _offerTest = test;
     offer.value = null;
     final store = _store;
     if (store == null) {
@@ -232,6 +245,29 @@ final class DraftAutosaver implements DraftFlusher {
     }
     offer.value = (uid: uid, draft: stored);
     onOffered?.call();
+  }
+
+  /// Offer the draft of [uid] under [key] that just arrived ([LocalDraftStore.arrived]) when it is for this editor's
+  /// target and holds something else than the editor: in place of the draft offered now, if any, which stays stored.
+  Future<void> _offerArrived(int uid, LocalDraftKey key) async {
+    final store = _store;
+    final test = _offerTest;
+    if (_disposed || store == null || test == null || _offerUid != uid || !test(key.target)) {
+      return;
+    }
+    final arrived = await store.load(uid, key);
+    if (arrived == null || _disposed || _offerUid != uid || _offerTest != test) {
+      return;
+    }
+    final snap = read();
+    if (snap == null || snap.uid != uid) {
+      return;
+    }
+    final current = snap.draft;
+    if (current != null && current.sameContent(arrived)) {
+      return;
+    }
+    offer.value = (uid: uid, draft: arrived);
   }
 
   /// The user restores the offered draft: what the editor held is moved aside when it is something else (listed, never
@@ -330,6 +366,7 @@ final class DraftAutosaver implements DraftFlusher {
     }
     detach();
     _disposed = true;
+    unawaited(_arrivals?.cancel());
     offer.dispose();
   }
 }

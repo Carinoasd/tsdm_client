@@ -612,7 +612,11 @@ void main() {
       // Not every account is announced, the payload still names the account: the item is that account's.
       expect(content.id, localNoticeId);
       expect(LocalNoticeKeys.parseOpenNotification(content.payload), (uid: 1000));
-      expect(LocalNoticeKeys.parseTarget(content.payload), const LocalNoticeTarget(nid: 1, tid: 5001, pid: 7001));
+      // A reply the notification can answer also names the thread: the draft of a reply typed in it is listed so.
+      expect(
+        LocalNoticeKeys.parseTarget(content.payload),
+        const LocalNoticeTarget(nid: 1, tid: 5001, pid: 7001, title: '合成主题 甲'),
+      );
       // Without an account (the test notification of the settings page) there is no target.
       expect(LocalNoticeKeys.parseTarget(localNotificationContentOf(tr, info).payload), isNull);
 
@@ -650,7 +654,7 @@ void main() {
       final content = localNotificationContentOf(tr, info, account: const LocalNoticeAccount(uid: 1000));
       expect((content.title, content.body), ('Bob 发来私信', '今晚一起看番吗'));
       expect(LocalNoticeKeys.parseOpenNotification(content.payload), (uid: 1000));
-      expect(LocalNoticeKeys.parseTarget(content.payload), const LocalNoticeTarget(peerUid: 1001));
+      expect(LocalNoticeKeys.parseTarget(content.payload), const LocalNoticeTarget(peerUid: 1001, title: 'Bob'));
     });
 
     test('content hidden: the counts only, no list; the account still named; private on the lock screen', () {
