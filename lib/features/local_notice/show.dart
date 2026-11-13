@@ -84,6 +84,116 @@ const _accountIdMask = 0x0FFFFFFF;
 bool isLocalNoticeId(int? id) =>
     id == localNoticeId || (id != null && (id & ~_accountIdMask) == _accountIdBase) || isDirectReplyNoticeId(id);
 
+/// Group (Android) of the notifications about account [uid] (0 when none is known): the auto sync's and the ones of
+/// a reply typed in a notification that was not sent.
+///
+/// The persistent notification of the background message service (`backgroundSyncNotificationId`) is posted by its
+/// plugin without a group, as the notifications of followed threads and watched forums are. Android bundles the
+/// notifications an app posts without a group into one group of its own (from four of them on Android 7 on, sooner on
+/// newer versions), that persistent notification included: a reply notification bundled with it showed its "reply"
+/// only once the bundle was expanded, and a tap on the bundle opened the app without opening anything. A notification
+/// posted in a group with its summary is never bundled that way. One group per account: the notifications of two
+/// accounts are not bundled with each other either.
+///
+/// Every group holding a notification has its summary ([localNoticeGroupSummaryIdOf],
+/// [syncLocalNoticeGroupSummaries]): Android shows a group without its summary as if it had none (and bundles it with
+/// the others from Android 16 on). A group of one notification shows that notification alone, its actions on it.
+String localNoticeGroupOf(int uid) => '$_groupPrefix${uid > 0 ? uid : 0}';
+
+const _groupPrefix = 'tsdm.notice.';
+
+/// The account of [group] ([localNoticeGroupOf]), null when it is not one of these groups.
+int? _uidOfGroup(String? group) {
+  if (group == null || !group.startsWith(_groupPrefix)) {
+    return null;
+  }
+  final uid = int.tryParse(group.substring(_groupPrefix.length));
+  return uid == null || uid < 0 ? null : uid;
+}
+
+/// Id of the summary of the group of account [uid] ([localNoticeGroupOf]).
+int localNoticeGroupSummaryIdOf(int uid) => _summaryIdBase | ((uid > 0 ? uid : 0) & _accountIdMask);
+
+/// Whether [id] is the id of the summary of a group ([localNoticeGroupSummaryIdOf]).
+bool isLocalNoticeGroupSummaryId(int? id) => id != null && (id & ~_accountIdMask) == _summaryIdBase;
+
+const _summaryIdBase = 0x70000000;
+
+/// Post the summary of every group ([localNoticeGroupOf]) holding a notification in the shade of [plugin] and none
+/// yet, with the texts of [translations]; take back the summary of every group holding none (its last notification was
+/// replaced, answered, tapped or taken back). Android only, called after the app posts or takes back such
+/// notifications and when it comes back to the front. Without [translations] only summaries are taken back. Never
+/// throws: a shade that can not be read leaves everything as it is.
+///
+/// The summary is silent (the notifications of the group alert, not it), posted in the channel of a notification of
+/// its group, and opens the notice page of its account.
+Future<void> syncLocalNoticeGroupSummaries(FlutterLocalNotificationsPlugin plugin, {Translations? translations}) async {
+  try {
+    final shown = await plugin.getActiveNotifications();
+    final summaries = <int>{};
+    final channels = <int, String?>{};
+    for (final n in shown) {
+      if (isLocalNoticeGroupSummaryId(n.id)) {
+        summaries.add(n.id!);
+        continue;
+      }
+      final uid = _uidOfGroup(n.groupKey);
+      if (uid != null) {
+        channels.putIfAbsent(uid, () => n.channelId);
+      }
+    }
+    final orphans = {
+      for (final id in summaries)
+        if (!channels.keys.any((uid) => localNoticeGroupSummaryIdOf(uid) == id)) id,
+    };
+    if (orphans.isNotEmpty) {
+      // Android takes the notifications of a group back with its summary: another isolate (the background message
+      // service, the reply's) may have posted one in the group since the shade was read. Read again right before.
+      for (final n in await plugin.getActiveNotifications()) {
+        final uid = isLocalNoticeGroupSummaryId(n.id) ? null : _uidOfGroup(n.groupKey);
+        if (uid != null) {
+          orphans.remove(localNoticeGroupSummaryIdOf(uid));
+        }
+      }
+      for (final id in orphans) {
+        await plugin.cancel(id: id);
+      }
+    }
+    if (translations == null) {
+      return;
+    }
+    for (final MapEntry(key: uid, value: channelId) in channels.entries) {
+      final id = localNoticeGroupSummaryIdOf(uid);
+      if (summaries.contains(id)) {
+        continue;
+      }
+      final tr = translations.localNotification;
+      final category = NoticeCategory.values.where((e) => e.channelId == channelId).firstOrNull;
+      await plugin.show(
+        id: id,
+        title: tr.notice.title,
+        payload: uid > 0 ? LocalNoticeKeys.openNotificationOf(uid) : LocalNoticeKeys.openNotification,
+        notificationDetails: NotificationDetails(
+          android: AndroidNotificationDetails(
+            category?.channelId ?? localNoticeChannelId,
+            category == null ? tr.channelName : noticeChannelName(translations, category),
+            channelDescription: tr.channelDesc,
+            importance: Importance.high,
+            priority: Priority.high,
+            visibility: NotificationVisibility.private,
+            silent: true,
+            groupKey: localNoticeGroupOf(uid),
+            setAsGroupSummary: true,
+            groupAlertBehavior: GroupAlertBehavior.children,
+          ),
+        ),
+      );
+    }
+  } on Object catch (e) {
+    talker.warning('local notice: group summaries not synced: $e');
+  }
+}
+
 /// The account a notification is about, see [showLocalNotificationWith].
 final class LocalNoticeAccount {
   /// Constructor.
@@ -149,7 +259,9 @@ LocalNotificationContent localNotificationContentOf(
     title = head.title ?? tr.notice.title;
   }
   final base = named ? LocalNoticeKeys.openNotificationOf(account.uid) : LocalNoticeKeys.openNotification;
-  final target = info.total == 1 && account != null ? _targetOf(info) : null;
+  final target = info.total == 1 && account != null
+      ? _targetOf(info, named: !hideContent && directReplyFits(info))
+      : null;
   final several = !hideContent && info.total > 1 && info.lines.isNotEmpty;
   final counts = _countsOf(translations, info);
   return (
@@ -217,14 +329,20 @@ const _threadTitleLength = 24;
 }
 
 /// What a tap on the notification of [info], a single new item, opens; null when it names nothing.
-LocalNoticeTarget? _targetOf(NotificationAutoSyncInfo info) {
+///
+/// With [named] (a notification offering the direct reply, its content shown) the target also carries the title of the
+/// thread or the name of the peer ([LocalNoticeTarget.title]): the draft kept from a reply typed in it that was not
+/// sent is listed by that name, also for an account that never opened the thread on this device.
+LocalNoticeTarget? _targetOf(NotificationAutoSyncInfo info, {bool named = false}) {
+  String? nameOf(String? name) => named && name != null && name.trim().isNotEmpty ? name.trim() : null;
   final target = switch (info) {
-    NotificationAutoSyncInfoNotice(:final nid, :final tid, :final pid) => LocalNoticeTarget(
+    NotificationAutoSyncInfoNotice(:final nid, :final tid, :final pid, :final threadTitle) => LocalNoticeTarget(
       nid: nid,
       tid: tid,
       pid: pid,
+      title: nameOf(threadTitle),
     ),
-    NotificationAutoSyncInfoPm(:final peerUid) => LocalNoticeTarget(peerUid: peerUid),
+    NotificationAutoSyncInfoPm(:final peerUid, :final user) => LocalNoticeTarget(peerUid: peerUid, title: nameOf(user)),
     NotificationAutoSyncInfoBm() => null,
   };
   return target == null || target.isEmpty ? null : target;
@@ -312,7 +430,8 @@ String localNotificationBodyOf(Translations translations, NotificationAutoSyncIn
 /// settings can switch each category off on its own; without one (the test notification of the settings page) in
 /// [localNoticeChannelId].
 ///
-/// [actions] are the Android actions of the notification (the direct reply, `direct_reply.dart`).
+/// [actions] are the Android actions of the notification (the direct reply, `direct_reply.dart`); [groupKey] its
+/// Android group ([localNoticeGroupOf]).
 NotificationDetails buildLocalNotificationDetails({
   required String channelName,
   required String channelDescription,
@@ -324,6 +443,7 @@ NotificationDetails buildLocalNotificationDetails({
   NoticeCategory? category,
   List<AndroidNotificationAction>? actions,
   String? tag,
+  String? groupKey,
 }) => NotificationDetails(
   android: AndroidNotificationDetails(
     category?.channelId ?? localNoticeChannelId,
@@ -341,6 +461,7 @@ NotificationDetails buildLocalNotificationDetails({
         : (body != null ? BigTextStyleInformation(body, contentTitle: title) : null),
     actions: actions,
     tag: tag,
+    groupKey: groupKey,
   ),
   windows: WindowsNotificationDetails(
     audio: WindowsNotificationAudio.preset(sound: _windowsSound),
@@ -486,6 +607,7 @@ Future<void> showLocalNotificationWith({
     summary: content.summary,
     actions: reply ? [directReplyActionOf(translations)] : null,
     tag: tag,
+    groupKey: localNoticeGroupOf(account?.uid ?? 0),
   );
   await plugin.show(
     id: id,
@@ -494,6 +616,9 @@ Future<void> showLocalNotificationWith({
     notificationDetails: nd,
     payload: content.payload,
   );
+  if (shown != null) {
+    await syncLocalNoticeGroupSummaries(plugin, translations: translations);
+  }
 }
 
 /// Log whether the auto sync notification is still in the shade, Android only.
@@ -512,6 +637,8 @@ Future<void> logActiveLocalNotifications() async {
         ?.getActiveNotifications();
     final shown = active?.any((e) => isLocalNoticeId(e.id)) ?? false;
     talker.debug('auto sync notification in shade: $shown');
+    // A notification of a group may have gone meanwhile (tapped, swiped, timed out): its summary must not stay alone.
+    await syncLocalNoticeGroupSummaries(flnp, translations: t);
   } on Exception catch (e, st) {
     talker.handle(e, st, 'read active notifications failed: ');
   }

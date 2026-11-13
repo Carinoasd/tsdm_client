@@ -32,7 +32,8 @@ final _idRe = RegExp(r'^[1-9]\d*$');
 /// `thread:<fid>`, `edit:<pid>`.
 ///
 /// A draft moved aside (a newer draft was written for the same target while it was still offered) keeps its target and
-/// gets a [backup] stamp: `reply:<tid>~<stamp>`. It is listed, never offered again by the editor of the target.
+/// gets a [backup] stamp: `reply:<tid>~<stamp>`. It is listed, never offered again by the editor of the target (but
+/// for one written aside while that editor is open, `LocalDraftStore.announceArrived`).
 @immutable
 final class LocalDraftKey {
   const LocalDraftKey._(this.kind, this.ids, {this.backup});

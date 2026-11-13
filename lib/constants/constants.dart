@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:ui';
 
 import 'package:tsdm_client/features/editor/widgets/toolbar.dart';
@@ -32,27 +31,6 @@ const assetEmojiInfoPath = './assets/images/emoji/emoji.json';
 ///
 /// As part of workaround for the image data.
 const assetPlaceholderImagePath = './assets/images/placeholder.png';
-
-/// Changelog till publish.
-///
-/// Add argument to make `compute` happy.
-///
-// ignore: avoid_unused_parameters
-Future<String> readChangelogContent(String _) async {
-  // Changelog is encoded in base64 due to encoding issue on github CI Windows
-  // platform, see 'scripts/read_changelog.dart' for details.
-  final changelog = utf8.decode(base64Decode(encodedChangelog));
-  final lines = changelog.split('\n');
-  var beforeContent = true;
-  return lines
-      .skipWhile((e) {
-        if (beforeContent && (e.startsWith('## [0.') || e.startsWith('## [1.'))) {
-          beforeContent = false;
-        }
-        return beforeContent;
-      })
-      .join('\n');
-}
 
 /// All features disabled by default.
 ///

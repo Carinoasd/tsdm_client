@@ -371,7 +371,10 @@
         "drafts": "本機草稿",
         "bookmarks": "樓層書籤",
         "pinnedForums": "釘選的版塊",
-        "forumWatch": "新帖與關鍵字提醒"
+        "forumWatch": "新帖與關鍵字提醒",
+        "replyTemplates": "回覆模板",
+        "readLater": "稍後閱讀",
+        "followedThreads": "追蹤的帖子"
       },
       "loginDevices": "登入裝置",
       "security": "密碼與安全",
@@ -4537,6 +4540,17 @@
     "errorClearStart": "這個會員沒有進行中的清理，請重新送出禁止並勾選清理帖子",
     "errorClearStuck": "清理沒有進展，已停止",
     "creditOverflow": "加減後會超出積分能存的範圍：${list}"
+  },
+  "whatsNew": {
+    "updated": "已更新至 $version",
+    "open": "查看",
+    "sections": {
+      "added": "新增",
+      "changed": "變更",
+      "fixed": "修正",
+      "removed": "移除",
+      "knownIssues": "已知問題"
+    }
   },
   "diagnostics": {
     "errorBlock": "這裡出了點問題",

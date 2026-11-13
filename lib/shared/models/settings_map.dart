@@ -120,6 +120,9 @@ class SettingsMap with SettingsMapMappable {
     this.crossDeviceSyncBookmarks = true,
     this.crossDeviceSyncPinnedForums = true,
     this.crossDeviceSyncForumWatch = true,
+    this.crossDeviceSyncReplyTemplates = true,
+    this.crossDeviceSyncReadLater = true,
+    this.crossDeviceSyncFollowedThreads = true,
   });
 
   final String netClientAccept;
@@ -309,6 +312,15 @@ class SettingsMap with SettingsMapMappable {
   /// versions lack it.
   final bool crossDeviceSyncForumWatch;
 
+  /// With [crossDeviceSync], sync the fast reply templates. Not required: backups from older versions lack it.
+  final bool crossDeviceSyncReplyTemplates;
+
+  /// With [crossDeviceSync], sync the read later list. Not required: backups from older versions lack it.
+  final bool crossDeviceSyncReadLater;
+
+  /// With [crossDeviceSync], sync the followed threads. Not required: backups from older versions lack it.
+  final bool crossDeviceSyncFollowedThreads;
+
   /// The clock decides the theme. Not required: backups from older versions lack it.
   final bool themeModeScheduled;
 
@@ -494,6 +506,9 @@ class SettingsMap with SettingsMapMappable {
       SettingsKeys.crossDeviceSyncBookmarks => copyWith(crossDeviceSyncBookmarks: value as bool?),
       SettingsKeys.crossDeviceSyncPinnedForums => copyWith(crossDeviceSyncPinnedForums: value as bool?),
       SettingsKeys.crossDeviceSyncForumWatch => copyWith(crossDeviceSyncForumWatch: value as bool?),
+      SettingsKeys.crossDeviceSyncReplyTemplates => copyWith(crossDeviceSyncReplyTemplates: value as bool?),
+      SettingsKeys.crossDeviceSyncReadLater => copyWith(crossDeviceSyncReadLater: value as bool?),
+      SettingsKeys.crossDeviceSyncFollowedThreads => copyWith(crossDeviceSyncFollowedThreads: value as bool?),
       SettingsKeys.themeModeScheduled => copyWith(themeModeScheduled: value as bool?),
       SettingsKeys.darkScheduleStart => copyWith(darkScheduleStart: value as int?),
       SettingsKeys.darkScheduleEnd => copyWith(darkScheduleEnd: value as int?),

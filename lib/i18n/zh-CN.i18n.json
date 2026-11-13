@@ -371,7 +371,10 @@
         "drafts": "本机草稿",
         "bookmarks": "楼层书签",
         "pinnedForums": "钉选的版块",
-        "forumWatch": "新帖与关键字提醒"
+        "forumWatch": "新帖与关键字提醒",
+        "replyTemplates": "回复模板",
+        "readLater": "稍后阅读",
+        "followedThreads": "追踪的帖子"
       },
       "loginDevices": "登录设备",
       "security": "密码与安全",
@@ -4537,6 +4540,17 @@
     "errorClearStart": "这个会员没有进行中的清理，请重新提交禁止并勾选清理帖子",
     "errorClearStuck": "清理没有进展，已停止",
     "creditOverflow": "加减后会超出积分能存的范围：${list}"
+  },
+  "whatsNew": {
+    "updated": "已更新到 $version",
+    "open": "查看",
+    "sections": {
+      "added": "新增",
+      "changed": "变更",
+      "fixed": "修复",
+      "removed": "移除",
+      "knownIssues": "已知问题"
+    }
   },
   "diagnostics": {
     "errorBlock": "这里出了点问题",

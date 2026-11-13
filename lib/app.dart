@@ -630,7 +630,7 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
           // message service checks them too on Android). Not lazy: the check runs from the start.
           BlocProvider(
             create: (context) => FollowedThreadsCubit(
-              store: FollowedThreadStore(getIt()),
+              store: FollowedThreadStore.app ?? FollowedThreadStore(getIt()),
               storage: getIt(),
               authenticationRepository: context.repo(),
               fetchFor: followedThreadFetcherOf,

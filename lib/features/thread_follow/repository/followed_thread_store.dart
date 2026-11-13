@@ -1,7 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:tsdm_client/features/sync/models/sync_removals.dart';
 import 'package:tsdm_client/features/thread_follow/models/followed_thread.dart';
+import 'package:tsdm_client/features/thread_follow/models/followed_thread_sync.dart';
+import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 import 'package:tsdm_client/utils/logger.dart';
 
@@ -16,6 +19,11 @@ import 'package:tsdm_client/utils/logger.dart';
 final class FollowedThreadStore with LoggerMixin {
   /// Constructor.
   FollowedThreadStore(this._storage);
+
+  /// The app's store (the list, its check and the cross-device sync share its change stream), null when none is
+  /// registered (tests of other features).
+  static FollowedThreadStore? get app =>
+      getIt.isRegistered<FollowedThreadStore>() ? getIt.get<FollowedThreadStore>() : null;
 
   final StorageProvider _storage;
 
@@ -63,6 +71,19 @@ final class FollowedThreadStore with LoggerMixin {
         list[index] = next;
       }
       await _write(uid, list);
+      // Unfollowed, or followed again: the record the cross-device sync tells the other devices by.
+      if (current == null || next == null) {
+        final at = DateTime.now().millisecondsSinceEpoch;
+        await _writeRemoved(
+          uid,
+          syncRemovalsWith(
+            await removed(uid),
+            tids: {if (next == null) tid: at},
+            back: [if (next != null) tid],
+            at: at,
+          ),
+        );
+      }
       return (changed: true, entry: next);
     });
     if (result.changed && !_changes.isClosed) {
@@ -103,10 +124,49 @@ final class FollowedThreadStore with LoggerMixin {
   Future<FollowedThread?> markRead(int uid, int tid, {int? replies, String? title, DateTime? lastReplyAt}) =>
       update(uid, tid, (current) => current?.read(replies: replies, title: title, lastReplyAt: lastReplyAt));
 
+  /// The records of the threads account [uid] unfollowed (thread id to the time, milliseconds), for the cross-device
+  /// sync.
+  Future<Map<int, int>> removed(int uid) async => syncRemovalsOf(await _storage.getString(_removedKey(uid)));
+
+  /// Take the items of the sync's [followedThreadsSection] in for account [uid] ([followedThreadSyncChanges]): the
+  /// threads followed on another device are followed here (checked from the replies they have then), the threads
+  /// unfollowed there are unfollowed here. One read-modify-write under the database's write lock, like [update];
+  /// nothing is written when nothing changes. Whether something changed.
+  Future<bool> applySynced(int uid, Map<String, Map<String, dynamic>> items) async {
+    final changed = await _storage.exclusively(() async {
+      final list = await load(uid);
+      final removedNow = await removed(uid);
+      final (:follow, :unfollow) = followedThreadSyncChanges(list, removedNow, items);
+      if (follow.isEmpty && unfollow.isEmpty) {
+        return false;
+      }
+      await _write(uid, followedThreadsWithSynced(list, follow, unfollow.keys));
+      await _writeRemoved(
+        uid,
+        syncRemovalsWith(
+          removedNow,
+          tids: unfollow,
+          back: [for (final t in follow) t.tid],
+          at: DateTime.now().millisecondsSinceEpoch,
+        ),
+      );
+      return true;
+    });
+    if (changed && !_changes.isClosed) {
+      _changes.add(uid);
+    }
+    return changed;
+  }
+
   /// Close the change stream.
   Future<void> dispose() => _changes.close();
 
   static String _key(int uid) => StorageProvider.followedThreadsKey(uid);
+
+  static String _removedKey(int uid) => StorageProvider.followedThreadsRemovedKey(uid);
+
+  Future<void> _writeRemoved(int uid, String? raw) async =>
+      raw == null ? _storage.deleteKey(_removedKey(uid)) : _storage.saveString(_removedKey(uid), raw);
 
   Future<void> _write(int uid, List<FollowedThread> list) async {
     if (list.isEmpty) {

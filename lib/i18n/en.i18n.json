@@ -371,7 +371,10 @@
         "drafts": "Local drafts",
         "bookmarks": "Floor bookmarks",
         "pinnedForums": "Pinned forums",
-        "forumWatch": "New thread and keyword alerts"
+        "forumWatch": "New thread and keyword alerts",
+        "replyTemplates": "Reply templates",
+        "readLater": "Read later",
+        "followedThreads": "Followed threads"
       },
       "loginDevices": "Login devices",
       "security": "Password and security",
@@ -4537,6 +4540,17 @@
     "errorClearStart": "No cleanup of this member is open: submit the ban again with posts checked",
     "errorClearStuck": "The cleanup made no progress and stopped",
     "creditOverflow": "Out of the range credits can hold: ${list}"
+  },
+  "whatsNew": {
+    "updated": "Updated to $version",
+    "open": "View",
+    "sections": {
+      "added": "Added",
+      "changed": "Changed",
+      "fixed": "Fixed",
+      "removed": "Removed",
+      "knownIssues": "Known issues"
+    }
   },
   "diagnostics": {
     "errorBlock": "Something went wrong here",
