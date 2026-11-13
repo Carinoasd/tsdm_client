@@ -57,6 +57,9 @@ class MainActivityImpl: AudioServiceFragmentActivity() {
          * only there.
          */
         const val HAS_SYSTEM_BIOMETRIC_PROMPT = "hasSystemBiometricPrompt"
+        /** Whether a hardware keyboard is in use, see [HardwareKeyboards]: asked by Dart, and sent to it on changes. */
+        const val HAS_HARDWARE_KEYBOARD = "hasHardwareKeyboard"
+        const val HARDWARE_KEYBOARD_CHANGED = "hardwareKeyboardChanged"
         /** Dart tells whether the background message service is wanted, see [BackgroundSyncGuard]. */
         const val SET_BACKGROUND_SYNC_GUARD = "setBackgroundSyncGuard"
         /** Sent to Dart with whether the default network is metered, each time it changes. */
@@ -365,6 +368,9 @@ class MainActivityImpl: AudioServiceFragmentActivity() {
         if (preferHighRefreshRate) applyRefreshRate()
         // The background message service went while the process lived on: started again now that the app is in front.
         BackgroundSyncGuard.onActivityResumed(applicationContext)
+        // A keyboard attached or removed while another activity was in front (the interactive viewer), or while this
+        // one did not exist (a task swiped away and opened again on the same Dart).
+        notifyHardwareKeyboard(resources.configuration)
     }
 
     override fun onDestroy() {
@@ -443,6 +449,12 @@ class MainActivityImpl: AudioServiceFragmentActivity() {
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
         sendWindowEvent("configurationChanged", describe(newConfig))
+        notifyHardwareKeyboard(newConfig)
+    }
+
+    /** Tell Dart whether a hardware keyboard is in use; Dart keeps the last value and ignores a repeated one. */
+    private fun notifyHardwareKeyboard(config: Configuration) {
+        mainChannel?.invokeMethod(HARDWARE_KEYBOARD_CHANGED, HardwareKeyboards.inUse(config))
     }
 
     override fun onMultiWindowModeChanged(isInMultiWindowMode: Boolean, newConfig: Configuration) {
@@ -575,6 +587,7 @@ class MainActivityImpl: AudioServiceFragmentActivity() {
                 result.success(if (maker.isEmpty() || model.startsWith(maker, ignoreCase = true)) model else "$maker $model")
             }
             HAS_SYSTEM_BIOMETRIC_PROMPT -> result.success(Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
+            HAS_HARDWARE_KEYBOARD -> result.success(HardwareKeyboards.inUse(resources.configuration))
             SET_BACKGROUND_SYNC_GUARD -> {
                 val wanted = call.argument<Any>("wanted") as? Boolean
                 if (wanted == null) {
