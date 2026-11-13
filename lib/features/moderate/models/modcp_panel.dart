@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
+import 'package:tsdm_client/features/tsdmapp/v4.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:universal_html/html.dart' as uh;
 
@@ -194,7 +195,12 @@ final class RecycleBinList {
     this.page = 1,
     this.hasNext = false,
     this.note = '',
+    this.v4 = false,
   });
+
+  /// Read from the page of the forum's app API (plugin 4.0.0, `tsdmv=4`): a change is posted with [tsdmAppV4Query] too
+  /// and told by what that answer holds.
+  final bool v4;
 
   /// The bin.
   final RecycleBinKind kind;

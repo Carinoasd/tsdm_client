@@ -4,6 +4,8 @@ import 'package:fpdart/fpdart.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/features/moderate/models/member_ban.dart';
+import 'package:tsdm_client/features/moderate/models/modcp_panel.dart';
+import 'package:tsdm_client/features/moderate/models/modcp_v4.dart';
 import 'package:tsdm_client/features/moderate/models/moderate_form.dart';
 import 'package:tsdm_client/features/moderate/models/moderate_posts.dart';
 import 'package:tsdm_client/features/thread/v1/repository/thread_repository.dart';
@@ -75,6 +77,75 @@ Future<Either<AppException, SmallFormAnswer?>> moderateV4Form(
         return left(IdentityChangedException());
       }
       return right(answer is SmallFormFields && !answer.usable ? null : answer);
+  }
+}
+
+/// The page [answer] of plugin 4.0.0 of the moderation panel, asked by account [uid], read by [read]: the page, the
+/// panel's login form (`error: modcp_login`, the answer's form hash the login form's), the forum's message in its
+/// words. Null when the web page is read instead: a page [read] does not take, the plugin's refusal without words
+/// (`modcp_noperm`: the web page says it in the forum's words), a message without words. Served to another account:
+/// an [IdentityChangedException].
+Either<AppException, ModcpAnswer<T>>? modcpV4AnswerOf<T>(
+  TsdmAppV4Answer answer,
+  int uid,
+  T? Function(Map<String, dynamic> json, int uid) read,
+) {
+  if (answer.uid != uid) {
+    return left(IdentityChangedException());
+  }
+  return switch (answer) {
+    TsdmAppV4Page(:final json) => switch (read(json, uid)) {
+      final value? => right(ModcpReady(value)),
+      null => null,
+    },
+    TsdmAppV4Refused(error: 'modcp_login', :final json) => right(
+      ModcpNeedsLogin(formHash: tsdmAppText(json['formhash'])),
+    ),
+    TsdmAppV4Refused() => null,
+    TsdmAppV4Message(:final reason) => reason.trim().isEmpty ? null : right(ModcpRefused(reason)),
+  };
+}
+
+/// Read [page] of the moderation panel of plugin 4.0.0 at [url] ([withTsdmAppV4Page]) with [get] for the account
+/// logged in ([currentUid]), when the last `status` lists it (`modcp_pages_v4`, after [ensureStatus]); see
+/// [modcpV4AnswerOf]. Null when the web page is read instead (nothing asked; or not the page: `status` forgotten).
+Future<Either<AppException, ModcpAnswer<T>?>> modcpV4Page<T>(
+  ModcpV4Page page,
+  String url,
+  T? Function(Map<String, dynamic> json, int uid) read, {
+  required ModerateGet get,
+  required ModerateEnsureStatus ensureStatus,
+  required int Function() currentUid,
+}) async {
+  await ensureStatus();
+  if (!TsdmAppV4.has(TsdmAppV4Group.modcpPages, page.name)) {
+    return right(null);
+  }
+  final uid = currentUid();
+  if (uid <= 0) {
+    return left(IdentityChangedException());
+  }
+  final resp = await get(withTsdmAppV4Page(url));
+  switch (resp) {
+    case Left(:final value):
+      return left(value);
+    case Right(:final value) when value.statusCode != HttpStatus.ok:
+      return left(HttpRequestFailedException(value.statusCode));
+    case Right(:final value):
+      if (currentUid() != uid) {
+        return left(IdentityChangedException());
+      }
+      final answer = tsdmAppV4AnswerOf(value.data, type: page.type, schema: page.schema);
+      if (answer == null) {
+        // Asked as `status` said and answered as without it: the flag is stale.
+        TsdmAppApi.forgetStatus();
+        return right(null);
+      }
+      return switch (modcpV4AnswerOf(answer, uid, read)) {
+        null => right(null),
+        Left(:final value) => left(value),
+        Right(:final value) => right(value),
+      };
   }
 }
 
@@ -777,6 +848,25 @@ final class ModerateRepository with LoggerMixin {
         if (uid <= 0) {
           return left(IdentityChangedException());
         }
+        switch (await modcpV4Page(
+          ModcpV4Page.moderate,
+          ModerateQueueList.url(kind, fid: fid, page: page),
+          (json, uid) => moderateQueueFromApi(json, kind, fid: fid, uid: uid, page: page),
+          get: _get,
+          ensureStatus: _ensureStatus,
+          currentUid: _currentUid,
+        )) {
+          case Left(:final value):
+            return left(value);
+          case Right(value: ModcpReady(:final value)):
+            return right(ModerateQueueReady(value));
+          case Right(value: ModcpNeedsLogin(:final formHash)):
+            return right(ModerateQueueNeedsLogin(formHash: formHash));
+          case Right(value: ModcpRefused(:final message)):
+            return right(ModerateQueueRefused(message));
+          case Right(value: null):
+            break;
+        }
         final resp = await _get(ModerateQueueList.url(kind, fid: fid, page: page));
         switch (resp) {
           case Left(:final value):
@@ -884,7 +974,10 @@ final class ModerateRepository with LoggerMixin {
     if (uid <= 0 || page.uid != uid) {
       return left(IdentityChangedException());
     }
-    final resp = await _post(page.submitUrl, page.body(action, item, reason: reason));
+    final resp = await _post(
+      page.v4 ? withTsdmAppV4Write(page.submitUrl) : page.submitUrl,
+      page.body(action, item, reason: reason),
+    );
     return switch (resp) {
       Left(:final value) => left(value),
       Right(:final value) when value.statusCode != HttpStatus.ok => left(HttpRequestFailedException(value.statusCode)),
@@ -902,6 +995,25 @@ final class ModerateRepository with LoggerMixin {
     final uid = _currentUid();
     if (uid <= 0 || memberUid <= 0) {
       return left(IdentityChangedException());
+    }
+    switch (await modcpV4Page(
+      ModcpV4Page.member,
+      MemberBanForm.windowUrl(memberUid),
+      (json, uid) => memberBanFormFromApi(json, memberUid: memberUid, uid: uid),
+      get: _get,
+      ensureStatus: _ensureStatus,
+      currentUid: _currentUid,
+    )) {
+      case Left(:final value):
+        return left(value);
+      case Right(value: ModcpReady(:final value)):
+        return right(MemberBanWindowReady(value));
+      case Right(value: ModcpNeedsLogin(:final formHash)):
+        return right(MemberBanNeedsLogin(formHash: formHash));
+      case Right(value: ModcpRefused(:final message)):
+        return right(MemberBanWindowRefused(message));
+      case Right(value: null):
+        break;
     }
     final resp = await _get(MemberBanForm.windowUrl(memberUid));
     switch (resp) {
@@ -954,7 +1066,10 @@ final class ModerateRepository with LoggerMixin {
       if (uid <= 0 || form.uid != uid) {
         return left(IdentityChangedException());
       }
-      final resp = await _post(withTsdmAppJsonWrite(MemberBanForm.submitUrl), form.body(days: days, reason: reason));
+      final resp = await _post(
+        form.v4 ? withTsdmAppV4Write(MemberBanForm.submitUrl) : withTsdmAppJsonWrite(MemberBanForm.submitUrl),
+        form.body(days: days, reason: reason),
+      );
       return switch (resp) {
         Left(:final value) => left(value),
         // The panel answers a ban with its message page, never a redirect (its quick forward is asked by the message's
@@ -963,10 +1078,35 @@ final class ModerateRepository with LoggerMixin {
         Right(:final value) when value.statusCode != HttpStatus.ok => left(
           HttpRequestFailedException(value.statusCode),
         ),
+        Right(:final value) when form.v4 => memberBanV4OutcomeOf(value.data, uid: uid),
         Right(:final value) => memberBanOutcomeOf(value.data, uid: uid),
       };
     },
   );
+
+  /// The panel's verdict in answer [data] to a ban of plugin 4.0.0 (posted with [tsdmAppV4Query]) sent by account
+  /// [uid]: the write result told by its key (`modcp_member_ban_succeed`, spec 4.2), the panel's login form drawn
+  /// instead; anything else as [memberBanOutcomeOf] reads it.
+  static Either<AppException, MemberBanOutcome> memberBanV4OutcomeOf(Object? data, {required int uid}) {
+    switch (tsdmAppV4WriteOutcomeOf(data, type: ModcpV4Page.member.type, schema: ModcpV4Page.member.schema)) {
+      case TsdmAppV4Written(:final result) when result.uid != uid:
+        return left(IdentityChangedException());
+      case TsdmAppV4Written(:final result) when result.kind != TsdmAppWriteKind.page:
+        return right(
+          result.messageKey == 'modcp_member_ban_succeed' && !result.login
+              ? MemberBanDone(result.message)
+              : MemberBanRefused(result.reason),
+        );
+      case TsdmAppV4Redrawn(:final answer) when answer.uid != uid:
+        return left(IdentityChangedException());
+      case TsdmAppV4Redrawn(answer: TsdmAppV4Refused(error: 'modcp_login', :final json)):
+        return right(MemberBanSessionEnded(formHash: tsdmAppText(json['formhash'])));
+      case TsdmAppV4Redrawn(answer: TsdmAppV4Message(:final reason)):
+        return right(MemberBanRefused(reason));
+      default:
+        return memberBanOutcomeOf(data, uid: uid);
+    }
+  }
 
   /// The panel's verdict in answer [data] to a ban sent by account [uid].
   ///
