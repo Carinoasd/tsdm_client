@@ -45,23 +45,41 @@ bool isAttachPayUrl(String url) {
   return query != null && query['mod'] == 'misc' && query['action'] == 'attachpay';
 }
 
-/// The thread of the download address [url]: the last part of its token (`aid|key|time|uid|tid`), null when it has
-/// none.
-String? tidOfAttachmentUrl(String url) {
+/// The parts of the token of the download address [url] (`aid|key|time|uid|tid`), null when it has none (a bare
+/// numeric `aid`, no `aid`, not base64).
+List<String>? _tokenPartsOf(String url) {
   try {
     final raw = url.tryParseAsUri()?.queryParameters['aid'];
     if (raw == null || raw.isEmpty || int.tryParse(raw) != null) {
       return null;
     }
     final parts = utf8.decode(base64.decode(base64.normalize(raw)), allowMalformed: true).split('|');
-    if (parts.length < 5) {
-      return null;
-    }
-    final tid = int.tryParse(parts[4]);
-    return tid != null && tid > 0 ? '$tid' : null;
+    return parts.length < 5 ? null : parts;
   } on FormatException {
     return null;
   }
+}
+
+/// The thread of the download address [url]: the last part of its token (`aid|key|time|uid|tid`), null when it has
+/// none.
+String? tidOfAttachmentUrl(String url) {
+  final tid = int.tryParse(_tokenPartsOf(url)?[4] ?? '');
+  return tid != null && tid > 0 ? '$tid' : null;
+}
+
+/// The account the download address [url] of this forum ([isAttachmentDownloadUrl]) was made for: the `uid` part of
+/// its token (`aid|key|time|uid|tid`). Null for a guest's token (`uid` 0), a token without one and any other url.
+///
+/// The forum checks the permission of that account (`source/app/forum/module/attachment.php` takes the account from
+/// the token), but a forum limiting who downloads attachments (`getattachperm`) checks its groups with the user group
+/// of the session sending the request (`forumperm()` reads `$_G['groupid']`): without that account's cookie the
+/// request is a guest's and is refused (`抱歉，您没有权限下载本附件`).
+int? uidOfAttachmentUrl(String url) {
+  if (!isAttachmentDownloadUrl(url)) {
+    return null;
+  }
+  final uid = int.tryParse(_tokenPartsOf(url)?[3] ?? '');
+  return uid != null && uid > 0 ? uid : null;
 }
 
 final _sizeRe = RegExp(r'(\d+(?:\.\d+)?)\s?(Bytes|Byte|B|KB|MB|GB|TB)\b', caseSensitive: false);
