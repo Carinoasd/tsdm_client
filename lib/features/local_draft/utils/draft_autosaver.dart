@@ -215,13 +215,13 @@ final class DraftAutosaver implements DraftFlusher {
     _offerUid = uid;
     _offerTest = test;
     _onOffered = onOffered;
-    _arrivedWhileChecking = null;
     try {
       await _offerStored(uid, test, onOffered: onOffered);
     } finally {
-      final late = _arrivedWhileChecking;
-      _arrivedWhileChecking = null;
-      if (late != null && _checking == 0) {
+      // Taken once no look is left (two may overlap): offered for the target of then, [_offerArrived] checks it.
+      final late = _checking == 0 ? _arrivedWhileChecking : null;
+      if (late != null) {
+        _arrivedWhileChecking = null;
         await _offerArrived(late.uid, late.key);
       }
     }
@@ -280,8 +280,17 @@ final class DraftAutosaver implements DraftFlusher {
       return;
     }
     final arrived = await store.load(uid, key);
-    if (arrived == null || _disposed || _offerUid != uid || _offerTest != test) {
+    if (arrived == null || _disposed) {
       return;
+    }
+    if (_checking > 0) {
+      // A look began meanwhile: offered once it is done.
+      _arrivedWhileChecking = (uid: uid, key: key);
+      return;
+    }
+    if (_offerUid != uid || _offerTest != test) {
+      // The editor looked again meanwhile (its target may have changed): judged again for what it looks for now.
+      return _offerArrived(uid, key);
     }
     final snap = read();
     if (snap == null || snap.uid != uid) {

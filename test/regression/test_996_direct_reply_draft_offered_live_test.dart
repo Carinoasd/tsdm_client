@@ -190,16 +190,34 @@ void main() {
     await store.pendingWrites;
     final e = editor();
     var offered = 0;
-    final looking = e.saver.offerStored(_uid, (k) => k == _floorKey, onOffered: () => offered++);
-    // The failure lands aside of the older draft and is announced while the editor reads the store.
+    await e.saver.offerStored(_uid, (k) => k == _floorKey, onOffered: () => offered++);
+    expect(e.saver.offer.value?.draft.body, '旧的');
+    offered = 0;
+    // The failure lands aside of the older draft and is announced; the editor is reading it when it looks again (the
+    // reply bar looks each time its target changes), and finds the older one.
     final aside = _floorKey.backupAt(now.millisecondsSinceEpoch);
     store
       ..save(_uid, LocalDraft(key: aside, body: '没送出的回复', updatedAt: now))
       ..announceArrived(_uid, aside);
+    await Future<void>.value();
+    final looking = e.saver.offerStored(_uid, (k) => k == _floorKey, onOffered: () => offered++);
     await looking;
     await pumpEventQueue();
     expect(e.saver.offer.value?.draft.body, '没送出的回复');
-    expect(offered, greaterThan(0), reason: 'the callback of the editor runs for it too');
+    expect(offered, 2, reason: 'the callback of the editor runs for the older one found, then for the arrived one');
+  });
+
+  test('two looks overlap (the target changed quickly): the arrival is still offered after the last one', () async {
+    final e = editor();
+    final first = e.saver.offerStored(_uid, (k) => k == _floorKey);
+    final second = e.saver.offerStored(_uid, (k) => k == _floorKey);
+    final aside = _floorKey.backupAt(now.millisecondsSinceEpoch);
+    store
+      ..save(_uid, LocalDraft(key: aside, body: '没送出的回复', updatedAt: now))
+      ..announceArrived(_uid, aside);
+    await Future.wait([first, second]);
+    await pumpEventQueue();
+    expect(e.saver.offer.value?.draft.body, '没送出的回复');
   });
 
   test('an editor that never looked for a draft offers nothing', () async {
