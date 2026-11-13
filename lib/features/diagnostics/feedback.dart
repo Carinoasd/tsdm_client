@@ -24,15 +24,20 @@ import 'package:tsdm_client/utils/log_redaction.dart';
 /// The environment told in a reply to the feedback thread, one line: the version of the app (with its build) and the
 /// platform with the version of its system, as the diagnostics bundle reads them.
 ///
-/// On Android and Linux the version is the kernel's (`uname`: name, release, build): only its name and release are
-/// told, the build part (its time, a vendor's tag) has no place in a public thread.
+/// Not on Android: the version Dart gives there is the build's display id (`ro.build.display.id`), a vendor's string
+/// that often names the device model, which has no place in a public thread. On Linux it is the kernel's (`uname`:
+/// name, release, build): only its name and release are told, not the build part (its time, a vendor's tag).
 String feedbackEnvironmentLine({String? appVersion, String? platform, String? osVersion}) {
   final name = platform ?? Platform.operatingSystem;
+  final head = 'tsdm_client ${appVersion ?? appFullVersion} · $name';
+  if (name == 'android') {
+    return head;
+  }
   var os = (osVersion ?? Platform.operatingSystemVersion).replaceAll(RegExp(r'\s+'), ' ').trim();
-  if (name == 'android' || name == 'linux') {
+  if (name == 'linux') {
     os = os.split(' ').take(2).join(' ');
   }
-  return 'tsdm_client ${appVersion ?? appFullVersion} · $name $os';
+  return os.isEmpty ? head : '$head $os';
 }
 
 /// The reply to the feedback thread: what the user wrote ([description], may be empty, redacted as in the diagnostics

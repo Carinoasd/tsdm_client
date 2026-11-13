@@ -1922,12 +1922,10 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
       return;
     }
     _pendingReplyPrefill = null;
-    if (state.threadClosed || state.needLogin) {
-      // Nowhere to put it: say why instead of a page without the reply.
-      showSnackBar(
-        context: context,
-        message: state.needLogin ? context.t.threadPage.needLogin : context.t.threadPage.closed,
-      );
+    if (state.threadClosed) {
+      // Nowhere to put it: say why instead of a page without the reply. (A page that needs a login has no floors, it
+      // is not here: the text waits for the load after the login.)
+      showSnackBar(context: context, message: context.t.threadPage.closed);
       return;
     }
     // After the frame that builds the reply bar for this state.

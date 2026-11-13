@@ -61,14 +61,21 @@ void main() {
       feedbackEnvironmentLine(appVersion: '1.57.0+172.abc', platform: 'ios', osVersion: 'Version 17.0\n(Build 21A329)'),
       'tsdm_client 1.57.0+172.abc · ios Version 17.0 (Build 21A329)',
     );
-    // The kernel's build part (its time, a vendor tag) is left out of a public thread.
+    // Android: the display id of the build names the device model, left out.
+    for (final displayId in ['TP1A.220624.014.S908EXXU2CWA2', 'ANA-AN00 2.0.0.168(C00E160R5P3)']) {
+      expect(
+        feedbackEnvironmentLine(appVersion: '1.57.0', platform: 'android', osVersion: displayId),
+        'tsdm_client 1.57.0 · android',
+      );
+    }
+    // Linux: the kernel's build part (its time, a vendor tag) is left out.
     expect(
       feedbackEnvironmentLine(
         appVersion: '1.57.0',
-        platform: 'android',
-        osVersion: 'Linux 5.10.198-android13-4 #1 SMP PREEMPT Thu Jan 1 00:00:00 UTC 2026 vendor-S9080ZCU2',
+        platform: 'linux',
+        osVersion: 'Linux 6.8.0-49-generic #49-Ubuntu SMP PREEMPT_DYNAMIC Mon Nov  4 02:06:24 UTC 2026',
       ),
-      'tsdm_client 1.57.0 · android Linux 5.10.198-android13-4',
+      'tsdm_client 1.57.0 · linux Linux 6.8.0-49-generic',
     );
     // The real one, as the app builds it.
     final real = feedbackEnvironmentLine();
