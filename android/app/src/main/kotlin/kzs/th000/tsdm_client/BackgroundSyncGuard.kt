@@ -41,8 +41,8 @@ import id.flutter.flutter_background_service.BackgroundService
  * A service that stops itself (its isolate failed to start) is not the system's doing: started again by the job, it
  * would go again at once. A restart that is gone again at the next check, without being seen running in between,
  * waits twice as long before the next one (one period, two, four… up to [MAX_BACKOFF_STEPS] doublings); seen running,
- * or told by Dart again, the count starts over. The activity coming to the front follows the same count (it comes to
- * the front many times in a session); a cold start of the app tries once more anyway (`BackgroundSyncController`).
+ * or told by Dart again, the count starts over. The activity coming to the front waits too, a period at most (it comes
+ * to the front many times in a session); a cold start of the app tries once more anyway (`BackgroundSyncController`).
  *
  * A periodic job also follows the app standby buckets: about once a day in the `rare` bucket, hardly ever in the
  * `restricted` one (Android 12+, an app not opened for long), besides waiting for the maintenance windows of Doze.
@@ -154,7 +154,7 @@ class BackgroundSyncGuard : JobService() {
 
         /**
          * Start the service again when it is wanted and gone; tell the user once when the system refuses. Returns what
-         * was decided.
+         * was done: [Step.WAITING] when a restart waits for the back-off, else what [decide] said.
          *
          * [inFront] is true when an activity of the app is in front: the system never refuses then, and no
          * notification is posted for a failure.
@@ -184,7 +184,10 @@ class BackgroundSyncGuard : JobService() {
                 Step.RESTART -> try {
                     val streak = prefs.getInt(KEY_STREAK, 0)
                     val at = now()
-                    if (backingOff(streak, prefs.getLong(KEY_RESTARTED_AT, 0L), at)) {
+                    // In front a period at most: a service killed again and again (an eager cleaner) is not left off for
+                    // hours while the app is in use.
+                    val counted = if (inFront) streak.coerceAtMost(1) else streak
+                    if (backingOff(counted, prefs.getLong(KEY_RESTARTED_AT, 0L), at)) {
                         Log.i(TAG, "background service gone again after $streak restarts: waiting (in front: $inFront)")
                         return Step.WAITING
                     }

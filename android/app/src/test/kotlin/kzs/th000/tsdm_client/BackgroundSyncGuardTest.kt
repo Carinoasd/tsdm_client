@@ -142,19 +142,26 @@ class BackgroundSyncGuardTest {
         val p = BackgroundSyncGuard.PERIOD_MS
         var clock = 0L
         fun tick() = BackgroundSyncGuard.check(context, running = { false }, start = started, now = { clock })
-        tick() // First restart.
+        fun front() =
+            BackgroundSyncGuard.check(context, inFront = true, running = { false }, start = started, now = { clock })
+        tick() // First restart, at 0.
         clock += p
-        tick() // Gone again: second restart, one period later.
+        tick() // Gone again: second restart, one period later (at p).
         assertEquals(2, starts)
         clock += p
         assertEquals(BackgroundSyncGuard.Step.WAITING, tick()) // Two periods to wait now.
         assertEquals(2, starts)
-        // The app coming to the front follows the count too: it comes many times in a session.
-        BackgroundSyncGuard.check(context, inFront = true, running = { false }, start = started, now = { clock })
-        assertEquals(2, starts)
         clock += p
-        assertEquals(BackgroundSyncGuard.Step.RESTART, tick())
+        assertEquals(BackgroundSyncGuard.Step.RESTART, tick()) // At 3p.
         assertEquals(3, starts)
+        // The app coming to the front waits too (it comes many times in a session), a period at most.
+        clock += p / 2
+        assertEquals(BackgroundSyncGuard.Step.WAITING, front())
+        assertEquals(3, starts)
+        clock += p / 2
+        assertEquals(BackgroundSyncGuard.Step.WAITING, tick()) // The job: four periods now.
+        assertEquals(BackgroundSyncGuard.Step.RESTART, front())
+        assertEquals(4, starts)
     }
 
     @Test fun seenRunningOrToldAgainStartsTheCountOver() {
