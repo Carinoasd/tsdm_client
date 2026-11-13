@@ -61,6 +61,23 @@ void main() {
       }
     });
 
+    test("the forum's own name may come right before a link", () {
+      expect(
+        findForumLinkInText('天使动漫tsdm39.com:https://www.tsdm39.com/thread-5-1-1.html')?.url,
+        'https://www.tsdm39.com/forum.php?mod=viewthread&tid=5',
+      );
+    });
+
+    test('a long run before a link or many links take little time', () {
+      final watch = Stopwatch()..start();
+      final run = 'A' * 200000;
+      expect(findForumLinkInText('$run https://www.tsdm39.com/thread-5-1-1.html'), isNotNull);
+      expect(findForumLinkInText('${run}https://www.tsdm39.com/thread-5-1-1.html'), isNotNull);
+      final others = List.generate(3000, (i) => 'https://example.com/a/$i').join('\n');
+      expect(findForumLinkInText('$others\nhttps://www.tsdm39.com/thread-5-1-1.html'), isNotNull);
+      expect(watch.elapsed, lessThan(const Duration(seconds: 2)));
+    });
+
     test('a colon or a bracket may come before a link', () {
       expect(findForumLinkInText('链接:https://www.tsdm39.com/forum.php?mod=viewthread&tid=3')!.url, contains('tid=3'));
       expect(findForumLinkInText('(tsdm39.com/forum.php?mod=viewthread&tid=3)')!.url, contains('tid=3'));

@@ -35,13 +35,31 @@ final class ForumLinkInText {
 /// ends it. Shared texts often put words right after the link without a space.
 const _urlChars = r"[A-Za-z0-9\-._~:/?#\[\]@!$&'()*+,;=%]";
 
-/// The url characters right before a link (brackets, quotes and commas end them): [_anotherHostRe] tells whether the
-/// link sits inside a link of another site.
-final _runBeforeRe = RegExp(r'[A-Za-z0-9\-._~:/?#@!$&*+;=%]+$');
+/// The url characters right before a link (brackets, quotes and commas end them), see [_insideAnotherLink].
+final _runCharRe = RegExp(r'[A-Za-z0-9\-._~:/?#@!$&*+;=%]');
+
+/// At most this many characters before a link are looked at: a link of another site has its host near the parameter
+/// carrying the forum's link, and a long run (base64, a list of links) costs no more than this.
+const _maxRunBefore = 256;
 
 /// A host name: a link right after one is a parameter of that site's link (`other.site/?u=https://www.tsdm39.com/…`).
 /// Not a word, a number or a BBCode tag (`[url=https://…]`, `EP03https://…`, `1.https://…`).
 final _anotherHostRe = RegExp(r'[A-Za-z0-9-]+\.[A-Za-z]{2,}');
+
+/// Whether the link at [start] of [text] sits inside a link of another site: the url characters right before it
+/// (walked back from [start], at most [_maxRunBefore]) name a host other than the forum's.
+bool _insideAnotherLink(String text, int start) {
+  var from = start;
+  while (from > 0 && start - from < _maxRunBefore && _runCharRe.hasMatch(text[from - 1])) {
+    from--;
+  }
+  if (from == start) {
+    return false;
+  }
+  return _anotherHostRe
+      .allMatches(text.substring(from, start))
+      .any((m) => !m.group(0)!.toLowerCase().endsWith(baseHostAlt));
+}
 
 /// A web link with its scheme, or a link of the forum written without one (`www.tsdm39.com/…`, `tsdm39.com/…`) that
 /// does not go on into a longer host. Without a scheme something must follow the host, checked after the trim
@@ -75,8 +93,7 @@ final _trailingRe = RegExp(r"[.,;:!?'\x22]+$");
 /// The link is then parsed as the app parses any forum link ([ParseUrl.parseUrlToRoute]).
 ForumLinkInText? findForumLinkInText(String text) {
   for (final match in _linkRe.allMatches(text)) {
-    final runBefore = _runBeforeRe.firstMatch(text.substring(0, match.start))?.group(0);
-    if (runBefore != null && _anotherHostRe.hasMatch(runBefore)) {
+    if (_insideAnotherLink(text, match.start)) {
       continue;
     }
     final raw = _trimLink(match.group(0)!);
