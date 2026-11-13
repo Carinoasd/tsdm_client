@@ -211,11 +211,17 @@
                 android:value="Keep user logged in to the forum and poll new messages in background" />
         </service>
         <!-- The audio attachments played in the app (just_audio_background): the media notification and playing on
-             with the app in the background. MainActivityImpl runs on the engine this service plays in. -->
+             with the app in the background. MainActivityImpl runs on the engine this service plays in.
+             Not exported: other apps never bind it. The Bluetooth stack bound every exported media browser service at
+             boot, which made this engine and ran main() with no activity (PR #379). Nothing of the app goes through
+             such a binding: the media notification, the lock screen and the headset or Bluetooth play/pause buttons
+             all go through the media session. The system's media resumption card (Android 11+) did bind it, but the
+             app browses nothing (no children, no play from a media id), so that card had nothing to resume.
+             The intent filter stays: MediaButtonReceiver looks this service up by its action within this package. -->
         <service
               android:name="com.ryanheise.audioservice.AudioService"
               android:foregroundServiceType="mediaPlayback"
-              android:exported="true"
+              android:exported="false"
               tools:ignore="Instantiatable">
             <intent-filter>
                 <action android:name="android.media.browse.MediaBrowserService" />

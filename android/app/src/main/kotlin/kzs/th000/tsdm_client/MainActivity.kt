@@ -121,9 +121,10 @@ class MainActivityImpl: AudioServiceFragmentActivity() {
      *
      * * the task was swiped away from the recents while the background service or the player kept the process, then
      *   the app is opened again;
-     * * the audio service was created without an activity and made this engine: bound by the Bluetooth stack when it
-     *   starts, or by the audio service's plugin of another engine of the process (the background service at boot or
-     *   after an update, the reply typed in a notification).
+     * * the audio service was created without an activity and made this engine: bound by the audio service's plugin
+     *   of another engine of the process (the background service at boot or after an update, the reply typed in a
+     *   notification), or started by a media button. (The Bluetooth stack bound it at boot too, until the service was
+     *   no longer exported.)
      *
      * In the first case that Dart asked for its launch link, share, shortcut and notification long ago and will not
      * ask again: what this activity was launched with is pushed to it, see [pushLaunchToRunningDart]. In the second

@@ -23,11 +23,13 @@ const _unansweredInFront = 3;
 /// the service makes that engine and runs `main()` in it whenever it is created while the engine does not exist,
 /// with no activity at all:
 ///
-/// * the Bluetooth stack binds every media browser service when it starts (at boot);
 /// * every other engine made in the process brings the audio service's plugin, which binds the service: the engine
 ///   of the background message service (started at boot and after an update of the app) and the one of the
 ///   notification plugin (a reply typed in a notification with the app closed);
 /// * a media button pressed when this app was the last one to play starts the service through its receiver.
+///
+/// (The Bluetooth stack bound every exported media browser service at boot too; the service is not exported any
+/// more, see the manifest.)
 ///
 /// The channels the activity sets up do not exist then (`MainActivityImpl.configureFlutterEngine`): every call ended
 /// in a `MissingPluginException`. The requests of the home page go through one of them, so the app opened later
