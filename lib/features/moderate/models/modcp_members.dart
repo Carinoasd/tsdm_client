@@ -38,6 +38,9 @@ final class ModcpMenu {
 
   /// The announcements (公告: `allowpostannounce`).
   bool get canAnnounce => has('announcement');
+
+  /// The threads recommended in the forums moderated (推荐主题: `allowrecommendthread`).
+  bool get canRecommend => has('forum', 'recommend');
 }
 
 String? _entryOf(String href) {

@@ -4651,6 +4651,13 @@
       "knownIssues": "已知问题"
     }
   },
+  "modcpRecommend": {
+    "title": "推荐主题",
+    "order": "顺序",
+    "expiration": "有效期至",
+    "remove": "取消推荐",
+    "empty": "没有推荐主题"
+  },
   "diagnostics": {
     "errorBlock": "这里出了点问题",
     "export": "导出诊断",

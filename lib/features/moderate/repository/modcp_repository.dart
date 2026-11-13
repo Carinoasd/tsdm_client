@@ -6,6 +6,7 @@ import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/features/moderate/models/member_ban.dart';
 import 'package:tsdm_client/features/moderate/models/modcp_members.dart';
 import 'package:tsdm_client/features/moderate/models/modcp_panel.dart';
+import 'package:tsdm_client/features/moderate/models/modcp_recommend.dart';
 import 'package:tsdm_client/features/moderate/models/modcp_v4.dart';
 import 'package:tsdm_client/features/moderate/models/moderate_posts.dart';
 import 'package:tsdm_client/features/moderate/repository/moderate_repository.dart';
@@ -644,6 +645,68 @@ final class ModcpRepository with LoggerMixin {
         final other => _messageOutcome(other),
       },
     );
+  });
+
+  /// The threads recommended in forum [fid] (the panel's 推荐主题), as the web page lists them: the forum's app API
+  /// answers no fields for it.
+  AsyncEither<ModcpAnswer<RecommendList>> fetchRecommends({int fid = 0}) =>
+      AsyncEither(() => _page(RecommendList.url(fid: fid), (doc, uid) => parseRecommendList(doc, uid: uid)));
+
+  /// Post the list [list] once: the threads of [edits] changed there, [remove] taken off the list, the others as
+  /// listed. Never for a list the forum orders itself (it keeps it whatever is posted).
+  ///
+  /// The panel draws the list again: the threads taken off are done when none of them is listed any more; a change is
+  /// done when the panel prints its line (推荐主题更新成功), which it prints only for a list it saved. Its message
+  /// instead (an end not in its `yyyy-mm-dd hh:mm`, no permission) is a refusal in its words, nothing saved.
+  AsyncEither<ModcpWriteOutcome> saveRecommends(
+    RecommendList list, {
+    Map<int, RecommendEdit> edits = const {},
+    Set<int> remove = const {},
+  }) => AsyncEither(() async {
+    if (!list.editable || list.fid <= 0 || (edits.isEmpty && remove.isEmpty)) {
+      return right(const ModcpWriteRefused(''));
+    }
+    final uid = list.uid;
+    if (uid <= 0 || _currentUid() != uid) {
+      return left(IdentityChangedException());
+    }
+    final resp = await _post(RecommendList.submitUrl, list.body(edits: edits, remove: remove));
+    final Object? data;
+    switch (resp) {
+      case Left(:final value):
+        return left(value);
+      case Right(:final value) when value.statusCode != HttpStatus.ok:
+        return left(HttpRequestFailedException(value.statusCode));
+      case Right(:final value):
+        data = value.data;
+    }
+    if (_currentUid() != uid) {
+      return left(IdentityChangedException());
+    }
+    // The list drawn again is read first: with every thread taken off it is a heading alone, which the panel's
+    // messages are read from otherwise.
+    final doc = parseHtmlDocument(tsdmAppAnswerText(data));
+    if (moderatePageUid(doc) case final served? when served != uid) {
+      return left(IdentityChangedException());
+    }
+    switch (parseRecommendList(doc, uid: uid)) {
+      case final now? when now.fid == list.fid && remove.isNotEmpty:
+        return right(switch (_remaining(
+          [for (final tid in remove) '$tid'],
+          [for (final e in now.threads) '${e.tid}'],
+        )) {
+          ModcpWriteDone() when now.message.isNotEmpty && remove.length == 1 => ModcpWriteDone(message: now.message),
+          final outcome => outcome,
+        });
+      // The panel's line, printed only for a list it saved (not the one beside the button when the list was read).
+      case final now? when now.fid == list.fid && now.message.isNotEmpty && now.message != list.message:
+        return right(ModcpWriteDone(message: now.message));
+      case _?:
+        return right(const ModcpWriteUnknown());
+      case null:
+        break;
+    }
+    return _writtenOf(data, uid: uid).map(_messageOutcome);
   });
 
   /// The announcements, and the form adding one.
