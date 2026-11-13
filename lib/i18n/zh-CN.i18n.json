@@ -374,7 +374,8 @@
         "forumWatch": "新帖与关键字提醒",
         "replyTemplates": "回复模板",
         "readLater": "稍后阅读",
-        "followedThreads": "追踪的帖子"
+        "followedThreads": "追踪的帖子",
+        "customImages": "我的图片"
       },
       "loginDevices": "登录设备",
       "security": "密码与安全",

@@ -249,6 +249,11 @@ class StorageProvider with LoggerMixin {
   /// sync: a JSON object, thread id to the time (milliseconds), see `readLaterRemovedOf`.
   static String readLaterRemovedKey(int uid) => 'readLaterRemoved.$uid';
 
+  /// Settings name of the records of the saved images ("my images") deleted on this device, for the cross-device sync:
+  /// a JSON object, image address to the time (milliseconds). The device's, like the images: kept when an account is
+  /// removed.
+  static const customImagesRemovedKey = 'customImagesRemoved';
+
   /// Settings name of the time the followed threads of account [uid] were last checked (`FollowedThreadCheckSlot`), in
   /// milliseconds since epoch.
   static String followedThreadsCheckedAtKey(int uid) => 'followedThreadsCheckedAt.$uid';
@@ -1217,9 +1222,18 @@ class StorageProvider with LoggerMixin {
     return dao.deleteAll();
   }
 
-  /// Save an image sticker [url] with an optional [name] (#5); returns the row id.
-  Future<int> addCustomImage({required String url, String name = ''}) async =>
-      CustomImageDao(_db).add(url: url, name: name);
+  /// Save an image sticker [url] with an optional [name] (#5); returns the row id. A record of the image deleted before
+  /// is dropped.
+  Future<int> addCustomImage({required String url, String name = ''}) => _db.transaction(() async {
+    final id = await CustomImageDao(_db).add(url: url, name: name);
+    final removed = await customImagesRemoved();
+    if (removed.containsKey(url)) {
+      await _saveCustomImagesRemoved(
+        syncKeyRemovalsWith(removed, back: [url], at: DateTime.now().millisecondsSinceEpoch),
+      );
+    }
+    return id;
+  });
 
   /// All saved image stickers in display order.
   Future<List<CustomImageEntity>> fetchCustomImages() async => CustomImageDao(_db).selectAll();
@@ -1227,10 +1241,57 @@ class StorageProvider with LoggerMixin {
   /// Watch the saved image stickers in display order.
   Stream<List<CustomImageEntity>> watchCustomImages() => CustomImageDao(_db).watchAll();
 
-  /// Delete the image sticker with row [id].
-  Future<void> deleteCustomImage(int id) async {
-    await CustomImageDao(_db).deleteById(id);
+  /// Delete the image sticker with row [id], noting when for the cross-device sync.
+  Future<void> deleteCustomImage(int id) => _db.transaction(() async {
+    final dao = CustomImageDao(_db);
+    final image = await dao.selectById(id);
+    if (image != null && await dao.deleteById(id) > 0) {
+      await _noteCustomImagesRemoved({image.url: DateTime.now().millisecondsSinceEpoch});
+    }
+  });
+
+  /// The records of the image stickers deleted on this device: address to the time (milliseconds).
+  Future<Map<String, int>> customImagesRemoved() async => syncKeyRemovalsOf(await getString(customImagesRemovedKey));
+
+  /// Take the image stickers of another device in (the cross-device sync): [save] each address with its name and the
+  /// time of its last change (milliseconds), in their order, and delete the addresses of [remove], each noted at its
+  /// time. Returns the addresses deleted.
+  Future<List<String>> applySyncedCustomImages({
+    required List<({String url, String name, int updated})> save,
+    required Map<String, int> remove,
+  }) => _db.transaction(() async {
+    final dao = CustomImageDao(_db);
+    final deleted = <String>[];
+    final noted = <String, int>{};
+    for (final MapEntry(key: url, value: at) in remove.entries) {
+      if (await dao.deleteByUrl(url) > 0) {
+        deleted.add(url);
+        noted[url] = at;
+      }
+    }
+    for (final e in save) {
+      await dao.saveSynced(url: e.url, name: e.name, updated: DateTime.fromMillisecondsSinceEpoch(e.updated));
+    }
+    final removed = await customImagesRemoved();
+    final back = [
+      for (final e in save)
+        if (removed.containsKey(e.url)) e.url,
+    ];
+    if (noted.isNotEmpty || back.isNotEmpty) {
+      await _saveCustomImagesRemoved(
+        syncKeyRemovalsWith(removed, keys: noted, back: back, at: DateTime.now().millisecondsSinceEpoch),
+      );
+    }
+    return deleted;
+  });
+
+  Future<void> _noteCustomImagesRemoved(Map<String, int> urls) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await _saveCustomImagesRemoved(syncKeyRemovalsWith(await customImagesRemoved(), keys: urls, at: now));
   }
+
+  Future<void> _saveCustomImagesRemoved(String? raw) async =>
+      raw == null ? deleteKey(customImagesRemovedKey) : saveString(customImagesRemovedKey, raw);
 
   /*        notification        */
 

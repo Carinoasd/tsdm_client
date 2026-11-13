@@ -374,7 +374,8 @@
         "forumWatch": "新帖與關鍵字提醒",
         "replyTemplates": "回覆模板",
         "readLater": "稍後閱讀",
-        "followedThreads": "追蹤的帖子"
+        "followedThreads": "追蹤的帖子",
+        "customImages": "我的圖片"
       },
       "loginDevices": "登入裝置",
       "security": "密碼與安全",

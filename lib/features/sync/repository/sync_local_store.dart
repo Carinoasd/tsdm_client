@@ -4,6 +4,9 @@ import 'package:flutter/foundation.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/blocking/repository/user_block_repository.dart';
+import 'package:tsdm_client/features/editor/repository/recent_emoji_store.dart';
+import 'package:tsdm_client/features/editor/utils/custom_image_input.dart';
+import 'package:tsdm_client/features/editor/utils/custom_image_sync.dart';
 import 'package:tsdm_client/features/editor/utils/quick_phrases.dart';
 import 'package:tsdm_client/features/floor_bookmark/models/floor_bookmark.dart';
 import 'package:tsdm_client/features/floor_bookmark/repository/floor_bookmark_store.dart';
@@ -390,6 +393,12 @@ abstract interface class SyncLocalStore {
   /// changes.
   Future<void> applyFollowedThreads(int uid, Map<String, Map<String, dynamic>> items);
 
+  /// The saved images of the emoji pickers (of the device, not of one account) and the records of the ones deleted.
+  Future<({List<CustomImageSyncEntry> entries, Map<String, int> removed})> customImages();
+
+  /// Take the items of `custom_images` in ([customImageSyncChanges]); nothing is written when nothing changes.
+  Future<void> applyCustomImages(Map<String, Map<String, dynamic>> items);
+
   /// The document the forum held for account [uid] when it was last read or written, null before the first sync.
   Future<SyncLastSynced?> lastSynced(int uid);
 
@@ -695,6 +704,32 @@ final class StorageSyncLocalStore implements SyncLocalStore {
       FollowedThreadStore.app?.applySynced(uid, items);
 
   @override
+  Future<({List<CustomImageSyncEntry> entries, Map<String, int> removed})> customImages() async => (
+    entries: [
+      for (final e in await _storage.fetchCustomImages())
+        CustomImageSyncEntry(url: e.url, name: e.name, updated: e.addedAt.millisecondsSinceEpoch),
+    ],
+    removed: await _storage.customImagesRemoved(),
+  );
+
+  @override
+  Future<void> applyCustomImages(Map<String, Map<String, dynamic>> items) async {
+    final (:entries, :removed) = await customImages();
+    final (:save, :remove) = customImageSyncChanges(entries, removed, items);
+    if (save.isEmpty && remove.isEmpty) {
+      return;
+    }
+    final deleted = await _storage.applySyncedCustomImages(
+      save: [for (final e in save) (url: e.url, name: e.name, updated: e.updated)],
+      remove: remove,
+    );
+    // Gone from the recent ones too, as when deleted here.
+    for (final url in deleted) {
+      await RecentEmojiStore.app?.remove(customImageBBCode(url));
+    }
+  }
+
+  @override
   Future<SyncLastSynced?> lastSynced(int uid) async {
     final document = await _storage.getString(lastDocumentKeyOf(uid));
     if (document == null) {
@@ -792,6 +827,12 @@ final class MemorySyncLocalStore implements SyncLocalStore {
 
   /// Accounts whose followed threads can not be kept ([followedThreads] reads null).
   final followedUnavailable = <int>{};
+
+  /// The saved images by address, in their order.
+  final customImageList = <String, CustomImageSyncEntry>{};
+
+  /// The records of the saved images deleted.
+  Map<String, int> customImagesRemovedAt = {};
 
   /// The device clock (milliseconds) the pinned forums and the watch are taken in at.
   int Function() clock = () => DateTime.now().millisecondsSinceEpoch;
@@ -1098,6 +1139,44 @@ final class MemorySyncLocalStore implements SyncLocalStore {
       syncRemovalsWith(removed, tids: unfollow, back: [for (final t in follow) t.tid], at: clock()),
     );
     writes.add('applyFollowedThreads');
+  }
+
+  /// Save the image of [url] named [name] at [at] (milliseconds) as the app does (the time in whole seconds, a record
+  /// of its deletion dropped; a new name only on an image saved before).
+  void saveCustomImage(String url, {required int at, String name = ''}) {
+    final mine = customImageList[url];
+    if (mine == null || mine.name != name) {
+      customImageList[url] = CustomImageSyncEntry(url: url, name: name, updated: at - at % 1000);
+    }
+    customImagesRemovedAt = syncKeyRemovalsOf(syncKeyRemovalsWith(customImagesRemovedAt, back: [url], at: at));
+  }
+
+  /// Delete the image of [url] at [at], as the app does.
+  void deleteCustomImage(String url, int at) {
+    if (customImageList.remove(url) != null) {
+      customImagesRemovedAt = syncKeyRemovalsOf(syncKeyRemovalsWith(customImagesRemovedAt, keys: {url: at}, at: at));
+    }
+  }
+
+  @override
+  Future<({List<CustomImageSyncEntry> entries, Map<String, int> removed})> customImages() async => (
+    entries: customImageList.values.toList(),
+    removed: Map<String, int>.of(customImagesRemovedAt),
+  );
+
+  @override
+  Future<void> applyCustomImages(Map<String, Map<String, dynamic>> items) async {
+    final (:entries, :removed) = await customImages();
+    final (:save, :remove) = customImageSyncChanges(entries, removed, items);
+    for (final MapEntry(key: url, value: at) in remove.entries) {
+      deleteCustomImage(url, at);
+      writes.add('deleteCustomImage $url');
+    }
+    for (final e in save) {
+      customImageList[e.url] = CustomImageSyncEntry(url: e.url, name: e.name, updated: e.updated - e.updated % 1000);
+      customImagesRemovedAt = syncKeyRemovalsOf(syncKeyRemovalsWith(customImagesRemovedAt, back: [e.url], at: clock()));
+      writes.add('saveCustomImage ${e.url}');
+    }
   }
 
   @override
