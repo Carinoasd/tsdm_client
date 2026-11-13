@@ -1,0 +1,8 @@
+{
+ "ok": 0,
+ "error": "message",
+ "message": "抱歉，该任务不存在或已被删除",
+ "login": 0,
+ "uid": 31,
+ "message_key": "task_nonexistence"
+}

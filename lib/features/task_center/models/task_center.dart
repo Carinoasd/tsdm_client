@@ -26,6 +26,12 @@ enum TaskCenterTab {
   String get url => '$baseUrl/home.php?mod=task&item=$item';
 }
 
+/// The page of task [id] (`do=view`).
+String taskViewUrl(int id) => '$baseUrl/home.php?mod=task&do=view&id=$id';
+
+/// The members who applied for task [id] (`do=parter`, the web page's AJAX part; read as a page of plugin 4.0.0).
+String taskParterUrl(int id) => '$baseUrl/home.php?mod=task&do=parter&id=$id';
+
 /// The AJAX url applying for task [id] (`do=apply`), a GET that writes.
 String taskApplyUrl(int id) => '$baseUrl/home.php?mod=task&do=apply&id=$id&inajax=1';
 
@@ -39,6 +45,9 @@ enum TaskActionKind {
 
   /// Claim the reward (`do=draw`); the forum checks the progress and answers it when not complete.
   draw,
+
+  /// Give the task up (`do=delete`): only from the task's page, while it is in progress and not complete.
+  giveUp,
 }
 
 /// One task of a list, as the forum's page shows it.
@@ -197,6 +206,9 @@ enum TaskActionOutcome {
 
   /// The reward was given.
   rewarded,
+
+  /// The task was given up.
+  gaveUp,
 
   /// The task is not complete yet; [TaskActionResult.progress] tells how far.
   inProgress,
@@ -380,9 +392,12 @@ String taskV4ApplyUrl(int id) => '$baseUrl/home.php?mod=task&do=apply&id=$id';
 /// the forum answer `progress|words` instead of its message.
 String taskV4DrawUrl(int id) => '$baseUrl/home.php?mod=task&do=draw&id=$id';
 
+/// The url giving task [id] up as plugin 4.0.0 takes it (`do=delete`, a GET that writes, as the web page's link).
+String taskV4GiveUpUrl(int id) => '$baseUrl/home.php?mod=task&do=delete&id=$id';
+
 /// The reward [reward] of a task of the forum's app API (plugin 4.0.0), as the web page words it (the template
 /// `home/space_task_list`): empty without one.
-String _taskRewardOf(Map<String, dynamic> reward) {
+String taskRewardTextOf(Map<String, dynamic> reward) {
   final words = t.taskCenter.forumWords;
   final days = tsdmAppInt(reward['days']);
   final name = tsdmAppText(reward['name']);
@@ -449,7 +464,7 @@ TaskList taskListFromApi(Map<String, dynamic> json, TaskCenterTab tab) {
         id: id,
         name: name,
         description: tsdmAppText(row['description']).replaceAll(_space, ' ').trim(),
-        reward: _taskRewardOf(tsdmAppMap(row['reward'])),
+        reward: taskRewardTextOf(tsdmAppMap(row['reward'])),
         progress: progress,
         action: action,
         blockedReason: blocked,
@@ -463,10 +478,10 @@ TaskList taskListFromApi(Map<String, dynamic> json, TaskCenterTab tab) {
 /// The keys of the forum's "not complete yet" answers to a claim (plugin 4.0.0, `do=draw`).
 const _taskNotYet = {'task_doing', 'task_doing_rt', 'task_waiting', 'task_waiting_rt'};
 
-/// The result of the apply or the claim ([kind]) of task [id] sent with plugin 4.0.0 (`tsdmv=4`), from its answer
+/// The result of the apply, the claim or the give-up ([kind]) of task [id] sent with plugin 4.0.0 (`tsdmv=4`), from its answer
 /// [data]; null when the answer is no write result (the caller reads it as before).
 ///
-/// Only the success keys of the forum count as done (`task_applied`, `task_completed` and the reward words
+/// Only the success keys of the forum count as done (`task_applied`, `task_completed`, `task_deleted` and the reward words
 /// `task_reward_*` the plugin counts with it; `ok` alone never does), and an apply sent on to the task's own claim: a claim
 /// not complete yet (`task_doing`, `task_waiting`…) is in progress with the forum's words, `task_failed` failed, the
 /// login prompt the login, anything else refused in the forum's words (unconfirmed without words).
@@ -489,6 +504,7 @@ TaskActionResult? taskV4ActionResultOf(Object? data, {required int id, required 
     TaskActionKind.draw when key == 'task_completed' || key.startsWith('task_reward_') => TaskActionOutcome.rewarded,
     TaskActionKind.draw when _taskNotYet.contains(key) => TaskActionOutcome.inProgress,
     TaskActionKind.draw when key == 'task_failed' => TaskActionOutcome.failed,
+    TaskActionKind.giveUp when key == 'task_deleted' => TaskActionOutcome.gaveUp,
     _ => message == null ? TaskActionOutcome.unconfirmed : TaskActionOutcome.refused,
   };
   return TaskActionResult(

@@ -28,6 +28,7 @@ final class TaskCenterState {
     this.result,
     this.resultName = '',
     this.resultTab,
+    this.detailAvailable = false,
   });
 
   /// The account the lists belong to.
@@ -51,6 +52,9 @@ final class TaskCenterState {
   /// The tab [result] was acted from, the only one showing it.
   final TaskCenterTab? resultTab;
 
+  /// A task's page can be opened (the forum's plugin answers it); the cards open nothing otherwise.
+  final bool detailAvailable;
+
   /// The state of [tab], empty when not loaded yet.
   TaskTabState tab(TaskCenterTab tab) => tabs[tab] ?? const TaskTabState();
 
@@ -61,6 +65,7 @@ final class TaskCenterState {
     TaskActionResult? Function()? result,
     String? resultName,
     TaskCenterTab? resultTab,
+    bool? detailAvailable,
   }) => TaskCenterState(
     uid: uid,
     tabs: tabs ?? this.tabs,
@@ -69,6 +74,7 @@ final class TaskCenterState {
     result: result == null ? this.result : result(),
     resultName: resultName ?? this.resultName,
     resultTab: resultTab ?? this.resultTab,
+    detailAvailable: detailAvailable ?? this.detailAvailable,
   );
 }
 
@@ -130,7 +136,10 @@ class TaskCenterCubit extends Cubit<TaskCenterState> {
       ),
     );
     try {
-      final list = await repository().fetchList(tab, uid);
+      final repo = repository();
+      final list = await repo.fetchList(tab, uid);
+      // Asked after the list: the plugin's `status` is known by then.
+      final detail = await repo.detailAvailable();
       if (!fresh()) return;
       emit(
         state._copyWith(
@@ -138,6 +147,7 @@ class TaskCenterCubit extends Cubit<TaskCenterState> {
             ...state.tabs,
             tab: TaskTabState(list: list),
           },
+          detailAvailable: detail,
         ),
       );
     } on TaskCenterIdentityException catch (e) {
@@ -175,7 +185,11 @@ class TaskCenterCubit extends Cubit<TaskCenterState> {
     TaskActionResult result;
     try {
       final repo = repository();
-      result = kind == TaskActionKind.apply ? await repo.apply(task.id) : await repo.draw(task.id);
+      result = switch (kind) {
+        TaskActionKind.apply => await repo.apply(task.id),
+        TaskActionKind.draw => await repo.draw(task.id),
+        TaskActionKind.giveUp => await repo.giveUp(task.id),
+      };
       if (result.uid case final served? when served != uid) {
         result = TaskActionResult(
           taskId: task.id,
@@ -199,9 +213,10 @@ class TaskCenterCubit extends Cubit<TaskCenterState> {
       return;
     }
     emit(state._copyWith(busyTaskId: () => null, result: () => result, resultName: task.name, resultTab: tab));
-    final affected = kind == TaskActionKind.apply
-        ? const [TaskCenterTab.available, TaskCenterTab.doing]
-        : const [TaskCenterTab.doing, TaskCenterTab.done];
+    final affected = switch (kind) {
+      TaskActionKind.apply || TaskActionKind.giveUp => const [TaskCenterTab.available, TaskCenterTab.doing],
+      TaskActionKind.draw => const [TaskCenterTab.doing, TaskCenterTab.done],
+    };
     final reload = {tab, ...affected};
     // Lists not shown are dropped, and their loads in flight with them, and loaded again when their tab is opened.
     for (final other in reload) {
@@ -215,6 +230,16 @@ class TaskCenterCubit extends Cubit<TaskCenterState> {
         },
       ),
     );
+    await load(tab);
+  }
+
+  /// Drop every list (a task's page acted on one of them) and load [tab] again.
+  Future<void> reloadAll(TaskCenterTab tab) async {
+    if (isClosed || state.uid == null) return;
+    for (final other in TaskCenterTab.values) {
+      if (other != tab) _loads[other] = (_loads[other] ?? 0) + 1;
+    }
+    emit(state._copyWith(tabs: {tab: ?state.tabs[tab]}));
     await load(tab);
   }
 
