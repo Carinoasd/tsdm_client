@@ -1,5 +1,7 @@
 import 'package:tsdm_client/constants/url.dart';
+import 'package:tsdm_client/extensions/date_time.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
+import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:universal_html/html.dart' as uh;
 import 'package:universal_html/parsing.dart';
 
@@ -368,4 +370,126 @@ TaskActionResult taskDrawResultOf(Object? data, {required int id}) {
     return TaskActionResult(taskId: id, outcome: TaskActionOutcome.loginRequired, uid: uid);
   }
   return TaskActionResult(taskId: id, outcome: TaskActionOutcome.unconfirmed, uid: uid);
+}
+
+/// The url applying for task [id] as plugin 4.0.0 takes it (`do=apply`, a GET that writes): without `inajax`, the
+/// forum then answers with its message the plugin turns into a write result.
+String taskV4ApplyUrl(int id) => '$baseUrl/home.php?mod=task&do=apply&id=$id';
+
+/// The url claiming the reward of task [id] as plugin 4.0.0 takes it (`do=draw`): without `inajax`, which would make
+/// the forum answer `progress|words` instead of its message.
+String taskV4DrawUrl(int id) => '$baseUrl/home.php?mod=task&do=draw&id=$id';
+
+/// The reward [reward] of a task of the forum's app API (plugin 4.0.0), as the web page words it (the template
+/// `home/space_task_list`): empty without one.
+String _taskRewardOf(Map<String, dynamic> reward) {
+  final words = t.taskCenter.forumWords;
+  final days = tsdmAppInt(reward['days']);
+  final name = tsdmAppText(reward['name']);
+  final text = switch (reward['type']) {
+    'credit' => words.rewardCredit(
+      credit: tsdmAppText(tsdmAppMap(reward['credit'])['title']),
+      amount: tsdmAppInt(reward['amount']),
+      unit: tsdmAppText(tsdmAppMap(reward['credit'])['unit']),
+    ),
+    'magic' => words.rewardMagic(name: name, amount: tsdmAppInt(reward['amount'])),
+    'medal' => days > 0 ? words.rewardMedalDays(name: name, days: days) : words.rewardMedal(name: name),
+    'invite' => words.rewardInvite(count: tsdmAppInt(reward['count']), days: days),
+    'group' => days > 0 ? words.rewardGroupDays(name: name, days: days) : words.rewardGroup(name: name),
+    _ => '',
+  };
+  return text.replaceAll(_space, ' ').trim();
+}
+
+/// The list of [tab] of the forum's app API (plugin 4.0.0: `type: task_list`, `schema` 65), as [parseTaskList] reads
+/// the web page:
+///
+/// * new: the apply button (`apply_url`), or in its place the forum's reason it takes none (`noperm`, `full`);
+/// * in progress: the progress (`csc`) and the claim button;
+/// * done: when it was completed, and either "apply again" (`reapply`) or when that is possible (`next`).
+TaskList taskListFromApi(Map<String, dynamic> json, TaskCenterTab tab) {
+  final words = t.taskCenter.forumWords;
+  final offset = tsdmAppTimeOffset(json);
+  final tasks = <ForumTask>[];
+  final seen = <int>{};
+  for (final row in tsdmAppList(json['tasks'])) {
+    final id = tsdmAppInt(row['taskid']);
+    final name = tsdmAppText(row['name']).replaceAll(_space, ' ').trim();
+    if (id <= 0 || name.isEmpty || !seen.add(id)) continue;
+    TaskActionKind? action;
+    String? blocked;
+    double? progress;
+    String? note;
+    switch (tab) {
+      case TaskCenterTab.available:
+        if (row['noperm'] == 1) {
+          blocked = words.noPermission;
+        } else if (row['full'] == 1) {
+          blocked = words.full;
+        } else if (tsdmAppText(row['apply_url']).isNotEmpty) {
+          action = TaskActionKind.apply;
+        }
+      case TaskCenterTab.doing:
+        action = TaskActionKind.draw;
+        final csc = row['csc'];
+        progress = (csc is num ? csc.toDouble() : double.tryParse('$csc') ?? 0).clamp(0, 100).toDouble();
+      case TaskCenterTab.done:
+        final at = tsdmAppWallClockTime(row['dateline'], offset)?.yyyyMMDDHHMM();
+        final next = tsdmAppText(row['next']).replaceAll(_space, ' ').trim();
+        final reapply = row['reapply'] == 1 && tsdmAppText(row['reapply_url']).isNotEmpty;
+        if (reapply) action = TaskActionKind.apply;
+        note = [
+          if (at != null) words.completedOn(time: at),
+          if (!reapply && next.isNotEmpty) words.applyAgainAfter(time: next),
+        ].join(' ');
+        if (note.isEmpty) note = null;
+    }
+    tasks.add(
+      ForumTask(
+        id: id,
+        name: name,
+        description: tsdmAppText(row['description']).replaceAll(_space, ' ').trim(),
+        reward: _taskRewardOf(tsdmAppMap(row['reward'])),
+        progress: progress,
+        action: action,
+        blockedReason: blocked,
+        note: note,
+      ),
+    );
+  }
+  return TaskList(tab: tab, tasks: tasks);
+}
+
+/// The keys of the forum's "not complete yet" answers to a claim (plugin 4.0.0, `do=draw`).
+const _taskNotYet = {'task_doing', 'task_doing_rt', 'task_waiting', 'task_waiting_rt'};
+
+/// The result of the apply or the claim ([kind]) of task [id] sent with plugin 4.0.0 (`tsdmv=4`), from its answer
+/// [data]; null when the answer is no write result (the caller reads it as before).
+///
+/// Only the success keys of the forum count as done (`task_applied`, `task_completed`; `ok` alone never does): a claim
+/// not complete yet (`task_doing`, `task_waiting`…) is in progress with the forum's words, `task_failed` failed, the
+/// login prompt the login, anything else refused in the forum's words (unconfirmed without words).
+TaskActionResult? taskV4ActionResultOf(Object? data, {required int id, required TaskActionKind kind}) {
+  final result = tsdmAppWriteResultOf(data);
+  if (result == null) return null;
+  final uid = result.uid;
+  final key = result.messageKey;
+  final message = _message(result.message);
+  if (result.login || key == 'to_login') {
+    return TaskActionResult(taskId: id, outcome: TaskActionOutcome.loginRequired, uid: uid);
+  }
+  final outcome = switch (kind) {
+    TaskActionKind.apply when key == 'task_applied' => TaskActionOutcome.applied,
+    TaskActionKind.draw when key == 'task_completed' => TaskActionOutcome.rewarded,
+    TaskActionKind.draw when _taskNotYet.contains(key) => TaskActionOutcome.inProgress,
+    TaskActionKind.draw when key == 'task_failed' => TaskActionOutcome.failed,
+    _ => message == null ? TaskActionOutcome.unconfirmed : TaskActionOutcome.refused,
+  };
+  return TaskActionResult(
+    taskId: id,
+    outcome: outcome,
+    // The words of a reward given are a key the forum's packs lack: never shown, as before.
+    message: outcome == TaskActionOutcome.rewarded ? null : message,
+    uid: uid,
+  );
 }

@@ -1,6 +1,8 @@
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/features/authentication/utils/logged_user_parser.dart';
+import 'package:tsdm_client/features/tsdmapp/small_form.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
+import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/utils/raw_query_parameters.dart';
 import 'package:universal_html/html.dart' as uh;
 import 'package:universal_html/parsing.dart';
@@ -378,7 +380,12 @@ final class MagicForm {
     this.freeWeight,
     this.unitWeight,
     this.stock,
+    this.api = false,
   });
+
+  /// The form came from the forum's app API (plugin 4.0.0, the small form `magicbuy` or `magicuse`): it is posted back
+  /// with `tsdmv=4` and its answer read as a write result ([magicV4ResultOf]).
+  final bool api;
 
   /// Where the form is posted: the shop or the account's magics, as an AJAX window (`infloat=yes&inajax=1`).
   final String action;
@@ -563,11 +570,21 @@ MagicForm _parseUse(uh.Element form, String action, Map<String, String> hidden) 
     if (type == 'hidden' || type == 'submit' || control.attributes.containsKey('disabled')) continue;
     if (!_within(control, box)) throw const MagicFormUnsupported();
   }
+  final title = dt.nodes.whereType<uh.Text>().map((t) => t.text ?? '').join(' ').replaceAll(_spaces, ' ').trim();
+  final (:fields, :notes) = _useControlsOf(box);
+  for (final f in fields) {
+    hidden.remove(f.name);
+  }
+  return MagicForm(action: action, hidden: Map.unmodifiable(hidden), fields: fields, notes: notes, title: title);
+}
+
+/// The inputs and the forum's lines of the settings [box] of a use window (the `div.pns` of the window, or the
+/// `show_html` of plugin 4.0.0). Throws [MagicFormUnsupported] for what the app cannot fill in safely.
+({List<MagicField> fields, List<String> notes}) _useControlsOf(uh.Element box) {
   // A picker driven by script (the colour of the highlight card) cannot be filled in without running it.
   if (box.querySelector('script, [onclick], [onchange], [onfocus], input[type="checkbox"], select[multiple]') != null) {
     throw const MagicFormUnsupported();
   }
-  final title = dt.nodes.whereType<uh.Text>().map((t) => t.text ?? '').join(' ').replaceAll(_spaces, ' ').trim();
   final fields = <MagicField>[];
   final notes = <String>[];
   var label = '';
@@ -660,16 +677,7 @@ MagicForm _parseUse(uh.Element form, String action, Map<String, String> hidden) 
         f,
   ];
   if (resolved.map((f) => f.name).toSet().length != resolved.length) throw const MagicFormUnsupported();
-  for (final f in resolved) {
-    hidden.remove(f.name);
-  }
-  return MagicForm(
-    action: action,
-    hidden: Map.unmodifiable(hidden),
-    fields: List.unmodifiable(resolved),
-    notes: List.unmodifiable(notes),
-    title: title,
-  );
+  return (fields: List.unmodifiable(resolved), notes: List.unmodifiable(notes));
 }
 
 /// How the forum answered a buy or a use.
@@ -754,4 +762,190 @@ String magicThreadIdOf(String input) {
   if (_digits.hasMatch(s)) return s;
   final tid = RegExp(r'[?&]tid=(\d+)').firstMatch(s) ?? RegExp(r'thread-(\d+)-').firstMatch(s);
   return tid?.group(1) ?? s;
+}
+
+/// A page of the shop (`type: magic_shop`, `schema` 69) or of the account's magics (`magic_mybox`, 70) of the forum's
+/// app API (plugin 4.0.0), asked as [url], as [parseMagicList] reads the web page: the price line and the balances as
+/// the page words them, a sold out magic without its buy link, the pages safe for a GET ([magicListPageUrl]).
+MagicListPage magicListPageFromApi(Map<String, dynamic> json, MagicList list, String url) {
+  final words = t.magicCenter.forumWords;
+  final seen = <String>{};
+  final items = <MagicItem>[];
+  for (final row in tsdmAppList(json['list'])) {
+    final identifier = tsdmAppText(row['identifier']);
+    final name = tsdmAppText(row['name']).replaceAll(_spaces, ' ').trim();
+    if (identifier.isEmpty || name.isEmpty) continue;
+    final description = tsdmAppText(row['description']).trim();
+    final image = _image(uh.ImageElement()..src = tsdmAppText(row['pic']));
+    if (list == MagicList.shop) {
+      if (!seen.add(identifier)) continue;
+      final price = row['price'] is num ? (row['price'] as num).toInt() : null;
+      final credit = tsdmAppMap(row['credit']);
+      items.add(
+        MagicItem(
+          identifier: identifier,
+          name: name,
+          description: description,
+          imageUrl: image,
+          price: price,
+          priceText: price == null
+              ? ''
+              : words.priceText(price: price, credit: '${tsdmAppText(credit['title'])}${tsdmAppText(credit['unit'])}'),
+          buyable: price != null && row['soldout'] != 1 && tsdmAppText(row['buy_url']).isNotEmpty,
+        ),
+      );
+    } else {
+      final magicId = tsdmAppInt(row['magicid']);
+      if (magicId <= 0 || !seen.add('$magicId')) continue;
+      items.add(
+        MagicItem(
+          identifier: identifier,
+          name: name,
+          description: description,
+          imageUrl: image,
+          magicId: magicId,
+          count: tsdmAppInt(row['num']),
+          weight: tsdmAppInt(row['weight']),
+        ),
+      );
+    }
+  }
+  final capacity = tsdmAppMap(json['capacity']);
+  final page = tsdmAppInt(json['page']) > 0 ? tsdmAppInt(json['page']) : 1;
+  final pages = tsdmAppInt(json['pages']);
+  final base = list == MagicList.shop ? magicShopUrl : magicBoxUrl;
+  String? at(int n) => magicListPageUrl(n == 1 ? base : '$base&page=$n', list);
+  return MagicListPage(
+    list: list,
+    items: List.unmodifiable(items),
+    capacity: capacity.isEmpty
+        ? ''
+        : words.capacity(used: tsdmAppInt(capacity['used']), max: tsdmAppInt(capacity['max'])),
+    balance: list != MagicList.shop
+        ? ''
+        : [
+            for (final b in tsdmAppList(json['balances']))
+              words.balance(
+                credit: tsdmAppText(b['title']),
+                amount: '${tsdmAppInt(b['amount'])}${tsdmAppText(b['unit'])}',
+              ),
+          ].join(' ').trim(),
+    page: page,
+    nextUrl: page < pages ? at(page + 1) : null,
+    previousUrl: page > 1 ? at(page - 1) : null,
+  );
+}
+
+/// The buy ([SmallFormKind.magicbuy]) or use ([SmallFormKind.magicuse]) window of the forum's app API (plugin 4.0.0,
+/// a small form, `schema` 17) out of its answer [data], as [parseMagicForm] reads the window; null when the answer is
+/// not that form (the caller reads the window as before).
+///
+/// The form is posted where the forum's own form goes (`submit.url`, the shop or the account's magics only) with its
+/// fields as they came (`handlekey`, `mid`, `magicid`… are only posted back, never shown or acted on). A use window's
+/// inputs are read from the forum's own markup of them (`show_html`, the same reading and the same refusals as the
+/// window's) and must be the `controls` the plugin lists; a window the plugin could not read (`controls` null,
+/// `unsupported`) is [MagicFormUnsupported]. Throws [MagicForumMessage] for the forum's message instead of the form.
+MagicForm? magicFormFromApi(Object? data, SmallFormKind kind) {
+  switch (smallFormAnswerOf(data, kind)) {
+    case null:
+      return null;
+    case SmallFormMessage(:final reason, :final login):
+      throw MagicForumMessage(reason, login: login);
+    case final SmallFormFields form:
+      if (!form.hasSubmit || !form.usable) throw const MagicFormUnsupported();
+      final action = _formAction(form.submitUrlRaw);
+      if (action == null) throw const FormatException('Unexpected magic form target');
+      final json = form.json;
+      final magic = tsdmAppMap(json['magic']);
+      final title = tsdmAppText(magic['name']).trim();
+      final hidden = {...form.submitFields};
+      if (kind == SmallFormKind.magicbuy) {
+        final count = tsdmAppMap(json['num']);
+        final numName = tsdmAppText(count['name']);
+        if (numName != 'magicnum' || (hidden['mid'] ?? '').isEmpty || hidden['operation'] != 'buy') {
+          throw const FormatException('Buy form without its count');
+        }
+        hidden.remove(numName);
+        final words = t.magicCenter.forumWords;
+        final creditMap = tsdmAppMap(json['credit']);
+        final credit = '${tsdmAppText(creditMap['title'])}${tsdmAppText(creditMap['unit'])}';
+        int? whole(Object? v) => v is num ? v.toInt() : int.tryParse('$v');
+        final price = whole(json['price']);
+        final discount = whole(json['discountprice']);
+        final balance = whole(json['balance']);
+        final weight = whole(json['weight']);
+        final freeWeight = whole(json['free_weight']);
+        final stock = whole(json['stock']);
+        final description = tsdmAppText(magic['description']).trim();
+        return MagicForm(
+          action: action,
+          hidden: Map.unmodifiable(hidden),
+          fields: [
+            MagicField(
+              name: 'magicnum',
+              label: '',
+              role: MagicFieldRole.number,
+              value: tsdmAppText(count['value']).isEmpty ? '1' : tsdmAppText(count['value']),
+            ),
+          ],
+          notes: [if (description.isNotEmpty) description],
+          title: title,
+          facts: List.unmodifiable([
+            if (price != null) words.price(credit: credit, price: price),
+            if (discount != null && discount != price) words.discountPrice(credit: credit, price: discount),
+            if (balance != null) words.myBalance(credit: credit, amount: balance),
+            if (weight != null) words.weight(weight: weight),
+            if (freeWeight != null) words.freeWeight(weight: freeWeight),
+            if (stock != null) words.stock(stock: stock),
+          ]),
+          unitPrice: discount ?? price,
+          balance: balance,
+          freeWeight: freeWeight,
+          unitWeight: weight,
+          stock: stock,
+          api: true,
+        );
+      }
+      if (hidden['operation'] != 'use' || !_digits.hasMatch(hidden['magicid'] ?? '')) {
+        throw const FormatException('Use form without its magic');
+      }
+      final controls = json['controls'];
+      if (controls is! List) throw const MagicFormUnsupported();
+      final box = parseHtmlDocument(
+        '<html><body><div>${tsdmAppText(json['show_html'])}</div></body></html>',
+      ).body?.querySelector('div');
+      if (box == null) throw const FormatException('Use form without its settings');
+      final (:fields, :notes) = _useControlsOf(box);
+      final names = {for (final c in tsdmAppList(controls)) tsdmAppText(c['name'])};
+      // What the app would post must be what the forum asks for, no more and no less.
+      if (names.length != fields.length || !fields.every((f) => names.contains(f.name))) {
+        throw const MagicFormUnsupported();
+      }
+      for (final f in fields) {
+        hidden.remove(f.name);
+      }
+      return MagicForm(
+        action: action,
+        hidden: Map.unmodifiable(hidden),
+        fields: fields,
+        notes: notes,
+        title: title,
+        api: true,
+      );
+  }
+}
+
+/// The forum's answer [data] to a buy ([buy]) or a use posted from a form of plugin 4.0.0 ([MagicForm.api]): a buy is
+/// done only with the forum's `magics_buy_succeed`, never on `ok` alone; a use is judged as before
+/// ([parseMagicResult]: the cards of plugins answer their own words without a key). A buy without that key is
+/// refused in the forum's words, or unknown without words.
+MagicResult magicV4ResultOf(Object? data, {required bool buy}) {
+  if (!buy) return parseMagicResult(data);
+  final result = tsdmAppWriteResultOf(data);
+  if (result == null) return parseMagicResult(data);
+  final text = _plain(result.message);
+  if (result.login) return MagicResult(MagicResultKind.login, text);
+  if (result.messageKey == 'magics_buy_succeed') return MagicResult(MagicResultKind.succeeded, text);
+  if (result.kind == TsdmAppWriteKind.page || text.isEmpty) return MagicResult(MagicResultKind.unknown, text);
+  return MagicResult(MagicResultKind.rejected, text);
 }

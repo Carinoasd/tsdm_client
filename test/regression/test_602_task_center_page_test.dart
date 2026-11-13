@@ -105,7 +105,16 @@ void main() {
     await tester.tap(find.text(t.taskCenter.tabDoing));
     await tester.pumpAndSettle();
     expect(find.text('100%'), findsOneWidget);
+    // A GET that writes: nothing is sent before the user confirms, nothing when they cancel.
     await tester.tap(find.byKey(const ValueKey('task-claim-2')));
+    await tester.pumpAndSettle();
+    expect(find.text(t.taskCenter.confirmClaim(name: '回复三次')), findsOneWidget);
+    await tester.tap(find.text(t.general.cancel));
+    await tester.pumpAndSettle();
+    expect(h.sent, isEmpty);
+    await tester.tap(find.byKey(const ValueKey('task-claim-2')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(t.general.ok));
     await tester.pump();
     expect(h.sent, hasLength(1));
     expect(find.byKey(const ValueKey('task-claim-2')), findsNothing, reason: 'a progress indicator in its place');

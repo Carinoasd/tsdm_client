@@ -1,4 +1,5 @@
 import 'package:tsdm_client/constants/url.dart';
+import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:universal_html/html.dart' as uh;
 
 /// Read-only achievement landing page. Reward actions are never requested.
@@ -85,4 +86,29 @@ AchievementPageData parseAchievementPage(uh.Document document) {
     empty: (empty == '暂无成就' || empty == '暫無成就') && content == empty,
     content: content,
   );
+}
+
+/// The achievements of the forum's app API (plugin 4.0.0: `type: achievement`, `schema` 68) as the page's text: each
+/// achievement its name, its description, its progress and its reward, a line each, as the forum supplied them
+/// (nothing inferred: the plugin itself does not compute the progress yet). None is the forum's empty list.
+AchievementPageData achievementPageFromApi(Map<String, dynamic> json) {
+  final list = tsdmAppList(json['list']);
+  final blocks = <String>[];
+  for (final row in list) {
+    final name = tsdmAppText(row['name']).trim();
+    if (name.isEmpty) continue;
+    final description = tsdmAppText(row['description']).trim();
+    final requirements = tsdmAppInt(row['requirements']);
+    final reward = tsdmAppMap(row['reward']);
+    final rewardText = '${tsdmAppText(reward['value'])} ${tsdmAppText(reward['unit'])}'.trim();
+    blocks.add(
+      [
+        name,
+        if (description.isNotEmpty) description,
+        if (requirements > 0) '${tsdmAppInt(row['progress'])} / $requirements (${tsdmAppInt(row['percent'])}%)',
+        if (rewardText.isNotEmpty) rewardText,
+      ].join('\n'),
+    );
+  }
+  return AchievementPageData(recognized: true, empty: blocks.isEmpty, content: blocks.join('\n\n'));
 }

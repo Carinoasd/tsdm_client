@@ -467,6 +467,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('task-claim-2')));
     await tester.pumpAndSettle();
+    await tester.tap(find.text(t.general.ok));
+    await tester.pumpAndSettle();
     // "回复三次" in the dictionary's words; the sentence around it stays as the app wrote it.
     expect(_shown(t.taskCenter.rewarded(name: '回覆三次')), findsOneWidget);
     await finish(tester);

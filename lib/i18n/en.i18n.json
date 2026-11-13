@@ -3290,7 +3290,22 @@
     "inProgress": "\"${name}\" is not complete yet.",
     "failed": "\"${name}\" failed.",
     "refused": "\"${name}\" was refused.",
-    "unconfirmed": "The result of \"${name}\" could not be confirmed. Check the lists before trying again."
+    "unconfirmed": "The result of \"${name}\" could not be confirmed. Check the lists before trying again.",
+    "confirmApply": "Apply for \"${name}\"?",
+    "confirmClaim": "Claim the reward of \"${name}\"?",
+    "forumWords": {
+      "rewardCredit": "Credits: $credit $amount $unit",
+      "rewardMagic": "Magic: $name × $amount",
+      "rewardMedal": "Medal: $name",
+      "rewardMedalDays": "Medal: $name for $days days",
+      "rewardInvite": "Invitation codes: $count, valid for $days days",
+      "rewardGroup": "User group: $name",
+      "rewardGroupDays": "User group: $name for $days days",
+      "noPermission": "Your user group can't apply for this task",
+      "full": "No more places",
+      "completedOn": "Completed at $time",
+      "applyAgainAfter": "Can be applied for again after $time"
+    }
   },
   "magicCenter": {
     "title": "Magic items",
@@ -3317,7 +3332,18 @@
     "used": "Used \"${name}\"",
     "rejected": "The forum did not complete \"${name}\"",
     "unknown": "\"${name}\" was sent but the result could not be confirmed. Check the count in My magic items before trying again.",
-    "windowFailed": "Could not open the item window"
+    "windowFailed": "Could not open the item window",
+    "forumWords": {
+      "capacity": "$used/$max",
+      "balance": "$credit: $amount",
+      "priceText": "$price $credit each",
+      "price": "Price: $credit $price",
+      "discountPrice": "Discount price: $credit $price",
+      "myBalance": "You have $credit $amount",
+      "weight": "Weight: $weight",
+      "freeWeight": "Room left in your bag: $weight",
+      "stock": "In stock: $stock"
+    }
   },
   "editUserProfilePage": {
     "title": "Edit profile",
