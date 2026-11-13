@@ -230,37 +230,40 @@ final class _ForumCardState extends State<ForumCard> with LoggerMixin {
             color: colorScheme.surfaceContainerHigh,
             borderRadius: BorderRadius.circular(appInnerRadius),
             clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              onTap: () async => _openUrl(widget.forum.latestThreadUrl),
-              child: Padding(
-                padding: edgeInsetsL12T8R12B8,
-                child: Row(
-                  children: [
-                    Icon(Icons.subdirectory_arrow_right_outlined, size: 16, color: colorScheme.outline),
-                    sizedBoxW8H8,
-                    Expanded(
-                      child: Text(
-                        context.displayText(widget.forum.latestThreadTitle ?? ''),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: large ? textTheme.bodyMedium : textTheme.labelMedium,
-                      ),
-                    ),
-                    if (widget.forum.latestThreadUserName?.isNotEmpty ?? false) ...[
+            child: Semantics(
+              button: true,
+              child: InkWell(
+                onTap: () async => _openUrl(widget.forum.latestThreadUrl),
+                child: Padding(
+                  padding: edgeInsetsL12T8R12B8,
+                  child: Row(
+                    children: [
+                      Icon(Icons.subdirectory_arrow_right_outlined, size: 16, color: colorScheme.outline),
                       sizedBoxW8H8,
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 120),
+                      Expanded(
                         child: Text(
-                          widget.forum.latestThreadUserName!,
+                          context.displayText(widget.forum.latestThreadTitle ?? ''),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: (large ? textTheme.labelMedium : textTheme.labelSmall)?.copyWith(
-                            color: colorScheme.outline,
-                          ),
+                          style: large ? textTheme.bodyMedium : textTheme.labelMedium,
                         ),
                       ),
+                      if (widget.forum.latestThreadUserName?.isNotEmpty ?? false) ...[
+                        sizedBoxW8H8,
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 120),
+                          child: Text(
+                            widget.forum.latestThreadUserName!,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: (large ? textTheme.labelMedium : textTheme.labelSmall)?.copyWith(
+                              color: colorScheme.outline,
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -304,23 +307,28 @@ final class _ForumCardState extends State<ForumCard> with LoggerMixin {
     return [
       sizedBoxW4H4,
       // Collapsible section: title with the number of entries and the expand mark.
-      InkWell(
-        borderRadius: BorderRadius.circular(appInnerRadius),
-        onTap: onPressed,
-        child: Padding(
-          padding: edgeInsetsT4B4,
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  '$title (${dataList.length})',
-                  style:
-                      (widget.large ? Theme.of(context).textTheme.titleMedium : Theme.of(context).textTheme.titleSmall)
-                          ?.copyWith(fontWeight: FontWeight.w600),
+      Semantics(
+        button: true,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(appInnerRadius),
+          onTap: onPressed,
+          child: Padding(
+            padding: edgeInsetsT4B4,
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '$title (${dataList.length})',
+                    style:
+                        (widget.large
+                                ? Theme.of(context).textTheme.titleMedium
+                                : Theme.of(context).textTheme.titleSmall)
+                            ?.copyWith(fontWeight: FontWeight.w600),
+                  ),
                 ),
-              ),
-              Icon(state ? Icons.expand_less : Icons.expand_more),
-            ],
+                Icon(state ? Icons.expand_less : Icons.expand_more),
+              ],
+            ),
           ),
         ),
       ),

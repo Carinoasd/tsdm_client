@@ -1716,6 +1716,7 @@ final class _ReplyBarState extends State<_ReplyBar> with LoggerMixin {
       ),
     );
 
+    final sendTip = waiting > 0 ? tr.floodWait(seconds: waiting) : (issue ?? context.t.threadPage.sendReply);
     final Widget sendChild;
     if (isSendingReply) {
       sendChild = sizedCircularProgressIndicator;
@@ -1805,22 +1806,29 @@ final class _ReplyBarState extends State<_ReplyBar> with LoggerMixin {
               const Expanded(
                 child: Align(alignment: AlignmentDirectional.centerStart, child: _CurrentAccountLabel()),
               ),
+              // The tooltips of these two icon buttons are told on the buttons themselves (the icon's label): a
+              // tooltip around a button lands on a node of its own, the button read without a name.
               Tooltip(
                 // "Collapse": the draft is kept in the reply box below, and on this device.
                 message: MaterialLocalizations.of(context).expandedIconTapHint,
+                excludeFromSemantics: true,
                 child: FilledButton.tonal(
                   onPressed: widget.controller.closeEditor,
-                  child: const Icon(Icons.unfold_less),
+                  child: Icon(Icons.unfold_less, semanticLabel: MaterialLocalizations.of(context).expandedIconTapHint),
                 ),
               ),
               sizedBoxW8H8,
               // Send Button
               Tooltip(
-                message: waiting > 0 ? tr.floodWait(seconds: waiting) : (issue ?? context.t.threadPage.sendReply),
+                message: sendTip,
+                excludeFromSemantics: true,
                 child: FilledButton(
                   key: const ValueKey('reply-bar-send'),
                   onPressed: _sendEnabled && !_blocked ? () async => _sendMessage() : null,
-                  child: sendChild,
+                  child: Semantics(
+                    label: sendTip,
+                    child: ExcludeSemantics(child: sendChild),
+                  ),
                 ),
               ),
             ],

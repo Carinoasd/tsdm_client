@@ -230,45 +230,48 @@ class _GuideItemTile extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final forumName = item.forumName;
     final extra = item.extra;
-    return InkWell(
-      onTap: () async => context.pushNamed(
-        ScreenPaths.threadV1,
-        queryParameters: {'tid': item.tid, 'appBarTitle': item.title},
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              item.title,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              // A thread read before is dimmed, as in the thread lists.
-              style: visitedTitleStyle(
-                context,
-                textTheme.bodyLarge?.copyWith(
-                  color: item.highlighted ? colorScheme.error : null,
-                  fontWeight: item.highlighted ? FontWeight.bold : FontWeight.w500,
-                  height: 1.45,
+    return Semantics(
+      button: true,
+      child: InkWell(
+        onTap: () async => context.pushNamed(
+          ScreenPaths.threadV1,
+          queryParameters: {'tid': item.tid, 'appBarTitle': item.title},
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                item.title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                // A thread read before is dimmed, as in the thread lists.
+                style: visitedTitleStyle(
+                  context,
+                  textTheme.bodyLarge?.copyWith(
+                    color: item.highlighted ? colorScheme.error : null,
+                    fontWeight: item.highlighted ? FontWeight.bold : FontWeight.w500,
+                    height: 1.45,
+                  ),
+                  visited: readingProgressOf(context, item.tid) != null,
                 ),
-                visited: readingProgressOf(context, item.tid) != null,
               ),
-            ),
-            sizedBoxW4H4,
-            Row(
-              children: [
-                if (forumName != null) _ForumChip(name: forumName, fid: item.fid),
-                if (isThreadReplied(context, item.tid)) ...[
-                  sizedBoxW4H4,
-                  Icon(Icons.reply_outlined, size: 14, color: colorScheme.outline),
+              sizedBoxW4H4,
+              Row(
+                children: [
+                  if (forumName != null) _ForumChip(name: forumName, fid: item.fid),
+                  if (isThreadReplied(context, item.tid)) ...[
+                    sizedBoxW4H4,
+                    Icon(Icons.reply_outlined, size: 14, color: colorScheme.outline),
+                  ],
+                  const Spacer(),
+                  if (extra != null)
+                    Text(extra, style: textTheme.bodySmall?.copyWith(color: colorScheme.outline), maxLines: 1),
                 ],
-                const Spacer(),
-                if (extra != null)
-                  Text(extra, style: textTheme.bodySmall?.copyWith(color: colorScheme.outline), maxLines: 1),
-              ],
-            ),
-          ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -287,23 +290,26 @@ class _ForumChip extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final fid = this.fid;
     return Flexible(
-      child: InkWell(
-        borderRadius: BorderRadius.circular(6),
-        onTap: fid == null
-            ? null
-            : () async => context.pushNamed(
-                ScreenPaths.forum,
-                pathParameters: {'fid': fid},
-                queryParameters: {'appBarTitle': name},
-              ),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-          decoration: BoxDecoration(color: colorScheme.secondaryContainer, borderRadius: BorderRadius.circular(6)),
-          child: Text(
-            name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(color: colorScheme.onSecondaryContainer),
+      child: Semantics(
+        button: true,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(6),
+          onTap: fid == null
+              ? null
+              : () async => context.pushNamed(
+                  ScreenPaths.forum,
+                  pathParameters: {'fid': fid},
+                  queryParameters: {'appBarTitle': name},
+                ),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+            decoration: BoxDecoration(color: colorScheme.secondaryContainer, borderRadius: BorderRadius.circular(6)),
+            child: Text(
+              name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(color: colorScheme.onSecondaryContainer),
+            ),
           ),
         ),
       ),

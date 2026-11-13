@@ -38,26 +38,29 @@ class ModcpHomeSummary extends StatelessWidget {
               color: theme.colorScheme.surfaceContainerHigh,
               borderRadius: BorderRadius.circular(appInnerRadius),
               clipBehavior: Clip.antiAlias,
-              child: InkWell(
-                onTap: onTap,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-                  child: Column(
-                    children: [
-                      Text(
-                        '$count',
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          color: count > 0 && onTap != null ? theme.colorScheme.primary : null,
+              child: Semantics(
+                button: true,
+                child: InkWell(
+                  onTap: onTap,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                    child: Column(
+                      children: [
+                        Text(
+                          '$count',
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            color: count > 0 && onTap != null ? theme.colorScheme.primary : null,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        label,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-                      ),
-                    ],
+                        const SizedBox(height: 2),
+                        Text(
+                          label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -86,21 +89,24 @@ class ModcpHomeLoginTile extends StatelessWidget {
       color: theme.colorScheme.surfaceContainerHigh,
       borderRadius: BorderRadius.circular(appInnerRadius),
       clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-          child: Column(
-            children: [
-              Icon(Icons.lock_open_outlined, color: theme.colorScheme.primary),
-              const SizedBox(height: 2),
-              Text(
-                context.t.modcpPages.unlock,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-              ),
-            ],
+      child: Semantics(
+        button: true,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+            child: Column(
+              children: [
+                Icon(Icons.lock_open_outlined, color: theme.colorScheme.primary),
+                const SizedBox(height: 2),
+                Text(
+                  context.t.modcpPages.unlock,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                ),
+              ],
+            ),
           ),
         ),
       ),

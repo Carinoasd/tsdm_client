@@ -569,23 +569,26 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
                                 color: colorScheme.surfaceContainerHigh,
                                 borderRadius: BorderRadius.circular(appInnerRadius),
                                 clipBehavior: Clip.antiAlias,
-                                child: InkWell(
-                                  onTap: () => unawaited(_push(page)),
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(8),
-                                    child: Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Icon(icon, color: colorScheme.primary, size: 28),
-                                        const SizedBox(height: 8),
-                                        Text(
-                                          label,
-                                          maxLines: 2,
-                                          textAlign: TextAlign.center,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: Theme.of(context).textTheme.labelLarge,
-                                        ),
-                                      ],
+                                child: Semantics(
+                                  button: true,
+                                  child: InkWell(
+                                    onTap: () => unawaited(_push(page)),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(8),
+                                      child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Icon(icon, color: colorScheme.primary, size: 28),
+                                          const SizedBox(height: 8),
+                                          Text(
+                                            label,
+                                            maxLines: 2,
+                                            textAlign: TextAlign.center,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: Theme.of(context).textTheme.labelLarge,
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ),

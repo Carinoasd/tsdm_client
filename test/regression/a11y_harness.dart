@@ -11,6 +11,7 @@ library;
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui' show CheckedState, Tristate;
 
 import 'package:dio/dio.dart';
 import 'package:drift/native.dart';
@@ -375,6 +376,58 @@ final class A11yLabeledTargets extends AccessibilityGuideline {
   }
 }
 
+/// Everything that takes a tap says what it is to a screen reader: a button, a link, a text field, a check box, a
+/// switch, a slider, a tab ...: a custom tappable ([GestureDetector], [InkWell]) without such a role is read as text
+/// that happens to take a tap. The nodes within [exempt] are left out.
+final class A11yTapRoles extends AccessibilityGuideline {
+  const A11yTapRoles(this.exempt);
+
+  final List<Rect> exempt;
+
+  @override
+  String get description => 'Tappable widgets should say what they are';
+
+  @override
+  FutureOr<Evaluation> evaluate(WidgetTester tester) {
+    var result = const Evaluation.pass();
+    for (final view in tester.binding.renderViews) {
+      result += _traverse(view.owner!.semanticsOwner!.rootSemanticsNode!);
+    }
+    return result;
+  }
+
+  Evaluation _traverse(SemanticsNode node) {
+    var result = const Evaluation.pass();
+    node.visitChildren((child) {
+      result += _traverse(child);
+      return true;
+    });
+    if (node.isMergedIntoParent || node.isInvisible || node.flagsCollection.isHidden || _isExempt(node, exempt)) {
+      return result;
+    }
+    final data = node.getSemanticsData();
+    // The barrier of a menu or a dialog: closing it is its tap, the framework names it.
+    if (!data.hasAction(SemanticsAction.tap) || data.hasAction(SemanticsAction.dismiss)) {
+      return result;
+    }
+    final flags = data.flagsCollection;
+    final hasRole =
+        flags.isButton ||
+        flags.isLink ||
+        flags.isTextField ||
+        flags.isSlider ||
+        flags.isChecked != CheckedState.none ||
+        flags.isToggled != Tristate.none ||
+        flags.isSelected != Tristate.none ||
+        flags.isExpanded != Tristate.none ||
+        data.role != SemanticsRole.none;
+    if (!hasRole) {
+      result += Evaluation.fail('$node: a tappable node that is not a button, a link or another control.');
+    }
+    return result;
+  }
+}
+
 /// The text nodes of the semantics tree on screen, in the order a screen reader reads them.
 List<String> a11yReadingOrder(WidgetTester tester) {
   final labels = <String>[];
@@ -435,7 +488,7 @@ List<String> a11yClippedTexts(WidgetTester tester) {
 bool _inScrollable(RenderObject object) {
   var current = object.parent;
   while (current != null) {
-    if (current is RenderViewportBase || current is RenderSliver) {
+    if (current is RenderAbstractViewport || current is RenderSliver) {
       return true;
     }
     current = current.parent;
@@ -694,6 +747,7 @@ final class A11yHarness {
     List<Finder> tapTargetExempt = const [],
     List<Finder> labelExempt = const [],
     List<Finder> covered = const [],
+    List<Finder> roleExempt = const [],
   }) async {
     final handle = tester.ensureSemantics();
     await tester.pump();
@@ -702,6 +756,7 @@ final class A11yHarness {
     await expectLater(tester, meetsGuideline(A11yIosTapTargets(targets)));
     await expectLater(tester, meetsGuideline(A11yLabeledTargets(a11yRectsOf(tester, labelExempt))));
     await expectLater(tester, meetsGuideline(A11yContrast(a11yRectsOf(tester, covered))));
+    await expectLater(tester, meetsGuideline(A11yTapRoles(a11yRectsOf(tester, roleExempt))));
     handle.dispose();
   }
 }

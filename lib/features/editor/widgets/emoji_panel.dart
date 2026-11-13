@@ -170,12 +170,15 @@ class _EmojiPanelState extends State<EmojiPanel> with TickerProviderStateMixin {
       child: Material(
         type: MaterialType.transparency,
         child: Builder(
-          builder: (context) => InkWell(
-            key: ValueKey('emoji-panel-$code'),
-            borderRadius: BorderRadius.circular(appInnerRadius),
-            onTap: () => _pick(code),
-            onLongPress: recent ? () => unawaited(_offerRemoveRecent(context, code)) : null,
-            child: Padding(padding: const EdgeInsets.all(3), child: child),
+          builder: (context) => Semantics(
+            button: true,
+            child: InkWell(
+              key: ValueKey('emoji-panel-$code'),
+              borderRadius: BorderRadius.circular(appInnerRadius),
+              onTap: () => _pick(code),
+              onLongPress: recent ? () => unawaited(_offerRemoveRecent(context, code)) : null,
+              child: Padding(padding: const EdgeInsets.all(3), child: child),
+            ),
           ),
         ),
       ),

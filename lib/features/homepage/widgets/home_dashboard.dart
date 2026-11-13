@@ -119,23 +119,26 @@ class HomeCardTab extends StatelessWidget {
     return Semantics(
       selected: selected,
       button: true,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
-        child: Container(
-          constraints: const BoxConstraints(minHeight: 46),
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            border: Border(
-              bottom: BorderSide(color: selected ? colorScheme.primary : Colors.transparent, width: 3),
+      child: Semantics(
+        button: true,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 46),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(color: selected ? colorScheme.primary : Colors.transparent, width: 3),
+              ),
             ),
-          ),
-          child: Text(
-            label,
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              color: selected ? colorScheme.primary : colorScheme.onSurfaceVariant,
-              fontWeight: selected ? FontWeight.bold : FontWeight.w600,
+            child: Text(
+              label,
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                color: selected ? colorScheme.primary : colorScheme.onSurfaceVariant,
+                fontWeight: selected ? FontWeight.bold : FontWeight.w600,
+              ),
             ),
           ),
         ),
@@ -544,29 +547,32 @@ class HomeOnlineCard extends StatelessWidget {
       margin: EdgeInsets.zero,
       clipBehavior: Clip.antiAlias,
       shape: homeCardShape(context),
-      child: InkWell(
-        onTap: () async => context.pushNamed(ScreenPaths.friend, queryParameters: const {'view': 'online'}),
-        child: Padding(
-          padding: edgeInsetsL16T12R16B12,
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      context.t.friendPage.online.title,
-                      style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
-                    ),
-                    for (final part in _lines(context)) ...[
-                      sizedBoxW2H2,
-                      Text(part, style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant)),
+      child: Semantics(
+        button: true,
+        child: InkWell(
+          onTap: () async => context.pushNamed(ScreenPaths.friend, queryParameters: const {'view': 'online'}),
+          child: Padding(
+            padding: edgeInsetsL16T12R16B12,
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        context.t.friendPage.online.title,
+                        style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                      for (final part in _lines(context)) ...[
+                        sizedBoxW2H2,
+                        Text(part, style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant)),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
-              ),
-              Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
-            ],
+                Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
+              ],
+            ),
           ),
         ),
       ),
@@ -587,52 +593,55 @@ class HomeSupportCard extends StatelessWidget {
       margin: EdgeInsets.zero,
       clipBehavior: Clip.antiAlias,
       shape: homeCardShape(context),
-      child: InkWell(
-        onTap: () async => showDialog<void>(context: context, builder: (_) => const SupportDevelopmentDialog()),
-        child: Padding(
-          padding: edgeInsetsL16T12R16B12,
-          child: Row(
-            children: [
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  color: colorScheme.tertiaryContainer,
-                  borderRadius: BorderRadius.circular(12),
+      child: Semantics(
+        button: true,
+        child: InkWell(
+          onTap: () async => showDialog<void>(context: context, builder: (_) => const SupportDevelopmentDialog()),
+          child: Padding(
+            padding: edgeInsetsL16T12R16B12,
+            child: Row(
+              children: [
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: colorScheme.tertiaryContainer,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: SizedBox(
+                    width: 40,
+                    height: 40,
+                    child: Icon(Icons.favorite_border, color: colorScheme.onTertiaryContainer),
+                  ),
                 ),
-                child: SizedBox(
-                  width: 40,
-                  height: 40,
-                  child: Icon(Icons.favorite_border, color: colorScheme.onTertiaryContainer),
-                ),
-              ),
-              sizedBoxW12H12,
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: AlignmentDirectional.centerStart,
-                      child: Text(
-                        context.t.aboutPage.supportDevelopment,
-                        maxLines: 1,
-                        style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                sizedBoxW12H12,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: AlignmentDirectional.centerStart,
+                        child: Text(
+                          context.t.aboutPage.supportDevelopment,
+                          maxLines: 1,
+                          style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                        ),
                       ),
-                    ),
-                    sizedBoxW2H2,
-                    Text(
-                      context.t.aboutPage.supportDevelopmentSubtitle,
-                      style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
-                    ),
-                    sizedBoxW2H2,
-                    Text(
-                      context.t.homepage.supportNote,
-                      style: textTheme.labelSmall?.copyWith(color: colorScheme.tertiary),
-                    ),
-                  ],
+                      sizedBoxW2H2,
+                      Text(
+                        context.t.aboutPage.supportDevelopmentSubtitle,
+                        style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                      ),
+                      sizedBoxW2H2,
+                      Text(
+                        context.t.homepage.supportNote,
+                        style: textTheme.labelSmall?.copyWith(color: colorScheme.tertiary),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
-            ],
+                Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
+              ],
+            ),
           ),
         ),
       ),
@@ -708,25 +717,28 @@ class _ToolButton extends StatelessWidget {
       color: colorScheme.surfaceContainerHigh,
       borderRadius: BorderRadius.circular(12),
       clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 48),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Row(
-              children: [
-                Icon(icon, size: 20, color: colorScheme.primary),
-                sizedBoxW8H8,
-                Expanded(
-                  child: Text(
-                    label,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.labelLarge,
+      child: Semantics(
+        button: true,
+        child: InkWell(
+          onTap: onTap,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 48),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                children: [
+                  Icon(icon, size: 20, color: colorScheme.primary),
+                  sizedBoxW8H8,
+                  Expanded(
+                    child: Text(
+                      label,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.labelLarge,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

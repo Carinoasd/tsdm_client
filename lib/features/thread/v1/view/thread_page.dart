@@ -1947,9 +1947,12 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
           clipBehavior: Clip.antiAlias,
           child: onTap == null
               ? Center(child: content)
-              : InkWell(
-                  onTap: onTap,
-                  child: Center(child: content),
+              : Semantics(
+                  button: true,
+                  child: InkWell(
+                    onTap: onTap,
+                    child: Center(child: content),
+                  ),
                 ),
         ),
       );

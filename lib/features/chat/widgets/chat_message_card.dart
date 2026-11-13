@@ -48,17 +48,32 @@ final class ChatMessageCard extends StatelessWidget {
       final t => t.yyyyMMDDHHMMSS(),
     };
 
+    // The avatar is a 48 wide tap target around the 40 wide circle, named after the user (the circle itself has
+    // nothing to read): the circle stays on its side, the target takes the gap before the bubble.
     final avatar = GestureDetector(
+      // The whole box takes the tap, not only the circle.
+      behavior: HitTestBehavior.opaque,
       onTap: chatMessage.author != null
           ? () async => context.pushNamed(
               ScreenPaths.profile,
               queryParameters: {'uid': ?chatMessage.authorUid, 'username': ?chatMessage.author},
             )
           : null,
-      child: HeroUserAvatar(
-        username: chatMessage.author ?? '',
-        avatarUrl: chatMessage.authorAvatarUrl,
-        disableHero: true,
+      child: Semantics(
+        button: chatMessage.author != null,
+        label: chatMessage.author,
+        excludeSemantics: true,
+        child: SizedBox.square(
+          dimension: 48,
+          child: Align(
+            alignment: mine ? AlignmentDirectional.topEnd : AlignmentDirectional.topStart,
+            child: HeroUserAvatar(
+              username: chatMessage.author ?? '',
+              avatarUrl: chatMessage.authorAvatarUrl,
+              disableHero: true,
+            ),
+          ),
+        ),
       ),
     );
 
@@ -67,6 +82,9 @@ final class ChatMessageCard extends StatelessWidget {
       children: [
         Flexible(
           child: GestureDetector(
+            // The avatar beside it opens the same page and is the target a screen reader gets: the name is read as
+            // text, not as a second, smaller button.
+            excludeFromSemantics: true,
             onTap: chatMessage.author != null
                 ? () async => context.pushNamed(ScreenPaths.profile, queryParameters: {'username': chatMessage.author})
                 : null,
@@ -124,9 +142,10 @@ final class ChatMessageCard extends StatelessWidget {
             mainAxisAlignment: mine ? MainAxisAlignment.end : MainAxisAlignment.start,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (!mine) ...[avatar, sizedBoxW8H8],
+              // The 48 box of the avatar holds the gap to the bubble.
+              if (!mine) avatar,
               Flexible(child: content),
-              if (mine) ...[sizedBoxW8H8, avatar],
+              if (mine) avatar,
             ],
           ),
         );

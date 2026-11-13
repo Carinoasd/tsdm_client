@@ -1489,6 +1489,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
         suffixStyle: titleOutOfLimits ? TextStyle(color: Theme.of(context).colorScheme.error) : null,
         suffixIcon: IconButton(
           icon: const Icon(Icons.info_outline),
+          tooltip: tr.whyTitleDialog.title,
           onPressed: () async => showMessageSingleButtonDialog(
             context: context,
             title: tr.whyTitleDialog.title,
