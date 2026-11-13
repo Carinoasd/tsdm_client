@@ -47,12 +47,49 @@ late final FlutterLocalNotificationsPlugin flnp;
 /// Do NOT use this global key directly, call `showSnackBar` function instead.
 final GlobalKey<ScaffoldMessengerState> snackbarKey = GlobalKey<ScaffoldMessengerState>();
 
+/// Lines logged while [flushLogSink] waits: an [IOSink] takes no write until its flush is done.
+List<String>? _linesDuringFlush;
+
+/// The running [flushLogSink], joined by a second call.
+Future<void>? _flushing;
+
 /// Write a log line ([formatLogLine], already redacted) to the log file, unless the file is closed.
 void _writeLogLine(String line) {
   if (_logSinkClosed) {
     return;
   }
+  final held = _linesDuringFlush;
+  if (held != null) {
+    held.add(line);
+    return;
+  }
   _logSink.write(line);
+}
+
+/// Write everything logged so far to the log file, so that reading the file (the diagnostics export) sees the last
+/// lines too, the error that made the user export them among them. Lines logged meanwhile are written after it.
+Future<void> flushLogSink() async {
+  if (_logSinkClosed) {
+    return;
+  }
+  if (_flushing != null) {
+    return _flushing;
+  }
+  final held = _linesDuringFlush = <String>[];
+  final sink = _logSink;
+  Future<void> run() async {
+    try {
+      await sink.flush();
+    } finally {
+      _linesDuringFlush = null;
+      _flushing = null;
+      if (!_logSinkClosed) {
+        held.forEach(_logSink.write);
+      }
+    }
+  }
+
+  return _flushing = run();
 }
 
 /// Init talker logger.
@@ -88,6 +125,8 @@ Future<void> initLogger() async {
 /// Remember to call [openLogSink] otherwise logs are not saved.
 Future<void> closeLogSink() async {
   _logSinkClosed = true;
+  // A sink takes one flush at a time.
+  await _flushing;
   await _logSink.flush();
   await _logSink.close();
 }
