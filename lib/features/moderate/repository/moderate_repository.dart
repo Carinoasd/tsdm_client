@@ -408,7 +408,8 @@ final class ModerateRepository with LoggerMixin {
   AsyncEither<ModerateOutcome> submit(ModerateForm form, ModerateRequest request) => AsyncEither(() async {
     if (request.operation.group != form.operation.group ||
         (form.operation.group == 0 && request.operation != form.operation)) {
-      return left(HttpRequestFailedException(null));
+      // Never sent: a failure without a status would read as one that may have landed ([writeMayHaveLanded]).
+      return right(const ModerateRefused(''));
     }
     final uid = _currentUid();
     if (uid <= 0 || form.uid != uid) {

@@ -319,4 +319,23 @@ void main() {
       expect(find.text(t.moderate.failed), findsOneWidget);
     });
   });
+
+  test('a request that does not match its window is never sent, nor told unknown', () async {
+    final posts = <String>[];
+    final repo = _repo(_data('window_copy.json'), posts, _databaseError);
+    final window = switch (ModerateRepository.windowOf(
+      _data('window_copy.json'),
+      ModerateOperation.copy,
+      tid: _tid,
+      fid: _fid,
+      uid: _uid,
+    )) {
+      Right(value: ModerateWindowReady(:final form)) => form,
+      final other => throw StateError('no window: $other'),
+    };
+    final outcome = await repo.submit(window, const ModerateRequest(operation: ModerateOperation.merge)).run();
+    expect(posts, isEmpty);
+    expect(outcome, isA<Right<AppException, ModerateOutcome>>());
+    expect(outcome.getRight().toNullable(), isA<ModerateRefused>());
+  });
 }
