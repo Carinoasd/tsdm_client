@@ -46,12 +46,6 @@ void main() {
       takeBlockedConnections();
     });
 
-    test('raw sockets', () async {
-      await expectLater(Socket.connect('www.tsdm39.com', 80), throwsA(_blockedTo('www.tsdm39.com:80')));
-      await expectLater(Socket.startConnect('www.tsdm39.com', 443), throwsA(_blockedTo('www.tsdm39.com:443')));
-      expect(takeBlockedConnections(), hasLength(2));
-    });
-
     test('loopback too, unless the test asks for it', () async {
       final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       addTearDown(() => server.close(force: true));
@@ -109,7 +103,12 @@ void main() {
     });
 
     test('the permission does not carry over to the next test', () async {
-      await expectLater(Socket.startConnect(InternetAddress.loopbackIPv4, 9), throwsA(isA<RealNetworkBlocked>()));
+      final client = HttpClient();
+      addTearDown(() => client.close(force: true));
+      await expectLater(
+        client.getUrl(Uri.parse('http://${InternetAddress.loopbackIPv4.address}:9/')),
+        throwsA(isA<RealNetworkBlocked>()),
+      );
       takeBlockedConnections();
     });
   });

@@ -2,14 +2,13 @@
 //
 // `test/flutter_test_config.dart` installs this guard for every test file under `test/`. A test that reaches past
 // its fakes (a repository built without the injected client or client factory, a widget that builds its own
-// `Dio`/`HttpClient`, a raw `Socket`) gets a [RealNetworkBlocked] right away, and the test fails at its end even if
+// `Dio`/`HttpClient`) gets a [RealNetworkBlocked] right away, and the test fails at its end even if
 // the code under test swallowed that error.
 //
 // What it covers in a test isolate:
 // - `dart:io` `HttpClient` (and everything built on it: dio's `IOHttpClientAdapter`, `package:http`'s `IOClient`,
 //   `WebSocket.connect`, `Image.network`): through [HttpOverrides], checking where each connection really goes (the
 //   proxy when one is set, else the URL's host).
-// - raw `Socket.connect` / `Socket.startConnect`: through [IOOverrides].
 // - the Android `httpChannel` (`KotlinHttpClient`) and every other method channel: there is no platform side in
 //   `flutter test`, so a call without a mocked handler ends in a `MissingPluginException`, never on the network.
 // - `Process`: not intercepted (tests run `chmod`, `id`, ...); no code under test spawns a network tool.
@@ -17,8 +16,10 @@
 // Not covered (nothing in `lib/` uses these today):
 // - an isolate the code under test spawns (`Isolate.run`, `compute`) does not inherit these overrides; the ones in
 //   `lib/` crop images, hash PINs, list cache files and build exports;
-// - `SecureSocket.connect`, `RawSocket.connect`, `RawDatagramSocket.bind` (they bypass `IOOverrides`) and DNS
-//   lookups (`InternetAddress.lookup`);
+// - raw sockets (`Socket.connect`, `SecureSocket.connect`, `RawSocket.connect`, `RawDatagramSocket.bind`) and DNS
+//   lookups (`InternetAddress.lookup`). `IOOverrides` could catch `Socket.connect`, but a global `IOOverrides`
+//   also reroutes every `dart:io` file-system call, and that changes behavior: `Link.exists()` turned false for a
+//   symbolic link in `android_update_restore_test`;
 // - connections opened in `setUpAll` / `tearDownAll` are blocked, but only reported by the next test's `setUp`, and
 //   not at all after the last test.
 //
@@ -104,41 +105,11 @@ final class _NoNetworkHttpOverrides extends HttpOverrides {
   }
 }
 
-final class _NoNetworkIOOverrides extends IOOverrides {
-  @override
-  Future<Socket> socketConnect(
-    dynamic host,
-    int port, {
-    dynamic sourceAddress,
-    int sourcePort = 0,
-    Duration? timeout,
-  }) {
-    if (_check(host, port, 'Socket.connect') case final blocked?) {
-      return Future.error(blocked);
-    }
-    return super.socketConnect(host, port, sourceAddress: sourceAddress, sourcePort: sourcePort, timeout: timeout);
-  }
-
-  @override
-  Future<ConnectionTask<Socket>> socketStartConnect(
-    dynamic host,
-    int port, {
-    dynamic sourceAddress,
-    int sourcePort = 0,
-  }) {
-    if (_check(host, port, 'Socket.startConnect') case final blocked?) {
-      return Future.error(blocked);
-    }
-    return super.socketStartConnect(host, port, sourceAddress: sourceAddress, sourcePort: sourcePort);
-  }
-}
-
 final _httpOverrides = _NoNetworkHttpOverrides();
 
 /// Installs the guard for the whole test isolate.
 void installNetworkGuard() {
   HttpOverrides.global = _httpOverrides;
-  IOOverrides.global = _NoNetworkIOOverrides();
 }
 
 /// Puts the HTTP guard back in place. `TestWidgetsFlutterBinding` replaces `HttpOverrides.global` with its own
