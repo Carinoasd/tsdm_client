@@ -11,6 +11,8 @@
 /// test forum (they write).
 library;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tsdm_client/constants/url.dart';
@@ -319,6 +321,66 @@ void main() {
       await cubit.act(TaskActionKind.giveUp);
       expect(h.writes, hasLength(1));
       expect(cubit.state.result?.outcome, TaskActionOutcome.unconfirmed);
+    });
+
+    test('a reload while a write is in flight waits for it; the result and the next write still go', () async {
+      knowV4Status();
+      final h = _Harness();
+      final hold = Completer<Object?>();
+      final cubit = TaskDetailCubit(
+        taskId: 2,
+        currentUid: () => _uid,
+        repository: () => TaskCenterRepository(
+          getPage: (_) async => '',
+          getWrite: (_) async => (data: null, location: null),
+          getV4Page: (url) async {
+            h.pages.add(url);
+            return h.page;
+          },
+          getV4Write: (url) async {
+            h.writes.add(url);
+            if (h.writes.length == 1) return hold.future;
+            return _result('task_completed');
+          },
+        ),
+      );
+      addTearDown(cubit.close);
+      await cubit.load();
+      final pagesBefore = h.pages.length;
+      final giving = cubit.act(TaskActionKind.giveUp);
+      await cubit.load();
+      expect(h.pages, hasLength(pagesBefore));
+      expect(cubit.state.busy, TaskActionKind.giveUp);
+      hold.complete(_result('task_nonexistence', message: '抱歉，该任务不存在或已被删除', ok: 0));
+      await giving;
+      expect(cubit.state.result?.outcome, TaskActionOutcome.refused);
+      expect(cubit.state.acted, isTrue);
+      expect(cubit.canAct(TaskActionKind.draw), isTrue);
+      await cubit.act(TaskActionKind.draw);
+      expect(h.writes, hasLength(2));
+    });
+
+    test('a write on a task opened from this one marks this one changed and loads it again', () async {
+      knowV4Status();
+      final h = _Harness();
+      final cubit = TaskDetailCubit(taskId: 2, currentUid: () => _uid, repository: h.repository);
+      addTearDown(cubit.close);
+      await cubit.load();
+      expect(cubit.state.acted, isFalse);
+      final before = h.pages.length;
+      await cubit.otherActed();
+      expect(cubit.state.acted, isTrue);
+      expect(h.pages.length, greaterThan(before));
+    });
+
+    test('no task id: nothing is asked', () async {
+      knowV4Status();
+      final h = _Harness();
+      final cubit = TaskDetailCubit(taskId: 0, currentUid: () => _uid, repository: h.repository);
+      addTearDown(cubit.close);
+      await cubit.load();
+      expect(h.pages, isEmpty);
+      expect(cubit.state.failed, isTrue);
     });
 
     test("another account's completion is dropped", () async {

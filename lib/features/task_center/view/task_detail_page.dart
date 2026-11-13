@@ -195,7 +195,13 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
         TextButton(
           key: ValueKey('task-link-${link.id}'),
           style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
-          onPressed: () async => context.pushNamed(ScreenPaths.taskDetail, pathParameters: {'taskId': '${link.id}'}),
+          onPressed: () async {
+            final acted = await context.pushNamed<bool>(
+              ScreenPaths.taskDetail,
+              pathParameters: {'taskId': '${link.id}'},
+            );
+            if ((acted ?? false) && mounted) await _cubit.otherActed();
+          },
           child: Text(link.name.isEmpty ? '${link.id}' : context.displayText(link.name)),
         ),
       ],
@@ -244,10 +250,13 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
     final next = context.displayText(detail.next);
     final lines = <String>[
       ...switch (detail.state) {
-        -4 => [words.failedOn(time: at)],
-        -5 => [words.completedOn(time: at)],
-        -6 => [words.completedOn(time: at), if (next.isNotEmpty) words.applyAgainAfter(time: next)],
-        -7 => [words.failedOn(time: at), if (next.isNotEmpty) words.reapplyAfter(time: next)],
+        -4 => [if (at.isNotEmpty) words.failedOn(time: at)],
+        -5 => [if (at.isNotEmpty) words.completedOn(time: at)],
+        -6 => [
+          if (at.isNotEmpty) words.completedOn(time: at),
+          if (next.isNotEmpty) words.applyAgainAfter(time: next),
+        ],
+        -7 => [if (at.isNotEmpty) words.failedOn(time: at), if (next.isNotEmpty) words.reapplyAfter(time: next)],
         2 => [if (at.isNotEmpty) words.completedOn(time: at), words.applyAgainNow],
         3 => [if (at.isNotEmpty) words.failedOn(time: at), words.reapplyNow],
         _ => const <String>[],

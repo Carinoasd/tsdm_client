@@ -196,6 +196,8 @@ class _MagicLogPageState extends State<MagicLogPage> with SingleTickerProviderSt
           final columns = appColumnsFor(width);
           final gap = width < 600 ? appSurfaceGapCompact : appSurfaceGap;
           return ListView(
+            // Another page starts at its top.
+            key: ValueKey('magic-log-list-${tab.operation}-${page.page}'),
             padding: padding.copyWith(top: 12, bottom: 12),
             physics: const AlwaysScrollableScrollPhysics(),
             children: [

@@ -88,6 +88,7 @@ class TaskDetailCubit extends Cubit<TaskDetailState> {
   final TaskCenterRepository Function() repository;
 
   int _generation = 0;
+  int _actToken = 0;
   bool _acting = false;
 
   bool _current(int generation, int uid) => !isClosed && generation == _generation && uid == currentUid();
@@ -95,13 +96,20 @@ class TaskDetailCubit extends Cubit<TaskDetailState> {
   /// Erase the snapshot immediately; anything pending becomes stale.
   void invalidate() {
     _generation++;
+    _actToken++;
     _acting = false;
     if (!isClosed) emit(TaskDetailState(loading: true, acted: state.acted));
   }
 
   /// Load the page (GET only), then the members who applied when the page names them.
+  ///
+  /// Not while something is being sent: the page is loaded again once its answer is in.
   Future<void> load() async {
-    if (isClosed) return;
+    if (isClosed || _acting) return;
+    if (taskId <= 0) {
+      emit(TaskDetailState(uid: currentUid(), failed: true, acted: state.acted));
+      return;
+    }
     final generation = ++_generation;
     final uid = currentUid();
     if (uid == null || uid <= 0) {
@@ -169,6 +177,7 @@ class TaskDetailCubit extends Cubit<TaskDetailState> {
     if (!canAct(kind)) return;
     final uid = state.uid!;
     final generation = _generation;
+    final token = ++_actToken;
     _acting = true;
     emit(state._copyWith(busy: () => kind, result: () => null));
     TaskActionResult result;
@@ -188,7 +197,7 @@ class TaskDetailCubit extends Cubit<TaskDetailState> {
     } on Object {
       result = TaskActionResult(taskId: taskId, outcome: TaskActionOutcome.unconfirmed);
     } finally {
-      if (generation == _generation) _acting = false;
+      if (token == _actToken) _acting = false;
     }
     if (!_current(generation, uid)) {
       if (!isClosed && generation == _generation) emit(state._copyWith(busy: () => null, acted: true));
@@ -200,6 +209,14 @@ class TaskDetailCubit extends Cubit<TaskDetailState> {
       return;
     }
     emit(state._copyWith(busy: () => null, result: () => result, acted: true));
+    await load();
+  }
+
+  /// Something was sent from another task's page opened from this one: this task may have changed, and the task
+  /// center's lists are stale.
+  Future<void> otherActed() async {
+    if (isClosed) return;
+    if (!state.acted) emit(state._copyWith(acted: true));
     await load();
   }
 
