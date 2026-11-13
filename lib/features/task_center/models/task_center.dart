@@ -466,7 +466,8 @@ const _taskNotYet = {'task_doing', 'task_doing_rt', 'task_waiting', 'task_waitin
 /// The result of the apply or the claim ([kind]) of task [id] sent with plugin 4.0.0 (`tsdmv=4`), from its answer
 /// [data]; null when the answer is no write result (the caller reads it as before).
 ///
-/// Only the success keys of the forum count as done (`task_applied`, `task_completed`; `ok` alone never does): a claim
+/// Only the success keys of the forum count as done (`task_applied`, `task_completed` and the reward words
+/// `task_reward_*` the plugin counts with it; `ok` alone never does), and an apply sent on to the task's own claim: a claim
 /// not complete yet (`task_doing`, `task_waiting`…) is in progress with the forum's words, `task_failed` failed, the
 /// login prompt the login, anything else refused in the forum's words (unconfirmed without words).
 TaskActionResult? taskV4ActionResultOf(Object? data, {required int id, required TaskActionKind kind}) {
@@ -480,7 +481,12 @@ TaskActionResult? taskV4ActionResultOf(Object? data, {required int id, required 
   }
   final outcome = switch (kind) {
     TaskActionKind.apply when key == 'task_applied' => TaskActionOutcome.applied,
-    TaskActionKind.draw when key == 'task_completed' => TaskActionOutcome.rewarded,
+    // A task that completes on applying (`task_gift`, "新人红包") sends the browser on to its claim: applied, the claim
+    // is the user's next press, as before.
+    TaskActionKind.apply when result.kind == TsdmAppWriteKind.redirect && _isTaskUrl(result.url, 'draw', id) =>
+      TaskActionOutcome.applied,
+    // The plugin counts the forum's reward words of a claim as done too (`task_reward_*`, `lib/v4/play.php`).
+    TaskActionKind.draw when key == 'task_completed' || key.startsWith('task_reward_') => TaskActionOutcome.rewarded,
     TaskActionKind.draw when _taskNotYet.contains(key) => TaskActionOutcome.inProgress,
     TaskActionKind.draw when key == 'task_failed' => TaskActionOutcome.failed,
     _ => message == null ? TaskActionOutcome.unconfirmed : TaskActionOutcome.refused,

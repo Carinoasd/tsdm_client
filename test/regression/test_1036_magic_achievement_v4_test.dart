@@ -137,7 +137,13 @@ void main() {
       final json = v4Json('magic_shop_v69.json')
         ..['page'] = 2
         ..['pages'] = 3;
+      final rows = (json['list'] as List).cast<Map<String, dynamic>>();
+      json['list'] = [
+        {...rows[1], 'price': '1'},
+      ];
       final page = magicListPageFromApi(json, MagicList.shop, magicShopUrl);
+      expect(page.items.single.price, 1, reason: 'digits as text are read as the window reads them');
+      expect(page.items.single.buyable, isTrue);
       expect(page.nextUrl, '$magicShopUrl&page=3');
       expect(page.previousUrl, magicShopUrl);
     });

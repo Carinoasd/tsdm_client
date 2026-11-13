@@ -764,6 +764,9 @@ String magicThreadIdOf(String input) {
   return tid?.group(1) ?? s;
 }
 
+/// A whole number of an answer of 4.0.0 (a number, or digits as text); null for anything else.
+int? _wholeOf(Object? value) => value is num ? value.toInt() : int.tryParse('${value ?? ''}');
+
 /// A page of the shop (`type: magic_shop`, `schema` 69) or of the account's magics (`magic_mybox`, 70) of the forum's
 /// app API (plugin 4.0.0), asked as [url], as [parseMagicList] reads the web page: the price line and the balances as
 /// the page words them, a sold out magic without its buy link, the pages safe for a GET ([magicListPageUrl]).
@@ -779,7 +782,7 @@ MagicListPage magicListPageFromApi(Map<String, dynamic> json, MagicList list, St
     final image = _image(uh.ImageElement()..src = tsdmAppText(row['pic']));
     if (list == MagicList.shop) {
       if (!seen.add(identifier)) continue;
-      final price = row['price'] is num ? (row['price'] as num).toInt() : null;
+      final price = _wholeOf(row['price']);
       final credit = tsdmAppMap(row['credit']);
       items.add(
         MagicItem(
@@ -869,13 +872,12 @@ MagicForm? magicFormFromApi(Object? data, SmallFormKind kind) {
         final words = t.magicCenter.forumWords;
         final creditMap = tsdmAppMap(json['credit']);
         final credit = '${tsdmAppText(creditMap['title'])}${tsdmAppText(creditMap['unit'])}';
-        int? whole(Object? v) => v is num ? v.toInt() : int.tryParse('$v');
-        final price = whole(json['price']);
-        final discount = whole(json['discountprice']);
-        final balance = whole(json['balance']);
-        final weight = whole(json['weight']);
-        final freeWeight = whole(json['free_weight']);
-        final stock = whole(json['stock']);
+        final price = _wholeOf(json['price']);
+        final discount = _wholeOf(json['discountprice']);
+        final balance = _wholeOf(json['balance']);
+        final weight = _wholeOf(json['weight']);
+        final freeWeight = _wholeOf(json['free_weight']);
+        final stock = _wholeOf(json['stock']);
         final description = tsdmAppText(magic['description']).trim();
         return MagicForm(
           action: action,

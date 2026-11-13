@@ -205,8 +205,22 @@ void main() {
       // The forum words its refusals as notes ("info"): ok 1 in the plugin's classification.
       expect(apply(_result('task_duplicate', message: '您已申请过此任务')), TaskActionOutcome.refused);
       expect(apply(_result('task_grouplimit', message: '您所在的用户组无法申请此任务')), TaskActionOutcome.refused);
-      expect(apply(_result('task_completed', message: '任务已完成')), TaskActionOutcome.refused, reason: "not the apply's key");
+      expect(
+        apply(_result('task_completed', message: '任务已完成')),
+        TaskActionOutcome.refused,
+        reason: "not the apply's key",
+      );
       expect(apply(_result('')), TaskActionOutcome.unconfirmed);
+      // A task completing on applying is sent on to its own claim (task_gift): applied; to another task's: not.
+      expect(
+        apply({..._result(''), 'ok': 0, 'kind': 'redirect', 'url': 'home.php?mod=task&do=draw&id=2'}),
+        TaskActionOutcome.applied,
+      );
+      expect(
+        apply({..._result(''), 'ok': 0, 'kind': 'redirect', 'url': 'home.php?mod=task&do=draw&id=3'}),
+        TaskActionOutcome.unconfirmed,
+      );
+      expect(draw(_result('task_reward_credit')), TaskActionOutcome.rewarded);
       expect(draw(_result('task_doing', message: '您已完成该任务的 34%')), TaskActionOutcome.inProgress);
       expect(draw(_result('task_waiting_rt', message: '等待中')), TaskActionOutcome.inProgress);
       expect(draw(_result('task_failed', message: '任务已失败', ok: 0)), TaskActionOutcome.failed);

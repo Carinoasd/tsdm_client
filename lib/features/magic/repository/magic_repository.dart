@@ -101,8 +101,8 @@ class MagicRepository {
       switch (answer) {
         case TsdmAppV4Page(:final json):
           return magicListPageFromApi(json, list, safe);
-        case TsdmAppV4Message(:final message, :final login) when login || message.trim().isNotEmpty:
-          throw MagicForumMessage(message.trim(), login: login);
+        case TsdmAppV4Message(:final reason, :final login) when login || reason.trim().isNotEmpty:
+          throw MagicForumMessage(reason.trim(), login: login);
         case TsdmAppV4Message() || TsdmAppV4Refused() || null:
           break;
       }
