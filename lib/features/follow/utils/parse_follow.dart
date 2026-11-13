@@ -338,7 +338,7 @@ FollowFeed? _feedFromApi(Map<String, dynamic> row, Map<String, dynamic> json) {
   final words = t.spacePage.forumWords;
   final noteHtml = tsdmAppText(row['note_html']);
   final note = noteHtml.trim().isEmpty ? null : (spaceV4Html(noteHtml)..classes.add('flw_quotenote'));
-  final thread = row['thread'] is Map<String, dynamic> && row['deleted'] != 1 ? tsdmAppMap(row['thread']) : null;
+  final thread = row['thread'] is Map && row['deleted'] != 1 ? tsdmAppMap(row['thread']) : null;
   if (thread == null) {
     return FollowFeed(
       feedId: feedId,
@@ -393,7 +393,11 @@ String? followNextFeedUrlFromApi(Map<String, dynamic> json) {
   if (next == null) {
     return null;
   }
-  return next.contains('inajax=') ? next : '$next&inajax=1';
+  final uri = Uri.parse(next);
+  if (uri.queryParametersAll.containsKey('inajax')) {
+    return next;
+  }
+  return uri.replace(queryParameters: {...uri.queryParametersAll, 'inajax': '1'}).toString();
 }
 
 /// A first page of broadcasts of the forum's app API (plugin 4.0.0: `type: space_feed`, `schema` 59, `more` 0): the

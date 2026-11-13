@@ -121,6 +121,10 @@ String spaceUrlWithPage(String url, int page, {String key = 'page'}) {
 
 /// The time [value] (unix seconds) of a page [json] as the forum prints a date and time (`Y-m-d H:i`), on the
 /// member's wall clock (`timeoffset`); null without one.
+///
+/// The web pages print some of these relative ("1 分钟前"), which `tsdmAppWallClockTime` would rather have shown as
+/// the real moment; the items keep the forum's time as text (their `time` is a string), so the answer's time is that
+/// text, on purpose.
 String? spaceV4Time(Object? value, Map<String, dynamic> json) =>
     tsdmAppWallClockTime(value, tsdmAppTimeOffset(json))?.yyyyMMDDHHMM();
 

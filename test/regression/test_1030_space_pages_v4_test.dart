@@ -149,6 +149,34 @@ void main() {
       expect(fromWeb.hasMore, isTrue);
     });
 
+    test("the replies: the login prompt without words is the login, the forum's words are its words", () async {
+      knowV4Status();
+      Future<DoingCommentPage> fetch(Map<String, dynamic> api, {int uid = _uid}) async {
+        useV4Forum(_forum(api: api));
+        return (await DoingRepository(currentUid: () => uid).fetchComments(3).run()).getOrElse((e) => throw e);
+      }
+
+      final guest = await fetch(const {'ok': 0, 'error': 'message', 'message': '', 'login': 1, 'uid': 0}, uid: 0);
+      expect(guest.comments, isEmpty);
+      expect(guest.message, t.general.needLogin);
+      final off = await fetch(const {
+        'ok': 0,
+        'error': 'message',
+        'message': '抱歉，记录功能尚未开启',
+        'message_key': 'doing_status_off',
+        'login': 0,
+        'uid': _uid,
+      });
+      expect(off.message, '抱歉，记录功能尚未开启');
+      final hidden = await fetch(const {
+        'ok': 0,
+        'error': 'privacy',
+        'owner': {'uid': 58, 'username': 'ag_t22'},
+        'uid': _uid,
+      });
+      expect(hidden.message, t.spacePage.forumWords.privacy(name: 'ag_t22'));
+    });
+
     test('a reply to a reply begins with whom it answers; a deleted row is left out', () {
       final json = v4Json('space_docomment_v58.json');
       final rows = (json['comments'] as List).cast<Map<String, dynamic>>();
@@ -181,6 +209,7 @@ void main() {
       expect(isFollowMoreFeedUrl(page.nextPageUrl!), isTrue);
       expect(next, containsPair('page', '2'));
       expect(next, containsPair('inajax', '1'), reason: 'the web parser reads it as a fragment too');
+      expect(next, containsPair('viewtype', 'follow'));
       final first = page.items.first;
       expect(first.threadId, 9202998);
       expect(first.threadTitle, isNotEmpty);

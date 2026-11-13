@@ -86,6 +86,12 @@ final class DoingRepository {
             message: message.trim().isEmpty ? t.general.needLogin : message.trim(),
           ),
         );
+      case Right(value: TsdmAppV4Refused(error: 'privacy', :final json)):
+        // Not answered for the replies by the forum today (they are not a page of the space), told as the other pages
+        // tell it all the same.
+        return right(
+          DoingCommentPage(comments: const [], page: page, hasMore: false, message: spaceV4PrivacyMessage(json)),
+        );
       case Right():
         break;
     }
