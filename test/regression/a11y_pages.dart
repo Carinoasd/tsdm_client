@@ -272,8 +272,27 @@ const a11yEmojiGroups = [
 ];
 
 /// The name of the author of a floor opens the author card like the 48 wide avatar before it does: the equivalent
-/// control is there, the name stays the height of its line (test_279).
-Finder floorAuthorName(String name) => find.widgetWithText(GestureDetector, name);
+/// control is there, the name stays the height of its line (test_279). The gesture detectors right around a name
+/// only (no other one between): the ones around the floor and the whole list hold it too.
+Finder floorAuthorName(String name) => find.byElementPredicate((element) {
+  if (element.widget is! GestureDetector) {
+    return false;
+  }
+  var found = false;
+  void visit(Element child) {
+    if (found || child.widget is GestureDetector) {
+      return;
+    }
+    if (child.widget case Text(:final data) when data == name) {
+      found = true;
+      return;
+    }
+    child.visitChildren(visit);
+  }
+
+  element.visitChildren(visit);
+  return found;
+});
 
 /// The buttons the bbcode editor package builds (the style toggles, undo, redo, lists, alignment ...): the package
 /// puts their tooltip on a node of its own around the button instead of on the button (test_279). The package is a

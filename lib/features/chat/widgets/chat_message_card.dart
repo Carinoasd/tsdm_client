@@ -88,7 +88,10 @@ final class ChatMessageCard extends StatelessWidget {
           // text, not as a second, smaller button.
           excludeFromSemantics: true,
           onTap: chatMessage.author != null
-              ? () async => context.pushNamed(ScreenPaths.profile, queryParameters: {'username': chatMessage.author})
+              ? () async => context.pushNamed(
+                  ScreenPaths.profile,
+                  queryParameters: {'uid': ?chatMessage.authorUid, 'username': ?chatMessage.author},
+                )
               : null,
           child: Text(
             chatMessage.author ?? '',

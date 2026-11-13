@@ -765,10 +765,10 @@ class _EntryTile extends StatelessWidget {
         color: colorScheme.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(appInnerRadius),
         clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: entry.onTap,
-          child: Semantics(
-            button: true,
+        child: Semantics(
+          button: true,
+          child: InkWell(
+            onTap: entry.onTap,
             child: ConstrainedBox(
               constraints: const BoxConstraints(minHeight: 76),
               child: Padding(

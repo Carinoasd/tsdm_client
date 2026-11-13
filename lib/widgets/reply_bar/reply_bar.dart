@@ -1694,24 +1694,27 @@ final class _ReplyBarState extends State<_ReplyBar> with LoggerMixin {
             : null,
         // The whole page for a long reply, with what was written, the floor and its quote: a corner button of the
         // writing area, the button row is full on a phone.
-        child: Stack(
-          fit: _maximized ? StackFit.expand : StackFit.loose,
-          children: [
-            _buildRichEditor(context),
-            PositionedDirectional(
-              top: 0,
-              end: 0,
-              child: IconButton(
-                key: const ValueKey('reply-bar-maximize'),
-                visualDensity: VisualDensity.compact,
-                iconSize: 18,
-                color: Theme.of(context).colorScheme.outline,
-                icon: Icon(_maximized ? Icons.close_fullscreen_outlined : Icons.open_in_full_outlined),
-                tooltip: _maximized ? tr.restoreSizeTip : tr.maximizeTip,
-                onPressed: () => setState(() => _maximized = !_maximized),
+        // At least as tall as the 48 wide corner button: an empty editor is lower, and its corner cut the button.
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: kMinInteractiveDimension),
+          child: Stack(
+            fit: _maximized ? StackFit.expand : StackFit.loose,
+            children: [
+              _buildRichEditor(context),
+              PositionedDirectional(
+                top: 0,
+                end: 0,
+                child: IconButton(
+                  key: const ValueKey('reply-bar-maximize'),
+                  iconSize: 18,
+                  color: Theme.of(context).colorScheme.outline,
+                  icon: Icon(_maximized ? Icons.close_fullscreen_outlined : Icons.open_in_full_outlined),
+                  tooltip: _maximized ? tr.restoreSizeTip : tr.maximizeTip,
+                  onPressed: () => setState(() => _maximized = !_maximized),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

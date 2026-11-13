@@ -177,7 +177,8 @@ class _EmojiPanelState extends State<EmojiPanel> with TickerProviderStateMixin {
               borderRadius: BorderRadius.circular(appInnerRadius),
               onTap: () => _pick(code),
               onLongPress: recent ? () => unawaited(_offerRemoveRecent(context, code)) : null,
-              child: Padding(padding: const EdgeInsets.all(3), child: child),
+              // The gap between the emojis is inside the cells (see [_grid]): the whole cell takes the tap.
+              child: Padding(padding: const EdgeInsets.all(6), child: child),
             ),
           ),
         ),
@@ -186,13 +187,10 @@ class _EmojiPanelState extends State<EmojiPanel> with TickerProviderStateMixin {
   }
 
   Widget _grid(List<String> codes, {bool recent = false}) => GridView.builder(
-    padding: edgeInsetsL12T8R12B8,
-    gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-      maxCrossAxisExtent: 48,
-      mainAxisSpacing: 6,
-      crossAxisSpacing: 6,
-      mainAxisExtent: 48,
-    ),
+    // As many emojis on a row as with cells of 48 and gaps of 6 between them, the gaps inside the cells: each emoji
+    // takes taps on 48 and more instead of the 44 left between the gaps on a phone.
+    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+    gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(maxCrossAxisExtent: 54, mainAxisExtent: 54),
     itemCount: codes.length,
     itemBuilder: (context, index) => _emojiTile(codes[index], recent: recent),
   );

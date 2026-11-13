@@ -305,9 +305,11 @@ final class A11yContrast extends MinimumTextContrastGuideline {
 
   final List<Rect> exempt;
 
-  /// Labels of the text nodes under an exempt rect, collected before the evaluation (the nodes it asks about carry
-  /// no transform to the root).
+  /// The text nodes under an exempt rect, collected before the evaluation (the nodes it asks about carry no transform
+  /// to the root): their text and their own rect, so the same text elsewhere on the page is still checked.
   final _covered = <String>{};
+
+  static String _keyOf(SemanticsData data) => '${data.label.isEmpty ? data.value : data.label}@${data.rect}';
 
   void _collect(SemanticsNode node) {
     node.visitChildren((child) {
@@ -316,8 +318,7 @@ final class A11yContrast extends MinimumTextContrastGuideline {
     });
     final rect = a11yGlobalRect(node);
     if (exempt.any((e) => e.overlaps(rect))) {
-      final data = node.getSemanticsData();
-      _covered.add(data.label.isEmpty ? data.value : data.label);
+      _covered.add(_keyOf(node.getSemanticsData()));
     }
   }
 
@@ -331,8 +332,7 @@ final class A11yContrast extends MinimumTextContrastGuideline {
   }
 
   @override
-  bool shouldSkipNode(SemanticsData data) =>
-      super.shouldSkipNode(data) || _covered.contains(data.label.isEmpty ? data.value : data.label);
+  bool shouldSkipNode(SemanticsData data) => super.shouldSkipNode(data) || _covered.contains(_keyOf(data));
 }
 
 /// [labeledTapTargetGuideline] (whose constructor is private) leaving out the nodes within [exempt].
@@ -458,9 +458,10 @@ Future<List<FlutterErrorDetails>> a11yLayoutErrors(Future<void> Function() body)
   return errors;
 }
 
-/// The texts on screen that are cut: a [RenderParagraph] that did not fit its box (an ellipsis or a fade is no cut,
-/// [TextOverflow.clip] and [TextOverflow.visible] are) or that lies outside the screen without a scrollable around
-/// it to bring it in.
+/// The texts on screen that are cut: a [RenderParagraph] with more lines than it may show and nothing to tell (an
+/// ellipsis or a fade tells, [TextOverflow.clip] and [TextOverflow.visible] do not), or one pushed past the start or
+/// the end of the screen without a scrollable around it to bring it back. Sideways only: what runs past the bottom
+/// overflows its flex (told as a layout error) or scrolls.
 List<String> a11yClippedTexts(WidgetTester tester) {
   final cut = <String>[];
   final screen = Offset.zero & tester.view.physicalSize / tester.view.devicePixelRatio;
@@ -468,7 +469,7 @@ List<String> a11yClippedTexts(WidgetTester tester) {
     if (object is RenderParagraph && object.hasSize && object.attached) {
       final text = object.text.toPlainText();
       final clips = object.overflow == TextOverflow.clip || object.overflow == TextOverflow.visible;
-      if (text.trim().isNotEmpty && clips && (object.didExceedMaxLines || object.debugHasOverflowShader)) {
+      if (text.trim().isNotEmpty && clips && object.didExceedMaxLines) {
         cut.add(text);
       }
       final rect = MatrixUtils.transformRect(object.getTransformTo(null), Offset.zero & object.size);
@@ -751,13 +752,17 @@ final class A11yHarness {
     List<Finder> roleExempt = const [],
   }) async {
     final handle = tester.ensureSemantics();
-    await tester.pump();
-    final targets = a11yRectsOf(tester, tapTargetExempt);
-    await expectLater(tester, meetsGuideline(A11yTapTargets(targets)));
-    await expectLater(tester, meetsGuideline(A11yIosTapTargets(targets)));
-    await expectLater(tester, meetsGuideline(A11yLabeledTargets(a11yRectsOf(tester, labelExempt))));
-    await expectLater(tester, meetsGuideline(A11yContrast(a11yRectsOf(tester, covered))));
-    await expectLater(tester, meetsGuideline(A11yTapRoles(a11yRectsOf(tester, roleExempt))));
-    handle.dispose();
+    try {
+      await tester.pump();
+      final targets = a11yRectsOf(tester, tapTargetExempt);
+      await expectLater(tester, meetsGuideline(A11yTapTargets(targets)));
+      await expectLater(tester, meetsGuideline(A11yIosTapTargets(targets)));
+      await expectLater(tester, meetsGuideline(A11yLabeledTargets(a11yRectsOf(tester, labelExempt))));
+      await expectLater(tester, meetsGuideline(A11yContrast(a11yRectsOf(tester, covered))));
+      await expectLater(tester, meetsGuideline(A11yTapRoles(a11yRectsOf(tester, roleExempt))));
+    } finally {
+      // A guideline that fails is the failure told, not a handle left open after it.
+      handle.dispose();
+    }
   }
 }
