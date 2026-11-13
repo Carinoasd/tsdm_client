@@ -1,3 +1,4 @@
+import 'package:tsdm_client/features/sync/models/sync_document.dart';
 import 'package:tsdm_client/features/sync/models/sync_removals.dart';
 import 'package:tsdm_client/features/thread_follow/models/followed_thread.dart';
 
@@ -27,7 +28,7 @@ Map<String, Map<String, dynamic>> followedThreadSyncItems(
   for (final t in threads)
     t.tid: switch (base['${t.tid}']) {
       final was?
-          when was['deleted'] != true &&
+          when !SyncDocument.isDeleted(was) &&
               was['updated'] is num &&
               (was['updated'] as num) >= t.followedAt.millisecondsSinceEpoch =>
         was,

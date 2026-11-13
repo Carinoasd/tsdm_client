@@ -24,6 +24,7 @@ import 'package:tsdm_client/features/sync/models/sync_settings.dart';
 import 'package:tsdm_client/features/sync/repository/sync_api.dart';
 import 'package:tsdm_client/features/sync/repository/sync_local_store.dart';
 import 'package:tsdm_client/features/sync/repository/sync_repository.dart';
+import 'package:tsdm_client/features/thread_follow/cubit/followed_threads_cubit.dart';
 import 'package:tsdm_client/features/thread_follow/models/followed_thread.dart';
 import 'package:tsdm_client/features/thread_follow/models/followed_thread_sync.dart';
 import 'package:tsdm_client/features/thread_follow/repository/followed_thread_store.dart';
@@ -558,15 +559,22 @@ void main() {
 
       test('an undo of an unfollow counts as followed now: later than the removal the forum may hold', () async {
         await store.follow(_uid, tid: 4, title: 'd', replies: 2, now: DateTime(2026));
+        final cubit = FollowedThreadsCubit(store: store, storage: storage, uid: _uid);
+        addTearDown(cubit.close);
+        await cubit.stream.firstWhere((s) => s.loaded);
         final thread = (await store.of(_uid, 4))!;
-        await store.unfollow(_uid, 4);
+        await cubit.unfollow(4);
         final removedAt = (await store.removed(_uid))[4]!;
-        final cubitLike = thread.copyWith(followedAt: DateTime.now());
-        await store.update(_uid, 4, (current) => current ?? cubitLike);
+        // The removal reached the forum meanwhile; then the undo.
+        await cubit.restore(thread, index: 0);
         final back = (await store.of(_uid, 4))!;
         expect(back.followedAt.millisecondsSinceEpoch, greaterThanOrEqualTo(removedAt));
         expect(back.seenReplies, 2);
         expect(await store.removed(_uid), isEmpty);
+        final changes = followedThreadSyncChanges(await store.load(_uid), await store.removed(_uid), {
+          '4': {'updated': removedAt, 'deleted': true},
+        });
+        expect(changes.unfollow, isEmpty, reason: 'the undo is later than the removal');
       });
 
       test('the first check of a thread from another device announces nothing; the next ones do', () async {

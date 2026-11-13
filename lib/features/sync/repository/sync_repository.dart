@@ -553,10 +553,15 @@ final class SyncRepository with LoggerMixin {
     final theirs = remote.single('reply_templates');
     if (mine.isNotEmpty && theirs != null) {
       final names = {for (final t in mine) t.name};
-      final union = [
-        ...mine,
-        ...replyTemplatesOf(theirs).where((t) => !names.contains(t.name)),
-      ].take(syncReplyTemplatesMax).toList();
+      // The forum's that this device lacks, in their order, while the list still goes with the sync: a union over the
+      // budget would keep this device's out of it for good.
+      final union = [...mine];
+      for (final t in replyTemplatesOf(theirs).where((t) => !names.contains(t.name))) {
+        if (!replyTemplatesFit([...union, t])) {
+          break;
+        }
+        union.add(t);
+      }
       if (union.length != mine.length) {
         info('sync: first sync, ${union.length - mine.length} reply templates of the forum added to this device');
         _appliedReplyTemplates = encodeReplyTemplates(union);

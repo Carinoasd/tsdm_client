@@ -390,6 +390,20 @@ void main() {
       expect(a.store.writes.where((w) => w == 'saveReplyTemplates'), hasLength(2));
     });
 
+    test("the first union takes the forum's templates only while the list still fits", () async {
+      a.store.replyTemplateList = [_r('甲', '字' * 600), _r('乙', '字' * 600)];
+      await a.sync();
+      tick();
+      b.store.replyTemplateList = [_r('丙', '字' * 900)];
+      await b.sync();
+      expect(b.replyNames, ['丙', '甲'], reason: 'one more would go over the budget');
+      expect(SyncRepository.replyTemplatesFit(b.store.replyTemplateList), isTrue);
+      expect(SyncRepository.replyTemplatesOf(forum.doc['reply_templates'] as Map<String, dynamic>).map((t) => t.name), [
+        '丙',
+        '甲',
+      ]);
+    });
+
     test('two devices change their templates at once: the refused write merges, the later wins on both', () async {
       a.store.replyTemplateList = [_r('一')];
       await a.sync();
