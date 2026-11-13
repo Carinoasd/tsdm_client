@@ -1,6 +1,8 @@
 import 'package:flutter/services.dart';
 import 'package:tsdm_client/utils/platform.dart';
 
+// Its one Dart handler is `_handleMainChannelCall`: listen to a call from Android through `_listenOnMainChannel`, never
+// with another `setMethodCallHandler`, which would drop the listeners there.
 const _mainChannel = MethodChannel('kzs.th000.tsdm_client/mainChannel');
 
 const _methodExitApp = 'exitApp';
@@ -53,17 +55,53 @@ Future<bool> androidActivityAttached() async {
 
 const _methodNetworkMeteredChanged = 'networkMeteredChanged';
 
+const _methodHardwareKeyboardChanged = 'hardwareKeyboardChanged';
+
+/// What Android calls on the main channel, by method: the channel has one handler on the Dart side, so every call
+/// from Android goes through [_handleMainChannelCall].
+final _mainChannelListeners = <String, void Function(Object? arguments)>{};
+
+Future<Object?> _handleMainChannelCall(MethodCall call) async {
+  _mainChannelListeners[call.method]?.call(call.arguments);
+  return null;
+}
+
+void _listenOnMainChannel(String method, void Function(Object? arguments) listener) {
+  _mainChannelListeners[method] = listener;
+  _mainChannel.setMethodCallHandler(_handleMainChannelCall);
+}
+
 /// Let Android tell [onChanged] whether the default network is metered each time it changes (a `NetworkCallback` of
-/// the activity): the main channel's only call from Android.
+/// the activity).
 void androidOnNetworkMeteredChanged(void Function({required bool metered}) onChanged) =>
-    _mainChannel.setMethodCallHandler(
-      (call) async {
-        if (call.method == _methodNetworkMeteredChanged && call.arguments is bool) {
-          onChanged(metered: call.arguments as bool);
-        }
-        return null;
-      },
-    );
+    _listenOnMainChannel(_methodNetworkMeteredChanged, (arguments) {
+      if (arguments is bool) {
+        onChanged(metered: arguments);
+      }
+    });
+
+const _methodHasHardwareKeyboard = 'hasHardwareKeyboard';
+
+/// Whether a hardware keyboard (a full one, attached and not hidden) is in use on this Android device, as the
+/// activity's configuration tells it (`Configuration.keyboard`, `hardKeyboardHidden`).
+Future<bool> androidHasHardwareKeyboard() async =>
+    await _mainChannel.invokeMethod<bool>(_methodHasHardwareKeyboard) ?? false;
+
+/// Let Android tell [onChanged] whether a hardware keyboard is in use, each time the configuration of the activity
+/// changes (attached, removed, a cover keyboard folded away) and each time the activity comes to the front.
+void androidOnHardwareKeyboardChanged(void Function({required bool present}) onChanged) =>
+    _listenOnMainChannel(_methodHardwareKeyboardChanged, (arguments) {
+      if (arguments is bool) {
+        onChanged(present: arguments);
+      }
+    });
+
+const _methodSetBackgroundSyncGuard = 'setBackgroundSyncGuard';
+
+/// Tell Android whether the background message service is [wanted] (`BackgroundSyncGuard.kt`): while it is, a job
+/// starts it again when the system killed it, or posts a notification titled [title] when the system refuses (P13).
+Future<void> androidSetBackgroundSyncGuard({required bool wanted, required String title}) async =>
+    _mainChannel.invokeMethod<bool>(_methodSetBackgroundSyncGuard, {'wanted': wanted, 'title': title});
 
 const _methodOpenAttachment = 'openAttachment';
 

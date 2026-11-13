@@ -26,7 +26,8 @@ import 'package:tsdm_client/features/keyboard/widgets/keyboard_shortcuts_host.da
 /// deciding through their `PopScope`.
 ///
 /// On iOS `Esc` does the same once a hardware keyboard is seen (`keyboardShortcutsEnabled`), the mouse button from the
-/// start; the widget is there from the start so the tree below does not change when the keyboard turns up.
+/// start; on Android `Esc` while a hardware keyboard is in use, the mouse button being the system's back already. The
+/// widget is there from the start so the tree below does not change when the keyboard turns up.
 ///
 /// On other platforms this widget only builds [child].
 class DesktopBackHandler extends StatelessWidget {
@@ -92,14 +93,17 @@ class DesktopBackHandler extends StatelessWidget {
     if (!_built) {
       return child;
     }
-    return Listener(
-      onPointerDown: _onPointerDown,
-      child: Focus(
-        canRequestFocus: false,
-        skipTraversal: true,
-        onKeyEvent: _onKeyEvent,
-        child: child,
-      ),
+    final keys = Focus(
+      canRequestFocus: false,
+      skipTraversal: true,
+      onKeyEvent: _onKeyEvent,
+      child: child,
     );
+    // Android turns the mouse's back button into its own back key, which pops the page already: a second pop here
+    // would leave two pages.
+    if (HardwareKeyboardPresence.toldBySystem) {
+      return keys;
+    }
+    return Listener(onPointerDown: _onPointerDown, child: keys);
   }
 }

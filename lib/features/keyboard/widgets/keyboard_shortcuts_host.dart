@@ -3,8 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:tsdm_client/features/keyboard/models/keyboard_intents.dart';
 import 'package:tsdm_client/features/keyboard/utils/hardware_keyboard_presence.dart';
 
-/// Whether the keyboard shortcuts are in use: on Windows, macOS and Linux, and on iOS once a hardware keyboard is seen
-/// ([HardwareKeyboardPresence]); overridable in tests.
+/// Whether the keyboard shortcuts are in use: on Windows, macOS and Linux, and on iOS and Android while a hardware
+/// keyboard is in use ([HardwareKeyboardPresence]); overridable in tests.
 bool get keyboardShortcutsEnabled =>
     KeyboardShortcutsHost.enabledOverride ??
     (HardwareKeyboardPresence.desktopPlatform ||
@@ -14,7 +14,8 @@ bool get keyboardShortcutsEnabled =>
 ///
 /// Fixed for the platform, so the widget tree does not change when a hardware keyboard turns up: the pages below keep
 /// their state, the focused text field its focus. Until then the actions are off ([keyboardShortcutsEnabled]) and the
-/// keys go on as without them (and an iPhone without a keyboard has no key events at all).
+/// keys go on as without them (an iPhone without a keyboard has no key events at all; the keys an Android input method
+/// sends find every action off).
 bool get keyboardShortcutsBuilt =>
     KeyboardShortcutsHost.enabledOverride ??
     (HardwareKeyboardPresence.desktopPlatform || HardwareKeyboardPresence.touchPlatform);
@@ -31,6 +32,37 @@ bool isInTextInput(BuildContext context) {
     return true;
   });
   return found;
+}
+
+/// [CallbackShortcuts] that take their keys only while the keyboard shortcuts are in use ([keyboardShortcutsEnabled]):
+/// built wherever they may come in use ([keyboardShortcutsBuilt]), so the editor below keeps its focus when a keyboard
+/// turns up, and the keys go on untouched until then (an Android input method may send Enter with a modifier).
+class KeyboardCallbackShortcuts extends StatelessWidget {
+  /// Constructor.
+  const KeyboardCallbackShortcuts({required this.bindings, required this.child, super.key});
+
+  /// The keys and what they do.
+  final Map<ShortcutActivator, VoidCallback> bindings;
+
+  /// The widget the keys are taken for, usually an editor.
+  final Widget child;
+
+  KeyEventResult _onKeyEvent(FocusNode node, KeyEvent event) {
+    if (!keyboardShortcutsEnabled) {
+      return KeyEventResult.ignored;
+    }
+    for (final MapEntry(key: activator, value: callback) in bindings.entries) {
+      if (activator.accepts(event, HardwareKeyboard.instance)) {
+        callback();
+        return KeyEventResult.handled;
+      }
+    }
+    return KeyEventResult.ignored;
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      Focus(canRequestFocus: false, skipTraversal: true, onKeyEvent: _onKeyEvent, child: child);
 }
 
 /// Action run by a shortcut key.
@@ -85,15 +117,15 @@ class KeyboardAction<T extends Intent> extends Action<T> {
   }
 }
 
-/// Keys of the whole app on Windows, macOS and Linux, and on iOS with a hardware keyboard: the ones that open a page,
-/// and the table binding every key to the intents the pages answer (`KeyboardPageActions`).
+/// Keys of the whole app on Windows, macOS and Linux, and on iOS and Android with a hardware keyboard: the ones that
+/// open a page, and the table binding every key to the intents the pages answer (`KeyboardPageActions`).
 ///
 /// Sitting between the app's own shortcuts and the navigator, the table is seen by the focus first; a key whose
 /// intent no page around the focus answers goes on untouched.
 ///
-/// On iOS it starts watching for a hardware keyboard ([HardwareKeyboardPresence.watch]). The primary modifier is Ctrl
-/// or Cmd on every platform, as on macOS; none of the keys is one iPadOS keeps for itself (Cmd+H, Cmd+Space, Cmd+Tab,
-/// Cmd+Shift+3/4/5).
+/// On iOS and Android it starts watching for a hardware keyboard ([HardwareKeyboardPresence.watch]). The primary
+/// modifier is Ctrl or Cmd on every platform, as on macOS; none of the keys is one iPadOS keeps for itself (Cmd+H,
+/// Cmd+Space, Cmd+Tab, Cmd+Shift+3/4/5).
 ///
 /// On other platforms this widget only builds [child].
 class KeyboardShortcutsHost extends StatefulWidget {

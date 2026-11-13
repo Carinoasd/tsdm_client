@@ -220,7 +220,7 @@ jobs:
           flutter build apk --release
       - name: Test Android browser routing, bank transport, APK installer and interactive viewer
         working-directory: android
-        run: ./gradlew :app:testReleaseUnitTest --tests kzs.th000.tsdm_client.BrowserIntentsTest --tests kzs.th000.tsdm_client.HttpClientTest --tests kzs.th000.tsdm_client.UpdateInstallerTest --tests kzs.th000.tsdm_client.InteractiveHtmlPolicyTest --tests kzs.th000.tsdm_client.InteractiveHtmlActivityTest
+        run: ./gradlew :app:testReleaseUnitTest --tests kzs.th000.tsdm_client.BrowserIntentsTest --tests kzs.th000.tsdm_client.HttpClientTest --tests kzs.th000.tsdm_client.UpdateInstallerTest --tests kzs.th000.tsdm_client.InteractiveHtmlPolicyTest --tests kzs.th000.tsdm_client.InteractiveHtmlActivityTest --tests kzs.th000.tsdm_client.BackgroundSyncGuardTest --tests kzs.th000.tsdm_client.HardwareKeyboardsTest
       - name: Upload Android browser test reports
         if: ${{ always() && (github.event_name == 'push' || inputs.build_android) }}
         uses: actions/upload-artifact@v4

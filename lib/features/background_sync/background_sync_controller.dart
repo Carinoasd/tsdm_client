@@ -2,8 +2,11 @@ import 'dart:async';
 
 import 'package:tsdm_client/features/background_sync/background_sync_service.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
+import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/utils/logger.dart';
+import 'package:tsdm_client/utils/method_channel.dart';
+import 'package:tsdm_client/utils/platform.dart';
 
 /// What the service does after [BackgroundSyncController.apply] brought it to the state asked for.
 enum BackgroundSyncApplyResult {
@@ -50,20 +53,42 @@ final class BackgroundSyncController with LoggerMixin {
     Future<bool> Function()? stop,
     Future<bool> Function()? isRunning,
     void Function()? notifySettingsChanged,
+    Future<void> Function({required bool wanted})? guard,
   }) : _configure = configure ?? _configureWith,
        _start = start ?? startBackgroundSyncService,
        _stop = stop ?? stopBackgroundSyncService,
        _isRunning = isRunning ?? isBackgroundSyncServiceRunning,
-       _notifySettingsChanged = notifySettingsChanged ?? notifyBackgroundSyncSettingsChanged;
+       _notifySettingsChanged = notifySettingsChanged ?? notifyBackgroundSyncSettingsChanged,
+       _guard = guard ?? _guardWith;
 
   static Future<void> _configureWith({required bool autoStartOnBoot}) =>
       initializeBackgroundSyncService(autoStartOnBoot: autoStartOnBoot);
+
+  static Future<void> _guardWith({required bool wanted}) async {
+    if (!isAndroid) {
+      return;
+    }
+    await androidSetBackgroundSyncGuard(wanted: wanted, title: t.backgroundService.stoppedBySystem);
+  }
 
   final Future<void> Function({required bool autoStartOnBoot}) _configure;
   final Future<bool> Function() _start;
   final Future<bool> Function() _stop;
   final Future<bool> Function() _isRunning;
   final void Function() _notifySettingsChanged;
+
+  /// Tells Android whether the service is wanted (`BackgroundSyncGuard.kt`, P13): while it is, the system killing the
+  /// service never goes unnoticed. Wanted once the service runs, not wanted before it is stopped or when it failed.
+  final Future<void> Function({required bool wanted}) _guard;
+
+  Future<void> _tellGuard({required bool wanted}) async {
+    try {
+      await _guard(wanted: wanted);
+    } on Object catch (e) {
+      // Without an activity the main channel does not answer: told again at the next request.
+      warning('background sync guard not told (wanted: $wanted): $e');
+    }
+  }
 
   /// The request handled last, the next one waits for it.
   Future<void> _previous = Future<void>.value();
@@ -121,6 +146,8 @@ final class BackgroundSyncController with LoggerMixin {
     if (!wanted) {
       // Pending until the plugin reports the service gone; an exception anywhere below leaves it pending too.
       _stopPending = true;
+      // Before the stop: the guard must not start again what is being stopped.
+      await _tellGuard(wanted: false);
     }
     try {
       // Boot start follows what is wanted now, so a switched-off service does not start just to stop itself.
@@ -139,6 +166,7 @@ final class BackgroundSyncController with LoggerMixin {
         // service would still disappear. Ask again and wait until it is really gone before starting.
         if (!await _stop()) {
           error('background sync service has not stopped yet, not starting it');
+          await _tellGuard(wanted: false);
           return BackgroundSyncApplyResult.failed;
         }
         _stopPending = false;
@@ -147,14 +175,19 @@ final class BackgroundSyncController with LoggerMixin {
         // A service that stopped itself (interval set to never, or a switch-off) is started again here.
         if (!await _start()) {
           error('background sync service did not start');
+          await _tellGuard(wanted: false);
           return BackgroundSyncApplyResult.failed;
         }
       }
       // A running service reads the settings again and reschedules.
       _notifySettingsChanged();
+      await _tellGuard(wanted: true);
       return BackgroundSyncApplyResult.running;
     } on Object catch (e, st) {
       handleRaw(e, st);
+      if (wanted) {
+        await _tellGuard(wanted: false);
+      }
       return wanted ? BackgroundSyncApplyResult.failed : BackgroundSyncApplyResult.stopping;
     }
   }

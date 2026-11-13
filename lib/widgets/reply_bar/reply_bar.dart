@@ -1118,15 +1118,15 @@ final class _ReplyBarState extends State<_ReplyBar> with LoggerMixin {
 
   /// Ctrl+Enter and Alt+Enter send while the editor has the focus (#18).
   ///
-  /// Desktop and iOS only (a hardware keyboard: the on-screen one of iOS sends no keys): on Android the IME owns the
-  /// Enter key. The editor itself ignores Enter with a modifier held, so the binding is seen here; a matched binding is
-  /// reported as handled, which keeps the platform text input from turning the key into a newline. The activators are
-  /// exact, Ctrl+Shift+Enter is left alone.
+  /// Desktop, and iOS and Android while a hardware keyboard is in use (`keyboardShortcutsEnabled`): before that the
+  /// input method owns the Enter key. The editor itself ignores Enter with a modifier held, so the binding is seen
+  /// here; a matched binding is reported as handled, which keeps the platform text input from turning the key into a
+  /// newline. The activators are exact, Ctrl+Shift+Enter is left alone.
   Widget _wrapWithSendShortcuts(Widget editor) {
     if (!keyboardShortcutsBuilt) {
       return editor;
     }
-    return CallbackShortcuts(
+    return KeyboardCallbackShortcuts(
       bindings: {
         const SingleActivator(LogicalKeyboardKey.enter, control: true): _sendByShortcut,
         const SingleActivator(LogicalKeyboardKey.numpadEnter, control: true): _sendByShortcut,
