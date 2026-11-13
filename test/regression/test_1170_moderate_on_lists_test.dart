@@ -482,8 +482,12 @@ void main() {
       expect(asked, hasLength(1));
       await tester.tap(find.byTooltip(MaterialLocalizations.of(tester.element(find.byType(_Host))).closeButtonTooltip));
       await tester.pump();
+      // Picking again in the same forum before the forum answers: the management asked before does not open.
+      await tester.longPress(find.byKey(const ValueKey('row-2')));
+      await tester.pumpAndSettle();
       hold.complete();
       await tester.pumpAndSettle();
+      expect(find.byType(ThreadPickingAppBar), findsOneWidget);
       expect(find.text(t.moderate.close), findsNothing);
       expect(find.byType(BottomSheet), findsNothing);
     });

@@ -152,6 +152,9 @@ mixin ListThreadPicking<T extends StatefulWidget> on State<T> {
   /// The management is being opened.
   bool _pickingBusy = false;
 
+  /// Counts the times picking started: a management asked in one picking never opens in a later one.
+  int _pickingRound = 0;
+
   /// Builds the page again when the account in use changes ([watchPickingAccount] drops what was picked then).
   StreamSubscription<AuthStatus>? _pickingAuth;
 
@@ -244,6 +247,7 @@ mixin ListThreadPicking<T extends StatefulWidget> on State<T> {
           return;
         }
         setState(() {
+          _pickingRound++;
           _picked = {thread.tid};
           _pickedFid = fid;
         });
@@ -321,11 +325,12 @@ mixin ListThreadPicking<T extends StatefulWidget> on State<T> {
     if (chosenOf(picked).isEmpty) {
       return;
     }
+    final round = _pickingRound;
     setState(() => _pickingBusy = true);
     final ModerateBatchReport? report;
     try {
       final moderation = await pickingRepository.moderationOf(fid);
-      if (!mounted || !context.mounted || _pickingUid != uid || _pickedFid != fid) {
+      if (!mounted || !context.mounted || _pickingUid != uid || _pickingRound != round || _pickedFid != fid) {
         return;
       }
       // What is picked now: picking may have stopped, or threads been unpicked, while the forum answered.
