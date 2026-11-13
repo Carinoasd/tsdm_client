@@ -350,6 +350,10 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
   /// Open every web link in the in-app browser, the links to other sites too (platforms with a web view only).
   inAppBrowserForAll<bool>(name: 'inAppBrowserForAll', type: bool, defaultValue: false),
 
+  /// When the app comes to the front, read the clipboard once and offer to open a forum link just copied. Off by
+  /// default: the clipboard is never read while it is off. Tied to the device: not synced.
+  clipboardLinkPrompt<bool>(name: 'clipboardLinkPrompt', type: bool, defaultValue: false),
+
   /// With [crossDeviceSync], keep the floor bookmarks of the account on every device too.
   crossDeviceSyncBookmarks<bool>(name: 'crossDeviceSyncBookmarks', type: bool, defaultValue: true),
 

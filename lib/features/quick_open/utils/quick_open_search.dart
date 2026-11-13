@@ -1,4 +1,5 @@
 import 'package:tsdm_client/extensions/string.dart';
+import 'package:tsdm_client/features/open_in_app/utils/forum_link_in_text.dart';
 import 'package:tsdm_client/features/quick_open/models/quick_open_candidate.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 
@@ -13,8 +14,8 @@ final _digitsRe = RegExp(r'^\d+$');
 /// The page a typed [input] names by itself, null when it is plain text to look up.
 ///
 /// * Digits only are a thread id.
-/// * A link of the forum the app can open is that page; any other link is nothing the box can open and falls back to
-///   text.
+/// * A link of the forum the app can open is that page, also the first one in a longer text ([findForumLinkInText]);
+///   any other link is nothing the box can open and falls back to text.
 QuickOpenCandidate? parseQuickOpenTarget(String input) {
   final text = input.trim();
   if (text.isEmpty) {
@@ -34,15 +35,16 @@ QuickOpenCandidate? parseQuickOpenTarget(String input) {
       RecognizedRoute(ScreenPaths.threadV1, queryParameters: {'tid': '$tid'}),
     );
   }
-  if (text.contains(RegExp(r'\s'))) {
-    return null;
-  }
-  final route = text.parseUrlToRoute();
+  // A link typed or pasted alone (also a relative one), else the first forum link in a longer text: a shared text
+  // with the title around the link.
+  final whole = text.contains(RegExp(r'\s')) ? null : text.parseUrlToRoute();
+  final found = whole == null ? findForumLinkInText(text) : null;
+  final route = whole ?? found?.route;
   if (route == null) {
     return null;
   }
   final isThread = route.screenPath == ScreenPaths.threadV1;
-  return QuickOpenCandidate(isThread ? QuickOpenKind.typedThread : QuickOpenKind.typedLink, text, route);
+  return QuickOpenCandidate(isThread ? QuickOpenKind.typedThread : QuickOpenKind.typedLink, found?.url ?? text, route);
 }
 
 /// How well [text] fits [tokens], lower is better, null when it does not fit.

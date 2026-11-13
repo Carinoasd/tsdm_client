@@ -51,6 +51,7 @@ import 'package:tsdm_client/features/notification/models/models.dart';
 import 'package:tsdm_client/features/notification/repository/notification_info_repository.dart';
 import 'package:tsdm_client/features/notification/repository/notification_repository.dart';
 import 'package:tsdm_client/features/notification/repository/notification_sync_all_repository.dart';
+import 'package:tsdm_client/features/open_in_app/clipboard_link_prompt.dart';
 import 'package:tsdm_client/features/profile/bloc/current_title_cubit.dart';
 import 'package:tsdm_client/features/profile/repository/profile_repository.dart';
 import 'package:tsdm_client/features/quick_open/view/quick_open_dialog.dart';
@@ -921,6 +922,7 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
             const RootSingleton(),
             CheckinDayWatcher(autoCheckinStarted: widget.autoCheckin),
             const SyncResumeWatcher(),
+            const ClipboardLinkWatcher(),
             const LoginDeviceRevokedWatcher(),
             const AppShortcutsWatcher(),
           ],

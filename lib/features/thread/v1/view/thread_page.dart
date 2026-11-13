@@ -44,6 +44,7 @@ import 'package:tsdm_client/features/moderate/widgets/member_ban_dialog.dart';
 import 'package:tsdm_client/features/moderate/widgets/moderate_sheet.dart';
 import 'package:tsdm_client/features/need_login/view/need_login_page.dart';
 import 'package:tsdm_client/features/offline_thread/repository/offline_thread_repository.dart';
+import 'package:tsdm_client/features/open_in_app/utils/share_text.dart';
 import 'package:tsdm_client/features/read_later/cubit/read_later_cubit.dart';
 import 'package:tsdm_client/features/read_later/utils/read_to_end.dart';
 import 'package:tsdm_client/features/reading_progress/cubit/reading_progress_cubit.dart';
@@ -2824,6 +2825,14 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
                             url: shareQrThreadUrl(state.tid!),
                             title: state.title ?? widget.title ?? '',
                             fileName: 'tsdm-thread-${state.tid}',
+                          ),
+                        ),
+                        MenuCustomItem(
+                          icon: Icons.share_outlined,
+                          description: context.t.linkToken.copyShareText,
+                          onSelected: () async => copyToClipboard(
+                            context,
+                            threadShareText(context, title: state.title ?? widget.title ?? '', url: threadUrl!),
                           ),
                         ),
                         // Put aside on this device for the account in use: offline floors can be too.

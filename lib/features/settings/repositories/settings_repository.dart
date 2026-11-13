@@ -190,6 +190,7 @@ final class SettingsRepository with LoggerMixin {
       postMediaPreview: s.extract(_SK.postMediaPreview),
       inAppBrowserForForum: s.extract(_SK.inAppBrowserForForum),
       inAppBrowserForAll: s.extract(_SK.inAppBrowserForAll),
+      clipboardLinkPrompt: s.extract(_SK.clipboardLinkPrompt),
       crossDeviceSync: s.extract(_SK.crossDeviceSync),
       crossDeviceSyncRateTemplates: s.extract(_SK.crossDeviceSyncRateTemplates),
       crossDeviceSyncSettings: s.extract(_SK.crossDeviceSyncSettings),

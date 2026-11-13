@@ -110,6 +110,7 @@ class SettingsMap with SettingsMapMappable {
     this.postMediaPreview = true,
     this.inAppBrowserForForum = true,
     this.inAppBrowserForAll = false,
+    this.clipboardLinkPrompt = false,
     this.themeModeScheduled = false,
     this.darkScheduleStart = 1320,
     this.darkScheduleEnd = 420,
@@ -287,6 +288,9 @@ class SettingsMap with SettingsMapMappable {
 
   /// Every web link opens in the in-app browser. Not required: backups from older versions lack it.
   final bool inAppBrowserForAll;
+
+  /// See `SettingsKeys.clipboardLinkPrompt`. Not required: backups from older versions lack it.
+  final bool clipboardLinkPrompt;
 
   /// Sync the reading progress, the quick phrases and the block list across devices (the rate templates, the reading
   /// settings and the drafts each on their own switch too). Not required: backups from older
@@ -499,6 +503,7 @@ class SettingsMap with SettingsMapMappable {
       SettingsKeys.postMediaPreview => copyWith(postMediaPreview: value as bool?),
       SettingsKeys.inAppBrowserForForum => copyWith(inAppBrowserForForum: value as bool?),
       SettingsKeys.inAppBrowserForAll => copyWith(inAppBrowserForAll: value as bool?),
+      SettingsKeys.clipboardLinkPrompt => copyWith(clipboardLinkPrompt: value as bool?),
       SettingsKeys.crossDeviceSync => copyWith(crossDeviceSync: value as bool?),
       SettingsKeys.crossDeviceSyncRateTemplates => copyWith(crossDeviceSyncRateTemplates: value as bool?),
       SettingsKeys.crossDeviceSyncSettings => copyWith(crossDeviceSyncSettings: value as bool?),
