@@ -190,7 +190,7 @@ final class RemoveRateForm {
     for (final log in tsdmAppList(json['logs'])) {
       final logId = switch (log['value']) {
         final String s => s,
-        final num n => '$n',
+        final int n => '$n',
         _ => '',
       };
       if (logId.trim().isEmpty || entries.any((e) => e.logId == logId)) {

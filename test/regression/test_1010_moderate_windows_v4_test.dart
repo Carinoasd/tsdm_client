@@ -619,6 +619,32 @@ void main() {
       expect(Uri.parse(log.posts.single.$1).queryParameters, containsPair('tsdmv', '4'));
     });
 
+    test('a numeric log id is read; rates none of which can be read go back to the web page', () async {
+      knowV4Status();
+      Map<String, dynamic> withValue(Object? value) {
+        final answer = jsonDecode(jsonEncode(_fx('removerate.json'))) as Map<String, dynamic>;
+        for (final log in answer['logs'] as List) {
+          (log as Map<String, dynamic>)['value'] = value;
+        }
+        return answer;
+      }
+
+      final numeric = _Log();
+      final read = await repo(numeric, api: withValue(701)).fetchRemoveRateWindow(tid: tid, pid: pid).run();
+      final form = (read.getOrElse((e) => throw StateError('$e')) as RemoveRateWindowReady).form;
+      expect(form.entries.single.logId, '701');
+      expect(numeric.gets, hasLength(1));
+
+      final unreadable = _Log();
+      await repo(
+        unreadable,
+        api: withValue(null),
+        web: _fx('removerate.xml'),
+      ).fetchRemoveRateWindow(tid: tid, pid: pid).run();
+      expect(unreadable.gets, hasLength(2));
+      expect(Uri.parse(unreadable.gets.last).queryParameters, isNot(contains('tsdmv')));
+    });
+
     test("the forum's refusal in its words; flag off asked as before", () async {
       knowV4Status();
       final log = _Log();
