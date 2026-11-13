@@ -26,6 +26,7 @@ final class AddFriendForm extends AddFriendFormResult {
     this.noteHint,
     this.submitUrl,
     this.submitFields,
+    this.viewerUid,
   });
 
   /// `formhash` of the form.
@@ -49,6 +50,9 @@ final class AddFriendForm extends AddFriendFormResult {
   /// The fields of the form as the plugin served them (`submit.fields`), sent back as they are with the note and the
   /// group; null for the web window.
   final Map<String, String>? submitFields;
+
+  /// The account the small form of plugin 4.0.0 was served to; null for the web window.
+  final int? viewerUid;
 }
 
 /// The forum refused before showing a form: already friends, a request still pending, adding oneself.

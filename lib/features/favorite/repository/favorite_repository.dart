@@ -202,12 +202,13 @@ final class FavoriteRepository with LoggerMixin {
     final client = getIt.get<NetClientProvider>();
     await TsdmAppApi.ensureStatus(client);
     if (TsdmAppV4.has(TsdmAppV4Group.forms, SmallFormKind.favorite.name)) {
+      final viewer = (currentUid ?? currentLoginUid)();
       // Never with a `formhash`: the forum would add the favorite on that GET already.
       switch (await client.get(withTsdmAppV4Form(dialogUrlOf(type, id))).run()) {
         case Left(:final value):
           return left(value);
         case Right(:final value) when value.statusCode == 200:
-          switch (favoriteFormFromApi(value.data, type: type, id: id, viewer: (currentUid ?? currentLoginUid)())) {
+          switch (favoriteFormFromApi(value.data, type: type, id: id, viewer: viewer)) {
             case Left(value: final result):
               debug('add favorite ${type.name}=$id answered in the dialog: $result');
               return right(result);
@@ -216,7 +217,18 @@ final class FavoriteRepository with LoggerMixin {
                 client,
                 withSmallFormInAjax(url),
                 {...fields, 'description': description},
-              ).map((data) => favoriteAddResultFromApi(data, uid: (currentUid ?? currentLoginUid)())).run();
+              ).map((data) => favoriteAddResultFromApi(data, uid: viewer)).flatMap((result) {
+                if (result != null) {
+                  return TaskEither<AppException, FavoriteAddResult>.right(result);
+                }
+                // No verdict: the favorites list tells whether it was added (a few pages, read only).
+                return _find(type, id: id, uid: viewer, maxPages: 3)
+                    .map<FavoriteAddResult>(
+                      (favid) =>
+                          favid == null ? FavoriteAddFailed(t.favoritePage.addUnconfirmed) : FavoriteAdded(favid),
+                    )
+                    .orElse((_) => TaskEither.right(FavoriteAddFailed(t.favoritePage.addUnconfirmed)));
+              }).run();
             case Right():
               break;
           }
@@ -370,10 +382,11 @@ Either<FavoriteAddResult, ({String url, Map<String, String> fields})?> favoriteF
 }
 
 /// The answer [data] to a favorite form of plugin 4.0.0, by its `message_key`: added for `favorite_do_success` (its
-/// `favid`), favorited already for `favorite_repeat`, refused with the forum's message otherwise.
+/// `favid`), favorited already for `favorite_repeat`, refused with the forum's message for a refusal (`ok` 0 with a
+/// message), null for anything else (no verdict: it may have been added).
 ///
 /// A result served to another account than [uid] (and not the login prompt) is never a success.
-FavoriteAddResult favoriteAddResultFromApi(Object? data, {required int uid}) {
+FavoriteAddResult? favoriteAddResultFromApi(Object? data, {required int uid}) {
   final result = switch (tsdmAppV4WriteOutcomeOf(data)) {
     TsdmAppV4Written(:final result) => result,
     _ => null,
@@ -384,7 +397,8 @@ FavoriteAddResult favoriteAddResultFromApi(Object? data, {required int uid}) {
   return switch (result?.messageKey) {
     'favorite_do_success' => FavoriteAdded(result!.values['favid']),
     'favorite_repeat' => const FavoriteAlreadyExists(),
-    // No verdict by its key: the favorite may have been added; say so rather than an empty reason.
-    _ => FavoriteAddFailed(result?.reason.isNotEmpty ?? false ? result!.reason : t.moderate.batch.unknown),
+    _ when result != null && !result.ok && result.reason.isNotEmpty => FavoriteAddFailed(result.reason),
+    // No verdict by its key: the favorite may have been added (the caller looks it up).
+    _ => null,
   };
 }

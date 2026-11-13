@@ -140,12 +140,14 @@ final class SpaceSocialRepository extends SpaceAccountRepository {
         'iconid': iconId,
         'note': note.trim(),
       });
-      return pokeOutcomeFromApi(sent, uid: ownerUid!) ??
-          switch (sent) {
-            // No verdict by its key: never a success on `ok` alone; the request may have been carried out.
-            Right() => const SpaceWriteResult(SpaceWriteOutcome.unconfirmed),
-            Left() => outcomeOf(sent),
-          };
+      if (pokeOutcomeFromApi(sent, uid: ownerUid!) case final outcome?) {
+        return outcome;
+      }
+      // No verdict by its key: the answer still tells a refusal or the login prompt, never a success on `ok` alone.
+      final fallback = outcomeOf(sent);
+      return fallback.outcome == SpaceWriteOutcome.done
+          ? const SpaceWriteResult(SpaceWriteOutcome.unconfirmed)
+          : fallback;
     }
     return outcomeOf(
       await sendForm(pokeSubmitUrl(form.targetUid, reply: form.reply), {

@@ -310,6 +310,54 @@ void main() {
       expect(body, containsPair('favoritesubmit', 'true'));
     });
 
+    test('no verdict: the list read tells whether it was added, never a success by ok', () async {
+      knowV4Status();
+      for (final (listed, added) in [(true, true), (false, false)]) {
+        TsdmAppApi.reset();
+        knowV4Status();
+        final forum = V4Forum((o) {
+          if (o.method == 'POST') {
+            return V4Reply(_result(message: '完成'));
+          }
+          if (o.uri.queryParameters['do'] == 'favorite') {
+            return V4Reply({
+              'ok': 1,
+              'api': 1,
+              'uid': _uid,
+              'type': 'favorite',
+              'schema': 8,
+              'timeoffset': 8,
+              'kind': 'thread',
+              'page': 1,
+              'pages': 1,
+              'has_next': 0,
+              'items': [
+                if (listed)
+                  {
+                    'favid': 77,
+                    'id': _tid,
+                    'idtype': 'tid',
+                    'kind': 'thread',
+                    'title': 'x',
+                    'url': 'forum.php?mod=viewthread&tid=$_tid',
+                    'description': '',
+                    'dateline': 1700000000,
+                    'spaceuid': 0,
+                  },
+              ],
+            });
+          }
+          return V4Reply(window());
+        });
+        useV4Forum(forum);
+        final repo = FavoriteRepository(currentUid: () => _uid);
+        addTearDown(repo.dispose);
+        final result = (await repo.addFavorite(tid: '$_tid').run()).getOrElse((e) => throw e);
+        expect(result is FavoriteAdded, added, reason: '$result');
+        expect(forum.requests.where((r) => r.method == 'POST'), hasLength(1));
+      }
+    });
+
     test('the dialog refused: switched off, favorited already, another account', () {
       expect(
         favoriteFormFromApi(v4Json('g3_favorite_off.json'), type: FavoriteType.thread, id: '$_tid', viewer: _uid),
@@ -338,9 +386,9 @@ void main() {
         reason: 'a form of another target is read as before',
       );
       expect(
-        favoriteAddResultFromApi(_result(), uid: _uid),
-        isA<FavoriteAddFailed>().having((e) => e.message, 'message', isNotEmpty),
-        reason: 'no verdict: never an empty reason',
+        favoriteAddResultFromApi(_result(message: '完成'), uid: _uid),
+        isNull,
+        reason: 'no verdict',
       );
       expect(
         favoriteAddResultFromApi(_result(messageKey: 'favorite_do_success', uid: 35), uid: _uid),
@@ -408,6 +456,9 @@ void main() {
       answer = _result(message: '完成');
       final unkeyed = await r.sendPoke(load.form!, '5', 'hi');
       expect(unkeyed.outcome, SpaceWriteOutcome.unconfirmed, reason: 'ok without the key is not done');
+      answer = _result(ok: 0, message: '对方拒绝', alert: 'error');
+      final refused = await r.sendPoke(load.form!, '5', 'hi');
+      expect((refused.outcome, refused.message), (SpaceWriteOutcome.rejected, '对方拒绝'));
       answer = _result(ok: 0, messageKey: 'no_privilege_poke', message: '没有权限', alert: 'error');
       expect(
         pokeOutcomeFromApi(

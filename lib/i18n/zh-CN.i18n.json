@@ -1483,6 +1483,7 @@
     "removeConfirm": "确定要取消收藏「${title}」吗？",
     "removed": "已取消收藏",
     "actionFailed": "操作失败：$err",
+    "addUnconfirmed": "无法确认是否已收藏，请刷新查看",
     "favoritedAt": "收藏于 $time"
   },
   "offlineBatch": {
