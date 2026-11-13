@@ -88,28 +88,53 @@ final _digestRe = RegExp(
   caseSensitive: false,
 );
 
-/// Html form inputs of a secret field, the value before or after the name.
-final _secretInputRe = RegExp(
-  '(?<key><input\\b(?=[^<>]*\\bname=["\']$sensitiveNamePattern["\'])[^<>]*?\\bvalue=["\'])(?<value>[^"\']*)',
-  caseSensitive: false,
-);
+/// The patterns of the secret fields named by [namePattern], in the order they are applied: html form inputs, form
+/// bodies and url queries, map / JSON entries, then `name: value` after a word of prose. The first two take the names
+/// of [formNamePattern] when given: names that are secrets as fields of a form, prose as words of a text.
+List<RegExp> _secretFieldPatterns(String namePattern, {String? formNamePattern}) {
+  final formNames = formNamePattern ?? namePattern;
+  return [
+    // Html form inputs of a secret field, the value before or after the name.
+    RegExp(
+      '(?<key><input\\b(?=[^<>]*\\bname=["\']$formNames["\'])[^<>]*?\\bvalue=["\'])(?<value>[^"\']*)',
+      caseSensitive: false,
+    ),
+    // Secret fields of a form body or url query: `name=value`.
+    RegExp('(?<key>(?<![\\w-])$formNames=)(?<value>$_quoted|[^&\\s;,}\\]]*)', caseSensitive: false),
+    // Secret fields as map / JSON entries at the start of a key: the whole value, spaces and commas included.
+    RegExp(
+      '(?<key>$_keyContext["\']?$namePattern["\']?\\s*:\\s*)(?<value>$_quoted|\\[[^\\]\\r\\n]*\\]|$_mapValue)',
+      caseSensitive: false,
+    ),
+    // Secret fields after a word of prose (`saved token: abc`): the next word.
+    RegExp(
+      '(?<key>(?<![\\w-])["\']?$namePattern["\']?\\s*:\\s*)(?<value>$_quoted|[^&;,\\s{}\\[\\]"\']+)',
+      caseSensitive: false,
+    ),
+  ];
+}
 
-/// Secret fields of a form body or url query: `name=value`.
-final _secretFormRe = RegExp(
-  '(?<key>(?<![\\w-])$sensitiveNamePattern=)(?<value>$_quoted|[^&\\s;,}\\]]*)',
-  caseSensitive: false,
-);
+/// Secret fields of the logs, see [sensitiveNamePattern].
+final List<RegExp> _secretFieldRes = _secretFieldPatterns(sensitiveNamePattern);
 
-/// Secret fields as map / JSON entries at the start of a key: the whole value, spaces and commas included.
-final _secretMapRe = RegExp(
-  '(?<key>$_keyContext["\']?$sensitiveNamePattern["\']?\\s*:\\s*)(?<value>$_quoted|\\[[^\\]\\r\\n]*\\]|$_mapValue)',
-  caseSensitive: false,
-);
+/// Field names that are secrets in a text the user wrote ([redactUserText]): passwords, tokens, secrets, cookies, the
+/// `formhash`, the Discuz! cookie values that log in (`…_auth`, `…_saltkey`) and session ids. Narrower than
+/// [sensitiveNamePattern]: the account ids (`uid`), `answer`, `email`, `hash` or `auth` as words of a description are
+/// prose.
+const _userSecretNamePattern =
+    r'(?:[\w-]*?(?:pass(?!ed\b|es\b|ing\b|age|port)|pwd|token|secret|cookie(?!s\b)|formhash|saltkey)[\w-]*|'
+    r'[\w-]*_auth|(?:[\w-]*_)?(?:session_?id|phpsessid))';
 
-/// Secret fields after a word of prose (`saved token: abc`): the next word.
-final _secretLooseRe = RegExp(
-  '(?<key>(?<![\\w-])["\']?$sensitiveNamePattern["\']?\\s*:\\s*)(?<value>$_quoted|[^&;,\\s{}\\[\\]"\']+)',
-  caseSensitive: false,
+/// [_userSecretNamePattern] and the names that are secrets only as fields of a form (`answer=…` of a pasted login
+/// request, `<input name="seccodeverify">`): the security answer, the captcha, a Discuz! session cookie (`…_sid`), the
+/// `auth` of a link (the forum's RSS links carry one).
+const _userSecretFormNamePattern =
+    '(?:$_userSecretNamePattern|[\\w-]*?(?:answer(?!ed\\b|s\\b)|seccode|secverify)[\\w-]*|[\\w-]*_sid|auth)';
+
+/// Secret fields of a text the user wrote, see [_userSecretNamePattern] and [_userSecretFormNamePattern].
+final List<RegExp> _userSecretFieldRes = _secretFieldPatterns(
+  _userSecretNamePattern,
+  formNamePattern: _userSecretFormNamePattern,
 );
 
 /// The device id of the forum's app API (`"device":"<uuid>"`, `tsdmapp_device=<uuid>`, `device <uuid>`): a name with
@@ -165,6 +190,36 @@ String _keepContentForm(Match m) {
   return value.isEmpty ? match.group(0)! : '$key$redactionMask';
 }
 
+/// The credentials in [text]: headers, credentials in a url, `Basic` / `Bearer` / `Digest` tokens, the device id of
+/// the app API, and the secret fields of [fieldRes] ([_secretFieldPatterns]).
+String _redactCredentials(String text, List<RegExp> fieldRes) {
+  var out = text;
+  out = out.replaceAllMapped(_headerRe, _keepNonEmpty);
+  out = out.replaceAllMapped(_urlUserInfoRe, (m) => '${(m as RegExpMatch).namedGroup('key')}$redactionMask@');
+  out = out.replaceAllMapped(_schemeTokenRe, _keep);
+  out = out.replaceAllMapped(_digestRe, _keep);
+  out = out.replaceAllMapped(fieldRes[0], _keep);
+  out = out.replaceAllMapped(_deviceIdRe, _keep);
+  for (final re in fieldRes.skip(1)) {
+    out = out.replaceAllMapped(re, _keepNonEmpty);
+  }
+  return out;
+}
+
+/// Redact a text the user wrote themselves (the description of a problem on the feedback page), for the diagnostics
+/// bundle and the reply to the feedback thread alike: only what is surely a secret, the credentials of
+/// [redactSensitive] (cookies, `formhash`, password and token fields, `Basic` / `Bearer` tokens, credentials in a url)
+/// and email addresses.
+///
+/// Not the rest of [redactLogText], made for log lines: their content fields would take a line of the description
+/// that starts with `message:` or `note:`, their IPv4 addresses a version number such as `1.57.1.173`. Idempotent.
+String redactUserText(String text) {
+  if (text.isEmpty) {
+    return text;
+  }
+  return _redactCredentials(text, _userSecretFieldRes).replaceAllMapped(_emailRe, (_) => redactionMask);
+}
+
 /// Replace every secret in [text] with [redactionMask]; the names, methods, paths, statuses and timings stay.
 ///
 /// Applied to every log line as it is made. Idempotent: redacting a redacted text changes nothing.
@@ -172,16 +227,7 @@ String redactSensitive(String text) {
   if (text.isEmpty) {
     return text;
   }
-  var out = text;
-  out = out.replaceAllMapped(_headerRe, _keepNonEmpty);
-  out = out.replaceAllMapped(_urlUserInfoRe, (m) => '${(m as RegExpMatch).namedGroup('key')}$redactionMask@');
-  out = out.replaceAllMapped(_schemeTokenRe, _keep);
-  out = out.replaceAllMapped(_digestRe, _keep);
-  out = out.replaceAllMapped(_secretInputRe, _keep);
-  out = out.replaceAllMapped(_deviceIdRe, _keep);
-  out = out.replaceAllMapped(_secretFormRe, _keepNonEmpty);
-  out = out.replaceAllMapped(_secretMapRe, _keepNonEmpty);
-  out = out.replaceAllMapped(_secretLooseRe, _keepNonEmpty);
+  var out = _redactCredentials(text, _secretFieldRes);
   out = out.replaceAllMapped(_contentFormRe, _keepContentForm);
   out = out.replaceAllMapped(_contentMapRe, _keepNonEmpty);
   out = out.replaceAllMapped(_formContentJsonRe, _keepNonEmpty);

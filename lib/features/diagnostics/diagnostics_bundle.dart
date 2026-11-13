@@ -5,7 +5,8 @@
 /// (its version, the platform, the device model, the forum plugin, a summary of the settings). Then, in a background
 /// isolate ([buildDiagnosticsBundle] through `compute`), the recent log files are read, cut to [DiagnosticsLimits] and
 /// redacted, and everything is zipped. Every text of the bundle goes through [redactLogText]: the facts, and the log
-/// files, which an older version of the app may have written before redaction.
+/// files, which an older version of the app may have written before redaction; what the user wrote goes through
+/// [redactUserText].
 library;
 
 import 'dart:convert';
@@ -58,8 +59,8 @@ final class DiagnosticsRequest {
   /// How much of the logs is taken.
   final DiagnosticsLimits limits;
 
-  /// What the user wrote about the problem (the feedback page), [diagnosticsDescriptionName] in the bundle; nothing
-  /// when blank.
+  /// What the user wrote about the problem (the feedback page), [diagnosticsDescriptionName] in the bundle
+  /// ([redactUserText]); nothing when blank.
   final String description;
 }
 
@@ -286,9 +287,9 @@ Uint8List buildDiagnosticsBundle(DiagnosticsRequest request) {
 
   final archive = Archive()..addFile(ArchiveFile.bytes(diagnosticsInfoName, utf8.encode(info.toString())));
   if (request.description.trim().isNotEmpty) {
-    // Redacted as the logs: a user may paste a cookie, a log line or an email address.
+    // Only its secrets: a user may paste a cookie, a password or an email address; the rest is what they wrote.
     archive.addFile(
-      ArchiveFile.bytes(diagnosticsDescriptionName, utf8.encode(redactLogText(request.description.trim()))),
+      ArchiveFile.bytes(diagnosticsDescriptionName, utf8.encode(redactUserText(request.description.trim()))),
     );
   }
   for (final log in taken.where((e) => e.text.isNotEmpty)) {

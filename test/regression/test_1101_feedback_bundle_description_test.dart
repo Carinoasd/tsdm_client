@@ -5,8 +5,8 @@ import 'package:archive/archive.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tsdm_client/features/diagnostics/diagnostics_bundle.dart';
 
-/// E: what the user wrote on the feedback page goes into the diagnostics bundle as `description.txt`, redacted as the
-/// logs are; a blank one adds no file.
+/// E: what the user wrote on the feedback page goes into the diagnostics bundle as `description.txt`, its secrets
+/// redacted (`redactUserText`, see test 1120); a blank one adds no file.
 
 Archive _bundle(String description, Directory logs) => ZipDecoder().decodeBytes(
   buildDiagnosticsBundle(
