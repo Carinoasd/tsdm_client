@@ -45,7 +45,7 @@ void main() {
 
   // This test is skipped because it fails to run in github actions but passed
   // on a local machine:
-  // ❌ /home/runner/work/tsdm_client/tsdm_client/test/regression/test_002_database_migration_test.dart: upgrade from 5 to 6 (failed)
+  // ❌ test/regression/test_002_database_migration_test.dart: upgrade from 5 to 6 (failed)
   //   SqliteException(1): while executing, SQL logic error, SQL logic error (code 1)
   //     Causing statement: ALTER TABLE "broadcast_message" ADD COLUMN "already_read" INTEGER NULL CHECK ("already_read" IN (0, 1));, parameters:
   //   package:sqlite3/src/implementation/exception.dart 75:3                                                     throwException
