@@ -227,6 +227,12 @@ void main() {
       expect(first, _fitAsBefore({...first, ...doc.items(customImagesMoreSection)}), reason: 'the first section kept');
       expect(doc.customImageItems().length, lessThan(100));
       expect(doc.customImageItems().keys, contains(_usualUrl(100)), reason: 'the latest go');
+
+      await b.sync();
+      final pushes = a.api.pushes + b.api.pushes;
+      expect(await a.sync(), SyncOutcome.upToDate);
+      expect(await b.sync(), SyncOutcome.upToDate);
+      expect(a.api.pushes + b.api.pushes, pushes, reason: 'no write back and forth over the room left');
     });
 
     test('a deletion of an image in the second section reaches the other device', () async {
