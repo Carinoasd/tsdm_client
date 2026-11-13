@@ -10,6 +10,7 @@ import 'package:tsdm_client/features/settings/repositories/settings_repository.d
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
+import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/utils/export_file.dart';
 import 'package:tsdm_client/utils/log_redaction.dart';
 import 'package:tsdm_client/utils/logger.dart';
@@ -46,6 +47,7 @@ Future<void> exportDiagnostics(BuildContext context, {Rect? shareOrigin}) => _ex
     plugin: TsdmAppApi.pluginInfo.value,
     settings: _settings(),
     now: now,
+    onSettingSkipped: _settingSkipped,
   );
   final request = DiagnosticsRequest(info: info, logDir: (await getLogDir()).path, now: now);
   final bytes = await compute(buildDiagnosticsBundle, request);
@@ -125,13 +127,49 @@ Map<String, Object?> _settings() {
   if (!getIt.isRegistered<SettingsRepository>()) {
     return const {};
   }
+  final SettingsMap settings;
   try {
-    return getIt.get<SettingsRepository>().currentSettings.toMap();
+    settings = getIt.get<SettingsRepository>().currentSettings;
   } on Object catch (e) {
-    talker.debug('settings not available for diagnostics: $e');
+    talker.debug('settings not available for diagnostics: ${e.runtimeType}');
     return const {};
   }
+  return diagnosticSettingsOf(settings);
 }
+
+/// The settings of [settings] a bundle tells ([diagnosticSettingNames]), by their name, as they are, for
+/// [composeDiagnosticsInfo].
+///
+/// Read one by one with [read] (the field of that name of [SettingsMap] by default), never by encoding the whole map:
+/// a value without a mapper (the window's `Size`) failed the whole section. A setting that can not be read is left
+/// out alone, with a line in the log naming it (never its value).
+@visibleForTesting
+Map<String, Object?> diagnosticSettingsOf(
+  SettingsMap settings, {
+  Object? Function(SettingsMap settings, String name) read = _settingNamed,
+}) {
+  final values = <String, Object?>{};
+  for (final name in diagnosticSettingNames) {
+    try {
+      values[name] = read(settings, name);
+    } on Object catch (e) {
+      _settingSkipped(name, e);
+    }
+  }
+  return values;
+}
+
+/// The value of the setting [name] of [settings]: its field in the mapper, read as it is.
+Object? _settingNamed(SettingsMap settings, String name) {
+  final field = SettingsMapMapper.ensureInitialized().fields.values.firstWhere(
+    (f) => f.key == name,
+    orElse: () => throw ArgumentError.value(name, 'name', 'no such setting'),
+  );
+  return field.get(settings);
+}
+
+void _settingSkipped(String name, Object error) =>
+    talker.debug('setting $name not told in diagnostics: ${error.runtimeType}');
 
 String _stamp(DateTime time) {
   String two(int n) => n.toString().padLeft(2, '0');

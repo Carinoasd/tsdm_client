@@ -12,6 +12,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
+import 'dart:ui' show Offset, Size;
 
 import 'package:archive/archive.dart';
 import 'package:flutter/foundation.dart' show visibleForTesting;
@@ -132,9 +133,10 @@ const diagnosticSettingNames = <String>[
 
 /// The facts of a bundle, one per line.
 ///
-/// [settings] is the whole settings map (`SettingsMap.toMap()`); only [diagnosticSettingNames] are told, and only
-/// plain values (switches, numbers, short names). [deviceModel] is told on Android only, the host name of a desktop
-/// never (it often carries the user's name).
+/// [settings] holds the settings by their name, as they are (not encoded); only [diagnosticSettingNames] are told,
+/// and only plain values (switches, numbers, short names). A setting whose value can not be told is left out alone,
+/// named to [onSettingSkipped]. [deviceModel] is told on Android only, the host name of a desktop never (it often
+/// carries the user's name).
 String composeDiagnosticsInfo({
   required String appVersion,
   required String buildMode,
@@ -146,6 +148,7 @@ String composeDiagnosticsInfo({
   required TsdmAppPluginInfo? plugin,
   required Map<String, Object?> settings,
   required DateTime now,
+  void Function(String name, Object error)? onSettingSkipped,
 }) {
   final out = StringBuffer()
     ..writeln('tsdm_client diagnostics')
@@ -166,17 +169,33 @@ String composeDiagnosticsInfo({
                 'preview ${_flag(plugin.preview)}, device ${_flag(plugin.device)}, admin ${_flag(plugin.admin)}',
     )
     ..writeln('settings:');
-  for (final (name, value) in diagnosticSettingsSummary(settings)) {
+  for (final (name, value) in diagnosticSettingsSummary(settings, onSkip: onSettingSkipped)) {
     out.writeln('  $name: $value');
   }
   return out.toString();
 }
 
 /// The settings of [settings] a bundle tells ([diagnosticSettingNames]), in that order, with plain values only.
-List<(String, String)> diagnosticSettingsSummary(Map<String, Object?> settings) => [
-  for (final name in diagnosticSettingNames)
-    if (settings.containsKey(name)) (name, _plainValue(settings[name])),
-];
+///
+/// Each one is turned into its text on its own: one that fails is left out, named to [onSkip], and the others are
+/// still told.
+List<(String, String)> diagnosticSettingsSummary(
+  Map<String, Object?> settings, {
+  void Function(String name, Object error)? onSkip,
+}) {
+  final told = <(String, String)>[];
+  for (final name in diagnosticSettingNames) {
+    if (!settings.containsKey(name)) {
+      continue;
+    }
+    try {
+      told.add((name, _plainValue(settings[name])));
+    } on Object catch (e) {
+      onSkip?.call(name, e);
+    }
+  }
+  return told;
+}
 
 String _plainValue(Object? value) => switch (value) {
   null => '-',
@@ -185,6 +204,9 @@ String _plainValue(Object? value) => switch (value) {
   final String s when s.length <= 32 && !s.contains('\n') => s,
   String() => '<${value.length} chars>',
   final Enum e => e.name,
+  // The window's size and place, should one be told.
+  Size(:final width, :final height) => '${width}x$height',
+  Offset(:final dx, :final dy) => '$dx,$dy',
   _ => '<${value.runtimeType}>',
 };
 
