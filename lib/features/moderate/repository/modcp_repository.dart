@@ -455,10 +455,19 @@ final class ModcpRepository with LoggerMixin {
         page: ModcpV4Page.ipban,
         drawn: (json) {
           final result = tsdmAppMap(json['result']);
-          if (tsdmAppInt(result['added']) == 1) {
+          final error = tsdmAppText(result['error_key']);
+          if (error.isNotEmpty) {
+            return ModcpWriteRefused(ipBanErrorText(error));
+          }
+          final known = {for (final e in list.entries) e.id};
+          final now = ipBanListFromApi(json, uid: list.uid);
+          if (tsdmAppInt(result['added']) == 1 ||
+              (now?.entries.any((e) => !known.contains(e.id) && e.ip.toLowerCase() == ip.trim().toLowerCase()) ??
+                  false)) {
             return const ModcpWriteDone();
           }
-          return ModcpWriteRefused(ipBanErrorText(tsdmAppText(result['error_key'])));
+          // No word of the result: whether it was added is not known.
+          return const ModcpWriteUnknown();
         },
       );
     }
@@ -679,10 +688,19 @@ final class ModcpRepository with LoggerMixin {
         form.body(subject: subject, type: type, start: start, end: end, message: message),
         page: ModcpV4Page.announcement,
         drawn: (json) {
-          final result = tsdmAppMap(json['result']);
-          return tsdmAppInt(result[form.id > 0 ? 'edited' : 'added']) == 1
-              ? const ModcpWriteDone()
-              : const ModcpWriteRefused('');
+          final key = form.id > 0 ? 'edited' : 'added';
+          final result = json['result'];
+          if (result is Map<String, dynamic> && tsdmAppInt(result[key]) == 1) {
+            return const ModcpWriteDone();
+          }
+          if (form.id <= 0 &&
+              (announcementsFromApi(json, uid: form.uid)?.items.any((e) => !known.contains(e.id)) ?? false)) {
+            return const ModcpWriteDone();
+          }
+          // The forum said it did not (its `result` 0), or said nothing: never told done (sent once, not again).
+          return result is Map<String, dynamic> && result[key] is num
+              ? const ModcpWriteRefused('')
+              : const ModcpWriteUnknown();
         },
       );
     }
@@ -806,6 +824,10 @@ final class ModcpRepository with LoggerMixin {
         if (result.uid != uid) {
           return left(IdentityChangedException());
         }
+        if (result.kind == TsdmAppWriteKind.page) {
+          // The forum's page instead of a verdict (the panel failing on an expired session): read as before.
+          return _writtenOf(data, uid: uid).map(_messageOutcome);
+        }
         if (result.login) {
           return right(ModcpWriteRefused(result.reason));
         }
@@ -817,6 +839,8 @@ final class ModcpRepository with LoggerMixin {
         return right(switch (answer) {
           TsdmAppV4Page(:final json) => drawn?.call(json) ?? const ModcpWriteUnknown(),
           TsdmAppV4Refused(error: 'modcp_login') => const ModcpWriteSessionEnded(),
+          // The group lost the page meanwhile: not done.
+          TsdmAppV4Refused(error: 'modcp_noperm') => const ModcpWriteRefused(''),
           TsdmAppV4Message(:final reason) => ModcpWriteRefused(reason),
           TsdmAppV4Refused() => const ModcpWriteUnknown(),
         });
@@ -828,7 +852,9 @@ final class ModcpRepository with LoggerMixin {
   /// The outcome of a write result told by its language key: done with [key], a refusal in the forum's words
   /// otherwise.
   static ModcpWriteOutcome Function(TsdmAppWriteResult result) _keyOutcome(String key) =>
-      (result) => result.messageKey == key ? ModcpWriteDone(message: result.message) : ModcpWriteRefused(result.reason);
+      (result) => result.succeeded && result.messageKey == key
+      ? ModcpWriteDone(message: result.message)
+      : ModcpWriteRefused(result.reason);
 
   /// The answer [data] to a change sent by account [uid]: the forum's message, the panel's login form, or its page.
   static Either<AppException, _Written> _writtenOf(Object? data, {required int uid}) {

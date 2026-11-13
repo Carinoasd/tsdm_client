@@ -349,6 +349,16 @@ void main() {
         (listed([], error: 'cidr'), 'refused(${t.modcp.ipBanCidr})'),
         (listed([], error: 'exists'), 'refused(${t.modcp.ipBanExists})'),
         ({'ok': 0, 'error': 'modcp_login', 'uid': _admin, 'formhash': 'f1f2f3f4'}, 'sessionEnded'),
+        ({'ok': 0, 'error': 'modcp_noperm', 'uid': _admin, 'formhash': 'f1f2f3f4'}, 'refused()'),
+        // No result, but the list holds the new ban: done; no result and nothing new: not known.
+        (
+          _changed('ipban', (json) {
+            json.remove('result');
+            json['list'] = [ban];
+          }),
+          'done(1)',
+        ),
+        (_changed('ipban', (json) => json.remove('result')), 'unknown'),
       ]) {
         final log = _Log();
         final outcome = await _repo(log, posted: posted).addIpBan(list, '203.0.113.7', 3).run();
@@ -503,6 +513,8 @@ void main() {
         (added, 'done(1)'),
         (_result('modcp_ann_empty', ok: 0, message: '请输入公告标题和内容'), 'refused(请输入公告标题和内容)'),
         (_json('ann'), 'refused()'),
+        // The page drawn again without a word of the result: not known, never told refused (no second post).
+        (_changed('ann', (json) => json.remove('result')), 'unknown'),
       ]) {
         final log = _Log();
         final outcome = await _repo(log, posted: posted)
@@ -707,6 +719,24 @@ void main() {
         posted: _result('modcp_mod_succeed'),
       ).submitQueue(page, ModerateQueueAction.validate, item).run();
       expect(_right(outcome), isA<ModerateSucceeded>());
+      expect(_asksV4(log.posts.single.$1), isTrue);
+      String told(Either<AppException, ModerateOutcome> o) => switch (o) {
+        Right(value: ModerateSucceeded()) => 'ok',
+        Right(value: ModerateRefused(:final message)) => 'refused($message)',
+        Left(:final value) => 'failed(${value.runtimeType})',
+      };
+      for (final (posted, expected) in [
+        (_result('modcp_mod_succeed', uid: _mod), 'failed(IdentityChangedException)'),
+        (_result('modcp_noaction', ok: 0, message: '请选择操作'), 'refused(请选择操作)'),
+        (_result(''), 'refused()'),
+        ({'ok': 0, 'error': 'modcp_login', 'uid': _admin, 'formhash': 'f1f2f3f4'}, 'refused()'),
+      ]) {
+        final sent = await _moderate(
+          _Log(),
+          posted: posted,
+        ).submitQueue(page, ModerateQueueAction.validate, item).run();
+        expect(told(sent), expected);
+      }
     });
 
     test('new members: a row as the panel prints it; the list read again after the verdict', () async {

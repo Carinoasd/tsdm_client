@@ -981,9 +981,36 @@ final class ModerateRepository with LoggerMixin {
     return switch (resp) {
       Left(:final value) => left(value),
       Right(:final value) when value.statusCode != HttpStatus.ok => left(HttpRequestFailedException(value.statusCode)),
+      Right(:final value) when page.v4 => queueV4OutcomeOf(value.data, uid: uid),
       Right(:final value) => right(outcomeOf(value.data, successKey: 'modcp_mod_succeed')),
     };
   });
+
+  /// The forum's verdict in answer [data] to the queue's operation of plugin 4.0.0 (posted with [tsdmAppV4Query]) sent
+  /// by account [uid]: the write result told by its key (`modcp_mod_succeed`), the forum's message a refusal in its
+  /// words, the panel's login form drawn instead (its session ended) a refusal without words; anything else as
+  /// [outcomeOf] reads it. An answer served to another account is an [IdentityChangedException].
+  static Either<AppException, ModerateOutcome> queueV4OutcomeOf(Object? data, {required int uid}) {
+    switch (tsdmAppV4WriteOutcomeOf(data, type: ModcpV4Page.moderate.type, schema: ModcpV4Page.moderate.schema)) {
+      case TsdmAppV4Written(:final result) when result.uid != uid:
+        return left(IdentityChangedException());
+      case TsdmAppV4Written(:final result) when result.kind != TsdmAppWriteKind.page:
+        return right(
+          result.succeeded && result.messageKey == 'modcp_mod_succeed'
+              ? ModerateSucceeded(result.message)
+              : ModerateRefused(result.reason),
+        );
+      case TsdmAppV4Redrawn(:final answer) when answer.uid != uid:
+        return left(IdentityChangedException());
+      case TsdmAppV4Redrawn(answer: TsdmAppV4Message(:final reason)):
+        return right(ModerateRefused(reason));
+      case TsdmAppV4Redrawn():
+        // The panel's login form (its session ended) or another page: nothing was done that the app can tell.
+        return right(const ModerateRefused(''));
+      default:
+        return right(outcomeOf(data, successKey: 'modcp_mod_succeed'));
+    }
+  }
 
   /// Ask the moderation panel's window banning member [memberUid] from posting (the website's 禁止用户 of the floor's
   /// author column).

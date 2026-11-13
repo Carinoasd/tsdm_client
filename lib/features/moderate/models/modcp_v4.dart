@@ -177,7 +177,10 @@ ModerateQueueList? moderateQueueFromApi(
 /// reads them; null when it is another list.
 MemberReviewList? memberReviewFromApi(Map<String, dynamic> json, {required int uid, int page = 1}) {
   final formHash = _served(json['submit'], const {'formhash'})['formhash'] ?? '';
-  if (json['op'] != 'members' || tsdmAppInt(json['filter']) != 0 || formHash.isEmpty) {
+  // No form needed while nobody waits (the web page prints none then either).
+  if (json['op'] != 'members' ||
+      tsdmAppInt(json['filter']) != 0 ||
+      (formHash.isEmpty && tsdmAppList(json['members']).isNotEmpty)) {
     return null;
   }
   final offset = _offset(json);
