@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [1.57.1] - 2026-11-14
+
+### Fixed
+
+- 帖子的「复制链接」与「复制分享文字」只保留到帖子编号，不再带着页码、排序等多余参数。
+
 ## [1.57.0] - 2026-11-14
 
 ### Added
