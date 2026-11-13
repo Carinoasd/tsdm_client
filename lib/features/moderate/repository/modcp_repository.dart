@@ -838,7 +838,9 @@ final class ModcpRepository with LoggerMixin {
           TsdmAppV4Page(:final json) => drawn?.call(json) ?? const ModcpWriteUnknown(),
           TsdmAppV4Refused(error: 'modcp_login') => const ModcpWriteSessionEnded(),
           // The group lost the page meanwhile: not done.
-          TsdmAppV4Refused(error: 'modcp_noperm') => ModcpWriteRefused(modcpErrorText('modcp_noperm')),
+          TsdmAppV4Refused(:final error) when modcpErrorText(error).isNotEmpty => ModcpWriteRefused(
+            modcpErrorText(error),
+          ),
           TsdmAppV4Message(:final reason) => ModcpWriteRefused(reason),
           TsdmAppV4Refused() => const ModcpWriteUnknown(),
         });

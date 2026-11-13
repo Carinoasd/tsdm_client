@@ -1,7 +1,7 @@
 /// Deleting an attachment with the form hash of an edit page that expired since (logged in again, or left open long):
 /// the forum stops the GET at its start (`discuz_application::_xss_check`, `system_error('request_tainting')`) with
-/// HTTP 503 before the deletion runs; nothing was deleted. The app tells the page expired, to open the edit page
-/// again, instead of its plain "failed".
+/// HTTP 503 before the deletion runs; nothing was deleted. The app tells the page may have expired, to try again or
+/// open the edit page again, instead of its plain "failed" (other 503s of the forum can not be told apart).
 ///
 /// The 503 carries no word the app could match: the forum prints its error page only when `showerror` is on, and the
 /// client keeps no body of an error status. A site challenge (`cf-mitigated: challenge`) and other statuses stay
@@ -43,7 +43,7 @@ void main() {
     await LocaleSettings.setLocale(AppLocale.en);
   });
 
-  test('a 503 of the forum: the edit page expired, asked once', () async {
+  test('a 503 of the forum: the edit page may have expired, asked once', () async {
     final asked = <String>[];
     final outcome = await _delete(
       _repo(left(HttpHandshakeFailedException('bad response', statusCode: HttpStatus.serviceUnavailable)), asked),
@@ -53,12 +53,6 @@ void main() {
       isA<FloorOpRefused>().having((e) => e.message, 'message', t.moderateFloorOps.formExpired),
     );
     expect(asked, hasLength(1));
-
-    final status = await _delete(_repo(right((statusCode: HttpStatus.serviceUnavailable, data: '')), []));
-    expect(
-      status.getRight().toNullable(),
-      isA<FloorOpRefused>().having((e) => e.message, 'message', t.moderateFloorOps.formExpired),
-    );
   });
 
   test('a site challenge, or another status, stays a failure', () async {

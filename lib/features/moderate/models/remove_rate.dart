@@ -351,7 +351,7 @@ String deleteAttachmentUrl({required String tid, required String pid, required i
 /// thing it answers (the app API's `page` whose document is that number, or the AJAX fragment). One is done; none is
 /// a refusal without words (not the post's author nor a moderator of the forum, an attachment gone already); null when
 /// [data] is no such answer. A form hash expired never gets here: the forum stops the request with HTTP 503 before it
-/// deletes anything (`FloorOpsRepository.deleteAttachment`).
+/// deletes anything (`FloorOpsRepository.deleteAttachment`, which takes other 503s of the forum the same way).
 ///
 /// Asked with [tsdmAppV4Query] (plugin 4.0.0) the result carries the number itself (`count`) and the plugin's own
 /// `message_key`: `deleteattach_succeed` with some deleted, `deleteattach_none` with none.

@@ -222,7 +222,7 @@ final class ModcpPagesRepository {
         return right(ModcpNeedsLogin(formHash: moderatePanelLoginFormHash(doc) ?? tsdmAppText(json['formhash'])));
       }
       final message = moderatePageMessage(doc);
-      return right(ModcpRefused(message.isNotEmpty ? message : modcpErrorText('modcp_noperm')));
+      return right(ModcpRefused(message.isNotEmpty ? message : modcpErrorText(tsdmAppText(json['error']))));
     }
     return left(HttpRequestFailedException(HttpStatus.ok));
   }

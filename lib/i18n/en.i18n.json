@@ -2444,7 +2444,7 @@
     "removeRate": "Remove ratings",
     "attachments": "Attachments",
     "deleteAttachment": "Delete attachment",
-    "formExpired": "The page has expired. Open the edit page again",
+    "formExpired": "The page may have expired. Try again, or open the edit page again",
     "viewIp": "View IP"
   },
   "bbcodeEditor": {

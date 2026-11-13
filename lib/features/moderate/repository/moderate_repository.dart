@@ -1006,8 +1006,8 @@ final class ModerateRepository with LoggerMixin {
         return left(IdentityChangedException());
       case TsdmAppV4Redrawn(answer: TsdmAppV4Message(:final reason)):
         return right(ModerateRefused(reason));
-      case TsdmAppV4Redrawn(answer: TsdmAppV4Refused(error: 'modcp_noperm')):
-        return right(ModerateRefused(modcpErrorText('modcp_noperm')));
+      case TsdmAppV4Redrawn(answer: TsdmAppV4Refused(:final error)) when modcpErrorText(error).isNotEmpty:
+        return right(ModerateRefused(modcpErrorText(error)));
       case TsdmAppV4Redrawn():
         // The panel's login form (its session ended) or another page: nothing was done that the app can tell.
         return right(const ModerateRefused(''));
@@ -1135,8 +1135,8 @@ final class ModerateRepository with LoggerMixin {
         return right(MemberBanSessionEnded(formHash: tsdmAppText(json['formhash'])));
       case TsdmAppV4Redrawn(answer: TsdmAppV4Message(:final reason)):
         return right(MemberBanRefused(reason));
-      case TsdmAppV4Redrawn(answer: TsdmAppV4Refused(error: 'modcp_noperm')):
-        return right(MemberBanRefused(modcpErrorText('modcp_noperm')));
+      case TsdmAppV4Redrawn(answer: TsdmAppV4Refused(:final error)) when modcpErrorText(error).isNotEmpty:
+        return right(MemberBanRefused(modcpErrorText(error)));
       default:
         return memberBanOutcomeOf(data, uid: uid);
     }

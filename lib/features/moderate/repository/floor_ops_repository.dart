@@ -164,7 +164,9 @@ final class FloorOpsRepository {
   ///
   /// A form hash that is no longer the account's (logged in again, the edit page left open long) is stopped before the
   /// deletion runs (`discuz_application::_xss_check`, `system_error('request_tainting')`) with HTTP 503 and no words
-  /// the client keeps: a 503 that is no site challenge is a refusal telling to open the edit page again.
+  /// the client keeps: a 503 that is no site challenge is a refusal telling the page may have expired. Other errors of
+  /// the forum (`system_error` of a database failure, a busy server) are 503 as well and land here too; one of those
+  /// may come after the deletion ran, so the words ask to try again or open the edit page again, and claim nothing.
   AsyncEither<FloorOpOutcome> deleteAttachment({
     required String tid,
     required String pid,
@@ -186,8 +188,6 @@ final class FloorOpsRepository {
     switch (resp) {
       case Left(value: HttpHandshakeFailedException(statusCode: HttpStatus.serviceUnavailable, :final headers))
           when headers?.value('cf-mitigated')?.toLowerCase() != 'challenge':
-        return right(FloorOpRefused(t.moderateFloorOps.formExpired));
-      case Right(value: (statusCode: HttpStatus.serviceUnavailable, data: _)):
         return right(FloorOpRefused(t.moderateFloorOps.formExpired));
       case Left(:final value):
         return left(value);

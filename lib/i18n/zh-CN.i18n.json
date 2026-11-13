@@ -2444,7 +2444,7 @@
     "removeRate": "撤销评分",
     "attachments": "附件",
     "deleteAttachment": "删除附件",
-    "formExpired": "页面已过期，请重新打开编辑",
+    "formExpired": "页面可能已过期，请重试或重新打开编辑",
     "viewIp": "查看 IP"
   },
   "bbcodeEditor": {
