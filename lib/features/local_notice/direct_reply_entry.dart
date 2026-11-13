@@ -187,8 +187,18 @@ Future<void> _handle(NotificationResponse response) async {
     // Not sent: the text is kept for the app right now, before anything is shown, whatever becomes of the
     // notification telling it.
     final draftEvent = await _keepForApp(request, outcome);
+    // Named like the other notifications when every account is announced.
+    final account = await directReplyAccountOf(
+      request.uid,
+      allAccounts: () async => (await readBackgroundSyncSettings(storage)).allAccounts,
+      users: storage.getAllUsers,
+    );
     // The input of the notification stops "sending" as the outcome appears.
-    await replied?.seal(t, payload: request.payload, told: repliedNoticeToldOf(t, request, outcome));
+    await replied?.seal(
+      t,
+      payload: request.payload,
+      told: repliedNoticeToldOf(t, request, outcome, account: account),
+    );
     try {
       await showDirectReplyOutcome(
         plugin: runtime.plugin,
@@ -196,6 +206,7 @@ Future<void> _handle(NotificationResponse response) async {
         request: request,
         outcome: outcome,
         draftEvent: draftEvent,
+        account: account,
       );
     } on Object catch (e) {
       talker.warning('direct reply: showing the outcome failed, once more: $e');
@@ -205,6 +216,7 @@ Future<void> _handle(NotificationResponse response) async {
         request: request,
         outcome: outcome,
         draftEvent: draftEvent,
+        account: account,
       );
     }
   } on Object catch (e, st) {
