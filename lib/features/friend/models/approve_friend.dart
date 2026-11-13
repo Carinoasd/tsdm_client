@@ -38,6 +38,7 @@ final class ApproveFriendForm extends ApproveFriendFormResult {
     required this.groups,
     required this.selectedGid,
     required this.fields,
+    this.fromApi = false,
   });
 
   /// Uid of the member whose request is approved.
@@ -55,6 +56,10 @@ final class ApproveFriendForm extends ApproveFriendFormResult {
   /// Hidden fields of the form, in their order and with the values the forum served (`referer`, `add2submit`, `from`,
   /// `handlekey`, `formhash`).
   final List<(String, String)> fields;
+
+  /// Read from the small form `friendadd` of plugin 4.0.0 (`mode: approve`): posted back with its result parameters,
+  /// the result read by `message_key` (`friends_add`).
+  final bool fromApi;
 
   /// The served value of the hidden field [name], null when the form has none.
   String? field(String name) {

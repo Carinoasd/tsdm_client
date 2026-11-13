@@ -51,7 +51,7 @@ final class PointsStatisticsBloc extends Bloc<PointsStatisticsEvent, PointsStati
           : state.copyWith(status: PointsStatus.failed, failure: failure),
     );
     await _pointsRepository
-        .fetchStatisticsPage()
+        .fetchStatistics()
         .match(
           (e) {
             handle(e);
@@ -59,27 +59,21 @@ final class PointsStatisticsBloc extends Bloc<PointsStatisticsEvent, PointsStati
             failed(LoadFailure.of(e));
           },
           (v) {
-            final document = v;
-            final result = parseStatisticsDocument(document);
-            if (result == null) {
-              // The forum's page without the points: its message (a guest, a closed forum) when it has one.
-              final message = document.querySelector('div#messagetext > p')?.innerText.trim();
-              failed(
-                message == null || message.isEmpty
-                    ? LoadFailure(LoadFailureKind.unknown)
-                    : LoadFailure.fromMessage(message),
-              );
-              return;
+            switch (v) {
+              case Left(:final value):
+                // The forum's page without the points: its message (a guest, a closed forum) when it has one.
+                failed(value.isEmpty ? LoadFailure(LoadFailureKind.unknown) : LoadFailure.fromMessage(value));
+              case Right(:final value):
+                emit(
+                  state.copyWith(
+                    status: PointsStatus.success,
+                    pointsMap: value.points,
+                    recentChangelog: value.changes,
+                    refreshing: false,
+                    failure: null,
+                  ),
+                );
             }
-            emit(
-              state.copyWith(
-                status: PointsStatus.success,
-                pointsMap: result.$1,
-                recentChangelog: result.$2,
-                refreshing: false,
-                failure: null,
-              ),
-            );
           },
         )
         .run();

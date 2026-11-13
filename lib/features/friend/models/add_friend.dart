@@ -24,6 +24,8 @@ final class AddFriendForm extends AddFriendFormResult {
     required this.groups,
     required this.selectedGid,
     this.noteHint,
+    this.submitUrl,
+    this.submitFields,
   });
 
   /// `formhash` of the form.
@@ -40,6 +42,13 @@ final class AddFriendForm extends AddFriendFormResult {
 
   /// Hint printed under the note field (length limit etc.).
   final String? noteHint;
+
+  /// Where the form posts (absolute), for a form of plugin 4.0.0 (small form `friendadd`); null for the web window.
+  final String? submitUrl;
+
+  /// The fields of the form as the plugin served them (`submit.fields`), sent back as they are with the note and the
+  /// group; null for the web window.
+  final Map<String, String>? submitFields;
 }
 
 /// The forum refused before showing a form: already friends, a request still pending, adding oneself.

@@ -7,7 +7,10 @@ import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/features/favorite/models/models.dart';
 import 'package:tsdm_client/features/favorite/utils/favorite_page_api.dart';
 import 'package:tsdm_client/features/favorite/utils/parse_favorite.dart';
+import 'package:tsdm_client/features/tsdmapp/small_form.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
+import 'package:tsdm_client/features/tsdmapp/v4.dart';
+import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
 import 'package:tsdm_client/utils/logger.dart';
@@ -189,7 +192,39 @@ final class FavoriteRepository with LoggerMixin {
         return result;
       });
 
-  AsyncEither<FavoriteAddResult> _add(FavoriteType type, String id, String description) =>
+  /// Plugin 4.0.0 answers the dialog as a small form (`favorite`) when its `status` lists it: the form is posted back
+  /// as served and its result read by `message_key` ([favoriteAddResultFromApi]); anything else of it, and an older
+  /// plugin, take the two steps as before.
+  AsyncEither<FavoriteAddResult> _add(FavoriteType type, String id, String description) => AsyncEither(() async {
+    final client = getIt.get<NetClientProvider>();
+    await TsdmAppApi.ensureStatus(client);
+    if (TsdmAppV4.has(TsdmAppV4Group.forms, SmallFormKind.favorite.name)) {
+      // Never with a `formhash`: the forum would add the favorite on that GET already.
+      switch (await client.get(withTsdmAppV4Form(dialogUrlOf(type, id))).run()) {
+        case Left(:final value):
+          return left(value);
+        case Right(:final value) when value.statusCode == 200:
+          switch (favoriteFormFromApi(value.data, type: type, id: id, viewer: currentLoginUid())) {
+            case Left(value: final result):
+              debug('add favorite ${type.name}=$id answered in the dialog: $result');
+              return right(result);
+            case Right(value: (:final url, :final fields)?):
+              return postTsdmAppV4(
+                client,
+                withSmallFormInAjax(url),
+                {...fields, 'description': description},
+              ).map(favoriteAddResultFromApi).run();
+            case Right():
+              break;
+          }
+        case Right():
+          break;
+      }
+    }
+    return _addFromWindow(type, id, description).run();
+  });
+
+  AsyncEither<FavoriteAddResult> _addFromWindow(FavoriteType type, String id, String description) =>
       _fetchDialog(dialogUrlOf(type, id)).flatMap((dialog) {
         final form = parseFavoriteForm(dialog);
         if (form == null) {
@@ -292,4 +327,55 @@ final class FavoriteRepository with LoggerMixin {
         }
         return right(null);
       });
+}
+
+/// The favorite dialog of plugin 4.0.0 [data] (small form `favorite`) for target [id] of [type], asked by account
+/// [viewer]: the forum's answer in the dialog as the left (favorited already, favorites switched off, the target not
+/// there, log in first), or the form to post as the right (its url, absolute, and its fields as served). Right null for
+/// anything else, read as before: another answer, a form for another target or posting elsewhere, a message without
+/// text.
+Either<FavoriteAddResult, ({String url, Map<String, String> fields})?> favoriteFormFromApi(
+  Object? data, {
+  required FavoriteType type,
+  required String id,
+  required int viewer,
+}) {
+  final answer = smallFormAnswerOf(data, SmallFormKind.favorite);
+  switch (answer) {
+    case null:
+      return right(null);
+    case _ when !answer.servedTo(viewer):
+      return left(FavoriteAddFailed(answer.identityProblem(viewer) ?? t.general.accountChangedRetry));
+    case SmallFormMessage(:final messageKey) when messageKey == 'favorite_repeat':
+      return left(const FavoriteAlreadyExists());
+    case SmallFormMessage(:final reason):
+      return reason.isEmpty ? right(null) : left(FavoriteAddFailed(reason));
+    case final SmallFormFields form:
+      final json = form.json;
+      final url = form.submitUrl('home.php', {'mod': 'spacecp', 'ac': 'favorite', 'type': type.queryValue, 'id': id});
+      final fields = form.submitFields;
+      if (json['favtype'] != type.queryValue ||
+          '${json['id']}' != id ||
+          url == null ||
+          !form.usable ||
+          fields['favoritesubmit'] == null ||
+          (fields['formhash'] ?? '').isEmpty) {
+        return right(null);
+      }
+      return right((url: url, fields: fields));
+  }
+}
+
+/// The answer [data] to a favorite form of plugin 4.0.0, by its `message_key`: added for `favorite_do_success` (its
+/// `favid`), favorited already for `favorite_repeat`, refused with the forum's message otherwise.
+FavoriteAddResult favoriteAddResultFromApi(Object? data) {
+  final result = switch (tsdmAppV4WriteOutcomeOf(data)) {
+    TsdmAppV4Written(:final result) => result,
+    _ => null,
+  };
+  return switch (result?.messageKey) {
+    'favorite_do_success' => FavoriteAdded(result!.values['favid']),
+    'favorite_repeat' => const FavoriteAlreadyExists(),
+    _ => FavoriteAddFailed(result?.reason ?? ''),
+  };
 }

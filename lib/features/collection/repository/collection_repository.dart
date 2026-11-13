@@ -6,6 +6,7 @@ import 'package:tsdm_client/features/collection/utils/collection_answer.dart';
 import 'package:tsdm_client/features/collection/utils/parse_collection.dart';
 import 'package:tsdm_client/features/tsdmapp/small_form.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
+import 'package:tsdm_client/features/tsdmapp/v4.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
 import 'package:universal_html/parsing.dart';
@@ -143,7 +144,10 @@ final class CollectionRepository {
   /// Whether the account in use is [viewerUid], the one a page was served to.
   bool isCurrent(int? viewerUid) => viewerUid != null && viewerUid > 0 && viewerUid == _currentUid();
 
-  Future<CollectionOutcome> _send(Future<Either<AppException, Object?>> Function() request) async {
+  Future<CollectionOutcome> _send(
+    Future<Either<AppException, Object?>> Function() request, {
+    CollectionOutcome Function(Object?) result = collectionOutcomeOf,
+  }) async {
     final Either<AppException, Object?> answer;
     try {
       answer = await request();
@@ -156,7 +160,7 @@ final class CollectionRepository {
         talker.warning('collection change failed: $value');
         return const CollectionUnknown();
       }(),
-      Right(:final value) => collectionOutcomeOf(value),
+      Right(:final value) => result(value),
     };
   }
 
@@ -180,6 +184,22 @@ final class CollectionRepository {
     final uid = _currentUid();
     if (uid <= 0) {
       return left(const CollectionNeedLogin());
+    }
+    if (getIt.isRegistered<NetClientProvider>()) {
+      await TsdmAppApi.ensureStatus(getIt.get<NetClientProvider>());
+    }
+    if (TsdmAppV4.has(TsdmAppV4Group.forms, SmallFormKind.collection.name)) {
+      // Plugin 4.0.0: the window as a small form; anything else of it reads the window as below.
+      try {
+        if (await _get(withTsdmAppV4Form('$_base&action=edit&op=addthread&tid=$tid&handlekey=k_collect&inajax=1'))
+            case Right(:final value)) {
+          if (collectThreadFormFromApi(value, tid: tid, viewerUid: uid) case final form?) {
+            return form;
+          }
+        }
+      } on IdentityChangedException {
+        return left(const CollectionAccountChanged());
+      }
     }
     final Either<AppException, Object?> answer;
     try {
@@ -215,6 +235,17 @@ final class CollectionRepository {
   Future<CollectionOutcome> collect(CollectThreadForm form, Iterable<int> ctids, String reason) async {
     if (!isCurrent(form.viewerUid)) {
       return const CollectionAccountChanged();
+    }
+    if (form case CollectThreadForm(submitUrl: final url?, submitFields: final fields?)) {
+      // Plugin 4.0.0: the window's own fields back as served, once; `collection_collect_succ` is the forum's success.
+      return _send(
+        () => _post(withTsdmAppV4Write(url), {
+          ...fields,
+          'reason': reason,
+          ...collectionArrayFields('ctid', ctids),
+        }),
+        result: collectOutcomeFromApi,
+      );
     }
     return _send(
       () => _post('$_base&action=edit&op=addthread&inajax=1', {

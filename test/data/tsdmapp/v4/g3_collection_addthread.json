@@ -1,0 +1,76 @@
+{
+ "ok": 1,
+ "api": 1,
+ "time": 1794538555,
+ "uid": 31,
+ "formhash": "f1f2f3f4",
+ "type": "form",
+ "schema": 17,
+ "form": "collection",
+ "float": 1,
+ "ajax": 1,
+ "tid": 9202952,
+ "submit": {
+  "url": "forum.php?mod=collection&action=edit&op=addthread",
+  "method": "POST",
+  "enctype": "application/x-www-form-urlencoded",
+  "fields": {
+   "inajax": "1",
+   "handlekey": "k_collect",
+   "formhash": "f1f2f3f4",
+   "addthread": "1"
+  },
+  "lists": {
+   "tids[]": [
+    "9202952"
+   ]
+  }
+ },
+ "ctid": {
+  "name": "ctid",
+  "type": "select",
+  "value": "1",
+  "choices": [
+   {
+    "value": "1",
+    "label": "BU lists 淘帖（855956）"
+   }
+  ]
+ },
+ "collections": [
+  {
+   "ctid": 1,
+   "name": "BU lists 淘帖（855956）"
+  }
+ ],
+ "reason": {
+  "name": "reason",
+  "type": "textarea",
+  "value": "",
+  "max": 250,
+  "unit": "chars",
+  "cut": 1
+ },
+ "remain_create": 4,
+ "create": {
+  "submit": {
+   "url": "forum.php?mod=collection&action=edit&op=add",
+   "method": "POST",
+   "enctype": "application/x-www-form-urlencoded",
+   "fields": {
+    "formhash": "f1f2f3f4",
+    "collectionsubmit": "1",
+    "submitcollection": "1"
+   }
+  },
+  "title": {
+   "name": "title",
+   "type": "text",
+   "value": "",
+   "max": 30,
+   "unit": "chars"
+  }
+ },
+ "hook_fields": [],
+ "unsupported": []
+}
