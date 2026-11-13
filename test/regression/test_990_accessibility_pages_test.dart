@@ -167,6 +167,14 @@ void main() {
       );
       await a11ySettle(tester, rounds: 4);
       expect(find.byType(TextField), findsWidgets, reason: 'the form of the thread');
+      // The page is read from its title on, the title field one node among the others: it used to take the whole
+      // page (nothing above the field was a semantics boundary), read first and as the page itself.
+      final handle = tester.ensureSemantics();
+      await tester.pump();
+      final order = a11yReadingOrder(tester);
+      expect(order.first, tr.postEditPage.newThreadTitle, reason: 'the title of the page first');
+      expect(order.indexOf(tr.postEditPage.title), greaterThan(0));
+      handle.dispose();
       await h.audit(tester, labelExempt: [packageToolbarButtons()]);
       await h.finish(tester);
     });

@@ -165,6 +165,7 @@ final a11yNotificationState = NotificationState(
   noticeList: const [
     NoticeV2(id: 1, timestamp: 1788000001, data: 'unread notice one'),
     NoticeV2(id: 2, timestamp: 1788000002, data: 'read notice two', alreadyRead: true),
+    NoticeV2(id: 3, timestamp: 1788000006, data: 'a notice from Carol', authorId: 1003, author: 'Carol'),
   ],
   personalMessageList: const [
     PersonalMessageV2(

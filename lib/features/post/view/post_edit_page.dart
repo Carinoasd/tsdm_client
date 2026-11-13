@@ -1908,7 +1908,12 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
                     ),
             ),
             if (_uploading) const LinearProgressIndicator(minHeight: 2),
-            Padding(padding: horizontal.add(edgeInsetsT12), child: _buildTitleRow(context, state)),
+            Padding(
+              padding: horizontal.add(edgeInsetsT12),
+              // The fields their own nodes: nothing above them on this page is a semantics boundary, and the title
+              // field's semantics went up to the whole page (read as one text field named "title").
+              child: Semantics(container: true, explicitChildNodes: true, child: _buildTitleRow(context, state)),
+            ),
             // Post data editor.
             // Now we don't restrict the thread type and thread title, so it's better to focus on content area.
             Expanded(

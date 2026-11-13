@@ -77,29 +77,27 @@ final class ChatMessageCard extends StatelessWidget {
       ),
     );
 
-    final header = Row(
-      mainAxisSize: MainAxisSize.min,
+    // The time goes under the name when both do not fit (large text).
+    final header = Wrap(
+      spacing: 8,
+      alignment: mine ? WrapAlignment.end : WrapAlignment.start,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        Flexible(
-          child: GestureDetector(
-            // The avatar beside it opens the same page and is the target a screen reader gets: the name is read as
-            // text, not as a second, smaller button.
-            excludeFromSemantics: true,
-            onTap: chatMessage.author != null
-                ? () async => context.pushNamed(ScreenPaths.profile, queryParameters: {'username': chatMessage.author})
-                : null,
-            child: Text(
-              chatMessage.author ?? '',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w600),
-            ),
+        GestureDetector(
+          // The avatar beside it opens the same page and is the target a screen reader gets: the name is read as
+          // text, not as a second, smaller button.
+          excludeFromSemantics: true,
+          onTap: chatMessage.author != null
+              ? () async => context.pushNamed(ScreenPaths.profile, queryParameters: {'username': chatMessage.author})
+              : null,
+          child: Text(
+            chatMessage.author ?? '',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w600),
           ),
         ),
-        if (time != null) ...[
-          sizedBoxW8H8,
-          Text(time, style: textTheme.labelSmall?.copyWith(color: colorScheme.outline)),
-        ],
+        if (time != null) Text(time, style: textTheme.labelSmall?.copyWith(color: colorScheme.outline)),
       ],
     );
 

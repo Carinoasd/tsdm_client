@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:fpdart/fpdart.dart' show Either, Left, Right;
@@ -555,45 +556,58 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
                           icon: group.icon,
                           padding: const EdgeInsets.fromLTRB(4, 8, 4, 8),
                         ),
-                        GridView.extent(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          maxCrossAxisExtent: 160,
-                          mainAxisSpacing: 8,
-                          crossAxisSpacing: 8,
-                          childAspectRatio: 1.3,
-                          children: [
-                            for (final (_, key, icon, label, page) in tiles)
-                              Material(
-                                key: key,
-                                color: colorScheme.surfaceContainerHigh,
-                                borderRadius: BorderRadius.circular(appInnerRadius),
-                                clipBehavior: Clip.antiAlias,
-                                child: Semantics(
-                                  button: true,
-                                  child: InkWell(
-                                    onTap: () => unawaited(_push(page)),
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(8),
-                                      child: Column(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        children: [
-                                          Icon(icon, color: colorScheme.primary, size: 28),
-                                          const SizedBox(height: 8),
-                                          Text(
-                                            label,
-                                            maxLines: 2,
-                                            textAlign: TextAlign.center,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: Theme.of(context).textTheme.labelLarge,
+                        // Tiles at most 160 wide, as wide as each other, at least 1/1.3 of their width tall: taller
+                        // when their label needs it (large text), instead of a fixed height the label overflows.
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            const spacing = 8.0;
+                            final columns = math.max(1, (constraints.maxWidth / (160 + spacing)).ceil());
+                            // A hair narrower: the rounding of the division must not push the last tile of a row to
+                            // the next one.
+                            final width = (constraints.maxWidth - spacing * (columns - 1)) / columns - 0.01;
+                            return Wrap(
+                              spacing: spacing,
+                              runSpacing: spacing,
+                              children: [
+                                for (final (_, key, icon, label, page) in tiles)
+                                  SizedBox(
+                                    width: width,
+                                    child: Material(
+                                      key: key,
+                                      color: colorScheme.surfaceContainerHigh,
+                                      borderRadius: BorderRadius.circular(appInnerRadius),
+                                      clipBehavior: Clip.antiAlias,
+                                      child: Semantics(
+                                        button: true,
+                                        child: InkWell(
+                                          onTap: () => unawaited(_push(page)),
+                                          child: ConstrainedBox(
+                                            constraints: BoxConstraints(minHeight: width / 1.3),
+                                            child: Padding(
+                                              padding: const EdgeInsets.all(8),
+                                              child: Column(
+                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                children: [
+                                                  Icon(icon, color: colorScheme.primary, size: 28),
+                                                  const SizedBox(height: 8),
+                                                  Text(
+                                                    label,
+                                                    maxLines: 2,
+                                                    textAlign: TextAlign.center,
+                                                    overflow: TextOverflow.ellipsis,
+                                                    style: Theme.of(context).textTheme.labelLarge,
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
                                           ),
-                                        ],
+                                        ),
                                       ),
                                     ),
                                   ),
-                                ),
-                              ),
-                          ],
+                              ],
+                            );
+                          },
                         ),
                       ],
                     ),

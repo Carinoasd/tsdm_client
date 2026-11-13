@@ -194,36 +194,33 @@ class _NoticeCardV2State extends State<NoticeCardV2> {
     final kindIcon = noticeKindIcon(info.kind);
     final Widget leading;
     if (authorId != null) {
-      // The author's avatar with the kind of the notice in its corner.
-      leading = GestureDetector(
-        onTap: _openAuthor,
-        child: SizedBox.square(
-          dimension: 40,
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              HeroUserAvatar(
-                username: author ?? '$authorId',
-                avatarUrl: avatarUrlOfUid('$authorId'),
-                disableHero: true,
-              ),
-              Positioned(
-                right: -4,
-                bottom: -4,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: colorScheme.secondaryContainer,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: colorScheme.surfaceContainerLow, width: 2),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(2),
-                    child: Icon(kindIcon, size: 12, color: colorScheme.onSecondaryContainer),
-                  ),
+      // The author's avatar with the kind of the notice in its corner; the shell makes it a 48 wide target.
+      leading = SizedBox.square(
+        dimension: 40,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            HeroUserAvatar(
+              username: author ?? '$authorId',
+              avatarUrl: avatarUrlOfUid('$authorId'),
+              disableHero: true,
+            ),
+            Positioned(
+              right: -4,
+              bottom: -4,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: colorScheme.secondaryContainer,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: colorScheme.surfaceContainerLow, width: 2),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(2),
+                  child: Icon(kindIcon, size: 12, color: colorScheme.onSecondaryContainer),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       );
     } else {
@@ -240,6 +237,8 @@ class _NoticeCardV2State extends State<NoticeCardV2> {
       highlight: unread,
       onTap: _onTap,
       leading: Badge(isLabelVisible: unread, child: leading),
+      onLeadingTap: authorId != null ? _openAuthor : null,
+      leadingLabel: author ?? (authorId != null ? '$authorId' : null),
       title: Text(author ?? kindLabel),
       label: author != null ? kindLabel : null,
       timestamp: widget.data.timestamp,
@@ -427,14 +426,16 @@ class _PersonalMessageCardV2State extends State<PersonalMessageCardV2> {
     return _NotificationCardShell(
       highlight: unread,
       onTap: () async => _onTap(context, markAsRead: true, launch: true),
-      leading: GestureDetector(
-        onTap: openProfile,
-        child: Badge(
-          isLabelVisible: unread,
-          child: HeroUserAvatar(username: widget.data.peerUsername, avatarUrl: null, disableHero: true),
-        ),
+      leading: Badge(
+        isLabelVisible: unread,
+        child: HeroUserAvatar(username: widget.data.peerUsername, avatarUrl: null, disableHero: true),
       ),
-      title: GestureDetector(onTap: openProfile, child: Text(widget.data.peerUsername)),
+      onLeadingTap: openProfile,
+      leadingLabel: widget.data.peerUsername,
+      title: GestureDetector(
+        onTap: openProfile,
+        child: Semantics(link: true, child: Text(widget.data.peerUsername)),
+      ),
       timestamp: widget.data.timestamp,
       menu: PopupMenuButton(
         itemBuilder: (_) => [
@@ -659,11 +660,19 @@ class _NotificationCardShell extends StatelessWidget {
     this.label,
     this.footer,
     this.onTap,
+    this.onLeadingTap,
+    this.leadingLabel,
     super.key,
   });
 
   /// Avatar or icon block.
   final Widget leading;
+
+  /// Tap on [leading] (the author's avatar), none when null.
+  final VoidCallback? onLeadingTap;
+
+  /// What [leading] is named to a screen reader when it takes a tap ([onLeadingTap]): the user.
+  final String? leadingLabel;
 
   /// Title, a text; styled here.
   final Widget title;
@@ -689,6 +698,21 @@ class _NotificationCardShell extends StatelessWidget {
   /// Tap on the card.
   final VoidCallback? onTap;
 
+  /// [leading] in its 48 wide box; the whole box takes the tap when there is one, named after the user (the circle
+  /// itself shows a letter).
+  Widget _buildLeading() {
+    final box = SizedBox.square(dimension: 48, child: Center(child: leading));
+    final onLeadingTap = this.onLeadingTap;
+    if (onLeadingTap == null) {
+      return box;
+    }
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onLeadingTap,
+      child: Semantics(button: true, label: leadingLabel, excludeSemantics: true, child: box),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -704,14 +728,16 @@ class _NotificationCardShell extends StatelessWidget {
       color: highlight
           ? Color.alphaBlend(colorScheme.primaryContainer.withValues(alpha: 0.3), colorScheme.surfaceContainerLow)
           : null,
-      padding: EdgeInsets.fromLTRB(14, 10, 4, footer == null ? 12 : 4),
+      // The leading block sits in a 48 wide box (the tap target of an avatar): 4 less padding before it and 4 less gap
+      // after it keep the 40 wide block where it was.
+      padding: EdgeInsets.fromLTRB(10, 10, 4, footer == null ? 12 : 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              leading,
-              sizedBoxW12H12,
+              _buildLeading(),
+              sizedBoxW8H8,
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
