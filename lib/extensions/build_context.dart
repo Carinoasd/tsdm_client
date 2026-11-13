@@ -71,7 +71,7 @@ extension DispatchUrl<T> on BuildContext {
       return pushNamed<T>(
         route.screenPath,
         pathParameters: route.pathParameters.copyWith(extraPathParameters ?? {}),
-        queryParameters: route.queryParameters.copyWith(extraPathParameters ?? {}),
+        queryParameters: route.queryParameters.copyWith(extraQueryParameters ?? {}),
       );
     }
     final target = await resolveLinkTarget(u);
