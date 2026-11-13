@@ -86,7 +86,8 @@ const syncFollowedThreadsMax = 200;
 /// device.
 const int syncFollowedThreadsMaxBytes = 6 * 1024;
 
-/// Most saved images ("my images") a document carries: the latest saved or renamed.
+/// Most saved images ("my images") a document carries: the latest saved or renamed (the budget,
+/// [syncCustomImagesMaxBytes], comes first with usual addresses).
 const syncCustomImagesMax = 100;
 
 /// Most bytes the saved images take in a document, the records of the deleted ones with them: an image hosted on the

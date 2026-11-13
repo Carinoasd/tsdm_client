@@ -1142,12 +1142,10 @@ final class MemorySyncLocalStore implements SyncLocalStore {
   }
 
   /// Save the image of [url] named [name] at [at] (milliseconds) as the app does (the time in whole seconds, a record
-  /// of its deletion dropped; a new name only on an image saved before).
-  void saveCustomImage(String url, {required int at, String name = ''}) {
-    final mine = customImageList[url];
-    if (mine == null || mine.name != name) {
-      customImageList[url] = CustomImageSyncEntry(url: url, name: name, updated: at - at % 1000);
-    }
+  /// of its deletion dropped; no name keeps the name of an image saved before).
+  void saveCustomImage(String url, {required int at, String? name}) {
+    final kept = name ?? customImageList[url]?.name ?? '';
+    customImageList[url] = CustomImageSyncEntry(url: url, name: kept, updated: at - at % 1000);
     customImagesRemovedAt = syncKeyRemovalsOf(syncKeyRemovalsWith(customImagesRemovedAt, back: [url], at: at));
   }
 

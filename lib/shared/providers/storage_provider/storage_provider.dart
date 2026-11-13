@@ -1222,9 +1222,9 @@ class StorageProvider with LoggerMixin {
     return dao.deleteAll();
   }
 
-  /// Save an image sticker [url] with an optional [name] (#5); returns the row id. A record of the image deleted before
-  /// is dropped.
-  Future<int> addCustomImage({required String url, String name = ''}) => _db.transaction(() async {
+  /// Save an image sticker [url] with an optional [name] (#5; none keeps the name of one saved before); returns the
+  /// row id. A record of the image deleted before is dropped.
+  Future<int> addCustomImage({required String url, String? name}) => _db.transaction(() async {
     final id = await CustomImageDao(_db).add(url: url, name: name);
     final removed = await customImagesRemoved();
     if (removed.containsKey(url)) {

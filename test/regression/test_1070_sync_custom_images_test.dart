@@ -115,7 +115,7 @@ final class _Device {
 
   Future<SyncOutcome> sync() => repo.pull(_uid);
 
-  void save(int n, {String name = ''}) => store.saveCustomImage(_url(n), name: name, at: ms);
+  void save(int n, {String? name}) => store.saveCustomImage(_url(n), name: name, at: ms);
 
   void delete(int n) => store.deleteCustomImage(_url(n), ms);
 
@@ -211,6 +211,23 @@ void main() {
       expect(a.urls, isEmpty);
       expect(b.urls, isEmpty);
       expect(forum.items(customImagesSection)[_url(1)], {'updated': _t + 2000, 'deleted': true});
+    });
+
+    test('saved again (the same name) after a deletion on the other device: the image stays everywhere', () async {
+      a.save(1, name: '名');
+      await a.sync();
+      await b.sync();
+      tick();
+      b.delete(1);
+      await b.sync();
+      tick();
+      a.save(1);
+      expect(a.nameOf(1), '名', reason: 'no name given keeps the name');
+      await a.sync();
+      await b.sync();
+      expect(a.urls, [_url(1)]);
+      expect(b.urls, [_url(1)]);
+      expect(b.nameOf(1), '名');
     });
 
     test('a new name is a change: the later name wins on both', () async {
@@ -393,12 +410,16 @@ void main() {
 
     tearDown(() => db.close());
 
-    test('a deletion is noted, saving again drops the note, a rename is timed, the same name is no change', () async {
+    test('a deletion is noted, saving again drops the note, a save again is timed and keeps the name', () async {
       final id = await storage.addCustomImage(url: _url(1), name: 'a');
       await storage.addCustomImage(url: _url(2));
-      final before = (await storage.fetchCustomImages()).first.addedAt;
-      await storage.addCustomImage(url: _url(1), name: 'a');
-      expect((await storage.fetchCustomImages()).first.addedAt, before, reason: 'the same name');
+      await db.customStatement('UPDATE custom_image SET added_at = 1000');
+      // Saved again from the image action sheet (no name): the name stays, the save is timed, the place stays.
+      await storage.addCustomImage(url: _url(1));
+      final first = (await storage.fetchCustomImages()).first;
+      expect(first.url, _url(1));
+      expect(first.name, 'a');
+      expect(first.addedAt.millisecondsSinceEpoch, greaterThan(1000 * 1000));
 
       await storage.deleteCustomImage(id);
       expect((await storage.customImagesRemoved()).keys, [_url(1)]);

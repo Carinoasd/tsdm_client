@@ -6,17 +6,16 @@ final class CustomImageDao extends DatabaseAccessor<AppDatabase> with _$CustomIm
   /// Constructor.
   CustomImageDao(super.attachedDatabase);
 
-  /// Save [url] with an optional [name]; an existing url keeps its row (and its place) and only updates the name,
-  /// noting the time of the change in [CustomImage.addedAt] when the name is a new one (the cross-device sync takes
-  /// the later of two names by it).
-  Future<int> add({required String url, String name = '', DateTime? addedAt}) async {
+  /// Save [url] with an optional [name] (none: empty for a new image, the name it has for one saved before). An
+  /// existing url keeps its row (and its place): saved again, it takes the [name] given and the time of this save in
+  /// [CustomImage.addedAt] (the cross-device sync takes the later of two by it, and a save after a deletion on another
+  /// device keeps the image).
+  Future<int> add({required String url, String? name, DateTime? addedAt}) async {
     final existing = await selectByUrl(url);
     if (existing != null) {
-      if (existing.name != name) {
-        await (update(customImage)..where((e) => e.id.equals(existing.id))).write(
-          CustomImageCompanion(name: Value(name), addedAt: Value(addedAt ?? DateTime.now())),
-        );
-      }
+      await (update(customImage)..where((e) => e.id.equals(existing.id))).write(
+        CustomImageCompanion(name: Value(name ?? existing.name), addedAt: Value(addedAt ?? DateTime.now())),
+      );
       return existing.id;
     }
     final last =
@@ -26,7 +25,7 @@ final class CustomImageDao extends DatabaseAccessor<AppDatabase> with _$CustomIm
             .getSingleOrNull();
     return into(customImage).insert(
       CustomImageCompanion(
-        name: Value(name),
+        name: Value(name ?? ''),
         url: Value(url),
         sortOrder: Value((last?.sortOrder ?? -1) + 1),
         addedAt: Value(addedAt ?? DateTime.now()),
