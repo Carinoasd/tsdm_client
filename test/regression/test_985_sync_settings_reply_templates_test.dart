@@ -402,6 +402,10 @@ void main() {
         '丙',
         '甲',
       ]);
+      // One list is kept: the template that did not fit leaves the other device too (a known limitation).
+      tick();
+      await a.sync();
+      expect(a.replyNames, ['丙', '甲']);
     });
 
     test('two devices change their templates at once: the refused write merges, the later wins on both', () async {
