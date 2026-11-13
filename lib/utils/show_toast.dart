@@ -11,6 +11,7 @@ void showSnackBar({
   bool showCloseIcon = false,
   double bottomInset = 0,
   double? actionOverflowThreshold,
+  Duration? duration,
 }) {
   final messenger = snackbarKey.currentState;
   if (clearPrevious) {
@@ -25,6 +26,7 @@ void showSnackBar({
     action: action,
     // Flutter 3.41 keeps a bar with an action on screen until dismissed (and across routes); give it a deadline.
     persist: false,
+    duration: duration ?? const Duration(milliseconds: 4000),
     showCloseIcon: showCloseIcon,
     // Flutter moves the action to a second row once it takes more than 25% of the bar; short bars with a Chinese
     // label and a close icon crossed that on 360dp phones (issue #4), so callers can raise the threshold.

@@ -58,6 +58,7 @@ import 'package:tsdm_client/features/settings/repositories/settings_repository.d
 import 'package:tsdm_client/features/share_qr/share_qr_dialog.dart';
 import 'package:tsdm_client/features/thread/v1/bloc/thread_bloc.dart';
 import 'package:tsdm_client/features/thread/v1/models/multi_quote_selection.dart';
+import 'package:tsdm_client/features/thread/v1/models/thread_reply_prefill.dart';
 import 'package:tsdm_client/features/thread/v1/repository/thread_repository.dart';
 import 'package:tsdm_client/features/thread/v1/tts/thread_tts_bar.dart';
 import 'package:tsdm_client/features/thread/v1/tts/thread_tts_controller.dart';
@@ -114,12 +115,14 @@ class ThreadPage extends StatefulWidget {
     this.threadType,
     this.onlyVisibleUid,
     this.lastPost = false,
+    this.replyPrefill,
     super.key,
   }) : assert(threadID != null || findPostID != null, 'MUST provide threadID or findPostID');
 
   /// The page of the thread route [ScreenPaths.threadV1] with the query parameters [query], as the router and the
   /// detail pane of a two-pane layout ([TwoPaneLayout]) build it.
-  factory ThreadPage.fromQuery(Map<String, String> query) {
+  /// [replyPrefill] is the route's `extra` ([ThreadReplyPrefill]).
+  factory ThreadPage.fromQuery(Map<String, String> query, {ThreadReplyPrefill? replyPrefill}) {
     final threadTypeName = query['threadTypeName'];
     final threadTypeID = query['threadTypeID'];
     final tid = query['tid'];
@@ -137,8 +140,12 @@ class ThreadPage extends StatefulWidget {
       overrideWithExactOrder: query['overrideWithExactOrder']?.parseToInt(),
       onlyVisibleUid: query['onlyVisibleUid'],
       lastPost: query['lastPost'] == '1',
+      replyPrefill: replyPrefill,
     );
   }
+
+  /// Text the reply to the thread starts with, once the thread is loaded ([ThreadReplyPrefill]).
+  final ThreadReplyPrefill? replyPrefill;
 
   /// Thread ID, tid.
   final String? threadID;
@@ -385,6 +392,9 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
 
   /// Scroll to the last floor once the first load succeeds ([ThreadPage.lastPost]).
   late bool _landOnLastPost = widget.lastPost;
+
+  /// The text the reply starts with ([ThreadPage.replyPrefill]) until it is put into the reply bar.
+  late String? _pendingReplyPrefill = widget.replyPrefill?.text;
 
   /// Tid whose first page was asked for to learn who started the thread, see [_threadAuthorOf].
   String? _resolvedTid;
@@ -1905,6 +1915,34 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
     return count > 0 ? count : null;
   }
 
+  /// Put the text the page was opened with ([ThreadPage.replyPrefill]) into the reply to the thread and open the bar on
+  /// it, once the thread is loaded and can be replied to (a bar is built for it). Only once; never sent from here.
+  void _applyReplyPrefill(ThreadState state) {
+    final text = _pendingReplyPrefill;
+    if (text == null || state.postList.isEmpty || state.isOffline) {
+      return;
+    }
+    _pendingReplyPrefill = null;
+    if (state.threadClosed) {
+      // Nowhere to put it: say why instead of a page without the reply. (A page that needs a login has no floors, it
+      // is not here: the text waits for the load after the login.)
+      showSnackBar(context: context, message: context.t.threadPage.closed);
+      return;
+    }
+    // After the frame that builds the reply bar for this state.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      _setImmersive(hidden: false);
+      _replyBarController
+        ..replyAction = null
+        ..insertBBCode(text)
+        ..setHintText(context.t.threadPage.sendReplyHint)
+        ..requestFocus();
+    });
+  }
+
   /// Open the reply bar for a reply to the thread (the end card's "reply").
   void _replyToThread() {
     if (_threadBloc?.state.isOffline ?? true) {
@@ -2566,6 +2604,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
                   }
                 }
                 _enterImmersiveForForum(context, state);
+                _applyReplyPrefill(state);
               }
             },
           ),

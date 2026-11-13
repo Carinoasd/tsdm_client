@@ -1,0 +1,150 @@
+{
+ "ok": 1,
+ "api": 1,
+ "time": 1700000000,
+ "uid": 31,
+ "formhash": "f1f2f3f4",
+ "checknewpm": "",
+ "type": "magic_log",
+ "schema": 71,
+ "timeoffset": 8,
+ "operation": "buylog",
+ "logtabs": {
+  "uselog": "home.php?mod=magic&action=log&operation=uselog",
+  "buylog": "home.php?mod=magic&action=log&operation=buylog",
+  "givelog": "home.php?mod=magic&action=log&operation=givelog",
+  "receivelog": "home.php?mod=magic&action=log&operation=receivelog"
+ },
+ "allow_give": 1,
+ "tabs": {
+  "shop": "home.php?mod=magic&action=shop",
+  "mybox": "home.php?mod=magic&action=mybox",
+  "log": "home.php?mod=magic&action=log&operation=uselog"
+ },
+ "page": 1,
+ "perpage": 16,
+ "count": 10,
+ "pages": 1,
+ "list": [
+  {
+   "magicid": 32,
+   "name": "改名牌卡",
+   "dateline": 1794156736,
+   "amount": 1,
+   "price": 1,
+   "credit": {
+    "id": 2,
+    "title": "天使币",
+    "unit": ""
+   }
+  },
+  {
+   "magicid": 34,
+   "name": "猫娘卡",
+   "dateline": 1794156262,
+   "amount": 2,
+   "price": 1,
+   "credit": {
+    "id": 2,
+    "title": "天使币",
+    "unit": ""
+   }
+  },
+  {
+   "magicid": 36,
+   "name": "倒立卡",
+   "dateline": 1794155935,
+   "amount": 1,
+   "price": 1,
+   "credit": {
+    "id": 2,
+    "title": "天使币",
+    "unit": ""
+   }
+  },
+  {
+   "magicid": 35,
+   "name": "护身符",
+   "dateline": 1794155935,
+   "amount": 1,
+   "price": 1,
+   "credit": {
+    "id": 2,
+    "title": "天使币",
+    "unit": ""
+   }
+  },
+  {
+   "magicid": 32,
+   "name": "改名牌卡",
+   "dateline": 1794155935,
+   "amount": 1,
+   "price": 1,
+   "credit": {
+    "id": 2,
+    "title": "天使币",
+    "unit": ""
+   }
+  },
+  {
+   "magicid": 34,
+   "name": "猫娘卡",
+   "dateline": 1794155929,
+   "amount": 1,
+   "price": 1,
+   "credit": {
+    "id": 2,
+    "title": "天使币",
+    "unit": ""
+   }
+  },
+  {
+   "magicid": 1,
+   "name": "抢沙发卡",
+   "dateline": 1790996115,
+   "amount": 2,
+   "price": 10,
+   "credit": {
+    "id": 2,
+    "title": "天使币",
+    "unit": ""
+   }
+  },
+  {
+   "magicid": 1,
+   "name": "抢沙发卡",
+   "dateline": 1790975513,
+   "amount": 2,
+   "price": 10,
+   "credit": {
+    "id": 2,
+    "title": "天使币",
+    "unit": ""
+   }
+  },
+  {
+   "magicid": 1,
+   "name": "抢沙发卡",
+   "dateline": 1790975424,
+   "amount": 2,
+   "price": 10,
+   "credit": {
+    "id": 2,
+    "title": "天使币",
+    "unit": ""
+   }
+  },
+  {
+   "magicid": 1,
+   "name": "抢沙发卡",
+   "dateline": 1790975286,
+   "amount": 2,
+   "price": 10,
+   "credit": {
+    "id": 2,
+    "title": "天使币",
+    "unit": ""
+   }
+  }
+ ]
+}

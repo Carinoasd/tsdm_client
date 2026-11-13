@@ -192,9 +192,9 @@ class CustomImageTab extends StatelessWidget {
   }
 }
 
-/// Save [imageUrl] as a sticker from the image action sheet, with a toast.
+/// Save [imageUrl] as a sticker from the image action sheet, with a toast; one saved before keeps its name.
 Future<void> saveImageAsCustomImage(BuildContext context, String imageUrl) async {
-  await getIt.get<StorageProvider>().addCustomImage(url: imageUrl);
+  await getIt.get<StorageProvider>().addCustomImage(url: parseCustomImageInput(imageUrl) ?? imageUrl);
   if (context.mounted) {
     showSnackBar(context: context, clearPrevious: true, message: context.t.bbcodeEditor.customImage.saved);
   }

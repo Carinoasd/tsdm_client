@@ -14,26 +14,15 @@ import 'package:tsdm_client/features/editor/repository/editor_repository.dart';
 import 'package:tsdm_client/features/editor/repository/recent_emoji_store.dart';
 import 'package:tsdm_client/features/editor/utils/custom_image_input.dart';
 import 'package:tsdm_client/features/editor/widgets/custom_image_tab.dart';
+import 'package:tsdm_client/features/editor/widgets/emoji_image.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
-import 'package:tsdm_client/shared/providers/image_cache_provider/image_cache_provider.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 import 'package:tsdm_client/utils/retry_button.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/cached_image/cached_image.dart';
 import 'package:tsdm_client/widgets/indicator.dart';
-
-final _emojiCodeRe = RegExp(r'^\{:(\d+)_(\d+):\}$');
-
-/// The image of the emoji [code] (`{:12_865:}`) in the emoji cache, null when it is not there.
-Uint8List? _cachedEmoji(String code) {
-  final match = _emojiCodeRe.firstMatch(code);
-  if (match == null || !getIt.isRegistered<ImageCacheProvider>()) {
-    return null;
-  }
-  return getIt.get<ImageCacheProvider>().getEmojiCacheSync(match.group(1)!, match.group(2)!);
-}
 
 /// How many emojis the panel puts on a row [width] wide: as many as with cells of at most 48 and gaps of 6 between
 /// them, the gaps now inside the cells so the whole cell takes the tap; one fewer where that would leave a cell under
@@ -47,6 +36,8 @@ int emojiPanelColumns(double width) => max(1, min(((width - 6) / 54).ceil(), (wi
 /// (`[attachimg]aid[/attachimg]`, [isCustomEmojiBBCode]); the panel stays open for the next one.
 ///
 /// [groups] replaces the forum's groups (tests), [emojiImage] the emoji cache.
+///
+/// The forum's emoji are downloaded when shown: the list first, the images of a group when its tab is shown.
 class EmojiPanel extends StatefulWidget {
   /// Constructor.
   const EmojiPanel({
@@ -97,7 +88,7 @@ class _EmojiPanelState extends State<EmojiPanel> with TickerProviderStateMixin {
     super.dispose();
   }
 
-  Uint8List? _image(String code) => (widget.emojiImage ?? EmojiPanel.debugEmojiImage ?? _cachedEmoji)(code);
+  Uint8List? Function(String code)? get _imageOverride => widget.emojiImage ?? EmojiPanel.debugEmojiImage;
 
   void _pick(String code) {
     RecentEmojiStore.app?.use(code);
@@ -157,19 +148,35 @@ class _EmojiPanelState extends State<EmojiPanel> with TickerProviderStateMixin {
     }
   }
 
-  Widget _emojiTile(String code, {bool recent = false}) {
+  /// The tile of [code], the emoji [emoji] of a group (else the emoji the code names); [revision]: see
+  /// [EmojiCacheImage.revision].
+  Widget _emojiTile(String code, {bool recent = false, int revision = 0, ({String groupId, String id})? emoji}) {
     final Widget child;
+    final ids = emoji ?? emojiIdsOfCode(code);
+    final override = _imageOverride;
     if (isCustomImageBBCode(code)) {
       final url = parseCustomImageInput(code) ?? '';
       child = ClipRRect(
         borderRadius: BorderRadius.circular(appInnerRadius),
         child: CachedImage(url, width: 44, height: 44, fit: BoxFit.cover),
       );
-    } else {
-      final bytes = _image(code);
+    } else if (override != null || ids == null) {
+      final bytes = override?.call(code);
       child = bytes == null
           ? FittedBox(child: Text(code))
           : ClipOval(child: Image.memory(bytes, fit: BoxFit.cover, gaplessPlayback: true));
+    } else {
+      // A recent one downloads itself; those of a group come with the group ([EmojiGroupView]).
+      child = ClipOval(
+        child: EmojiCacheImage(
+          groupId: ids.groupId,
+          id: ids.id,
+          revision: revision,
+          fetch: recent,
+          fit: BoxFit.cover,
+          placeholder: recent ? FittedBox(child: Text(code)) : const SizedBox.expand(),
+        ),
+      );
     }
     return Tooltip(
       message: code,
@@ -192,7 +199,13 @@ class _EmojiPanelState extends State<EmojiPanel> with TickerProviderStateMixin {
     );
   }
 
-  Widget _grid(List<String> codes, {bool recent = false}) => LayoutBuilder(
+  /// [emojis]: the group and id of each of [codes] when they are those of a group.
+  Widget _grid(
+    List<String> codes, {
+    bool recent = false,
+    int revision = 0,
+    List<({String groupId, String id})>? emojis,
+  }) => LayoutBuilder(
     builder: (context, constraints) {
       const padding = EdgeInsets.symmetric(horizontal: 9, vertical: 5);
       return GridView.builder(
@@ -202,7 +215,8 @@ class _EmojiPanelState extends State<EmojiPanel> with TickerProviderStateMixin {
           mainAxisExtent: 54,
         ),
         itemCount: codes.length,
-        itemBuilder: (context, index) => _emojiTile(codes[index], recent: recent),
+        itemBuilder: (context, index) =>
+            _emojiTile(codes[index], recent: recent, revision: revision, emoji: emojis?[index]),
       );
     },
   );
@@ -303,7 +317,17 @@ class _EmojiPanelState extends State<EmojiPanel> with TickerProviderStateMixin {
                   },
                 ),
               ),
-              ...groups.map((e) => _grid(e.emojiList.map((emoji) => emoji.code).toList())),
+              ...groups.map(
+                (e) => EmojiGroupView(
+                  key: ValueKey('emoji-panel-group-${e.id}'),
+                  group: e,
+                  builder: (context, revision) => _grid(
+                    e.emojiList.map((emoji) => emoji.code).toList(),
+                    revision: revision,
+                    emojis: e.emojiList.map((emoji) => (groupId: e.id, id: emoji.id)).toList(),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -322,7 +346,7 @@ class _EmojiPanelState extends State<EmojiPanel> with TickerProviderStateMixin {
         providers: [
           RepositoryProvider<EditorRepository>(create: (_) => EditorRepository()),
           BlocProvider(
-            create: (context) => EmojiBloc(editRepository: context.repo())..add(EmojiFetchFromAssetEvent()),
+            create: (context) => EmojiBloc(editRepository: context.repo())..add(EmojiFetchFromCacheEvent()),
           ),
         ],
         child: BlocBuilder<EmojiBloc, EmojiState>(
@@ -330,7 +354,7 @@ class _EmojiPanelState extends State<EmojiPanel> with TickerProviderStateMixin {
             EmojiStatus.initial || EmojiStatus.loading => const CenteredCircularIndicator(),
             EmojiStatus.failure => buildRetryButton(
               context,
-              () => context.read<EmojiBloc>().add(EmojiFetchFromAssetEvent()),
+              () => context.read<EmojiBloc>().add(EmojiFetchFromCacheEvent()),
             ),
             EmojiStatus.success => _buildWithPacks(context, state.emojiGroupList ?? const []),
           },

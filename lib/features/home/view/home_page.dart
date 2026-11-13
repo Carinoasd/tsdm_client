@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:responsive_framework/responsive_framework.dart';
 import 'package:tsdm_client/constants/layout.dart';
+import 'package:tsdm_client/features/diagnostics/abnormal_exit_prompt.dart';
 import 'package:tsdm_client/features/home/cubit/home_cubit.dart';
 import 'package:tsdm_client/features/home/widgets/widgets.dart';
 import 'package:tsdm_client/features/local_notice/callback.dart';
@@ -166,6 +167,12 @@ class _HomePageState extends State<HomePage> with LoggerMixin {
     super.initState();
     rootLocationSub = localNoticeStream.stream.listen(_onLocalNoticeStreamEvent);
     WidgetsBinding.instance.addPostFrameCallback(_consumeLaunchPayload);
+    // The last run ended abnormally: offer the diagnostics export (asked once, see AbnormalExitRecorder).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        unawaited(askAboutAbnormalExit(context));
+      }
+    });
     if (isAndroid) {
       // Replies typed in a notification that were not sent: their texts become drafts as soon as the app runs.
       watchDirectReplyDrafts();

@@ -124,6 +124,7 @@ class SettingsMap with SettingsMapMappable {
     this.crossDeviceSyncReplyTemplates = true,
     this.crossDeviceSyncReadLater = true,
     this.crossDeviceSyncFollowedThreads = true,
+    this.crossDeviceSyncCustomImages = true,
   });
 
   final String netClientAccept;
@@ -325,6 +326,10 @@ class SettingsMap with SettingsMapMappable {
   /// With [crossDeviceSync], sync the followed threads. Not required: backups from older versions lack it.
   final bool crossDeviceSyncFollowedThreads;
 
+  /// With [crossDeviceSync], sync the saved images of the emoji pickers. Not required: backups from older versions
+  /// lack it.
+  final bool crossDeviceSyncCustomImages;
+
   /// The clock decides the theme. Not required: backups from older versions lack it.
   final bool themeModeScheduled;
 
@@ -514,6 +519,7 @@ class SettingsMap with SettingsMapMappable {
       SettingsKeys.crossDeviceSyncReplyTemplates => copyWith(crossDeviceSyncReplyTemplates: value as bool?),
       SettingsKeys.crossDeviceSyncReadLater => copyWith(crossDeviceSyncReadLater: value as bool?),
       SettingsKeys.crossDeviceSyncFollowedThreads => copyWith(crossDeviceSyncFollowedThreads: value as bool?),
+      SettingsKeys.crossDeviceSyncCustomImages => copyWith(crossDeviceSyncCustomImages: value as bool?),
       SettingsKeys.themeModeScheduled => copyWith(themeModeScheduled: value as bool?),
       SettingsKeys.darkScheduleStart => copyWith(darkScheduleStart: value as int?),
       SettingsKeys.darkScheduleEnd => copyWith(darkScheduleEnd: value as int?),

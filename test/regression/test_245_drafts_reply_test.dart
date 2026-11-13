@@ -1227,10 +1227,7 @@ void main() {
           ],
         );
         final images = {
-          for (final id in ['818', '819', '820', '821', '822', '823', '824', '825', '826', '865'])
-            '{:12_$id:}': File('assets/images/emoji/12_$id.jpg').existsSync()
-                ? File('assets/images/emoji/12_$id.jpg').readAsBytesSync()
-                : _png,
+          for (final id in ['818', '819', '820', '821', '822', '823', '824', '825', '826', '865']) '{:12_$id:}': _png,
         };
         EmojiPanel.debugGroups = [group];
         EmojiPanel.debugEmojiImage = (code) => images[code];

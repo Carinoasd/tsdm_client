@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
-import 'package:tsdm_client/features/cache/repository/image_cache_repository.dart';
 import 'package:tsdm_client/features/custom_emoji/models/custom_emoji.dart';
 import 'package:tsdm_client/features/custom_emoji/repository/custom_emoji_store.dart';
 import 'package:tsdm_client/features/custom_emoji/widgets/custom_emoji_grid.dart';
 import 'package:tsdm_client/features/editor/bloc/emoji_bloc.dart';
 import 'package:tsdm_client/features/editor/repository/editor_repository.dart';
 import 'package:tsdm_client/features/editor/widgets/custom_image_tab.dart';
+import 'package:tsdm_client/features/editor/widgets/emoji_image.dart';
 import 'package:tsdm_client/features/root/view/root_page.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
@@ -84,38 +84,45 @@ class _EmojiBottomSheetState extends State<_EmojiBottomSheet> with TickerProvide
       ),
     );
     final tabViews = emojiGroupList.map(
-      (e) => GridView.builder(
-        padding: edgeInsetsL12R12,
-        shrinkWrap: true,
-        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-          maxCrossAxisExtent: 50,
-          mainAxisSpacing: 10,
-          crossAxisSpacing: 10,
-          mainAxisExtent: 50,
-        ),
-        itemBuilder: (context, index) {
-          final data = RepositoryProvider.of<ImageCacheRepository>(
-            context,
-          ).getEmojiCacheSync(e.id, e.emojiList[index].id);
-          if (data == null) {
-            return Text('${e.id}_${e.emojiList[index].id}');
-          }
-          // Rounded pressed highlight around each emoji, like the swatches of the color picker.
-          return Material(
-            type: MaterialType.transparency,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(appInnerRadius),
-              onTap: () async {
-                Navigator.of(context).pop(e.emojiList[index].code);
-              },
-              child: Padding(
-                padding: const EdgeInsets.all(2),
-                child: ClipOval(child: Image.memory(data, fit: BoxFit.cover)),
+      (e) => EmojiGroupView(
+        key: ValueKey('emoji-sheet-group-${e.id}'),
+        group: e,
+        builder: (context, revision) => GridView.builder(
+          padding: edgeInsetsL12R12,
+          shrinkWrap: true,
+          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+            maxCrossAxisExtent: 50,
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+            mainAxisExtent: 50,
+          ),
+          itemBuilder: (context, index) {
+            final emoji = e.emojiList[index];
+            // Rounded pressed highlight around each emoji, like the swatches of the color picker.
+            return Material(
+              type: MaterialType.transparency,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(appInnerRadius),
+                onTap: () async {
+                  Navigator.of(context).pop(emoji.code);
+                },
+                child: Padding(
+                  padding: const EdgeInsets.all(2),
+                  child: ClipOval(
+                    child: EmojiCacheImage(
+                      groupId: e.id,
+                      id: emoji.id,
+                      revision: revision,
+                      fit: BoxFit.cover,
+                      placeholder: const SizedBox.expand(),
+                    ),
+                  ),
+                ),
               ),
-            ),
-          );
-        },
-        itemCount: e.emojiList.length,
+            );
+          },
+          itemCount: e.emojiList.length,
+        ),
       ),
     );
 
@@ -153,26 +160,14 @@ class _EmojiBottomSheetState extends State<_EmojiBottomSheet> with TickerProvide
     return MultiBlocProvider(
       providers: [
         RepositoryProvider<EditorRepository>(create: (_) => EditorRepository()),
-        BlocProvider(create: (context) => EmojiBloc(editRepository: context.repo())..add(EmojiFetchFromAssetEvent())),
+        BlocProvider(create: (context) => EmojiBloc(editRepository: context.repo())..add(EmojiFetchFromCacheEvent())),
       ],
       child: BlocBuilder<EmojiBloc, EmojiState>(
         builder: (context, state) {
           final body = switch (state.status) {
-            EmojiStatus.initial || EmojiStatus.loading => Center(
-              child: Padding(
-                padding: edgeInsetsL24R24,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const CircularIndicator(),
-                    sizedBoxW12H12,
-                    Expanded(child: Text(context.t.bbcodeEditor.emoji.loadingAssets)),
-                  ],
-                ),
-              ),
-            ),
+            EmojiStatus.initial || EmojiStatus.loading => const CenteredCircularIndicator(),
             EmojiStatus.failure => buildRetryButton(context, () {
-              context.read<EmojiBloc>().add(EmojiFetchFromAssetEvent());
+              context.read<EmojiBloc>().add(EmojiFetchFromCacheEvent());
             }),
             EmojiStatus.success => _buildWithPacks(context, state),
           };

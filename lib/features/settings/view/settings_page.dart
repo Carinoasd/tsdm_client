@@ -287,6 +287,12 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
               tr.crossDeviceSync.followedThreads,
               state.settingsMap.crossDeviceSyncFollowedThreads,
             ),
+            (
+              SettingsKeys.crossDeviceSyncCustomImages,
+              Icons.collections_outlined,
+              tr.crossDeviceSync.customImages,
+              state.settingsMap.crossDeviceSyncCustomImages,
+            ),
           ])
             SectionSwitchListTile(
               key: ValueKey('settings-${key.name}'),
@@ -1843,6 +1849,13 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
           title: Text(tr.about),
           trailing: const Icon(Icons.chevron_right),
           onTap: () async => context.pushNamed(ScreenPaths.about),
+        ),
+        SectionListTile(
+          key: const ValueKey('settings-feedback'),
+          leading: const Icon(Icons.feedback_outlined),
+          title: Text(context.t.diagnostics.feedback),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () async => context.pushNamed(ScreenPaths.feedback),
         ),
         SectionSwitchListTile(
           secondary: const Icon(Icons.cloud_done_outlined),

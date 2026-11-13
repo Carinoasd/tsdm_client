@@ -25,6 +25,7 @@ import 'package:tsdm_client/features/collection/view/collection_comments_page.da
 import 'package:tsdm_client/features/collection/view/collection_detail_page.dart';
 import 'package:tsdm_client/features/collection/view/collection_list_page.dart';
 import 'package:tsdm_client/features/custom_emoji/view/custom_emoji_packs_page.dart';
+import 'package:tsdm_client/features/diagnostics/view/feedback_page.dart';
 import 'package:tsdm_client/features/doing/view/doing_page.dart';
 import 'package:tsdm_client/features/editor/utils/mention_suggestions.dart';
 import 'package:tsdm_client/features/editor/view/quick_phrases_page.dart';
@@ -48,6 +49,7 @@ import 'package:tsdm_client/features/latest_thread/view/latest_thread_page.dart'
 import 'package:tsdm_client/features/local_draft/view/local_draft_page.dart';
 import 'package:tsdm_client/features/login_device/view/login_devices_page.dart';
 import 'package:tsdm_client/features/magic/view/magic_center_page.dart';
+import 'package:tsdm_client/features/magic/view/magic_log_page.dart';
 import 'package:tsdm_client/features/me/view/me_page.dart';
 import 'package:tsdm_client/features/medal_center/view/medal_center_page.dart';
 import 'package:tsdm_client/features/medal_center/view/medal_title_hub_page.dart';
@@ -119,6 +121,8 @@ import 'package:tsdm_client/features/space/view/space_page.dart';
 import 'package:tsdm_client/features/space/view/space_poke_page.dart';
 import 'package:tsdm_client/features/tag/view/tag_cloud_page.dart';
 import 'package:tsdm_client/features/task_center/view/task_center_page.dart';
+import 'package:tsdm_client/features/task_center/view/task_detail_page.dart';
+import 'package:tsdm_client/features/thread/v1/models/thread_reply_prefill.dart';
 import 'package:tsdm_client/features/thread/v1/view/share_floor_image_page.dart';
 import 'package:tsdm_client/features/thread/v1/view/thread_page.dart';
 import 'package:tsdm_client/features/thread_follow/view/followed_threads_page.dart';
@@ -190,6 +194,7 @@ final List<RouteBase> _appRoutes = [
     },
   ),
   AppRoute(path: ScreenPaths.about, builder: (_) => const AboutPage()),
+  AppRoute(path: ScreenPaths.feedback, builder: (_) => const FeedbackPage()),
   AppRoute(path: ScreenPaths.activities, builder: (_) => const ActivitiesPage()),
   AppRoute(path: ScreenPaths.license, builder: (_) => const AppLicensePage()),
   AppRoute(path: ScreenPaths.keyboardShortcuts, builder: (_) => const KeyboardShortcutsPage()),
@@ -219,7 +224,13 @@ final List<RouteBase> _appRoutes = [
   ),
   // The same page shows in the detail pane of the list pages on wide windows (`TwoPaneLayout`), built from the same
   // query; a deep link or a notification still opens it here, as a page of its own.
-  AppRoute(path: ScreenPaths.threadV1, builder: (state) => ThreadPage.fromQuery(state.uri.queryParameters)),
+  AppRoute(
+    path: ScreenPaths.threadV1,
+    builder: (state) => ThreadPage.fromQuery(
+      state.uri.queryParameters,
+      replyPrefill: state.extra is ThreadReplyPrefill ? state.extra! as ThreadReplyPrefill : null,
+    ),
+  ),
   AppRoute(
     path: ScreenPaths.search,
     builder: (state) {
@@ -412,6 +423,7 @@ final List<RouteBase> _appRoutes = [
   AppRoute(path: ScreenPaths.switchTitle, builder: (_) => const MyTitlesPage()),
   AppRoute(path: ScreenPaths.titleShop, builder: (_) => const TitleShopPage()),
   AppRoute(path: ScreenPaths.magicCenter, builder: (_) => const MagicCenterPage()),
+  AppRoute(path: ScreenPaths.magicLog, builder: (_) => const MagicLogPage()),
   AppRoute(path: ScreenPaths.userBlock, builder: (_) => const UserBlockPage()),
   AppRoute(path: ScreenPaths.websiteBlocklist, builder: (_) => const WebsiteBlocklistPage()),
   AppRoute(path: ScreenPaths.medalCenter, builder: (_) => const MedalCenterPage()),
@@ -449,6 +461,10 @@ final List<RouteBase> _appRoutes = [
   ),
   AppRoute(path: ScreenPaths.bank, builder: (_) => const BankPage()),
   AppRoute(path: ScreenPaths.taskCenter, builder: (_) => const TaskCenterPage()),
+  AppRoute(
+    path: ScreenPaths.taskDetail,
+    builder: (state) => TaskDetailPage(taskId: int.tryParse(state.pathParameters['taskId'] ?? '') ?? 0),
+  ),
   AppRoute(
     path: ScreenPaths.pokemon,
     builder: (state) => PokemonPage(initialTab: (state.extra as int?) ?? 0),

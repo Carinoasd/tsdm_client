@@ -127,6 +127,9 @@ const upgradeGithubReleaseUrl = 'https://github.com/Carinoasd/tsdm_client/releas
 /// every release and has the shape of `LatestVersionInfo`: `{"version": "1.18.0", "versionCode": 65, "changelog": ...}`.
 const upgradeVersionInfoUrl = 'https://raw.githubusercontent.com/Carinoasd/tsdm_client/master/version.json';
 
+/// Thread of the app's feedback on the forum: the feedback page replies there.
+const feedbackThreadTid = 1265238;
+
 /// Target url to post a reply to thread [tid], forum [fid].
 String formatReplyThreadUrl(String fid, String tid) {
   return '$homePage?mod=post&action=reply&fid=$fid&tid=$tid&'

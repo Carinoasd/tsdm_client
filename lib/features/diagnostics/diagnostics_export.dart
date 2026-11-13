@@ -32,34 +32,41 @@ Rect? shareOriginOf(BuildContext context) {
 }
 
 /// Build the diagnostics bundle ([buildDiagnosticsBundle]) and hand it to the user: the share sheet on a phone, a save
-/// dialog on a desktop. [context] is only for the snack bar telling where it went or that it failed.
-Future<void> exportDiagnostics(BuildContext context, {Rect? shareOrigin}) => _exclusive(context, () async {
-  await flushLogSink();
-  final now = DateTime.now();
-  final info = composeDiagnosticsInfo(
-    appVersion: appFullVersion,
-    buildMode: kReleaseMode ? 'release' : (kProfileMode ? 'profile' : 'debug'),
-    platform: Platform.operatingSystem,
-    osVersion: Platform.operatingSystemVersion,
-    deviceModel: await _deviceModel(),
-    locale: '${Platform.localeName}, app ${LocaleSettings.currentLocale.languageTag}',
-    display: _display(),
-    plugin: TsdmAppApi.pluginInfo.value,
-    settings: _settings(),
-    now: now,
-    onSettingSkipped: _settingSkipped,
-  );
-  final request = DiagnosticsRequest(info: info, logDir: (await getLogDir()).path, now: now);
-  final bytes = await compute(buildDiagnosticsBundle, request);
-  return shareOrSaveFile(
-    bytes,
-    fileName: 'tsdm_diagnostics_${_stamp(now)}.zip',
-    mimeType: 'application/zip',
-    share: isMobile,
-    dialogTitle: t.diagnostics.export,
-    shareOrigin: shareOrigin,
-  );
-});
+/// dialog on a desktop. [context] is only for the snack bar telling where it went or that it failed. [description] is
+/// what the user wrote about the problem (the feedback page), in the bundle when not blank.
+Future<void> exportDiagnostics(BuildContext context, {Rect? shareOrigin, String description = ''}) =>
+    _exclusive(context, () async {
+      await flushLogSink();
+      final now = DateTime.now();
+      final info = composeDiagnosticsInfo(
+        appVersion: appFullVersion,
+        buildMode: kReleaseMode ? 'release' : (kProfileMode ? 'profile' : 'debug'),
+        platform: Platform.operatingSystem,
+        osVersion: Platform.operatingSystemVersion,
+        deviceModel: await _deviceModel(),
+        locale: '${Platform.localeName}, app ${LocaleSettings.currentLocale.languageTag}',
+        display: _display(),
+        plugin: TsdmAppApi.pluginInfo.value,
+        settings: _settings(),
+        now: now,
+        onSettingSkipped: _settingSkipped,
+      );
+      final request = DiagnosticsRequest(
+        info: info,
+        logDir: (await getLogDir()).path,
+        now: now,
+        description: description,
+      );
+      final bytes = await compute(buildDiagnosticsBundle, request);
+      return shareOrSaveFile(
+        bytes,
+        fileName: 'tsdm_diagnostics_${_stamp(now)}.zip',
+        mimeType: 'application/zip',
+        share: isMobile,
+        dialogTitle: t.diagnostics.export,
+        shareOrigin: shareOrigin,
+      );
+    });
 
 /// Export the log of this run (what the log page shows), redacted once more off the UI isolate.
 Future<void> exportCurrentLog(BuildContext context, {Rect? shareOrigin}) => _exclusive(context, () async {

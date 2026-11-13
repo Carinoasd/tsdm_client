@@ -58,3 +58,47 @@ Map<String, Map<String, dynamic>> syncItemsWithRemovals(Map<int, Map<String, dyn
     if (!live.containsKey(key)) '$key': {'updated': value, 'deleted': true},
   for (final MapEntry(:key, :value) in live.entries) '$key': value,
 };
+
+/// The records of removals kept in the settings row [raw] by a text key (`{"<key>": ms}`, the saved images by their
+/// address): key to the time (milliseconds). Empty when there is none or it is not readable.
+Map<String, int> syncKeyRemovalsOf(String? raw) {
+  if (raw == null || raw.isEmpty) {
+    return {};
+  }
+  try {
+    final json = jsonDecode(raw);
+    if (json is! Map) {
+      return {};
+    }
+    return {
+      for (final MapEntry(:key, :value) in json.entries)
+        if (key is String && key.isNotEmpty && value is num) key: value.toInt(),
+    };
+  } on FormatException {
+    return {};
+  }
+}
+
+/// [syncRemovalsWith] by a text key: [removed] with [keys] taken off at their times and [back] taken back in, the
+/// records older than [syncRemovalKeptFor] before [at] dropped and at most [syncRemovalsMax] kept, the latest. The
+/// settings row to keep, null when there is no record left.
+String? syncKeyRemovalsWith(
+  Map<String, int> removed, {
+  required int at,
+  Map<String, int> keys = const {},
+  Iterable<String> back = const [],
+}) {
+  final next = {...removed}..removeWhere((key, _) => back.contains(key));
+  for (final MapEntry(:key, value: time) in keys.entries) {
+    if ((next[key] ?? -1) < time) {
+      next[key] = time;
+    }
+  }
+  final keepSince = at - syncRemovalKeptFor.inMilliseconds;
+  final kept = next.entries.where((e) => e.value >= keepSince).toList()
+    ..sort((a, b) => b.value != a.value ? b.value.compareTo(a.value) : a.key.compareTo(b.key));
+  if (kept.isEmpty) {
+    return null;
+  }
+  return jsonEncode({for (final e in kept.take(syncRemovalsMax)) e.key: e.value});
+}

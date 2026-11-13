@@ -201,6 +201,7 @@ final class SettingsRepository with LoggerMixin {
       crossDeviceSyncReplyTemplates: s.extract(_SK.crossDeviceSyncReplyTemplates),
       crossDeviceSyncReadLater: s.extract(_SK.crossDeviceSyncReadLater),
       crossDeviceSyncFollowedThreads: s.extract(_SK.crossDeviceSyncFollowedThreads),
+      crossDeviceSyncCustomImages: s.extract(_SK.crossDeviceSyncCustomImages),
       themeModeScheduled: s.extract(_SK.themeModeScheduled),
       darkScheduleStart: s.extract(_SK.darkScheduleStart),
       darkScheduleEnd: s.extract(_SK.darkScheduleEnd),

@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:collection';
 import 'dart:io' if (dart.libaray.js) 'package:web/web.dart';
 import 'dart:isolate';
 import 'dart:math' as math;
@@ -7,13 +9,12 @@ import 'dart:ui';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter/painting.dart' as painting;
-import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_avif/flutter_avif.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:rxdart/rxdart.dart';
-import 'package:tsdm_client/constants/constants.dart';
+import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/extensions/fp.dart';
 import 'package:tsdm_client/extensions/int.dart';
@@ -64,6 +65,9 @@ late final Directory _emojiCacheDirectory;
 /// Info json file contains all emoji group info.
 late final File _emojiCacheInfoFile;
 
+/// Whether [initCache] gave the cache directories: the emoji cache is read only then.
+var _emojiCacheReady = false;
+
 /// Init settings, must call before start.
 Future<void> initCache() async {
   _imageCacheDirectory = Directory('${(await getApplicationCacheDirectory()).path}/images');
@@ -76,6 +80,7 @@ Future<void> initCache() async {
   if (!_emojiCacheDirectory.existsSync()) {
     await _emojiCacheDirectory.create(recursive: true);
   }
+  _emojiCacheReady = true;
 }
 
 /// Provider of cached images.
@@ -249,6 +254,10 @@ final class ImageCacheProvider with LoggerMixin {
   /// [cacheOnly]: only what is cached already, nothing is fetched (a picture of a post loaded when tapped, to save
   /// data). [onProgress] is told how much of the image arrived while it downloads, also when it waits for another
   /// request downloading the same image.
+  ///
+  /// An image of one of the forum's emoji (in the saved emoji list, [emojiImageKeyOf]) is read from the emoji cache
+  /// and saved there, not in the image cache: shown in a post, in the editor or in the emoji panel, it is the same
+  /// file, and the clean up of the image cache leaves it.
   Future<Option<Uint8List>> getOrMakeCache(
     ImageCacheRequest req, {
     bool force = false,
@@ -261,12 +270,27 @@ final class ImageCacheProvider with LoggerMixin {
     };
     final imageId = req.imageId;
     final imageUrl = req.imageUrl;
+    final emojiKey = req is ImageCacheGeneralRequest ? emojiImageKeyOf(imageUrl) : null;
+    // Any other image goes on without waiting.
+    final emoji = emojiKey == null ? null : await _emojiOf(emojiKey);
+
+    if (!force && emoji != null) {
+      final emojiData = await getEmojiCache(emoji.groupId, emoji.id);
+      if (emojiData != null) {
+        _tell(ImageCacheSuccessResponse(imageId, respType, emojiData));
+        return Option.of(emojiData);
+      }
+    }
 
     if (!force) {
       final cacheInfo = await _getCacheInfo(req.imageUrl);
       final cacheFile = cacheInfo == null ? null : getCacheFile(cacheInfo.fileName);
       final imageData = cacheFile != null && cacheFile.existsSync() ? await _readCacheFile(cacheFile) : null;
       if (imageData != null) {
+        if (emoji != null) {
+          // Shown before from the image cache: kept in the emoji cache from now on.
+          await updateEmojiCache(emoji.groupId, emoji.id, imageData);
+        }
         // Cached loaded from disk, update last used time.
         _updateCacheUsedTime(imageUrl);
 
@@ -419,7 +443,11 @@ final class ImageCacheProvider with LoggerMixin {
         ImageCacheUserAvatarRequest(:final username) => ImageUsageInfoUserAvatar(username),
       };
 
-      await _saveCache(imageUrl, imageData, usage: usage);
+      if (emoji != null) {
+        await updateEmojiCache(emoji.groupId, emoji.id, imageData);
+      } else {
+        await _saveCache(imageUrl, imageData, usage: usage);
+      }
       _tell(ImageCacheSuccessResponse(imageId, respType, imageData));
       return Option.of(imageData);
     } on Exception catch (e, st) {
@@ -573,9 +601,7 @@ final class ImageCacheProvider with LoggerMixin {
       _avatarWithoutFile.clear();
     }
     if (clearInfo.clearEmoji) {
-      for (final f in _emojiCacheDirectory.listSync()) {
-        await f.delete(recursive: true);
-      }
+      await clearEmojiCache();
     }
   }
 
@@ -777,31 +803,73 @@ final class ImageCacheProvider with LoggerMixin {
 
   ///////////////////////// Emoji Cache /////////////////////////
 
-  /// Validate emoji cache.
+  /// The emoji of the saved emoji list by the place of their image ([emojiImageKeyOf]), and their image urls by
+  /// `${GROUP_ID}_${ID}`; read from the list file the first time asked ([_ensureEmojiIndex]).
+  ({Map<String, ({String groupId, String id})> byImage, Map<String, String> urls})? _emojiIndex;
+
+  /// The first read of the saved emoji list into [_emojiIndex], running or done.
+  Future<void>? _emojiIndexLoading;
+
+  /// Where an image of one of the forum's emoji is, wherever it is served from: `${ROUTE_NAME}/${FILE_NAME}`, the
+  /// last two parts of its path after `smiley` or `smilies`; null for any other image.
   ///
-  /// * Check the existence of cache folder and cache info file.
-  /// * Check the all emojis described in emoji info file.
+  /// A post shows an emoji from the forum's own static directory (`static/image/smiley/MIKU/34.gif`) and the emoji
+  /// list names it on the image host (`https://img.tsdm39.com/img02/smilies/MIKU/34.gif`): the same file.
   ///
-  /// # Return Value
-  ///
-  /// Return true when passed validation.
-  /// Return false when failed the validation.
-  Future<bool> validateEmojiCache() async {
-    // Check cache directory and emoji info file exists or not.
-    if (!_emojiCacheDirectory.existsSync() || !_emojiCacheInfoFile.existsSync()) {
-      return false;
+  /// Only on the forum's own hosts (`www.tsdm39.com`, `img.tsdm39.com`…): an image of another site with such a path
+  /// must never be kept as one of the forum's emoji.
+  @visibleForTesting
+  static String? emojiImageKeyOf(String url) {
+    final uri = Uri.tryParse(url);
+    final host = uri?.host.toLowerCase();
+    if (host == null || (host != baseHostAlt && !host.endsWith('.$baseHostAlt'))) {
+      return null;
     }
-    try {
-      final info = EmojiGroupListMapper.fromJson(await _emojiCacheInfoFile.readAsString());
-      // Validate all cached emoji files exists.
-      final validateResult = info.validateCache(_emojiCacheDirectory.path);
-      return validateResult;
-      // Intend to be a muter on all types of exception.
-      // ignore: avoid_catches_without_on_clauses
-    } catch (e) {
-      warning('validate emoji cache failed: invalid emoji info: $e');
-      return false;
+    final segments = uri!.pathSegments.where((e) => e.isNotEmpty).toList();
+    if (segments.length < 3) {
+      return null;
     }
+    final dir = segments[segments.length - 3];
+    if (dir != 'smiley' && dir != 'smilies') {
+      return null;
+    }
+    return '${segments[segments.length - 2]}/${segments.last}';
+  }
+
+  void _indexEmoji(List<EmojiGroup> groups) {
+    final byImage = <String, ({String groupId, String id})>{};
+    final urls = <String, String>{};
+    for (final group in groups) {
+      for (final emoji in group.emojiList) {
+        if (!isSafeEmojiId(group.id) || !isSafeEmojiId(emoji.id)) {
+          continue;
+        }
+        final key = emojiImageKeyOf(emoji.url);
+        if (key != null) {
+          byImage[key] = (groupId: group.id, id: emoji.id);
+        }
+        urls['${group.id}_${emoji.id}'] = emoji.url;
+      }
+    }
+    _emojiIndex = (byImage: byImage, urls: urls);
+  }
+
+  /// Read the saved emoji list into [_emojiIndex] once; nothing when there is none (the emoji panel never opened):
+  /// the forum's emoji are then images like any other.
+  Future<void> _ensureEmojiIndex() => _emojiIndexLoading ??= () async {
+    if (!_emojiCacheReady) {
+      return;
+    }
+    final groups = await loadEmojiInfo();
+    if (groups != null && _emojiIndex == null) {
+      _indexEmoji(groups);
+    }
+  }();
+
+  /// The emoji whose image is at [key] ([emojiImageKeyOf]), null when it is not one of the saved emoji list.
+  Future<({String groupId, String id})?> _emojiOf(String key) async {
+    await _ensureEmojiIndex();
+    return _emojiIndex?.byImage[key];
   }
 
   /// Save the emoji info.
@@ -811,10 +879,11 @@ final class ImageCacheProvider with LoggerMixin {
     final jsonData = EmojiGroupList(emojiGroupList).toJson();
     await _emojiCacheInfoFile.create(recursive: true);
     await _emojiCacheInfoFile.writeAsString(jsonData);
+    _indexEmoji(emojiGroupList);
+    _emojiIndexLoading = Future.value();
   }
 
   /// Load all emoji data from cache.
-  ///
   ///
   /// Return null if no such cached emoji info or info is invalid.
   Future<List<EmojiGroup>?> loadEmojiInfo() async {
@@ -822,7 +891,7 @@ final class ImageCacheProvider with LoggerMixin {
       return null;
     }
     try {
-      final info = EmojiGroupListMapper.fromJson(_emojiCacheInfoFile.readAsStringSync());
+      final info = EmojiGroupListMapper.fromJson(await _emojiCacheInfoFile.readAsString());
       return info.emojiGroupList;
       // Intend to be a muter on all types of exception.
       // ignore: avoid_catches_without_on_clauses
@@ -832,29 +901,39 @@ final class ImageCacheProvider with LoggerMixin {
     }
   }
 
-  /// Load emoji info and emoji images from assert.
+  /// At most this many emoji download at once through [getOrMakeEmojiCache]: the groups of the emoji panel, the
+  /// recent ones, those of the editor, all together.
+  static const maxEmojiDownloads = 4;
+
+  static final _emojiSlots = _Slots(maxEmojiDownloads);
+
+  /// The image of the emoji [id] in group [groupId]: from the emoji cache, else downloaded from [url] (by default the
+  /// url the saved emoji list names) and kept there. Null when it is not cached and can not be downloaded, or no
+  /// longer [wanted] when its turn to download comes.
   ///
-  /// Copy to legacy emoji data dir so that existing emoji validation logic
-  /// does not need to change.
-  Future<List<EmojiGroup>?> loadEmojiFromAsset() async {
-    final infoBytes = await rootBundle.loadString(assetEmojiInfoPath);
-    final info = EmojiGroupListMapper.fromJson(infoBytes);
-    await _emojiCacheInfoFile.writeAsString(infoBytes);
-
-    for (final emojiGroup in info.emojiGroupList) {
-      for (final emoji in emojiGroup.emojiList) {
-        // All emoji are saved with ".jpg" suffix.
-        final cacheTarget = _formatEmojiCachePath(emojiGroup.id, emoji.id);
-        if (cacheTarget == null) {
-          warning('skip emoji with unsafe id (${emojiGroup.id.length}/${emoji.id.length} chars)');
-          continue;
-        }
-        final emojiBytes = await rootBundle.load('$assetEmojiDir${emojiGroup.id}_${emoji.id}.jpg');
-        await File(cacheTarget).writeAsBytes(emojiBytes.buffer.asUint8List());
-      }
+  /// At most [maxEmojiDownloads] download at once, the others wait their turn. Asked again while it downloads, it
+  /// waits for the same request ([getOrMakeCache]).
+  Future<Uint8List?> getOrMakeEmojiCache(String groupId, String id, {String? url, bool Function()? wanted}) async {
+    final cached = await getEmojiCache(groupId, id);
+    if (cached != null) {
+      return cached;
     }
-
-    return info.emojiGroupList;
+    await _ensureEmojiIndex();
+    final imageUrl = url ?? _emojiIndex?.urls['${groupId}_$id'];
+    if (imageUrl == null || imageUrl.isEmpty || !isSafeEmojiId(groupId) || !isSafeEmojiId(id)) {
+      return null;
+    }
+    return _emojiSlots.run(() async {
+      if (wanted != null && !wanted()) {
+        return null;
+      }
+      final data = (await getOrMakeCache(ImageCacheGeneralRequest(imageUrl))).toNullable();
+      if (data != null && !hasEmojiCacheFile(groupId, id)) {
+        // An image the saved list does not know as this emoji's (another list, or another emoji with the same file).
+        await updateEmojiCache(groupId, id, data);
+      }
+      return data;
+    });
   }
 
   /// Emoji cache is save as jpg file no matter the real content.
@@ -888,19 +967,6 @@ final class ImageCacheProvider with LoggerMixin {
     return getEmojiCache(groupId, id);
   }
 
-  /// Try get the emoji cache from raw bbcode.
-  ///
-  /// Synchronously.
-  Uint8List? getEmojiCacheFromRawCodeSync(String code) {
-    if (!_emojiCodeRe.hasMatch(code)) {
-      return null;
-    }
-    final m = _emojiCodeRe.firstMatch(code)!;
-    final groupId = m.namedGroup('groupId')!;
-    final id = m.namedGroup('id')!;
-    return getEmojiCacheSync(groupId, id);
-  }
-
   /// Get the cached file of emoji with specified [groupId] and [id].
   Future<Uint8List?> getEmojiCache(String groupId, String id) async {
     final cachePath = _formatEmojiCachePath(groupId, id);
@@ -909,7 +975,7 @@ final class ImageCacheProvider with LoggerMixin {
     }
     final cacheFile = File(cachePath);
     if (!cacheFile.existsSync()) {
-      warning('$cacheFile cache file not exists');
+      // Not downloaded yet: emoji are downloaded when first shown.
       return null;
     }
     final data = await cacheFile.readAsBytes();
@@ -924,7 +990,6 @@ final class ImageCacheProvider with LoggerMixin {
     }
     final cacheFile = File(cachePath);
     if (!cacheFile.existsSync()) {
-      warning('$cacheFile cache file not exists');
       return null;
     }
     final data = cacheFile.readAsBytesSync();
@@ -932,10 +997,14 @@ final class ImageCacheProvider with LoggerMixin {
   }
 
   /// Clear all emoji cache files.
+  ///
+  /// The emoji list goes with them: until the panel loads it again, the forum's emoji are images like any other.
   Future<void> clearEmojiCache() async {
     for (final f in _emojiCacheDirectory.listSync()) {
       await f.delete(recursive: true);
     }
+    _emojiIndex = null;
+    _emojiIndexLoading = null;
   }
 
   /// Update emoji cache.
@@ -950,9 +1019,21 @@ final class ImageCacheProvider with LoggerMixin {
       warning('refuse to cache emoji with unsafe id (${groupId.length}/${id.length} chars)');
       return;
     }
-    // Make cache.
-    final cache = File(fileName);
-    await cache.writeAsBytes(imageData);
+    // Written aside and moved in place: a half written file would pass for a cached emoji. Best effort, the bytes are
+    // in hand already.
+    final part = File('$fileName.part');
+    try {
+      await part.parent.create(recursive: true);
+      await part.writeAsBytes(imageData);
+      await part.rename(fileName);
+    } on FileSystemException catch (e) {
+      warning('could not save the emoji $groupId/$id: ${e.message}');
+      try {
+        if (part.existsSync()) await part.delete();
+      } on FileSystemException catch (_) {
+        // Reported above.
+      }
+    }
   }
 
   /// Return the full cache info of image referred to `url`.
@@ -995,4 +1076,35 @@ final class _EmptyImageException implements Exception {
 
   @override
   String toString() => 'empty image';
+}
+
+/// At most [max] jobs at once, the others wait their turn in order.
+final class _Slots {
+  _Slots(this.max);
+
+  final int max;
+
+  int _running = 0;
+
+  final _waiting = Queue<Completer<void>>();
+
+  Future<T> run<T>(Future<T> Function() job) async {
+    if (_running < max) {
+      _running++;
+    } else {
+      final turn = Completer<void>();
+      _waiting.add(turn);
+      // The slot of a job that ended is handed over, [_running] stays.
+      await turn.future;
+    }
+    try {
+      return await job();
+    } finally {
+      if (_waiting.isNotEmpty) {
+        _waiting.removeFirst().complete();
+      } else {
+        _running--;
+      }
+    }
+  }
 }
