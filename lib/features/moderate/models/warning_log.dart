@@ -12,7 +12,7 @@ final class WarningRecord {
   /// staff otherwise (管理团队).
   final String operator;
 
-  /// The moderator's uid, null where the forum does not link the moderator.
+  /// The moderator's uid, null where the forum does not link the moderator: a tap on the record opens the profile.
   final int? operatorUid;
 
   /// When, as the forum prints it.
@@ -100,7 +100,11 @@ WarningLogAnswer? parseWarningLog(String raw) {
         ),
       );
     }
-    return WarningLogShown(WarningLog(records: List.unmodifiable(records), summary: _text(doc.querySelector('div.o'))));
+    // The line under the list is the window's own (`div.o` right after the window's `div.f_c`), not any other on a page.
+    final window = table.parent?.parent;
+    final line = window?.nextElementSibling;
+    final summary = line != null && line.localName == 'div' && line.classes.contains('o') ? _text(line) : '';
+    return WarningLogShown(WarningLog(records: List.unmodifiable(records), summary: summary));
   }
   final box =
       doc.querySelector('div.alert_error') ??

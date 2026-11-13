@@ -2,10 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:fpdart/fpdart.dart' show Either, Left, Right;
+import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/features/moderate/models/warning_log.dart';
 import 'package:tsdm_client/features/moderate/repository/warning_log_repository.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/show_bottom_sheet.dart';
 import 'package:tsdm_client/widgets/indicator.dart';
@@ -34,7 +36,8 @@ class WarnedFloorMark extends StatelessWidget {
         key: const ValueKey('floor-warned-mark'),
         radius: 18,
         onTap: () => unawaited(showWarningLog(context, tid: tid, uid: uid, repository: repository)),
-        child: mark,
+        // A larger target than the icon alone.
+        child: Padding(padding: const EdgeInsets.all(4), child: mark),
       );
     }
     return mark;
@@ -81,7 +84,9 @@ class _WarningLogViewState extends State<WarningLogView> {
   }
 
   Future<void> _load() async {
-    setState(() => _answer = null);
+    if (_answer != null) {
+      setState(() => _answer = null);
+    }
     final answer = await widget.repository.fetch(tid: widget.tid, uid: widget.uid);
     if (mounted) setState(() => _answer = answer);
   }
@@ -103,6 +108,15 @@ class _WarningLogViewState extends State<WarningLogView> {
             key: ValueKey('warning-record-$i'),
             contentPadding: EdgeInsets.zero,
             title: Text(record.reason.isEmpty ? '-' : context.displayText(record.reason)),
+            onTap: switch (record.operatorUid) {
+              final uid? => () async {
+                // Close the sheet first: the profile page opens on the page below it.
+                final router = GoRouter.of(context);
+                context.pop();
+                await router.pushNamed(ScreenPaths.profile, queryParameters: {'uid': '$uid'});
+              },
+              null => null,
+            },
             subtitle: Text(
               [context.displayText(record.operator), record.time].where((e) => e.isNotEmpty).join(' · '),
               style: muted,
