@@ -2454,8 +2454,6 @@
     "readPerm": "讀取權限",
     "emoji": {
       "title": "表情",
-      "downloading": "正在下載表情（大約10MB內容），這可能需要一些時間。。",
-      "loadingAssets": "正在載入已打包的表情…",
       "recent": "最近使用",
       "noRecent": "用過的表情會出現在這裡",
       "removeRecent": "從最近使用中移除"

@@ -21,12 +21,6 @@ const assetsLicensePath = './assets/text/LICENSE';
 /// Dart logo
 const assetDartLogoPath = './assets/images/dart.svg';
 
-/// Path of all emoji related asset.
-const assetEmojiDir = './assets/images/emoji/';
-
-/// Bundled emoji.
-const assetEmojiInfoPath = './assets/images/emoji/emoji.json';
-
 /// Tiny placeholder image.
 ///
 /// As part of workaround for the image data.

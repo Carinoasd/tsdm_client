@@ -139,7 +139,6 @@ flutter:
   uses-material-design: true
   assets:
     - assets/images/
-    - assets/images/emoji/
     - assets/images/app_icons/
     - assets/text/
     - assets/text/opencc/

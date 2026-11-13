@@ -10,12 +10,11 @@ import 'package:tsdm_client/features/editor/utils/mention_suggestions.dart';
 import 'package:tsdm_client/features/editor/utils/mention_trigger.dart';
 import 'package:tsdm_client/features/editor/widgets/color_bottom_sheet.dart';
 import 'package:tsdm_client/features/editor/widgets/emoji_bottom_sheet.dart';
+import 'package:tsdm_client/features/editor/widgets/emoji_image.dart';
 import 'package:tsdm_client/features/editor/widgets/image_dialog.dart';
 import 'package:tsdm_client/features/editor/widgets/mention_picker.dart';
 import 'package:tsdm_client/features/editor/widgets/mention_suggestion_bar.dart';
 import 'package:tsdm_client/features/editor/widgets/url_dialog.dart';
-import 'package:tsdm_client/instance.dart';
-import 'package:tsdm_client/shared/providers/image_cache_provider/image_cache_provider.dart';
 import 'package:tsdm_client/widgets/cached_image/cached_image.dart';
 
 /// Wrapped bbcode editor.
@@ -289,11 +288,19 @@ class _RichEditorState extends State<RichEditor> {
         // code is supposed in
         // {:${group_id}_${emoji_id}:}
         // format.
-        final data = getIt.get<ImageCacheProvider>().getEmojiCacheFromRawCodeSync(code);
-        if (data == null) {
+        // Not downloaded yet (a group never opened in the emoji panel): downloaded now.
+        final ids = emojiIdsOfCode(code);
+        if (ids == null) {
           return Text(code);
         }
-        return Image.memory(data, width: RichEditor.defaultEmojiWidth, height: RichEditor.defaultEmojiHeight);
+        return EmojiCacheImage(
+          groupId: ids.groupId,
+          id: ids.id,
+          fetch: true,
+          width: RichEditor.defaultEmojiWidth,
+          height: RichEditor.defaultEmojiHeight,
+          placeholder: Text(code),
+        );
       },
       usernamePicker: showMentionPicker,
       // TODO: Implement imageBuilder in editor package.

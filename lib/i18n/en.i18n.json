@@ -2454,8 +2454,6 @@
     "readPerm": "Read permission",
     "emoji": {
       "title": "Emoji",
-      "downloading": "Downloading emoji (about 10 MB), this may take a while…",
-      "loadingAssets": "Loading bundled emoji…",
       "recent": "Recent",
       "noRecent": "Emojis you use show up here",
       "removeRecent": "Remove from recent"
