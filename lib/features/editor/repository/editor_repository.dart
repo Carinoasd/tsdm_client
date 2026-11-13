@@ -13,6 +13,51 @@ import 'package:tsdm_client/shared/providers/net_client_provider/net_client_prov
 import 'package:tsdm_client/shared/providers/providers.dart';
 import 'package:tsdm_client/utils/logger.dart';
 
+/// The emoji list fetched in the background for the forum's emoji shown before the emoji panel ever loaded it (the
+/// emoji of an old draft or a quote in the editor): once a run of the app. A fetch that failed is not tried again in
+/// this run (the emoji stay their code; the emoji panel tries again on its own when opened).
+abstract final class EmojiListInBackground {
+  static Future<bool>? _loading;
+
+  static var _failed = false;
+
+  /// Whether the emoji list is in [cache] ([ImageCacheProvider.hasEmojiList]), fetched now when it is not and no
+  /// fetch failed in this run; callers at the same time share one fetch.
+  static Future<bool> ensure(ImageCacheProvider cache) async {
+    if (!cache.emojiCacheReady || !getIt.isRegistered<NetClientProvider>(instanceName: ServiceKeys.noCookie)) {
+      return false;
+    }
+    if (await cache.hasEmojiList()) {
+      return true;
+    }
+    if (_failed) {
+      return false;
+    }
+    return _loading ??= () async {
+      final repository = EditorRepository(imageCacheProvider: cache);
+      try {
+        final loaded = (await repository.loadEmojiFromCacheOrServer().run()).isRight();
+        _failed = !loaded;
+        return loaded;
+      } on Exception catch (e) {
+        talker.handle(e);
+        _failed = true;
+        return false;
+      } finally {
+        repository.dispose();
+        _loading = null;
+      }
+    }();
+  }
+
+  /// Forget the fetches of this run.
+  @visibleForTesting
+  static void reset() {
+    _loading = null;
+    _failed = false;
+  }
+}
+
 /// The repository of bbcode editor features injected into bbcode editor.
 ///
 /// Provide materials including:

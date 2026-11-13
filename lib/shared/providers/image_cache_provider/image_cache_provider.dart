@@ -7,7 +7,7 @@ import 'dart:typed_data';
 import 'dart:ui';
 
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart' show visibleForTesting;
+import 'package:flutter/foundation.dart' show ValueListenable, ValueNotifier, visibleForTesting;
 import 'package:flutter/painting.dart' as painting;
 import 'package:flutter_avif/flutter_avif.dart';
 import 'package:fpdart/fpdart.dart';
@@ -188,6 +188,7 @@ final class ImageCacheProvider with LoggerMixin {
   /// more ([_tell]).
   Future<void> dispose() async {
     await _controller.close();
+    _emojiListRevision.dispose();
   }
 
   /// Tell [resp] on [response], unless the repository is disposed: a load that was running then (an image read from
@@ -854,6 +855,21 @@ final class ImageCacheProvider with LoggerMixin {
     _emojiIndex = (byImage: byImage, urls: urls);
   }
 
+  /// Whether the emoji cache can be read and written: [initCache] gave its directory.
+  bool get emojiCacheReady => _emojiCacheReady;
+
+  /// Whether the emoji list is saved on this device ([saveEmojiInfo]): false before the emoji panel first loaded it, or
+  /// without the cache directories.
+  Future<bool> hasEmojiList() async {
+    await _ensureEmojiIndex();
+    return _emojiIndex != null;
+  }
+
+  /// Changes each time the emoji list is saved ([saveEmojiInfo]): an emoji shown before the list was there may be
+  /// downloaded now.
+  ValueListenable<int> get emojiListRevision => _emojiListRevision;
+  final _emojiListRevision = ValueNotifier<int>(0);
+
   /// Read the saved emoji list into [_emojiIndex] once; nothing when there is none (the emoji panel never opened):
   /// the forum's emoji are then images like any other.
   Future<void> _ensureEmojiIndex() => _emojiIndexLoading ??= () async {
@@ -881,6 +897,9 @@ final class ImageCacheProvider with LoggerMixin {
     await _emojiCacheInfoFile.writeAsString(jsonData);
     _indexEmoji(emojiGroupList);
     _emojiIndexLoading = Future.value();
+    if (!_controller.isClosed) {
+      _emojiListRevision.value++;
+    }
   }
 
   /// Load all emoji data from cache.
