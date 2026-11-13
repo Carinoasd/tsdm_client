@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:tsdm_client/constants/url.dart';
+import 'package:tsdm_client/features/moderate/models/moderate_posts.dart' show modcpAuthorUidOf;
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:tsdm_client/features/tsdmapp/v4.dart';
 import 'package:tsdm_client/shared/models/models.dart';
@@ -333,11 +334,6 @@ RecycleBinList? parseRecycleBin(
 
 String _text(uh.Element? e) => (e?.text ?? '').replaceAll(RegExp(r'\s+'), ' ').trim();
 
-int? _uidOf(uh.Element? link) {
-  final match = RegExp(r'[?&]uid=(\d+)').firstMatch(link?.attributes['href'] ?? '');
-  return match == null ? null : int.tryParse(match.group(1)!);
-}
-
 RecycleBinItem _threadItem(uh.Element row, String id) {
   final cells = row.querySelectorAll('td.by');
   final authorLink = cells.firstOrNull?.querySelector('cite a');
@@ -346,7 +342,7 @@ RecycleBinItem _threadItem(uh.Element row, String id) {
     id: id,
     title: _text(row.querySelector('span#thread_$id a') ?? row.querySelector('th a')),
     author: _text(authorLink ?? cells.firstOrNull?.querySelector('cite')),
-    authorUid: _uidOf(authorLink),
+    authorUid: modcpAuthorUidOf(authorLink),
     time: _text(cells.firstOrNull?.querySelector('em')),
     reason: cells.length >= 3 ? _text(cells.last) : '',
     replies: _text(counts?.querySelector('strong')),
@@ -364,7 +360,7 @@ RecycleBinItem _postItem(uh.Element row, String id) {
     id: id,
     title: _text(link ?? (cells.length > 1 ? cells[1] : null)),
     author: _text(authorLink ?? by.firstOrNull),
-    authorUid: _uidOf(authorLink),
+    authorUid: modcpAuthorUidOf(authorLink),
     // The last column is the time it was posted.
     time: by.length >= 2 ? _text(by.last) : '',
     tid: tid?.group(1),
