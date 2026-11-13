@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root><![CDATA[
+<div class="tm_c" id="floatlayout_topicadmin">
+<h3 class="flb">
+<em id="return_mods">选择了 1 篇主题</em>
+<span>
+<a href="javascript:;" class="flbc" onclick="hideWindow('mods')" title="关闭">关闭</a>
+</span>
+</h3>
+<form id="topicadminform" method="post" autocomplete="off" action="forum.php?mod=topicadmin&amp;action=split&amp;modsubmit=yes&amp;infloat=yes&amp;modclick=yes" onsubmit="ajaxpost('topicadminform', 'return_mods', 'return_mods', 'onerror');return false;">
+<input type="hidden" name="formhash" value="f1f2f3f4" />
+<input type="hidden" name="fid" value="2">
+<input type="hidden" name="tid" value="9202952">
+<input type="hidden" name="handlekey" value="mods" /><div class="c">
+<div class="tpmh">
+<table cellspacing="0" cellpadding="0" width="100%">
+<tr>
+<td><label for="subject">新标题</label></td>
+</tr>
+<tr>
+<td><input type="text" name="subject" id="subject" class="px" size="20" /></td>
+</tr>
+<tr>
+<td><label for="split">分割 &rarr;填写楼号 (用 "," 间隔)</label></td>
+</tr>
+<tr>
+<td><textarea name="split" id="split" class="pt" style="width: 212px; height:120px" /></textarea></td>
+</tr>
+</table>
+</div>
+<div class="tpclg">
+<h4>
+<a onclick="showselect(this, 'reason', 'reasonselect')" class="dpbtn y" href="javascript:;">^</a>
+操作说明:
+</h4>
+<p><textarea name="reason" id="reason" class="pt" onkeyup="seditor_ctlent(event, '$(\'modsubmit\').click()')"></textarea></p>
+<ul id="reasonselect" style="display: none"><li>广告/SPAM</li><li>恶意灌水</li><li>违规内容</li><li>文不对题</li><li>重复发帖</li><li>--------</li><li>我很赞同</li><li>精品文章</li><li>原创内容</li></ul>
+</div>
+</div>
+    <div class="o pns">
+<label for="sendreasonpm"><input type="checkbox" name="sendreasonpm" id="sendreasonpm" class="pc" />通知作者</label>
+<button type="submit" name="modsubmit" id="modsubmit" value="ture" class="pn pnc"><span>确定</span></button>
+</div>
+</form>
+</div>
+<script type="text/javascript" reload="1">
+function succeedhandle_mods(locationhref) {
+hideWindow('mods');
+location.href = locationhref;
+}
+if($('copyto')) {
+ajaxget('forum.php?mod=ajax&action=getthreadtypes&fid=' + $('copyto').value, 'threadtypes');
+}
+</script>
+
+]]></root>

@@ -10,6 +10,7 @@ import 'package:tsdm_client/features/thread/v1/repository/thread_repository.dart
 import 'package:tsdm_client/features/thread/v1/utils/parse_thread_document.dart';
 import 'package:tsdm_client/features/tsdmapp/small_form.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
+import 'package:tsdm_client/features/tsdmapp/v4.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
 import 'package:tsdm_client/utils/logger.dart';
@@ -24,6 +25,58 @@ typedef ModerateGet = Future<Either<AppException, ModerateResponse>> Function(St
 
 /// Post [body] to [url] once, never retried. Returns the failure of the transport as its left.
 typedef ModeratePost = Future<Either<AppException, ModerateResponse>> Function(String url, Map<String, String> body);
+
+/// Make sure the last `status` of the forum's app API is known before a flag of plugin 4.0.0 is looked at
+/// ([TsdmAppApi.ensureStatus]).
+typedef ModerateEnsureStatus = Future<void> Function();
+
+/// The `status` of the app's client ([TsdmAppApi.ensureStatus]).
+Future<void> moderateEnsureStatus() => TsdmAppApi.ensureStatus(getIt.get<NetClientProvider>());
+
+/// Asks nothing: the `status` known now is used (the repositories built with injected transports).
+Future<void> moderateStatusKnown() async {}
+
+/// Ask small form [kind] of plugin 4.0.0 at [url] with [get] for account [uid] ([currentUid] the account logged in
+/// now), when the last `status` lists it ([TsdmAppV4.has], after [ensureStatus]).
+///
+/// The form, or the forum's message instead of it ([SmallFormAnswer]); null when the app reads the web page as before
+/// (nothing asked: the flag off; or an answer that is not the form: `status` forgotten, [TsdmAppApi.forgetStatus];
+/// a form the app can not send as served, [SmallFormFields.usable]). An answer served to another account, or after the
+/// account changed, is an [IdentityChangedException]; a failed request its failure.
+Future<Either<AppException, SmallFormAnswer?>> moderateV4Form(
+  SmallFormKind kind,
+  String url, {
+  required ModerateGet get,
+  required ModerateEnsureStatus ensureStatus,
+  required int uid,
+  required int Function() currentUid,
+}) async {
+  await ensureStatus();
+  if (!TsdmAppV4.has(TsdmAppV4Group.forms, kind.name)) {
+    return right(null);
+  }
+  final resp = await get(withTsdmAppV4Form(url));
+  switch (resp) {
+    case Left(:final value):
+      return left(value);
+    case Right(:final value) when value.statusCode != HttpStatus.ok:
+      return left(HttpRequestFailedException(value.statusCode));
+    case Right(:final value):
+      if (currentUid() != uid) {
+        return left(IdentityChangedException());
+      }
+      final answer = smallFormAnswerOf(value.data, kind);
+      if (answer == null) {
+        // Asked as `status` said and answered as without it: the flag is stale.
+        TsdmAppApi.forgetStatus();
+        return right(null);
+      }
+      if (answer.uid != uid) {
+        return left(IdentityChangedException());
+      }
+      return right(answer is SmallFormFields && !answer.usable ? null : answer);
+  }
+}
 
 /// Read page [page] of thread [tid], oldest floor first, as the thread page reads it.
 typedef ModerateThreadPage = Future<Either<AppException, ThreadPageInfo>> Function(String tid, int page);
@@ -52,10 +105,12 @@ final class ModerateRepository with LoggerMixin {
     required ModeratePost post,
     int Function()? currentUid,
     ModerateThreadPage? threadPage,
+    ModerateEnsureStatus? ensureStatus,
   }) : _get = get,
        _post = post,
        _threadPage = threadPage ?? _networkThreadPage,
-       _currentUid = currentUid ?? currentLoginUid;
+       _currentUid = currentUid ?? currentLoginUid,
+       _ensureStatus = ensureStatus ?? moderateStatusKnown;
 
   /// Uses the app's client.
   factory ModerateRepository.network() => ModerateRepository(
@@ -68,12 +123,20 @@ final class ModerateRepository with LoggerMixin {
           Left(:final value) => left(value),
           Right(:final value) => right((statusCode: value.statusCode ?? 0, data: value.data)),
         },
+    ensureStatus: moderateEnsureStatus,
   );
 
   final ModerateGet _get;
   final ModeratePost _post;
   final ModerateThreadPage _threadPage;
   final int Function() _currentUid;
+
+  /// Asks the `status` of the forum's app API when it is not known yet; without one, what is known is used.
+  final ModerateEnsureStatus _ensureStatus;
+
+  /// Small form [kind] at [url] for account [uid] ([moderateV4Form]).
+  Future<Either<AppException, SmallFormAnswer?>> _v4Form(SmallFormKind kind, String url, int uid) =>
+      moderateV4Form(kind, url, get: _get, ensureStatus: _ensureStatus, uid: uid, currentUid: _currentUid);
 
   static Future<Either<AppException, ThreadPageInfo>> _networkThreadPage(String tid, int page) =>
       ThreadRepository().fetchThreadPage(tid: tid, pageNumber: page, reverseOrder: false).run();
@@ -164,7 +227,18 @@ final class ModerateRepository with LoggerMixin {
               ? left(IdentityChangedException())
               : right(ModerateWindowReady(ModerateForm.repair(tid: tid, fid: fid, uid: uid)));
         }
-        final resp = await _get(withTsdmAppJsonWrite(ModerateForm.windowUrl(operation, tid: tid, fid: fid)));
+        final url = ModerateForm.windowUrl(operation, tid: tid, fid: fid);
+        switch (await _v4Form(SmallFormKind.moderate, url, uid)) {
+          case Left(:final value):
+            return left(value);
+          case Right(:final value?):
+            if (windowOfApi(value, operation, tid: tid, fid: fid, uid: uid) case final window?) {
+              return right(window);
+            }
+          case Right(value: null):
+            break;
+        }
+        final resp = await _get(withTsdmAppJsonWrite(url));
         switch (resp) {
           case Left(:final value):
             return left(value);
@@ -183,6 +257,31 @@ final class ModerateRepository with LoggerMixin {
   /// or has no reply to split off (`admin_split_invalid`).
   static bool _refusedForGood(String key) =>
       key.startsWith('no_privilege_') || key == 'special_noaction' || key == 'admin_split_invalid';
+
+  /// The window of [operation] for thread [tid] of forum [fid] in the small form answer [answer] of plugin 4.0.0
+  /// (`form: moderate`), asked by account [uid]: the window ([ModerateForm.fromApi]), the forum's refusal to open it in
+  /// its words (`message_key` [_refusedForGood] for good), a window served without the operation
+  /// ([ModerateForm.lacksOperationApi]). Null for a window the app does not read as one: the web page is read instead.
+  static ModerateWindow? windowOfApi(
+    SmallFormAnswer answer,
+    ModerateOperation operation, {
+    required String tid,
+    required int fid,
+    required int uid,
+  }) {
+    switch (answer) {
+      case SmallFormMessage(:final reason, :final messageKey):
+        return ModerateWindowRefused(reason, unavailable: _refusedForGood(messageKey));
+      case final SmallFormFields fields:
+        if (ModerateForm.fromApi(fields, operation, tid: tid, fid: fid, uid: uid) case final form?) {
+          return ModerateWindowReady(form);
+        }
+        if (ModerateForm.lacksOperationApi(fields, operation, fid: fid, tid: tid)) {
+          return const ModerateWindowRefused('', unavailable: true);
+        }
+        return null;
+    }
+  }
 
   /// The window of [operation] in answer [data], asked by account [uid].
   static Either<AppException, ModerateWindow> windowOf(
@@ -263,9 +362,19 @@ final class ModerateRepository with LoggerMixin {
   /// An answer served to another account is an [IdentityChangedException].
   AsyncEither<List<ModerateChoice>> fetchThreadTypes(int fid) => AsyncEither(() async {
     final uid = _currentUid();
-    final resp = await _get(
-      withTsdmAppJsonWrite('$baseUrl/forum.php?mod=ajax&action=getthreadtypes&fid=$fid&inajax=1'),
-    );
+    final url = '$baseUrl/forum.php?mod=ajax&action=getthreadtypes&fid=$fid&inajax=1';
+    switch (await _v4Form(SmallFormKind.threadtypes, url, uid)) {
+      case Left(:final value):
+        return left(value);
+      case Right(value: final SmallFormFields fields):
+        if (threadTypesOfApi(fields) case final types?) {
+          return right(types);
+        }
+      case Right(value: SmallFormMessage() || null):
+        // The forum does not refuse the select; anything else is read from the web page.
+        break;
+    }
+    final resp = await _get(withTsdmAppJsonWrite(url));
     switch (resp) {
       case Left(:final value):
         return left(value);
@@ -278,6 +387,24 @@ final class ModerateRepository with LoggerMixin {
         return threadTypesOf(value.data, uid: uid);
     }
   });
+
+  /// The categories of a forum in the small form [answer] of plugin 4.0.0 (`form: threadtypes`, its `select`), as
+  /// [threadTypesOf] reads the select of the web page; null when it holds none.
+  static List<ModerateChoice>? threadTypesOfApi(SmallFormFields answer) {
+    final types = <ModerateChoice>[];
+    for (final option in tsdmAppList(tsdmAppMap(answer.json['select'])['choices'])) {
+      final value = switch (option['value']) {
+        final String s => s,
+        final num n => '$n',
+        _ => '',
+      };
+      if (int.tryParse(value) == null || types.any((e) => e.value == value)) {
+        continue;
+      }
+      types.add(ModerateChoice(value: value, label: tsdmAppText(option['label']).trim()));
+    }
+    return types.isEmpty ? null : types;
+  }
 
   /// The categories of a forum in answer [data] to [fetchThreadTypes], asked by account [uid].
   static Either<AppException, List<ModerateChoice>> threadTypesOf(Object? data, {required int uid}) {
@@ -316,7 +443,18 @@ final class ModerateRepository with LoggerMixin {
     required int fid,
   }) => AsyncEither(() async {
     final uid = _currentUid();
-    final resp = await _get(withTsdmAppJsonWrite(ModerateForm.batchWindowUrl(operation, tids: tids, fid: fid)));
+    final url = ModerateForm.batchWindowUrl(operation, tids: tids, fid: fid);
+    switch (await _v4Form(SmallFormKind.moderate, url, uid)) {
+      case Left(:final value):
+        return left(value);
+      case Right(:final value?):
+        if (batchWindowOfApi(value, operation, tids: tids, fid: fid, uid: uid) case final window?) {
+          return right(window);
+        }
+      case Right(value: null):
+        break;
+    }
+    final resp = await _get(withTsdmAppJsonWrite(url));
     switch (resp) {
       case Left(:final value):
         return left(value);
@@ -329,6 +467,29 @@ final class ModerateRepository with LoggerMixin {
         return batchWindowOf(value.data, operation, tids: tids, fid: fid, uid: uid);
     }
   });
+
+  /// The window of [operation] for threads [tids] of forum [fid] in the small form answer [answer] of plugin 4.0.0,
+  /// asked by account [uid], as [windowOfApi] reads the window of one thread; null when the web page is read instead.
+  static ModerateBatchWindow? batchWindowOfApi(
+    SmallFormAnswer answer,
+    ModerateOperation operation, {
+    required List<String> tids,
+    required int fid,
+    required int uid,
+  }) {
+    switch (answer) {
+      case SmallFormMessage(:final reason):
+        return ModerateBatchWindowRefused(reason);
+      case final SmallFormFields fields:
+        if (ModerateForm.batchFromApi(fields, operation, tids: tids, fid: fid, uid: uid) case final form?) {
+          return ModerateBatchWindowReady(form);
+        }
+        if (ModerateForm.lacksOperationApi(fields, operation, fid: fid, tids: tids)) {
+          return const ModerateBatchWindowRefused('', unavailable: true);
+        }
+        return null;
+    }
+  }
 
   /// The window of [operation] for threads [tids] in answer [data], asked by account [uid].
   static Either<AppException, ModerateBatchWindow> batchWindowOf(
@@ -492,9 +653,20 @@ final class ModerateRepository with LoggerMixin {
     bool undo = false,
   }) => AsyncEither(() async {
     final uid = _currentUid();
-    final resp = await _get(
-      withTsdmAppJsonWrite(FloorModerateForm.windowUrl(action, tid: tid, fid: fid, pid: pid, undo: undo)),
-    );
+    final url = FloorModerateForm.windowUrl(action, tid: tid, fid: fid, pid: pid, undo: undo);
+    if (action.apiForm case final kind?) {
+      switch (await _v4Form(kind, url, uid)) {
+        case Left(:final value):
+          return left(value);
+        case Right(:final value?):
+          if (floorWindowOfApi(value, action, tid: tid, fid: fid, pid: pid, uid: uid) case final window?) {
+            return right(window);
+          }
+        case Right(value: null):
+          break;
+      }
+    }
+    final resp = await _get(withTsdmAppJsonWrite(url));
     switch (resp) {
       case Left(:final value):
         return left(value);
@@ -507,6 +679,41 @@ final class ModerateRepository with LoggerMixin {
         return floorWindowOf(value.data, action, tid: tid, fid: fid, pid: pid, uid: uid);
     }
   });
+
+  /// The window of [action] on floor [pid] in the small form answer [answer] of plugin 4.0.0, asked by account [uid]:
+  /// the window ([FloorModerateForm.fromApi]) or the forum's refusal in its words (the first floor's deletion, which
+  /// the forum sends on to the thread's, without words, as the web page's window); null when the web page is read
+  /// instead.
+  static FloorModerateWindow? floorWindowOfApi(
+    SmallFormAnswer answer,
+    FloorModerateAction action, {
+    required String tid,
+    required int fid,
+    required String pid,
+    required int uid,
+  }) => switch (answer) {
+    SmallFormMessage(:final reason, :final url) => FloorModerateWindowRefused(
+      _isThreadDeletion(url) && reason.trim().isEmpty ? '' : reason,
+    ),
+    final SmallFormFields fields => switch (FloorModerateForm.fromApi(
+      fields,
+      action,
+      tid: tid,
+      fid: fid,
+      pid: pid,
+      uid: uid,
+    )) {
+      final form? => FloorModerateWindowReady(form),
+      null => null,
+    },
+  };
+
+  /// [url] is where the forum sends a floor's deletion of the first floor on to: the thread's deletion
+  /// (`topicadmin&action=moderate&operation=delete`).
+  static bool _isThreadDeletion(String url) {
+    final query = Uri.tryParse(url)?.queryParameters ?? const {};
+    return query['mod'] == 'topicadmin' && query['action'] == 'moderate' && query['operation'] == 'delete';
+  }
 
   /// The window of [action] on floor [pid] in answer [data], asked by account [uid].
   static Either<AppException, FloorModerateWindow> floorWindowOf(

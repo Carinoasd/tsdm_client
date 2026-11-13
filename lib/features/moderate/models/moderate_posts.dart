@@ -1,4 +1,7 @@
 import 'package:tsdm_client/constants/url.dart';
+import 'package:tsdm_client/features/tsdmapp/small_form.dart';
+import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
+import 'package:tsdm_client/features/tsdmapp/v4.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:universal_html/html.dart' as uh;
 
@@ -39,6 +42,15 @@ enum FloorModerateAction {
   /// The moderator chooses between doing and undoing it in the window: the forum's window of it checks one by what it
   /// was asked ([FloorModerateForm.windowUrl]), not by the floor.
   bool get choosable => this == FloorModerateAction.stick;
+
+  /// The small form of the forum's app API that serves the window (plugin 4.0.0); null for [stick], which it does not
+  /// serve (the web page's window is read).
+  SmallFormKind? get apiForm => switch (this) {
+    FloorModerateAction.delete => SmallFormKind.delpost,
+    FloorModerateAction.warn => SmallFormKind.warn,
+    FloorModerateAction.ban => SmallFormKind.banpost,
+    FloorModerateAction.stick => null,
+  };
 }
 
 /// The hidden fields of a floor's management window the app sends back as they were served; nothing else of the
@@ -63,6 +75,7 @@ final class FloorModerateForm {
     this.reasons = const [],
     this.canNotify = false,
     this.notifyForced = false,
+    this.v4 = false,
   });
 
   /// The operation.
@@ -97,9 +110,16 @@ final class FloorModerateForm {
   /// The forum notifies the author whatever is sent (the checkbox served checked and disabled).
   final bool notifyForced;
 
+  /// The window was served as a small form of the forum's app API (plugin 4.0.0, [fromApi]): it is posted with
+  /// [tsdmAppV4Query] too, the forum's verdict told by its `message_key`.
+  final bool v4;
+
   /// The url the window is posted to, as an AJAX request.
-  String get submitUrl =>
-      '$baseUrl/forum.php?mod=topicadmin&action=${action.action}&modsubmit=yes&infloat=yes&modclick=yes&inajax=1';
+  String get submitUrl {
+    final url =
+        '$baseUrl/forum.php?mod=topicadmin&action=${action.action}&modsubmit=yes&infloat=yes&modclick=yes&inajax=1';
+    return v4 ? withTsdmAppV4Write(url) : url;
+  }
 
   /// The url the window of [action] on floor [pid] of thread [tid] in forum [fid] is asked at, as the website asks it
   /// from the floor's management link (`modaction`); [undo] asks the window of a choosable action
@@ -174,6 +194,70 @@ final class FloorModerateForm {
     );
   }
 
+  /// The window of [action] on floor [pid] of thread [tid] in forum [fid] in the small form [answer] of the forum's app
+  /// API (plugin 4.0.0, `form: delpost|warn|banpost`), served to [uid]: the window [parse] reads from the web page,
+  /// read from its fields. Null when it is not that window (another action, floor, thread or forum, a target that is
+  /// not the forum's own, a form hash missing) or the choice between doing and undoing is missing.
+  static FloorModerateForm? fromApi(
+    SmallFormFields answer,
+    FloorModerateAction action, {
+    required String tid,
+    required int fid,
+    required String pid,
+    int uid = 0,
+  }) {
+    final json = answer.json;
+    if (action.apiForm?.name != json['form'] ||
+        json['action'] != action.action ||
+        answer.submitUrl('forum.php', {'mod': 'topicadmin', 'action': action.action, 'modsubmit': 'yes'}) == null) {
+      return null;
+    }
+    final fields = <String, String>{
+      for (final MapEntry(:key, :value) in answer.submitFields.entries)
+        if (floorModerateServedFields.contains(key)) key: value,
+    };
+    for (final MapEntry(:key, :value) in answer.submitLists.entries) {
+      if (!floorModerateServedFields.contains(key)) {
+        continue;
+      }
+      // Two floors, or a field served twice: not the window of one floor.
+      if (value.length != 1 || fields.containsKey(key)) {
+        return null;
+      }
+      fields[key] = value.single;
+    }
+    if ((fields['formhash'] ?? '').isEmpty ||
+        fields['topiclist[]'] != pid ||
+        fields['tid'] != tid ||
+        fields['fid'] != '$fid') {
+      return null;
+    }
+    var undo = false;
+    if (action.choiceField case final field?) {
+      final choice = tsdmAppMap(json[field]);
+      final values = {for (final c in tsdmAppList(choice['choices'])) '${c['value']}'};
+      if (!values.containsAll(['1', '0'])) {
+        return null;
+      }
+      // The forum checks the one that changes the floor as it is now (undo for a warned or hidden floor).
+      undo = '${choice['value']}' == '0';
+    }
+    final notify = json['notify'] is Map ? tsdmAppMap(json['notify']) : null;
+    return FloorModerateForm(
+      action: action,
+      tid: tid,
+      fid: fid,
+      pid: pid,
+      fields: fields,
+      uid: uid,
+      undo: undo,
+      reasons: moderateApiReasons(json),
+      canNotify: notify != null,
+      notifyForced: notify != null && notify['forced'] == 1,
+      v4: true,
+    );
+  }
+
   static bool _isTarget(String action, FloorModerateAction asked) {
     final query = _forumQuery(action);
     return query != null &&
@@ -197,6 +281,7 @@ final class FloorModerateForm {
           reasons: reasons,
           canNotify: canNotify,
           notifyForced: notifyForced,
+          v4: v4,
         );
 
   /// The form body of the moderator's choice: the served hidden fields, the choice of the window (doing or undoing, as
@@ -215,6 +300,16 @@ List<String> moderateReasons(uh.Element form) => form
     .map((e) => e.text?.trim() ?? '')
     .where((e) => e.isNotEmpty && !RegExp(r'^-+$').hasMatch(e))
     .toList();
+
+/// The reasons the site set for management in a small form answer [json] of the forum's app API (`reason.choices`,
+/// plugin 4.0.0), separators left out.
+List<String> moderateApiReasons(Map<String, dynamic> json) => [
+  for (final reason in switch (tsdmAppMap(json['reason'])['choices']) {
+    final List<dynamic> list => list,
+    _ => const <dynamic>[],
+  })
+    if (reason is String && reason.trim().isNotEmpty && !RegExp(r'^-+$').hasMatch(reason.trim())) reason.trim(),
+];
 
 Map<String, String>? _forumQuery(String url) {
   final Uri uri;
