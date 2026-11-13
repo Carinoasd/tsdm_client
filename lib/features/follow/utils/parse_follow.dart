@@ -2,6 +2,9 @@ import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/features/follow/models/follow_models.dart';
 import 'package:tsdm_client/features/space/models/space_models.dart';
 import 'package:tsdm_client/features/space/utils/parse_space.dart';
+import 'package:tsdm_client/features/space/utils/space_v4.dart';
+import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
+import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:universal_html/html.dart' as uh;
 import 'package:universal_html/parsing.dart';
 
@@ -317,4 +320,126 @@ FollowRelation? parseFollowRelation(uh.Document document, int uid) {
     followingCount: count('th p a[href*="do=following"]'),
     followerCount: count('td p a[href*="do=follower"]'),
   );
+}
+
+/// A broadcast of the forum's app API (plugin 4.0.0, a row of `feeds` of [json]), as the web parser reads it
+/// ([_feedOf]); null for a row without its member.
+///
+/// A thread the viewer may not read (`restricted`: the forum, its read permission, its price) is the thread without
+/// its title and beginning, and the app's words in place of the beginning; a thread gone (`thread` null) is the
+/// forum's words that it was deleted.
+FollowFeed? _feedFromApi(Map<String, dynamic> row, Map<String, dynamic> json) {
+  final feedId = tsdmAppInt(row['feedid']);
+  final uid = tsdmAppInt(row['uid']);
+  final username = tsdmAppText(row['username']);
+  if (feedId <= 0 || uid <= 0 || username.isEmpty) {
+    return null;
+  }
+  final words = t.spacePage.forumWords;
+  final noteHtml = tsdmAppText(row['note_html']);
+  final note = noteHtml.trim().isEmpty ? null : (spaceV4Html(noteHtml)..classes.add('flw_quotenote'));
+  final thread = row['thread'] is Map<String, dynamic> && row['deleted'] != 1 ? tsdmAppMap(row['thread']) : null;
+  if (thread == null) {
+    return FollowFeed(
+      feedId: feedId,
+      uid: uid,
+      username: username,
+      time: spaceV4Time(row['dateline'], json),
+      note: note,
+      content: uh.DivElement()..text = words.threadDeleted,
+      threadMissing: true,
+      canDelete: row['delete'] is Map,
+    );
+  }
+  final tid = tsdmAppInt(thread['tid']);
+  final restricted = tsdmAppText(thread['restricted']).isNotEmpty;
+  final contentHtml = thread['content_html'];
+  final content = restricted
+      ? (uh.DivElement()..text = words.threadRestricted)
+      : contentHtml is String && contentHtml.trim().isNotEmpty
+      ? spaceV4Html(contentHtml)
+      : null;
+  final author = tsdmAppText(thread['author']);
+  final posted = spaceV4Time(thread['dateline'], json);
+  final subject = tsdmAppText(thread['subject']);
+  final forum = tsdmAppText(thread['forum']);
+  return FollowFeed(
+    feedId: feedId,
+    uid: uid,
+    username: username,
+    time: spaceV4Time(row['dateline'], json),
+    note: note,
+    threadId: tid > 0 ? tid : null,
+    threadTitle: subject.isEmpty ? null : subject,
+    content: content,
+    origin: note != null && author.isNotEmpty && posted != null ? words.postedBy(name: author, time: posted) : null,
+    forumName: forum.isEmpty ? null : forum,
+    relayCount: tsdmAppInt(thread['relay']),
+    replyCount: tsdmAppInt(thread['replies']),
+    canRelay: tid > 0 && tsdmAppText(thread['relay_url']).isNotEmpty,
+    canDelete: row['delete'] is Map,
+  );
+}
+
+/// The broadcasts of [json] of the forum's app API (plugin 4.0.0).
+List<FollowFeed> followFeedsFromApi(Map<String, dynamic> json) => [
+  for (final row in tsdmAppList(json['feeds'])) ?_feedFromApi(row, json),
+];
+
+/// The url of the next part of broadcasts `next` of [json] (plugin 4.0.0), absolute and asked as the website asks it
+/// (`inajax=1`: the web parser reads it as the fragment it then is), null once there are no more.
+String? followNextFeedUrlFromApi(Map<String, dynamic> json) {
+  final next = spaceV4Url(json['next']);
+  if (next == null) {
+    return null;
+  }
+  return next.contains('inajax=') ? next : '$next&inajax=1';
+}
+
+/// A first page of broadcasts of the forum's app API (plugin 4.0.0: `type: space_feed`, `schema` 59, `more` 0): the
+/// broadcasts ([followFeedsFromApi]) and the forum's own `next` part, the session of the page. A list without a
+/// broadcast to show is the empty list, as [parseFollowFeedPage] reads it.
+SpaceListPage<FollowFeed> followFeedPageFromApi(Map<String, dynamic> json) {
+  final feeds = followFeedsFromApi(json);
+  return SpaceListPage(
+    items: feeds,
+    nextPageUrl: feeds.isEmpty ? null : followNextFeedUrlFromApi(json),
+    session: spaceV4Session(json),
+  );
+}
+
+/// A page of the members followed, or of the followers, of the forum's app API (plugin 4.0.0: `type: space_follow`,
+/// `schema` 60), asked as [url], as [parseFollowListPage] reads it: the follow button of a row is its `unfollow_url`
+/// or `follow_url` (none on another member's list of the viewer itself), "互相关注" is `mutual` 1, the remark and its
+/// link are on the account's own list of the followed only.
+SpaceListPage<FollowUser> followListPageFromApi(Map<String, dynamic> json, String url) {
+  final items = <FollowUser>[];
+  for (final row in tsdmAppList(json['users'])) {
+    final uid = tsdmAppInt(row['uid']);
+    final username = tsdmAppText(row['username']);
+    if (uid <= 0 || username.isEmpty) {
+      continue;
+    }
+    final remark = tsdmAppText(row['note']).trim();
+    final recent = tsdmAppText(row['recentnote']).replaceAll(RegExp(r'\s+'), ' ').trim();
+    items.add(
+      FollowUser(
+        uid: uid,
+        username: username,
+        avatarUrl: spaceV4Url(row['avatar']),
+        remark: remark.isEmpty ? null : remark,
+        recentNote: recent.isEmpty ? null : recent,
+        followerCount: row.containsKey('follower') ? tsdmAppInt(row['follower']) : null,
+        followingCount: row.containsKey('following') ? tsdmAppInt(row['following']) : null,
+        following: tsdmAppText(row['unfollow_url']).isNotEmpty
+            ? true
+            : tsdmAppText(row['follow_url']).isNotEmpty
+            ? false
+            : null,
+        mutual: row['mutual'] == 1,
+        canRemark: tsdmAppText(row['note_url']).isNotEmpty,
+      ),
+    );
+  }
+  return SpaceListPage(items: items, nextPageUrl: spaceV4NextPageUrl(url, json), session: spaceV4Session(json));
 }

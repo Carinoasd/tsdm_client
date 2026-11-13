@@ -4317,6 +4317,19 @@
       "deleteDoing": "删除记录",
       "deleteReply": "删除回复",
       "deleted": "已删除"
+    },
+    "forumWords": {
+      "privacy": "抱歉！由于 $name 的隐私设置，您不能访问当前内容",
+      "hiddenBlogs": "本页有 $n 篇日志因作者的隐私设置或未通过审核而隐藏",
+      "blogFriends": "仅好友可见",
+      "blogChosen": "指定好友可见",
+      "blogSelf": "仅自己可见",
+      "blogPassword": "凭密码可见",
+      "threadRestricted": "没有权限看这个主题",
+      "pokeSaid": "$action, 说: $note",
+      "threadDeleted": "该主题已被删除",
+      "postedBy": "$name 发表于 $time",
+      "defaultAlbum": "默认相册"
     }
   },
   "postComment": {
