@@ -226,6 +226,18 @@ void main() {
       expect(sent.extra[singleAttemptHttpRequestKey], isTrue);
     });
 
+    test('sends the session to the canonical https host only', () async {
+      for (final host in ['http://www.tsdm39.com', 'https://tsdm39.com', 'http://tsdm39.com']) {
+        final data = await images.getOrMakeCache(ImageCacheGeneralRequest(_attachmentUrl(31, host: host)));
+        expect(data.toNullable(), _png, reason: host);
+      }
+      expect(session.requests, hasLength(3));
+      for (final url in session.requests) {
+        expect(url, startsWith('https://www.tsdm39.com/forum.php?mod=attachment&aid='));
+      }
+      expect(anonymous.requests, isEmpty);
+    });
+
     test('follows any other redirect without the session', () async {
       session.redirectTo = 'https://img.example/storage/a.png';
       final data = await images.getOrMakeCache(ImageCacheGeneralRequest(_attachmentUrl(31)));

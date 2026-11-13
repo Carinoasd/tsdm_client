@@ -19,6 +19,7 @@ import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/extensions/fp.dart';
 import 'package:tsdm_client/extensions/int.dart';
 import 'package:tsdm_client/extensions/string.dart';
+import 'package:tsdm_client/extensions/uri.dart';
 import 'package:tsdm_client/features/attachment_download/utils/attachment_protocol.dart';
 import 'package:tsdm_client/features/cache/models/models.dart';
 import 'package:tsdm_client/features/settings/models/models.dart';
@@ -144,20 +145,23 @@ final class ImageCacheProvider with LoggerMixin {
   /// credits (an image uploaded as a file, `isimage` -1) to `mod=misc&action=attachcredit&formhash=…`, whose loading
   /// takes the credits: never asked for a picture (it fails, as it did without the session, the guest's `formhash`
   /// refused). Any other redirect (`none.gif` of an expired link, a storage host) is followed without the session: the
-  /// cookie never leaves for another host.
+  /// cookie never leaves for another host. The session goes to the canonical forum host only (`https://www.tsdm39.com`).
   AsyncEither<Response<dynamic>> _fetchImage(String imageUrl, {ProgressCallback? onReceiveProgress}) {
     final uid = uidOfAttachmentUrl(imageUrl);
     final session = uid == null ? null : _sessionClientOf?.call(uid);
     if (session == null) {
       return _netClientProvider.getImage(imageUrl, onReceiveProgress: onReceiveProgress);
     }
-    return session.getImage(imageUrl, onReceiveProgress: onReceiveProgress, followRedirects: false).flatMap((resp) {
+    // Sent to the canonical https host only: an `http://` or `tsdm39.com` address (one written in a post) never carries
+    // the cookie in clear text, nor gets redirected to the canonical host, where it would go on without the session.
+    final target = '${Uri.parse(imageUrl).toCanonicalForumUri()}';
+    return session.getImage(target, onReceiveProgress: onReceiveProgress, followRedirects: false).flatMap((resp) {
       final status = resp.statusCode ?? HttpStatus.ok;
       if (status < 300 || status >= 400) {
         return TaskEither<AppException, Response<dynamic>>.right(resp);
       }
       final location = resp.headers.value(HttpHeaders.locationHeader) ?? '';
-      final next = location.isEmpty ? null : '${Uri.parse(imageUrl).resolve(location)}';
+      final next = location.isEmpty ? null : '${Uri.parse(target).resolve(location)}';
       if (next == null || isAttachCreditUrl(next) || isAttachPayUrl(next)) {
         return TaskEither<AppException, Response<dynamic>>.left(HttpRequestFailedException(status));
       }
