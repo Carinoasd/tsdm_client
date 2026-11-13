@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:fpdart/fpdart.dart' show Left, Right;
 import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
@@ -10,6 +11,7 @@ import 'package:tsdm_client/features/achievements/models/achievement_page_data.d
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/authentication/repository/models/models.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
+import 'package:tsdm_client/features/tsdmapp/v4.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
@@ -43,6 +45,12 @@ class _AchievementsPageState extends State<AchievementsPage> {
       _cubit = AchievementsCubit(
         currentUid: () => auth.effectiveCurrentUid,
         fetchPage: () => fetchTsdmAppPageHtml(getIt.get<NetClientProvider>(), achievementsUrl),
+        ensureStatus: () => TsdmAppApi.ensureStatus(getIt.get<NetClientProvider>()),
+        fetchApi: () async =>
+            switch (await getIt.get<NetClientProvider>().get(withTsdmAppV4Page(achievementsUrl)).run()) {
+              Right(:final value) => value.data,
+              Left(:final value) => throw value,
+            },
       );
       _authSubscription = auth.status.listen((status) {
         _cubit.invalidate();

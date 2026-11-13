@@ -1,6 +1,7 @@
 import 'package:bloc/bloc.dart';
 import 'package:tsdm_client/features/achievements/models/achievement_page_data.dart';
 import 'package:tsdm_client/features/authentication/utils/logged_user_parser.dart';
+import 'package:tsdm_client/features/tsdmapp/v4.dart';
 import 'package:universal_html/parsing.dart';
 
 /// Current-account achievement state, with no persistent/cross-account cache.
@@ -24,10 +25,18 @@ final class AchievementsState {
 /// Loads only the current account's achievement landing page.
 class AchievementsCubit extends Cubit<AchievementsState> {
   /// [fetchPage] must use the app's identity-bound network client.
-  AchievementsCubit({required this.fetchPage, required this.currentUid}) : super(const AchievementsState());
+  AchievementsCubit({required this.fetchPage, required this.currentUid, this.fetchApi, this.ensureStatus})
+    : super(const AchievementsState());
 
   /// A read-only GET transport; takes no user-supplied URL or action parameters.
   final Future<String> Function() fetchPage;
+
+  /// The same page asked of the forum's app API as fields (plugin 4.0.0, `tsdmv=4`), its answer as it came; used once
+  /// `status` says the forum runs the achievements (`achievement: 1`).
+  final Future<Object?> Function()? fetchApi;
+
+  /// Asks the plugin's `status` when this run has none yet.
+  final Future<void> Function()? ensureStatus;
 
   /// Current effective account.
   final int? Function() currentUid;
@@ -49,6 +58,30 @@ class AchievementsCubit extends Cubit<AchievementsState> {
     }
     emit(const AchievementsState(loading: true));
     try {
+      if (fetchApi != null) {
+        await ensureStatus?.call();
+        if (isClosed || generation != _generation || currentUid() != uid) return;
+        if (TsdmAppV4.achievement) {
+          final answer = tsdmAppV4AnswerOf(await fetchApi!(), type: 'achievement', schema: 68);
+          if (isClosed || generation != _generation || currentUid() != uid) return;
+          switch (answer) {
+            case _? when answer.uid == 0 && (answer is! TsdmAppV4Message || answer.login):
+              emit(const AchievementsState(needLogin: true));
+              return;
+            case _? when answer.uid != uid:
+              emit(const AchievementsState(failed: true));
+              return;
+            case TsdmAppV4Page(:final json):
+              emit(AchievementsState(data: achievementPageFromApi(json)));
+              return;
+            case TsdmAppV4Message(:final message) when message.trim().isNotEmpty:
+              emit(AchievementsState(data: AchievementPageData(recognized: false, message: message.trim())));
+              return;
+            case TsdmAppV4Message() || TsdmAppV4Refused() || null:
+              break;
+          }
+        }
+      }
       final document = parseHtmlDocument(await fetchPage());
       if (isClosed || generation != _generation || currentUid() != uid) return;
       final servedUid = parseLoggedUidFromDocument(document);

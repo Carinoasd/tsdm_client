@@ -3298,7 +3298,22 @@
     "inProgress": "“${name}”尚未完成。",
     "failed": "“${name}”已失败。",
     "refused": "“${name}”未成功。",
-    "unconfirmed": "无法确认“${name}”的结果，请先查看列表再重试。"
+    "unconfirmed": "无法确认“${name}”的结果，请先查看列表再重试。",
+    "confirmApply": "申请“${name}”？",
+    "confirmClaim": "领取“${name}”的奖励？",
+    "forumWords": {
+      "rewardCredit": "积分 $credit $amount $unit",
+      "rewardMagic": "道具 $name $amount 张",
+      "rewardMedal": "勋章 $name",
+      "rewardMedalDays": "勋章 $name 有效期 $days 天",
+      "rewardInvite": "邀请码 $count 有效期 $days 天",
+      "rewardGroup": "用户组 $name",
+      "rewardGroupDays": "用户组 $name $days 天",
+      "noPermission": "您所在的用户组无法申请此任务",
+      "full": "人数已满",
+      "completedOn": "完成于 $time",
+      "applyAgainAfter": "$time 后可以再次申请"
+    }
   },
   "magicCenter": {
     "title": "道具",
@@ -3325,7 +3340,18 @@
     "used": "已使用“${name}”",
     "rejected": "论坛未完成“${name}”的操作",
     "unknown": "已送出“${name}”，但无法确认结果。再次操作前请先看“我的道具”里的数量。",
-    "windowFailed": "无法打开道具窗口"
+    "windowFailed": "无法打开道具窗口",
+    "forumWords": {
+      "capacity": "$used/$max",
+      "balance": "目前有 $credit $amount",
+      "priceText": "$price $credit/张",
+      "price": "售价: $credit $price",
+      "discountPrice": "折扣价: $credit $price",
+      "myBalance": "我目前有$credit $amount",
+      "weight": "重量: $weight",
+      "freeWeight": "我的道具包可用容量 $weight",
+      "stock": "库存: $stock 张"
+    }
   },
   "editUserProfilePage": {
     "title": "编辑资料",

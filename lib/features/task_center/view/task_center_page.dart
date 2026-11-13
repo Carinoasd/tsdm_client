@@ -17,6 +17,7 @@ import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
 import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/retry_button.dart';
+import 'package:tsdm_client/utils/show_dialog.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/indicator.dart';
 
@@ -112,6 +113,19 @@ class _TaskCenterPageState extends State<TaskCenterPage> with SingleTickerProvid
     );
   }
 
+  /// The apply and the claim are GETs that write: sent only once the user confirmed, once.
+  Future<void> _confirmAndAct(TaskCenterTab tab, ForumTask task, TranslationsTaskCenterEn tr) async {
+    final name = context.displayText(task.name);
+    final apply = task.action == TaskActionKind.apply;
+    final ok = await showQuestionDialog(
+      context: context,
+      title: apply ? tr.apply : tr.claim,
+      message: apply ? tr.confirmApply(name: name) : tr.confirmClaim(name: name),
+    );
+    if (ok != true || !mounted) return;
+    await _cubit.act(tab, task);
+  }
+
   Widget _button(TaskCenterState state, TaskCenterTab tab, ForumTask task, TranslationsTaskCenterEn tr) {
     if (state.busyTaskId == task.id) {
       return const Padding(
@@ -119,7 +133,7 @@ class _TaskCenterPageState extends State<TaskCenterPage> with SingleTickerProvid
         child: SizedBox.square(dimension: 24, child: CircularProgressIndicator(strokeWidth: 2)),
       );
     }
-    final onPressed = state.busyTaskId != null ? null : () => unawaited(_cubit.act(tab, task));
+    final onPressed = state.busyTaskId != null ? null : () => unawaited(_confirmAndAct(tab, task, tr));
     return switch (task.action!) {
       TaskActionKind.apply => FilledButton.tonalIcon(
         key: ValueKey('task-apply-${task.id}'),
