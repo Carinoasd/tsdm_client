@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root><![CDATA[
+<div class="f_c">
+<h3 class="flb">
+<em id="return_viewwarning">ag_low 警告记录</em>
+<span>
+<a href="javascript:;" class="flbc" onclick="hideWindow('viewwarning')" title="关闭">关闭</a></span>
+</h3>
+<div class="c floatwrap">
+<table class="list" cellspacing="0" cellpadding="0">
+<thead>
+<tr>
+<td>操作者</td>
+<td>时间</td>
+<td>理由</td>
+</tr>
+</thead><tr>
+<td>管理团队</td>
+<td>2026-9-12 04:42</td>
+<td>BU區警告46626</td>
+</tr>
+<tr>
+<td>管理团队</td>
+<td>2026-9-12 08:20</td>
+<td>notify 警告理由（warn_1789171425534）</td>
+</tr>
+</table>
+</div>
+</div>
+<div class="o pns">
+ag_low 已被累计警告 2 次，30 天内累计被警告 3 次，将被自动禁止发帖 30 天
+</div>
+
+]]></root>

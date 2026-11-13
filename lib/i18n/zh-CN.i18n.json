@@ -4637,6 +4637,9 @@
     "errorClearStuck": "清理没有进展，已停止",
     "creditOverflow": "加减后会超出积分能存的范围：${list}"
   },
+  "warningLog": {
+    "title": "警告记录"
+  },
   "whatsNew": {
     "updated": "已更新到 $version",
     "open": "查看",

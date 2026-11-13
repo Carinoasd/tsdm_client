@@ -4637,6 +4637,9 @@
     "errorClearStuck": "The cleanup made no progress and stopped",
     "creditOverflow": "Out of the range credits can hold: ${list}"
   },
+  "warningLog": {
+    "title": "Warning log"
+  },
   "whatsNew": {
     "updated": "Updated to $version",
     "open": "View",
