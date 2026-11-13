@@ -91,10 +91,15 @@ Future<void> flushLogSink() async {
       if (identical(_flushing, done.future)) {
         _flushing = null;
       }
-      if (!_logSinkClosed) {
-        held.forEach(_logSink.write);
-      }
+      // Waiters go first: a sink that broke must not keep an export waiting for ever.
       done.complete();
+      if (!_logSinkClosed) {
+        try {
+          held.forEach(_logSink.write);
+        } on Object catch (e) {
+          debugPrint('log sink write after flush failed: $e');
+        }
+      }
     }
   }
 

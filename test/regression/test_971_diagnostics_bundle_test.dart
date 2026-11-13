@@ -358,7 +358,7 @@ void main() {
     test('a secret whose name and value are on two lines, across the cut of a file redaction shrinks', () {
       const budget = 1000;
       // What _readNewest reads of a cut file: budget, a quarter more, twice its margin of 4096 bytes.
-      const want = budget + budget ~/ 4 + 2 * 4096;
+      const want = budget + budget ~/ 4 + 2 * diagnosticsCutMargin;
       // Lines redaction shrinks to a few bytes: what follows the cut then fits in the budget once redacted, so the
       // first line read is kept unless it is dropped for itself.
       final cookies = [for (var i = 0; i < 16; i++) 'Cookie: ${'z' * 520}\n'].join();
@@ -375,6 +375,8 @@ void main() {
         final log = files['logs/tsdm_client_${_day(_now)}.log'] ?? '';
         expect(log, isNot(contains(_adminToken)), reason: 'tail $tail');
         expect(log, isNot(contains('zzzz')), reason: 'tail $tail');
+        // Even with nothing left of it, the facts name the day.
+        expect(files[diagnosticsInfoName], contains('tsdm_client_${_day(_now)}.log: '));
         expect(utf8.encode(log).length, lessThanOrEqualTo(budget));
       }
     });
