@@ -23,6 +23,7 @@ import 'package:tsdm_client/features/local_notice/show.dart';
 import 'package:tsdm_client/features/settings/repositories/custom_font_store.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/features/settings/repositories/webdav_backup_repository.dart';
+import 'package:tsdm_client/features/update/repository/whats_new_controller.dart';
 import 'package:tsdm_client/features/update/repository/windows_update_installer.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
@@ -30,6 +31,7 @@ import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/providers/providers.dart';
 import 'package:tsdm_client/shared/providers/proxy_provider/proxy_provider.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/models/database/connection/native.dart';
+import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 import 'package:tsdm_client/utils/android_activity.dart';
 import 'package:tsdm_client/utils/app_language.dart';
 import 'package:tsdm_client/utils/close_to_tray.dart';
@@ -62,6 +64,15 @@ Future<void> _boot(List<String> args) async {
   talker.debug('------------------- start app $appFullVersion -------------------');
   listenAndroidWindowEvents();
   await initProviders();
+  // Whether anything was stored before this start, read before anything else writes: tells a new install from an update.
+  final whatsNew = WhatsNewController.forApp(getIt.get<StorageProvider>());
+  final hadPriorData = (await getIt.get<StorageProvider>().getAllSettings()).isNotEmpty;
+  getIt.registerSingleton(whatsNew, dispose: (c) => c.dispose());
+  unawaited(
+    whatsNew
+        .resolve(hadPriorData: hadPriorData)
+        .catchError((Object e, StackTrace st) => talker.handle(e, st, 'failed to check the update news')),
+  );
   // Before the first frame, which is the lock screen when the app lock is on; the back guard goes before the router's.
   final appLock = await AppLockCubit.load();
   getIt.registerSingleton(appLock, dispose: (c) async => c.close());

@@ -125,8 +125,8 @@ import 'package:tsdm_client/features/thread_follow/view/followed_threads_page.da
 import 'package:tsdm_client/features/thread_visit_history/view/thread_visit_history_page.dart';
 import 'package:tsdm_client/features/title_shop/view/title_shop_page.dart';
 import 'package:tsdm_client/features/topics/view/topics_page.dart';
-import 'package:tsdm_client/features/update/view/local_changelog_page.dart';
 import 'package:tsdm_client/features/update/view/update_page.dart';
+import 'package:tsdm_client/features/update/view/whats_new_page.dart';
 import 'package:tsdm_client/routes/popup_route_observer.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
@@ -624,7 +624,13 @@ final List<RouteBase> _appRoutes = [
   AppRoute(path: ScreenPaths.accountSecurity, builder: (_) => const AccountSecurityPage()),
   AppRoute(path: ScreenPaths.privacySettings, builder: (_) => const PrivacySettingsPage()),
   AppRoute(path: ScreenPaths.update, builder: (_) => const UpdatePage()),
-  AppRoute(path: ScreenPaths.localChangelog, builder: (_) => const LocalChangelogPage()),
+  AppRoute(
+    path: ScreenPaths.localChangelog,
+    builder: (state) => WhatsNewPage(
+      since: state.uri.queryParameters['since'],
+      markNew: state.uri.queryParameters['new'] == '1',
+    ),
+  ),
   // 接收路由参数
   AppRoute(
     path: ScreenPaths.openInApp,

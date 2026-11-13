@@ -4537,6 +4537,17 @@
     "errorClearStuck": "清理没有进展，已停止",
     "creditOverflow": "加减后会超出积分能存的范围：${list}"
   },
+  "whatsNew": {
+    "updated": "已更新到 $version",
+    "open": "查看",
+    "sections": {
+      "added": "新增",
+      "changed": "变更",
+      "fixed": "修复",
+      "removed": "移除",
+      "knownIssues": "已知问题"
+    }
+  },
   "diagnostics": {
     "errorBlock": "这里出了点问题",
     "export": "导出诊断",

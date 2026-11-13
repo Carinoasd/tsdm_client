@@ -29,6 +29,7 @@ import 'package:tsdm_client/features/profile/repository/profile_repository.dart'
 import 'package:tsdm_client/features/root/stream/scroll_to_top_stream.dart';
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
 import 'package:tsdm_client/features/settings/widgets/support_development_dialog.dart';
+import 'package:tsdm_client/features/update/widgets/whats_new_banner.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/repositories/forum_home_repository/forum_home_repository.dart';
@@ -370,6 +371,12 @@ class _HomepagePageState extends State<HomepagePage> {
           Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: _maxContentWidth),
+              child: const WhatsNewBanner(),
+            ),
+          ),
+          Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: _maxContentWidth),
               child: _buildGuestDashboard(context, math.min(constraints.maxWidth - 24, _maxContentWidth)),
             ),
           ),
@@ -581,6 +588,12 @@ class _HomepagePageState extends State<HomepagePage> {
                     controller: _scrollController,
                     padding: edgeInsetsL12T12R12.add(context.safePadding()),
                     children: [
+                      Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: _maxContentWidth),
+                          child: const WhatsNewBanner(),
+                        ),
+                      ),
                       if (state.savedAt case final savedAt?)
                         Center(
                           child: ConstrainedBox(

@@ -4537,6 +4537,17 @@
     "errorClearStuck": "The cleanup made no progress and stopped",
     "creditOverflow": "Out of the range credits can hold: ${list}"
   },
+  "whatsNew": {
+    "updated": "Updated to $version",
+    "open": "View",
+    "sections": {
+      "added": "Added",
+      "changed": "Changed",
+      "fixed": "Fixed",
+      "removed": "Removed",
+      "knownIssues": "Known issues"
+    }
+  },
   "diagnostics": {
     "errorBlock": "Something went wrong here",
     "export": "Export diagnostics",
