@@ -1,6 +1,7 @@
 /// `dispatchAsUrl` merged `extraPathParameters` into the query parameters of the pushed route, so
 /// `extraQueryParameters` was dropped: the `hero` tag the notice and private message cards send along with a member's
-/// space url never reached the profile page, and its avatar had no hero to fly from.
+/// space url never reached the profile page, whose avatar then had a tag of its own and no hero to pair with on the
+/// way back.
 library;
 
 import 'package:flutter/material.dart';
