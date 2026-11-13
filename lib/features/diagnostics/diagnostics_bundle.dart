@@ -237,7 +237,9 @@ Uint8List buildDiagnosticsBundle(DiagnosticsRequest request) {
     ..._takeNewest(background, request.limits.backgroundLogBytes),
   ];
 
-  final info = StringBuffer(redactLogText(request.info))..writeln('logs:');
+  final info = StringBuffer(redactLogText(request.info))
+    ..writeln()
+    ..writeln('logs:');
   if (taken.isEmpty) {
     info.writeln('  -');
   }
@@ -282,14 +284,19 @@ List<_TakenLog> _takeNewest(List<(DateTime, File)> logs, int budget) {
   return out;
 }
 
+/// What [_readNewest] drops from the start of a cut file once redacted: the lines a secret whose name was left before
+/// the cut may still run into (a header value or an html input over several lines).
+const _cutMargin = 4096;
+
 /// The newest whole lines of [file] that fit in [budget] bytes once redacted, and whether older lines were left out;
 /// null when it cannot be read.
 ///
-/// Cut at line ends before and after the redaction: a secret spanning a cut would otherwise keep its value with its
-/// name cut off (`…RET` of `password=SECRET`), which no pattern recognizes.
+/// Redacted with the text read before the cut, then cut again at a line end: a secret spanning the cut would
+/// otherwise keep its value with its name cut off (`…RET` of `password=SECRET`, a `Cookie:` line followed by its
+/// value), which no pattern recognizes. The first [_cutMargin] bytes of a cut file are always dropped for that.
 (String, bool)? _readNewest(File file, int size, int budget) {
   // Redaction mostly shortens a text; take a little more than the budget so a cut file still fills it.
-  final want = math.min(size, budget + budget ~/ 4 + 4096);
+  final want = math.min(size, budget + budget ~/ 4 + 2 * _cutMargin);
   final RandomAccessFile raf;
   try {
     raf = file.openSync();
@@ -305,19 +312,14 @@ List<_TakenLog> _takeNewest(List<(DateTime, File)> logs, int budget) {
   } finally {
     raf.closeSync();
   }
-  var start = 0;
-  if (want < size) {
-    // Started inside a line: drop it whole.
-    final nl = bytes.indexOf(0x0A);
-    start = nl < 0 ? bytes.length : nl + 1;
+  final cut = want < size;
+  final encoded = utf8.encode(redactLogText(utf8.decode(bytes, allowMalformed: true)));
+  // Where the kept text starts: past the margin of a cut file, and late enough to fit in the budget.
+  var from = math.max(cut ? math.min(_cutMargin, encoded.length) : 0, encoded.length - budget);
+  if (from == 0) {
+    return (utf8.decode(encoded, allowMalformed: true), cut);
   }
-  final redacted = redactLogText(utf8.decode(bytes.sublist(start), allowMalformed: true));
-  final encoded = utf8.encode(redacted);
-  if (encoded.length <= budget) {
-    return (redacted, want < size);
-  }
-  // Still over: drop the oldest lines until it fits.
-  var from = encoded.length - budget;
+  // At the start of a line.
   while (from < encoded.length && encoded[from - 1] != 0x0A) {
     from++;
   }

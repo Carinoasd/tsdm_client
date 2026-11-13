@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -77,19 +78,28 @@ Future<void> flushLogSink() async {
   }
   final held = _linesDuringFlush = <String>[];
   final sink = _logSink;
+  final done = Completer<void>();
+  _flushing = done.future;
   Future<void> run() async {
     try {
       await sink.flush();
+    } on Object catch (e) {
+      // Not worth more than a line on the console: the export reads what reached the file.
+      debugPrint('log sink flush failed: $e');
     } finally {
       _linesDuringFlush = null;
-      _flushing = null;
+      if (identical(_flushing, done.future)) {
+        _flushing = null;
+      }
       if (!_logSinkClosed) {
         held.forEach(_logSink.write);
       }
+      done.complete();
     }
   }
 
-  return _flushing = run();
+  unawaited(run());
+  return done.future;
 }
 
 /// Init talker logger.

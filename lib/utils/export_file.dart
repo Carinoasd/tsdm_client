@@ -23,10 +23,22 @@ Future<String?> shareOrSaveFile(
 }) async {
   if (share) {
     final folder = Directory(path.join((await getTemporaryDirectory()).path, 'shared_exports'));
+    // Files of earlier shares go once a day old: the app that received one may still be reading it (a content uri
+    // read later), whichever export made it (a thread, the diagnostics).
     if (folder.existsSync()) {
-      await folder.delete(recursive: true);
+      final dayAgo = DateTime.now().subtract(const Duration(days: 1));
+      for (final old in folder.listSync(followLinks: false).whereType<File>()) {
+        try {
+          if (old.statSync().modified.isBefore(dayAgo)) {
+            old.deleteSync();
+          }
+        } on FileSystemException {
+          // Gone already, or in use: the next share tries again.
+        }
+      }
+    } else {
+      await folder.create(recursive: true);
     }
-    await folder.create(recursive: true);
     final file = await File(path.join(folder.path, fileName)).writeAsBytes(data, flush: true);
     await SharePlus.instance.share(
       ShareParams(

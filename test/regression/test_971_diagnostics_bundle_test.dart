@@ -355,6 +355,30 @@ void main() {
       }
     });
 
+    test('a secret whose name and value are on two lines, across the cut of a file redaction shrinks', () {
+      const budget = 1000;
+      // What _readNewest reads of a cut file: budget, a quarter more, twice its margin of 4096 bytes.
+      const want = budget + budget ~/ 4 + 2 * 4096;
+      // Lines redaction shrinks to a few bytes: what follows the cut then fits in the budget once redacted, so the
+      // first line read is kept unless it is dropped for itself.
+      final cookies = [for (var i = 0; i < 16; i++) 'Cookie: ${'z' * 520}\n'].join();
+      final rest = numbered('newest', 2);
+      final after = utf8.encode('$cookies$rest').length;
+      for (var tail = want - 120; tail < want + 120; tail += 7) {
+        // The header name, then its value on the next line, then [tail] bytes: the cut falls around them.
+        final pad = 'Cookie: ${'z' * (tail - after - 9)}\n';
+        final text = '${numbered('a', 200)}X-Tsdmapp-Admin:\n$_adminToken\n$pad$cookies$rest';
+        write('tsdm_client_${_day(_now)}.log', text);
+        final files = _unzip(
+          buildDiagnosticsBundle(request(limits: const DiagnosticsLimits(appLogBytes: budget, backgroundLogBytes: 0))),
+        );
+        final log = files['logs/tsdm_client_${_day(_now)}.log'] ?? '';
+        expect(log, isNot(contains(_adminToken)), reason: 'tail $tail');
+        expect(log, isNot(contains('zzzz')), reason: 'tail $tail');
+        expect(utf8.encode(log).length, lessThanOrEqualTo(budget));
+      }
+    });
+
     test('the defaults: 3 days, 4 MB of the app, 1 MB of the background service', () {
       const limits = DiagnosticsLimits();
       expect(limits.days, 3);

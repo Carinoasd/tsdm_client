@@ -21,6 +21,11 @@ class ErrorBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // A descendant of the block that failed: another block in it would fail the same way, and so on down to a stack
+    // overflow. The outer block already shows its color.
+    if (context.findAncestorWidgetOfExactType<ErrorBlock>() != null) {
+      return const SizedBox.shrink();
+    }
     try {
       return _build(context);
     } on Object {
