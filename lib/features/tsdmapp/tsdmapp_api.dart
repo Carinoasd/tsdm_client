@@ -130,6 +130,11 @@ abstract final class TsdmAppApi {
       // nothing.
       return action == 'notify' ? true : null;
     }
+    // A version that does not start with a number (`dev`, `v3.9.0`) is not one the plugin ever named: it tells
+    // nothing, rather than reading as 0.0.0.
+    if (!RegExp(r'^\d').hasMatch(version.trim())) {
+      return null;
+    }
     return compareTsdmAppVersions(version, tsdmAppMinimumVersion) < 0;
   }
 
@@ -138,8 +143,8 @@ abstract final class TsdmAppApi {
   /// Note that a post form came back as structured fields (plugin 2.9.0, `type: post`, `schema` 16) in this run.
   static void notePostForm() => _postFormSeen = true;
 
-  /// Whether the forum's plugin is known to answer the post forms as structured fields (plugin 2.9.0): it named
-  /// [tsdmAppMinimumVersion] or later in an answer of an action ([pluginInfo]: the notification poll asks `notify`
+  /// Whether the forum's plugin is known to answer the post forms as structured fields (since plugin 2.9.0; told by
+  /// [tsdmAppMinimumVersion], 3.5.0, now): it named [tsdmAppMinimumVersion] or later in an answer of an action ([pluginInfo]: the notification poll asks `notify`
   /// soon after the app starts), or such a form came back in this run ([notePostForm]).
   ///
   /// Only a hint for the reply window: the forum's own window is an AJAX fragment (`inajax=1`), while the structured

@@ -17,6 +17,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/features/notification/repository/notification_repository.dart';
+import 'package:tsdm_client/features/sync/repository/sync_api.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/cookie_provider/cookie_provider.dart';
@@ -195,6 +196,26 @@ void main() {
     }
     expect(TsdmAppApi.knownTooOld, isFalse);
     expect(TsdmAppApi.knownUnavailable, isFalse);
+  });
+
+  test('the sync of plugin 3.4.0 is told unsupported, nothing asked', () async {
+    final forum = _Forum()
+      ..answers['status'] = _status('3.4.0')
+      ..answers['sync'] = {'ok': 1, 'supported': 1, 'uid': 31, 'updated': 0, 'formhash': 'f1f2f3f4'};
+    final client = _client(forum);
+    expect(await TsdmAppApi.ask(client, 'status'), isNull);
+    expect(await TsdmAppSyncApi((_) => client).pull(31), isA<SyncUnsupported>());
+    expect(forum.actions, ['status']);
+  });
+
+  test('a version that is not a number tells nothing of the minimum', () async {
+    for (final version in ['dev', 'v3.9.0']) {
+      TsdmAppApi.reset();
+      final forum = _Forum()..answers['status'] = _status(version);
+      expect(await TsdmAppApi.ask(_client(forum), 'status'), isNotNull, reason: version);
+      expect(TsdmAppApi.knownTooOld, isFalse, reason: version);
+      expect(TsdmAppApi.knownUnavailable, isFalse, reason: version);
+    }
   });
 
   test('a message names no version: not taken for an old plugin', () async {
