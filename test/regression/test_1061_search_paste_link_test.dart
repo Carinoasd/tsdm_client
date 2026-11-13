@@ -216,6 +216,9 @@ void main() {
 
   testWidgets('the name of the site in words is no link: searched as typed', (tester) async {
     await pumpPage(tester);
+    await tester.enterText(keywordField(), '有人能上tsdm39.com?');
+    await tester.pumpAndSettle();
+    expect(opened, isEmpty);
     await tester.enterText(keywordField(), 'tsdm39.com 打不开');
     await tester.pumpAndSettle();
     expect(opened, isEmpty);

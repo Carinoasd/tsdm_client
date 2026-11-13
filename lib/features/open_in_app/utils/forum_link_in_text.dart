@@ -35,13 +35,28 @@ final class ForumLinkInText {
 /// ends it. Shared texts often put words right after the link without a space.
 const _urlChars = r"[A-Za-z0-9\-._~:/?#\[\]@!$&'()*+,;=%]";
 
+/// Characters that may not come right before a link: a link starting there goes on from another one (the forum's
+/// link in a parameter of another site's, `other.site/?u=https://www.tsdm39.com/…`) or from a longer host. A colon, a
+/// comma, a bracket or a quote may ("链接:https://…").
+const _notBeforeLink = r'(?<![A-Za-z0-9\-._~/?#@!$&*+;=%])';
+
 /// A web link with its scheme, or a link of the forum written without one (`www.tsdm39.com/…`, `tsdm39.com/…`) that
-/// does not go on from a longer host or path. Without a scheme a path or a query must follow: the bare name of the
-/// site in a sentence ("tsdm39.com 打不开") is no link.
+/// does not go on into a longer host. Without a scheme something must follow the host, checked after the trim
+/// ([_hasPathAfterHost]): the bare name of the site in a sentence ("tsdm39.com 打不开", "tsdm39.com?") is no link.
 final _linkRe = RegExp(
-  '(?:https?://$_urlChars+)|(?:(?<![A-Za-z0-9.\\-/@:%])(?:www\\.)?tsdm39\\.com(?![A-Za-z0-9\\-]|\\.[A-Za-z0-9])[/?#]$_urlChars*)',
+  '$_notBeforeLink(?:(?:https?://$_urlChars+)|'
+  '(?:(?:www\\.)?tsdm39\\.com(?![A-Za-z0-9\\-]|\\.[A-Za-z0-9])[/?#]$_urlChars*))',
   caseSensitive: false,
 );
+
+/// The host of a link of the forum written without a scheme, with the `/`, `?` or `#` after it.
+final _bareHostRe = RegExp(r'^(?:www\.)?tsdm39\.com[/?#]', caseSensitive: false);
+
+/// Whether the link [raw] written without a scheme has something after its host: a path, a query or an anchor.
+bool _hasPathAfterHost(String raw) {
+  final host = _bareHostRe.firstMatch(raw);
+  return host != null && raw.length > host.end;
+}
 
 /// Punctuation that ends a sentence rather than the link when it closes a match.
 final _trailingRe = RegExp(r"[.,;:!?'\x22]+$");
@@ -49,7 +64,7 @@ final _trailingRe = RegExp(r"[.,;:!?'\x22]+$");
 /// The first link of the forum in [text], null when there is none.
 ///
 /// Every link of the text is looked at in order, as a whole: a link of another site never counts, also when a forum
-/// link sits inside it (`https://other.site/?u=https://www.tsdm39.com/…`), nor does a host merely starting like the
+/// link sits inside it (`https://other.site/?u=https://www.tsdm39.com/…`, `other.site/?u=www.tsdm39.com/…`), nor does a host merely starting like the
 /// forum's (`www.tsdm39.com.other.site`, `www.tsdm39.com@other.site`). A link of the forum is taken as the forum
 /// rewrites it in posts ([fixOldForumUrl]): its old domains and the rewritten paths of threads and forums
 /// (`thread-1-2-1.html`, `forum-2-1.html`) are the current pages.
@@ -58,7 +73,11 @@ final _trailingRe = RegExp(r"[.,;:!?'\x22]+$");
 ForumLinkInText? findForumLinkInText(String text) {
   for (final match in _linkRe.allMatches(text)) {
     final raw = _trimLink(match.group(0)!);
-    final withScheme = raw.toLowerCase().startsWith('http') ? raw : 'https://$raw';
+    final hasScheme = raw.toLowerCase().startsWith('http');
+    if (!hasScheme && !_hasPathAfterHost(raw)) {
+      continue;
+    }
+    final withScheme = hasScheme ? raw : 'https://$raw';
     final fixed = fixOldForumUrl(withScheme);
     final uri = Uri.tryParse(fixed);
     if (uri == null || !uri.isForumHost) {

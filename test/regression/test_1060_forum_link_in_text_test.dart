@@ -47,6 +47,11 @@ void main() {
       expect(findForumLinkInText('http://www.tsdm39.net/thread-5-1-1.html')!.url, contains('tid=5'));
     });
 
+    test('a colon or a bracket may come before a link', () {
+      expect(findForumLinkInText('链接:https://www.tsdm39.com/forum.php?mod=viewthread&tid=3')!.url, contains('tid=3'));
+      expect(findForumLinkInText('(tsdm39.com/forum.php?mod=viewthread&tid=3)')!.url, contains('tid=3'));
+    });
+
     test('user info and port are dropped: the canonical host only', () {
       expect(
         findForumLinkInText('http://x@www.tsdm39.com:8080/plugin.php?id=a#top')!.url,
@@ -82,6 +87,12 @@ void main() {
         'tsdm39.com 打不开',
         '去 www.tsdm39.com 看看',
         'www.tsdm39.com',
+        '有人能上tsdm39.com?',
+        '是tsdm39.com?还是别的',
+        'tsdm39.com/ 打不开',
+        'www.tsdm39.com# 呢',
+        'example.com/?u=www.tsdm39.com/forum.php?mod=viewthread&tid=1',
+        'example.com/?u=https://www.tsdm39.com/forum.php?mod=viewthread&tid=1',
         '某某标题 点击链接直接打开',
         '123',
         '',
