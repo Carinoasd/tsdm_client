@@ -65,6 +65,13 @@ void androidOnNetworkMeteredChanged(void Function({required bool metered}) onCha
       },
     );
 
+const _methodSetBackgroundSyncGuard = 'setBackgroundSyncGuard';
+
+/// Tell Android whether the background message service is [wanted] (`BackgroundSyncGuard.kt`): while it is, a job
+/// starts it again when the system killed it, or posts a notification titled [title] when the system refuses (P13).
+Future<void> androidSetBackgroundSyncGuard({required bool wanted, required String title}) async =>
+    _mainChannel.invokeMethod<bool>(_methodSetBackgroundSyncGuard, {'wanted': wanted, 'title': title});
+
 const _methodOpenAttachment = 'openAttachment';
 
 /// Open the downloaded attachment at [path] (in the app's `attachments` folder) in the app that views its type on

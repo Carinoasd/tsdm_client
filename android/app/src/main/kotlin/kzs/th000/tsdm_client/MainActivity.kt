@@ -57,6 +57,8 @@ class MainActivityImpl: AudioServiceFragmentActivity() {
          * only there.
          */
         const val HAS_SYSTEM_BIOMETRIC_PROMPT = "hasSystemBiometricPrompt"
+        /** Dart tells whether the background message service is wanted, see [BackgroundSyncGuard]. */
+        const val SET_BACKGROUND_SYNC_GUARD = "setBackgroundSyncGuard"
         /** Sent to Dart with whether the default network is metered, each time it changes. */
         const val NETWORK_METERED_CHANGED = "networkMeteredChanged"
 
@@ -361,6 +363,8 @@ class MainActivityImpl: AudioServiceFragmentActivity() {
         super.onResume()
         // The display can change while in background (folding, an external screen), so pick the mode again.
         if (preferHighRefreshRate) applyRefreshRate()
+        // The background message service went while the process lived on: started again now that the app is in front.
+        BackgroundSyncGuard.onActivityResumed(applicationContext)
     }
 
     override fun onDestroy() {
@@ -571,6 +575,15 @@ class MainActivityImpl: AudioServiceFragmentActivity() {
                 result.success(if (maker.isEmpty() || model.startsWith(maker, ignoreCase = true)) model else "$maker $model")
             }
             HAS_SYSTEM_BIOMETRIC_PROMPT -> result.success(Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
+            SET_BACKGROUND_SYNC_GUARD -> {
+                val wanted = call.argument<Any>("wanted") as? Boolean
+                if (wanted == null) {
+                    result.error("invalid_arguments", "wanted is required", null)
+                } else {
+                    BackgroundSyncGuard.setWanted(applicationContext, wanted, call.argument<Any>("title") as? String)
+                    result.success(true)
+                }
+            }
             OPEN_ATTACHMENT -> result.success(
                 AttachmentFiles.open(this, call.argument<Any>("path") as? String) { startActivity(it) },
             )

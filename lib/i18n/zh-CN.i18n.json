@@ -2754,7 +2754,8 @@
     "channelDesc": "常驻通知：App 在后台按自动同步的间隔检查新消息",
     "title": "天使动漫",
     "content": "正在后台接收论坛消息",
-    "startFailed": "后台消息服务启动失败，请检查通知权限与电池优化设置"
+    "startFailed": "后台消息服务启动失败，请检查通知权限与电池优化设置",
+    "stoppedBySystem": "后台消息接收已被系统停止"
   },
   "debugLogPage": {
     "title": "日志",

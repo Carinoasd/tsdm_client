@@ -2754,7 +2754,8 @@
     "channelDesc": "Persistent notification: the app checks for new messages at the auto sync interval while in the background",
     "title": "TSDM",
     "content": "Receiving forum messages in the background",
-    "startFailed": "The background message service could not start; check the notification permission and battery optimization settings"
+    "startFailed": "The background message service could not start; check the notification permission and battery optimization settings",
+    "stoppedBySystem": "The system stopped the background message service"
   },
   "debugLogPage": {
     "title": "Log",

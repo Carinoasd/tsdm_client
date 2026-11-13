@@ -214,6 +214,12 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Keep user logged in to the forum and poll new messages in background" />
         </service>
+        <!-- Starts the background message service again, or tells the user that the system stopped it (P13, see
+             BackgroundSyncGuard.kt). Bound by the system only. -->
+        <service
+              android:name=".BackgroundSyncGuard"
+              android:permission="android.permission.BIND_JOB_SERVICE"
+              android:exported="false" />
         <!-- The audio attachments played in the app (just_audio_background): the media notification and playing on
              with the app in the background. MainActivityImpl runs on the engine this service plays in.
              Not exported: other apps never bind it. The Bluetooth stack bound every exported media browser service at
