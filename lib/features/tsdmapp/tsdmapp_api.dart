@@ -130,12 +130,8 @@ abstract final class TsdmAppApi {
       // nothing.
       return action == 'notify' ? true : null;
     }
-    // A version that does not start with a number (`dev`, `v3.9.0`) is not one the plugin ever named: it tells
-    // nothing, rather than reading as 0.0.0.
-    if (!RegExp(r'^\d').hasMatch(version.trim())) {
-      return null;
-    }
-    return compareTsdmAppVersions(version, tsdmAppMinimumVersion) < 0;
+    // A version that does not start with a number (`dev`, `v3.9.0`) tells nothing ([tsdmAppVersionBelowMinimum]).
+    return tsdmAppVersionBelowMinimum(version) ? true : (_tsdmAppVersionIsNumbered(version) ? false : null);
   }
 
   static bool _postFormSeen = false;
@@ -143,9 +139,10 @@ abstract final class TsdmAppApi {
   /// Note that a post form came back as structured fields (plugin 2.9.0, `type: post`, `schema` 16) in this run.
   static void notePostForm() => _postFormSeen = true;
 
-  /// Whether the forum's plugin is known to answer the post forms as structured fields (since plugin 2.9.0; told by
-  /// [tsdmAppMinimumVersion], 3.5.0, now): it named [tsdmAppMinimumVersion] or later in an answer of an action ([pluginInfo]: the notification poll asks `notify`
-  /// soon after the app starts), or such a form came back in this run ([notePostForm]).
+  /// Whether the forum's plugin is known to answer the post forms as structured fields (since plugin 2.9.0, told by
+  /// [tsdmAppMinimumVersion] now): it named [tsdmAppMinimumVersion] or later in an answer of an action ([pluginInfo]:
+  /// the notification poll asks `notify` soon after the app starts), or such a form came back in this run
+  /// ([notePostForm]).
   ///
   /// Only a hint for the reply window: the forum's own window is an AJAX fragment (`inajax=1`), while the structured
   /// form is asked without `inajax`, which an older plugin answers as a write result instead. The window is asked
@@ -434,6 +431,13 @@ const expectedTsdmAppVersion = '3.9.0';
 /// (3.1.0, [TsdmAppApi.knowsPreview]); the switches of 3.6.0 to 3.9.0 are told by `status` itself.
 const tsdmAppMinimumVersion = '3.5.0';
 
+/// Whether the plugin's [version] is older than [tsdmAppMinimumVersion]. A version that does not start with a number
+/// (`dev`, `v3.9.0`) is not one the plugin ever named and is not taken for an old one (it would compare as 0.0.0).
+bool tsdmAppVersionBelowMinimum(String version) =>
+    _tsdmAppVersionIsNumbered(version) && compareTsdmAppVersions(version, tsdmAppMinimumVersion) < 0;
+
+bool _tsdmAppVersionIsNumbered(String version) => RegExp(r'^\d').hasMatch(version.trim());
+
 /// What the forum's plugin tells about itself in the answer of an action: `status` and `notify` name their `version`
 /// since plugin 1.0.0 (1.9.0 for `notify`), 2.3.0 adds `nodoc: 1` to `status` when it takes [tsdmAppNodocQuery] and
 /// 3.1.0 `preview: 1` when it answers the previews of the list rows. The `smilies` action (2.7.0) names it
@@ -507,8 +511,9 @@ final class TsdmAppPluginInfo {
   /// Whether [version] is older than [expectedTsdmAppVersion]: some pages are then parsed from the web page.
   bool get olderThanExpected => compareTsdmAppVersions(version, expectedTsdmAppVersion) < 0;
 
-  /// Whether [version] is older than [tsdmAppMinimumVersion]: the app uses none of its actions.
-  bool get olderThanMinimum => compareTsdmAppVersions(version, tsdmAppMinimumVersion) < 0;
+  /// Whether [version] is older than [tsdmAppMinimumVersion] ([tsdmAppVersionBelowMinimum]): the app uses none of its
+  /// actions.
+  bool get olderThanMinimum => tsdmAppVersionBelowMinimum(version);
 
   @override
   bool operator ==(Object other) =>

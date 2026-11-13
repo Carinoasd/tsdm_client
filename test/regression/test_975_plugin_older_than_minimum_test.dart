@@ -215,6 +215,7 @@ void main() {
       expect(await TsdmAppApi.ask(_client(forum), 'status'), isNotNull, reason: version);
       expect(TsdmAppApi.knownTooOld, isFalse, reason: version);
       expect(TsdmAppApi.knownUnavailable, isFalse, reason: version);
+      expect(TsdmAppApi.knowsPostForm, isTrue, reason: version);
     }
   });
 
