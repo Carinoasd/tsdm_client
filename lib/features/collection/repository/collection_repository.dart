@@ -244,7 +244,7 @@ final class CollectionRepository {
           'reason': reason,
           ...collectionArrayFields('ctid', ctids),
         }),
-        result: collectOutcomeFromApi,
+        result: (data) => collectOutcomeFromApi(data, uid: form.viewerUid),
       );
     }
     return _send(

@@ -185,11 +185,16 @@ Either<CollectionOutcome, CollectThreadForm>? collectThreadFormFromApi(
 
 /// The answer [data] to putting a thread in collections with the form of plugin 4.0.0: done when the forum said
 /// `collection_collect_succ`, read as any other change otherwise ([collectionOutcomeOf]), never done without that key.
-CollectionOutcome collectOutcomeFromApi(Object? data) {
+///
+/// A result served to another account than [uid] (and not the login prompt) is [CollectionAccountChanged].
+CollectionOutcome collectOutcomeFromApi(Object? data, {required int uid}) {
   final result = switch (tsdmAppV4WriteOutcomeOf(data)) {
     TsdmAppV4Written(:final result) => result,
     _ => null,
   };
+  if (result != null && result.uid != uid && !result.login) {
+    return const CollectionAccountChanged();
+  }
   if (result != null && result.messageKey == 'collection_collect_succ') {
     return CollectionDone(message: result.message, values: result.values);
   }

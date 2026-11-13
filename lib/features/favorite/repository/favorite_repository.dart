@@ -216,7 +216,7 @@ final class FavoriteRepository with LoggerMixin {
                 client,
                 withSmallFormInAjax(url),
                 {...fields, 'description': description},
-              ).map(favoriteAddResultFromApi).run();
+              ).map((data) => favoriteAddResultFromApi(data, uid: (currentUid ?? currentLoginUid)())).run();
             case Right():
               break;
           }
@@ -371,11 +371,16 @@ Either<FavoriteAddResult, ({String url, Map<String, String> fields})?> favoriteF
 
 /// The answer [data] to a favorite form of plugin 4.0.0, by its `message_key`: added for `favorite_do_success` (its
 /// `favid`), favorited already for `favorite_repeat`, refused with the forum's message otherwise.
-FavoriteAddResult favoriteAddResultFromApi(Object? data) {
+///
+/// A result served to another account than [uid] (and not the login prompt) is never a success.
+FavoriteAddResult favoriteAddResultFromApi(Object? data, {required int uid}) {
   final result = switch (tsdmAppV4WriteOutcomeOf(data)) {
     TsdmAppV4Written(:final result) => result,
     _ => null,
   };
+  if (result != null && result.uid != uid && !result.login) {
+    return FavoriteAddFailed(t.general.accountChangedRetry);
+  }
   return switch (result?.messageKey) {
     'favorite_do_success' => FavoriteAdded(result!.values['favid']),
     'favorite_repeat' => const FavoriteAlreadyExists(),

@@ -150,10 +150,16 @@ void main() {
         'gid': '3',
       });
       answer = _result(message: '完成');
-      expect(addFriendResultFromApi(answer).success, isFalse, reason: 'ok without the key is not done');
+      expect(addFriendResultFromApi(answer, uid: _uid).success, isFalse, reason: 'ok without the key is not done');
+      expect(
+        addFriendResultFromApi(_result(messageKey: 'request_has_been_sent', uid: 35), uid: _uid).success,
+        isFalse,
+        reason: 'the result of another account',
+      );
       expect(
         addFriendResultFromApi(
           _result(ok: 0, messageKey: 'waiting_for_the_other_test', message: '正在等待验证', alert: 'error'),
+          uid: _uid,
         ).success,
         isFalse,
       );
@@ -327,8 +333,15 @@ void main() {
         const Right<FavoriteAddResult, Object?>(null),
         reason: 'a form of another target is read as before',
       );
-      expect(favoriteAddResultFromApi(_result(message: '完成')), isA<FavoriteAddFailed>());
-      expect(favoriteAddResultFromApi(_result(ok: 0, messageKey: 'favorite_repeat')), isA<FavoriteAlreadyExists>());
+      expect(favoriteAddResultFromApi(_result(message: '完成'), uid: _uid), isA<FavoriteAddFailed>());
+      expect(
+        favoriteAddResultFromApi(_result(messageKey: 'favorite_do_success', uid: 35), uid: _uid),
+        isA<FavoriteAddFailed>(),
+      );
+      expect(
+        favoriteAddResultFromApi(_result(ok: 0, messageKey: 'favorite_repeat'), uid: _uid),
+        isA<FavoriteAlreadyExists>(),
+      );
     });
   });
 
@@ -384,6 +397,9 @@ void main() {
         'iconid': '5',
         'note': 'hi',
       });
+      answer = _result(message: '完成');
+      final unkeyed = await r.sendPoke(load.form!, '5', 'hi');
+      expect(unkeyed.outcome, SpaceWriteOutcome.unconfirmed, reason: 'ok without the key is not done');
       answer = _result(ok: 0, messageKey: 'no_privilege_poke', message: '没有权限', alert: 'error');
       expect(
         pokeOutcomeFromApi(
@@ -476,10 +492,15 @@ void main() {
         'ctid[0]': '1',
       });
       answer = _result(message: '完成');
-      expect(collectOutcomeFromApi(answer), isA<CollectionUnknown>());
+      expect(collectOutcomeFromApi(answer, uid: _uid), isA<CollectionUnknown>());
+      expect(
+        collectOutcomeFromApi(_result(messageKey: 'collection_collect_succ', uid: 35), uid: _uid),
+        isA<CollectionAccountChanged>(),
+      );
       expect(
         collectOutcomeFromApi(
           _result(ok: 0, messageKey: 'collection_thread_exists', message: '该主题已经在淘专辑中', alert: 'error'),
+          uid: _uid,
         ),
         isA<CollectionRefused>(),
       );

@@ -353,6 +353,28 @@ void main() {
       );
     });
 
+    test('the answer of 3.9.0 (the window as a page, without tsdmv) reads the web window', () async {
+      knowV4Status();
+      final forum = V4Forum((o) {
+        if (_isIgnore(o.uri)) {
+          if (o.method == 'POST') {
+            return V4Reply(_result(messageKey: 'do_success'));
+          }
+          return o.uri.queryParameters.containsKey('tsdmform')
+              ? V4Reply(v4Json('g3_ignore_form_nov4.json'))
+              : V4Reply(v4Raw('g3_ignore_form_web.xml'));
+        }
+        return V4Reply(_privacy(notices: []));
+      });
+      await _repo.addRule(v4Client(forum), uid: _uid, target: target, everybody: false);
+      final windows = forum.requests.where((r) => _isIgnore(r.uri) && r.method == 'GET').toList();
+      expect(windows, hasLength(2));
+      expect(windows.last.uri.queryParameters, isNot(contains('tsdmform')));
+      final i = forum.requests.indexWhere((r) => r.method == 'POST');
+      expect(_v4(forum.requests[i].uri), isFalse, reason: 'a form of the web window goes back as before');
+      expect(_form(forum.bodies[i]), containsPair('authorid', '35'));
+    });
+
     test('ignore not listed in forms: the web window as before', () async {
       knowV4Status(
         v4Status({

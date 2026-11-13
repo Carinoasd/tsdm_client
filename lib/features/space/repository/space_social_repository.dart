@@ -140,7 +140,12 @@ final class SpaceSocialRepository extends SpaceAccountRepository {
         'iconid': iconId,
         'note': note.trim(),
       });
-      return pokeOutcomeFromApi(sent, uid: ownerUid!) ?? outcomeOf(sent);
+      return pokeOutcomeFromApi(sent, uid: ownerUid!) ??
+          switch (sent) {
+            // No verdict by its key: never a success on `ok` alone; the request may have been carried out.
+            Right() => const SpaceWriteResult(SpaceWriteOutcome.unconfirmed),
+            Left() => outcomeOf(sent),
+          };
     }
     return outcomeOf(
       await sendForm(pokeSubmitUrl(form.targetUid, reply: form.reply), {

@@ -117,7 +117,7 @@ final class FriendRepository {
         getIt.get<NetClientProvider>(),
         withSmallFormInAjax(url),
         {...fields, 'note': note, 'gid': gid},
-      ).map(addFriendResultFromApi);
+      ).map((data) => addFriendResultFromApi(data, uid: (currentUid ?? currentLoginUid)()));
     }
     return getIt
         .get<NetClientProvider>()
@@ -186,9 +186,11 @@ AddFriendFormResult? addFriendFormFromApi(Object? data, {required String uid, re
 /// The answer [data] to an add-friend or approval form of plugin 4.0.0: sent when the forum said
 /// `request_has_been_sent` (a request) or `friends_add` (an approval), refused otherwise, with the forum's message (or
 /// the app's words when it gave none).
-AddFriendResult addFriendResultFromApi(Object? data) {
+///
+/// A result served to another account than [uid] (and not the login prompt) is never a success.
+AddFriendResult addFriendResultFromApi(Object? data, {required int uid}) {
   final result = switch (tsdmAppV4WriteOutcomeOf(data)) {
-    TsdmAppV4Written(:final result) => result,
+    TsdmAppV4Written(:final result) when result.uid == uid || result.login => result,
     _ => null,
   };
   final success = result != null && const {'request_has_been_sent', 'friends_add'}.contains(result.messageKey);
