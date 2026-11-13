@@ -47,12 +47,16 @@ final Uint8List _png = base64Decode(
 /// Discuz X5).
 final Uint8List _refused = File('test/data/attachment_getattachperm_x5.html').readAsBytesSync();
 
-/// A host answering every request with [_png] or the forum's refusal, recording the urls asked.
+/// A host answering [_png], or the forum's refusal for an attachment when it [refuses], or a redirect to [redirectTo];
+/// recording the urls asked.
 final class _Host implements HttpClientAdapter {
   _Host({required this.refuses});
 
-  /// Answers the forum's refusal page instead of the picture.
+  /// Answers the forum's refusal page instead of an attachment.
   final bool refuses;
+
+  /// Where every request is redirected (`302`), when not null.
+  String? redirectTo;
 
   final requests = <String>[];
 
@@ -63,12 +67,23 @@ final class _Host implements HttpClientAdapter {
     Future<void>? cancelFuture,
   ) async {
     requests.add('${options.uri}');
-    final body = refuses ? _refused : _png;
+    if (redirectTo case final location?) {
+      return ResponseBody(
+        Stream.value(Uint8List(0)),
+        302,
+        headers: {
+          HttpHeaders.locationHeader: [location],
+        },
+        isRedirect: true,
+      );
+    }
+    final refused = refuses && options.uri.queryParameters['mod'] == 'attachment';
+    final body = refused ? _refused : _png;
     return ResponseBody(
       Stream.value(body),
       200,
       headers: {
-        Headers.contentTypeHeader: [if (refuses) 'text/html; charset=utf-8' else 'image'],
+        Headers.contentTypeHeader: [if (refused) 'text/html; charset=utf-8' else 'image'],
         Headers.contentLengthHeader: ['${body.length}'],
       },
     );
@@ -187,6 +202,23 @@ void main() {
       expect(sessionsAsked, [77]);
       expect(anonymous.requests, hasLength(1));
       expect(session.requests, isEmpty);
+    });
+
+    test('never follows the redirect to the page taking the credits of a download', () async {
+      // An image uploaded as a file (`isimage` -1) whose download costs credits: loading that page takes them.
+      session.redirectTo = 'forum.php?mod=misc&action=attachcredit&aid=90098&formhash=f1f2f3f4';
+      final data = await images.getOrMakeCache(ImageCacheGeneralRequest(_attachmentUrl(31)));
+      expect(data.isNone(), isTrue);
+      expect(session.requests, hasLength(1));
+      expect(anonymous.requests, isEmpty);
+    });
+
+    test('follows any other redirect without the session', () async {
+      session.redirectTo = 'https://img.example/storage/a.png';
+      final data = await images.getOrMakeCache(ImageCacheGeneralRequest(_attachmentUrl(31)));
+      expect(data.toNullable(), _png);
+      expect(session.requests, hasLength(1));
+      expect(anonymous.requests, ['https://img.example/storage/a.png']);
     });
 
     test('of another host, or a file of the forum, is fetched without a session', () async {

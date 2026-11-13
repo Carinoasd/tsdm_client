@@ -239,11 +239,15 @@ final class NetClientProvider with LoggerMixin {
   ///
   /// [onReceiveProgress] is told the bytes received so far and the size of the answer (-1 when unknown) while it
   /// downloads, for the progress of an image being loaded.
+  ///
+  /// With [followRedirects] false a redirect is not followed: its answer (a 3xx status, the `Location` header) is the
+  /// result, for the caller to decide where to go with which client.
   AsyncEither<Response<dynamic>> getImage(
     String path, {
     Map<String, dynamic>? queryParameters,
     Map<String, String>? headers,
     ProgressCallback? onReceiveProgress,
+    bool followRedirects = true,
   }) => AsyncEither.tryCatch(() async {
     final resp = await _dio.get<dynamic>(
       path,
@@ -256,11 +260,17 @@ final class NetClientProvider with LoggerMixin {
           HttpHeaders.acceptEncodingHeader: 'gzip, deflate, br',
           ...?headers,
         },
+        followRedirects: followRedirects,
+        validateStatus: followRedirects ? null : (status) => status != null && status < HttpStatus.badRequest,
       ),
     );
 
-    if (resp.statusCode != HttpStatus.ok) {
-      throw HttpRequestFailedException(resp.statusCode);
+    final status = resp.statusCode;
+    if (!followRedirects && status != null && status >= 300 && status < 400) {
+      return resp;
+    }
+    if (status != HttpStatus.ok) {
+      throw HttpRequestFailedException(status);
     }
     _ensureImageBody(resp);
     return resp;

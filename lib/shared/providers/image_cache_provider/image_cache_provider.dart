@@ -131,11 +131,32 @@ final class ImageCacheProvider with LoggerMixin {
   /// The client with the session of account `uid`, null when there is none (not the account in use).
   final NetClientProvider? Function(int uid)? _sessionClientOf;
 
-  /// The client [imageUrl] is fetched with: the session of the account an attachment of the forum is for
-  /// ([uidOfAttachmentUrl]) when there is one, no session otherwise.
-  NetClientProvider _clientFor(String imageUrl) {
+  /// Fetch [imageUrl]: with the session of the account an attachment of the forum is for ([uidOfAttachmentUrl]) when
+  /// there is one, without a session otherwise.
+  ///
+  /// With the session a redirect is not followed by itself. The forum redirects an attachment whose download costs
+  /// credits (an image uploaded as a file, `isimage` -1) to `mod=misc&action=attachcredit&formhash=…`, whose loading
+  /// takes the credits: never asked for a picture (it fails, as it did without the session, the guest's `formhash`
+  /// refused). Any other redirect (`none.gif` of an expired link, a storage host) is followed without the session: the
+  /// cookie never leaves for another host.
+  AsyncEither<Response<dynamic>> _fetchImage(String imageUrl, {ProgressCallback? onReceiveProgress}) {
     final uid = uidOfAttachmentUrl(imageUrl);
-    return (uid == null ? null : _sessionClientOf?.call(uid)) ?? _netClientProvider;
+    final session = uid == null ? null : _sessionClientOf?.call(uid);
+    if (session == null) {
+      return _netClientProvider.getImage(imageUrl, onReceiveProgress: onReceiveProgress);
+    }
+    return session.getImage(imageUrl, onReceiveProgress: onReceiveProgress, followRedirects: false).flatMap((resp) {
+      final status = resp.statusCode ?? HttpStatus.ok;
+      if (status < 300 || status >= 400) {
+        return TaskEither<AppException, Response<dynamic>>.right(resp);
+      }
+      final location = resp.headers.value(HttpHeaders.locationHeader) ?? '';
+      final next = location.isEmpty ? null : '${Uri.parse(imageUrl).resolve(location)}';
+      if (next == null || isAttachCreditUrl(next) || isAttachPayUrl(next)) {
+        return TaskEither<AppException, Response<dynamic>>.left(HttpRequestFailedException(status));
+      }
+      return _netClientProvider.getImage(next, onReceiveProgress: onReceiveProgress);
+    });
   }
 
   /// Messages the server answered instead of image bytes, by image url (e.g. `附件所在主题需要付费，请您付费后下载`).
@@ -413,19 +434,17 @@ final class ImageCacheProvider with LoggerMixin {
     _tell(ImageCacheLoadingResponse(imageId, respType));
 
     try {
-      final respEither = await _clientFor(imageUrl)
-          .getImage(
-            imageUrl,
-            // Only asked for when someone follows it: the Android client then reads the body in pieces.
-            onReceiveProgress: onProgress == null
-                ? null
-                : (received, total) {
-                    for (final listener in [...?_progressListeners[imageUrl]]) {
-                      listener(received, total > 0 ? total : null);
-                    }
-                  },
-          )
-          .run();
+      final respEither = await _fetchImage(
+        imageUrl,
+        // Only asked for when someone follows it: the Android client then reads the body in pieces.
+        onReceiveProgress: onProgress == null
+            ? null
+            : (received, total) {
+                for (final listener in [...?_progressListeners[imageUrl]]) {
+                  listener(received, total > 0 ? total : null);
+                }
+              },
+      ).run();
       if (respEither.isLeft()) {
         final err = respEither.unwrapErr();
         if (err is ImageResponseNotImageException) {
