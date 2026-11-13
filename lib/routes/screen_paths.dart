@@ -8,6 +8,9 @@ class ScreenPaths {
   /// App about page.
   static const String about = '/about';
 
+  /// Page to write a problem down and send it: the diagnostics bundle, or a reply to the feedback thread.
+  static const String feedback = '/feedback';
+
   /// App license page.
   static const String license = '/license';
 

@@ -43,6 +43,7 @@ final class DiagnosticsRequest {
     required this.logDir,
     required this.now,
     this.limits = const DiagnosticsLimits(),
+    this.description = '',
   });
 
   /// The facts of [composeDiagnosticsInfo].
@@ -56,10 +57,17 @@ final class DiagnosticsRequest {
 
   /// How much of the logs is taken.
   final DiagnosticsLimits limits;
+
+  /// What the user wrote about the problem (the feedback page), [diagnosticsDescriptionName] in the bundle; nothing
+  /// when blank.
+  final String description;
 }
 
 /// Name of the facts file in the bundle.
 const diagnosticsInfoName = 'diagnostics.txt';
+
+/// Name of the file of what the user wrote about the problem in the bundle ([DiagnosticsRequest.description]).
+const diagnosticsDescriptionName = 'description.txt';
 
 /// Folder of the log files in the bundle.
 const diagnosticsLogFolder = 'logs';
@@ -238,7 +246,7 @@ final class _TakenLog {
 }
 
 /// Build the bundle of [request]: a zip of [diagnosticsInfoName] and the recent log files under
-/// [diagnosticsLogFolder], all of it redacted. Runs in a background isolate (`compute`): it reads files.
+/// [diagnosticsLogFolder], with [diagnosticsDescriptionName] when the user wrote one, all of it redacted. Runs in a background isolate (`compute`): it reads files.
 Uint8List buildDiagnosticsBundle(DiagnosticsRequest request) {
   final app = <(DateTime, File)>[];
   final background = <(DateTime, File)>[];
@@ -275,6 +283,12 @@ Uint8List buildDiagnosticsBundle(DiagnosticsRequest request) {
   }
 
   final archive = Archive()..addFile(ArchiveFile.bytes(diagnosticsInfoName, utf8.encode(info.toString())));
+  if (request.description.trim().isNotEmpty) {
+    // Redacted as the logs: a user may paste a cookie, a log line or an email address.
+    archive.addFile(
+      ArchiveFile.bytes(diagnosticsDescriptionName, utf8.encode(redactLogText(request.description.trim()))),
+    );
+  }
   for (final log in taken.where((e) => e.text.isNotEmpty)) {
     archive.addFile(ArchiveFile.bytes('$diagnosticsLogFolder/${log.name}', utf8.encode(log.text)));
   }

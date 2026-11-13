@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:responsive_framework/responsive_framework.dart';
 import 'package:system_theme/system_theme.dart';
 import 'package:tsdm_client/app.dart';
@@ -16,6 +18,7 @@ import 'package:tsdm_client/features/app_lock/widgets/app_lock_gate.dart';
 import 'package:tsdm_client/features/audio_player/audio_player_init.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/background_sync/background_sync_controller.dart';
+import 'package:tsdm_client/features/diagnostics/abnormal_exit.dart';
 import 'package:tsdm_client/features/local_notice/callback.dart';
 import 'package:tsdm_client/features/local_notice/direct_reply_entry.dart';
 import 'package:tsdm_client/features/local_notice/opt_in_notifications.dart';
@@ -58,6 +61,7 @@ Future<void> _boot(List<String> args) async {
   // box in place of the failing subtree. Record them so a report of "a grey block flashed" carries the widget and the
   // stack (GitHub #55); the box is the error block with its diagnostics export.
   installErrorReporting(debug: kDebugMode);
+  await _armAbnormalExitRecorder();
 
   parseCmdArgs(args);
 
@@ -266,4 +270,28 @@ Future<void> _boot(List<String> args) async {
   );
 }
 
-void _ensureHandled(Object exception, StackTrace? stackTrace) => talker.handle(exception, stackTrace);
+/// Read whether the last run ended abnormally and keep the marks of this one ([AbnormalExitRecorder]). Optional: a
+/// failure is logged and the app starts without it.
+Future<void> _armAbnormalExitRecorder() async {
+  try {
+    final support = await getApplicationSupportDirectory();
+    final recorder = AbnormalExitRecorder(
+      directory: Directory('${support.path}${Platform.pathSeparator}abnormal_exit'),
+      appVersion: appFullVersion,
+      // A debug run is ended from the IDE in the front all the time.
+      trackForeground: isMobile && !kDebugMode,
+    )..arm(lifecycle: WidgetsBinding.instance.lifecycleState);
+    // Lives as long as the app.
+    AppLifecycleListener(onStateChange: recorder.lifecycleChanged);
+    if (recorder.previous case final previous?) {
+      talker.info('last run ended abnormally: ${previous.kind.name}');
+    }
+  } on Object catch (e, st) {
+    talker.handle(e, st, 'failed to arm the abnormal exit recorder');
+  }
+}
+
+void _ensureHandled(Object exception, StackTrace? stackTrace) {
+  talker.handle(exception, stackTrace);
+  recordAbnormalError(exception);
+}

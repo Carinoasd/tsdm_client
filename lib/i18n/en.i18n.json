@@ -4605,6 +4605,10 @@
     "errorBlock": "Something went wrong here",
     "export": "Export diagnostics",
     "saved": "Saved to ${path: String}",
-    "failed": "Export failed"
+    "failed": "Export failed",
+    "feedback": "Report a problem",
+    "shareBundle": "Share diagnostics",
+    "replyFeedbackThread": "Reply in feedback thread",
+    "abnormalExit": "The app ended abnormally last time"
   }
 }
