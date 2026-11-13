@@ -76,6 +76,14 @@ void main() {
       'Ystv_2132_auth=a7Fk2QxAuthCookieZ': ['a7Fk2QxAuthCookieZ'],
       'mail me at alice.secret@example.org': ['alice.secret@example.org'],
       'newpassword2=Np-55x and secret: s3cr3t-value': ['Np-55x', 's3cr3t-value'],
+      // A pasted login request: the security answer and the captcha are secrets as fields of a form.
+      'loginsubmit=yes&password=Pw-1&questionid=1&answer=MothersName&seccodeverify=K7Q2': [
+        'Pw-1',
+        'MothersName',
+        'K7Q2',
+      ],
+      '<input type="text" name="answer" value="MothersName">': ['MothersName'],
+      'Ystv_2132_auth=a7Fk2QxAuthCookieZ; Ystv_2132_sid=Sd8Kq2': ['a7Fk2QxAuthCookieZ', 'Sd8Kq2'],
     };
     for (final MapEntry(key: text, value: secrets) in cases.entries) {
       test(text, () {
@@ -108,6 +116,8 @@ void main() {
       'the password is fine',
       'authors list empty',
       'cookies cleared, still blank',
+      'auth: failed after the update',
+      'passport: none, the answer: no, seccode: shown twice',
     ]) {
       expect(redactUserText(text), text);
     }

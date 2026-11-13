@@ -89,39 +89,52 @@ final _digestRe = RegExp(
 );
 
 /// The patterns of the secret fields named by [namePattern], in the order they are applied: html form inputs, form
-/// bodies and url queries, map / JSON entries, then `name: value` after a word of prose.
-List<RegExp> _secretFieldPatterns(String namePattern) => [
-  // Html form inputs of a secret field, the value before or after the name.
-  RegExp(
-    '(?<key><input\\b(?=[^<>]*\\bname=["\']$namePattern["\'])[^<>]*?\\bvalue=["\'])(?<value>[^"\']*)',
-    caseSensitive: false,
-  ),
-  // Secret fields of a form body or url query: `name=value`.
-  RegExp('(?<key>(?<![\\w-])$namePattern=)(?<value>$_quoted|[^&\\s;,}\\]]*)', caseSensitive: false),
-  // Secret fields as map / JSON entries at the start of a key: the whole value, spaces and commas included.
-  RegExp(
-    '(?<key>$_keyContext["\']?$namePattern["\']?\\s*:\\s*)(?<value>$_quoted|\\[[^\\]\\r\\n]*\\]|$_mapValue)',
-    caseSensitive: false,
-  ),
-  // Secret fields after a word of prose (`saved token: abc`): the next word.
-  RegExp(
-    '(?<key>(?<![\\w-])["\']?$namePattern["\']?\\s*:\\s*)(?<value>$_quoted|[^&;,\\s{}\\[\\]"\']+)',
-    caseSensitive: false,
-  ),
-];
+/// bodies and url queries, map / JSON entries, then `name: value` after a word of prose. The first two take the names
+/// of [formNamePattern] when given: names that are secrets as fields of a form, prose as words of a text.
+List<RegExp> _secretFieldPatterns(String namePattern, {String? formNamePattern}) {
+  final formNames = formNamePattern ?? namePattern;
+  return [
+    // Html form inputs of a secret field, the value before or after the name.
+    RegExp(
+      '(?<key><input\\b(?=[^<>]*\\bname=["\']$formNames["\'])[^<>]*?\\bvalue=["\'])(?<value>[^"\']*)',
+      caseSensitive: false,
+    ),
+    // Secret fields of a form body or url query: `name=value`.
+    RegExp('(?<key>(?<![\\w-])$formNames=)(?<value>$_quoted|[^&\\s;,}\\]]*)', caseSensitive: false),
+    // Secret fields as map / JSON entries at the start of a key: the whole value, spaces and commas included.
+    RegExp(
+      '(?<key>$_keyContext["\']?$namePattern["\']?\\s*:\\s*)(?<value>$_quoted|\\[[^\\]\\r\\n]*\\]|$_mapValue)',
+      caseSensitive: false,
+    ),
+    // Secret fields after a word of prose (`saved token: abc`): the next word.
+    RegExp(
+      '(?<key>(?<![\\w-])["\']?$namePattern["\']?\\s*:\\s*)(?<value>$_quoted|[^&;,\\s{}\\[\\]"\']+)',
+      caseSensitive: false,
+    ),
+  ];
+}
 
 /// Secret fields of the logs, see [sensitiveNamePattern].
 final List<RegExp> _secretFieldRes = _secretFieldPatterns(sensitiveNamePattern);
 
 /// Field names that are secrets in a text the user wrote ([redactUserText]): passwords, tokens, secrets, cookies, the
 /// `formhash`, the Discuz! cookie values that log in (`…_auth`, `…_saltkey`) and session ids. Narrower than
-/// [sensitiveNamePattern]: the account ids (`uid`), `answer`, `email` or `hash` as words of a description are prose.
+/// [sensitiveNamePattern]: the account ids (`uid`), `answer`, `email`, `hash` or `auth` as words of a description are
+/// prose.
 const _userSecretNamePattern =
-    r'(?:[\w-]*?(?:pass(?!ed\b|es\b|ing\b|age)|pwd|token|secret|cookie|formhash|saltkey)[\w-]*|'
-    r'(?:[\w-]*_)?(?:auth|session_?id|phpsessid))';
+    r'(?:[\w-]*?(?:pass(?!ed\b|es\b|ing\b|age|port)|pwd|token|secret|cookie|formhash|saltkey)[\w-]*|'
+    r'[\w-]*_auth|session_?id|phpsessid)';
 
-/// Secret fields of a text the user wrote, see [_userSecretNamePattern].
-final List<RegExp> _userSecretFieldRes = _secretFieldPatterns(_userSecretNamePattern);
+/// [_userSecretNamePattern] and the names that are secrets only as fields of a form (`answer=…` of a pasted login
+/// request, `<input name="seccodeverify">`): the security answer, the captcha, a Discuz! session cookie (`…_sid`).
+const _userSecretFormNamePattern =
+    '(?:$_userSecretNamePattern|[\\w-]*?(?:answer(?!ed\\b|s\\b)|seccode|secverify)[\\w-]*|[\\w-]*_sid)';
+
+/// Secret fields of a text the user wrote, see [_userSecretNamePattern] and [_userSecretFormNamePattern].
+final List<RegExp> _userSecretFieldRes = _secretFieldPatterns(
+  _userSecretNamePattern,
+  formNamePattern: _userSecretFormNamePattern,
+);
 
 /// The device id of the forum's app API (`"device":"<uuid>"`, `tsdmapp_device=<uuid>`, `device <uuid>`): a name with
 /// `device` in it and a UUID value, so a device name or a word of prose is left alone.

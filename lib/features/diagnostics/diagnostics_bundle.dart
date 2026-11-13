@@ -287,7 +287,7 @@ Uint8List buildDiagnosticsBundle(DiagnosticsRequest request) {
 
   final archive = Archive()..addFile(ArchiveFile.bytes(diagnosticsInfoName, utf8.encode(info.toString())));
   if (request.description.trim().isNotEmpty) {
-    // Redacted as the logs: a user may paste a cookie, a log line or an email address.
+    // Only its secrets: a user may paste a cookie, a password or an email address; the rest is what they wrote.
     archive.addFile(
       ArchiveFile.bytes(diagnosticsDescriptionName, utf8.encode(redactUserText(request.description.trim()))),
     );
