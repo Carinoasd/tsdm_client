@@ -1105,14 +1105,27 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
                 ? null
                 : (v) async => _toggleSystemNotifications(context, enable: v),
           ),
-        if (isAndroid) const AndroidPermissionTiles(),
+        if (isAndroid) AndroidPermissionTiles(backgroundServiceOn: state.settingsMap.enableBackgroundMessageService),
         if (isAndroid)
-          SectionSwitchListTile(
-            secondary: const Icon(Icons.cloud_sync_outlined),
-            title: Text(tr.backgroundMessageService.title),
-            subtitle: Text(tr.backgroundMessageService.detail),
-            value: state.settingsMap.enableBackgroundMessageService,
-            onChanged: (v) async => _toggleBackgroundSync(context, enable: v),
+          // P13: the service the system may stop for good shows it (the battery row above asks for the exemption).
+          BlocBuilder<AndroidPermissionCubit, AndroidPermissionState>(
+            buildWhen: (previous, current) => previous.ignoreBattery != current.ignoreBattery,
+            builder: (context, permissions) {
+              final atRisk = backgroundReceiveAtRisk(
+                serviceOn: state.settingsMap.enableBackgroundMessageService,
+                ignoreBattery: permissions.ignoreBattery,
+              );
+              return SectionSwitchListTile(
+                key: const ValueKey('settings-background-message-service'),
+                secondary: atRisk
+                    ? Icon(Icons.cloud_off_outlined, color: Theme.of(context).colorScheme.error)
+                    : const Icon(Icons.cloud_sync_outlined),
+                title: Text(tr.backgroundMessageService.title),
+                subtitle: Text(tr.backgroundMessageService.detail),
+                value: state.settingsMap.enableBackgroundMessageService,
+                onChanged: (v) async => _toggleBackgroundSync(context, enable: v),
+              );
+            },
           ),
         // Only where the other accounts are polled too (Android, Windows): nothing would change elsewhere.
         if (alwaysPostsNotifications)

@@ -83,6 +83,10 @@
                 <data android:scheme="https" android:host="www.tsdm39.com" android:pathPrefix="/forum.php" />
                 <!-- 对应解析器 isForumHost 中支持的 tsdm39.com（不带 www） -->
                 <data android:scheme="https" android:host="tsdm39.com" android:pathPrefix="/forum.php" />
+                <!-- GitHub #29: the members' pages (home.php?mod=space&uid=… or &username=…), and the rest of home.php.
+                     The data elements of a filter combine, so both hosts take it. What the app does not show itself
+                     stays on the "open page" screen with its button to the browser (ParseUrl.parseUrlToRoute). -->
+                <data android:pathPrefix="/home.php" />
             </intent-filter>
         </activity>
         <!-- The launcher entries of MainActivityImpl, one per app icon (AppIconSwitcher.kt enables exactly one). The default
@@ -210,12 +214,24 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Keep user logged in to the forum and poll new messages in background" />
         </service>
+        <!-- Starts the background message service again, or tells the user that the system stopped it (P13, see
+             BackgroundSyncGuard.kt). Bound by the system only. -->
+        <service
+              android:name=".BackgroundSyncGuard"
+              android:permission="android.permission.BIND_JOB_SERVICE"
+              android:exported="false" />
         <!-- The audio attachments played in the app (just_audio_background): the media notification and playing on
-             with the app in the background. MainActivityImpl runs on the engine this service plays in. -->
+             with the app in the background. MainActivityImpl runs on the engine this service plays in.
+             Not exported: other apps never bind it. The Bluetooth stack bound every exported media browser service at
+             boot, which made this engine and ran main() with no activity (PR #379). Nothing of the app goes through
+             such a binding: the media notification, the lock screen and the headset or Bluetooth play/pause buttons
+             all go through the media session. The system's media resumption card (Android 11+) did bind it, but the
+             app browses nothing (no children, no play from a media id), so that card had nothing to resume.
+             The intent filter stays: MediaButtonReceiver looks this service up by its action within this package. -->
         <service
               android:name="com.ryanheise.audioservice.AudioService"
               android:foregroundServiceType="mediaPlayback"
-              android:exported="true"
+              android:exported="false"
               tools:ignore="Instantiatable">
             <intent-filter>
                 <action android:name="android.media.browse.MediaBrowserService" />

@@ -2444,13 +2444,13 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
     );
   }
 
-  /// Ctrl+Enter (Cmd+Enter) publishes while the title or the editor has the focus; on desktop and iOS (a hardware
-  /// keyboard: the on-screen one sends no keys there), as on Android the input method owns the Enter key.
+  /// Ctrl+Enter (Cmd+Enter) publishes while the title or the editor has the focus; on desktop, and on iOS and Android
+  /// while a hardware keyboard is in use (`keyboardShortcutsEnabled`): before that the input method owns the Enter key.
   Widget _wrapWithSendShortcut({required VoidCallback onSend, required Widget child}) {
     if (!keyboardShortcutsBuilt) {
       return child;
     }
-    return CallbackShortcuts(
+    return KeyboardCallbackShortcuts(
       bindings: {
         const SingleActivator(LogicalKeyboardKey.enter, control: true): onSend,
         const SingleActivator(LogicalKeyboardKey.numpadEnter, control: true): onSend,

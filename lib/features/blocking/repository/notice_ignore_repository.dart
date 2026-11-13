@@ -8,7 +8,9 @@ import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/features/authentication/utils/logged_user_parser.dart';
 import 'package:tsdm_client/features/blocking/models/notice_ignore.dart';
 import 'package:tsdm_client/features/blocking/utils/forum_url.dart';
+import 'package:tsdm_client/features/tsdmapp/small_form.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
+import 'package:tsdm_client/features/tsdmapp/v4.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:universal_html/html.dart' as uh;
@@ -67,7 +69,12 @@ final class PrivacyFilterCheckbox {
 
 /// A parsed html form of the forum, only kept when every field is understood.
 final class ParsedForumForm {
-  const ParsedForumForm._({required this.action, required this.fields, required this.checkboxes});
+  const ParsedForumForm._({
+    required this.action,
+    required this.fields,
+    required this.checkboxes,
+    this.fromApi = false,
+  });
 
   /// Absolute action url.
   final Uri action;
@@ -77,6 +84,10 @@ final class ParsedForumForm {
 
   /// Filter checkboxes of the privacy page, empty for other forms.
   final List<PrivacyFilterCheckbox> checkboxes;
+
+  /// Read from the structured answer of plugin 4.0.0 ([privacyFilterFormFromApi], [noticeIgnoreFormFromApi]) instead
+  /// of the web page: the form is posted back with [withTsdmAppV4Write] and its result read by `message_key`.
+  final bool fromApi;
 
   /// Notice ignore rules currently checked.
   List<NoticeIgnoreRule> get noteRules => checkboxes
@@ -494,6 +505,143 @@ ParsedForumForm _parseNoticeIgnoreForm(String raw, {required NoticeIgnoreTarget 
   return parsed;
 }
 
+/// The plain fields of `submit` of a structured answer (plugin 4.0.0), checked as [parseForumForm] checks a web form:
+/// a POST to the forum operation [query] ([canonicalForumOperationUrl]), a non-empty `formhash` and the operation flag
+/// [requiredSubmit]. The values are the ones served, sent back as they are.
+(Uri, List<(String, String)>) _apiSubmit(
+  Map<String, dynamic> submit,
+  Map<String, String> query,
+  String requiredSubmit,
+) {
+  final raw = Uri.tryParse(tsdmAppText(submit['url']));
+  final action = raw == null ? null : canonicalForumOperationUrl(raw, query);
+  if (action == null) {
+    throw const _PageRejected(NoticeIgnoreFailure.unknownForm, 'structured form posts elsewhere');
+  }
+  if (tsdmAppText(submit['method']).toUpperCase() != 'POST') {
+    throw const _PageRejected(NoticeIgnoreFailure.unknownForm, 'structured form is not a post form');
+  }
+  final fields = <(String, String)>[
+    for (final MapEntry(:key, :value) in tsdmAppMap(submit['fields']).entries)
+      if (value is String) (key, value) else if (value is num) (key, '$value'),
+  ];
+  if (!fields.any((e) => e.$1 == 'formhash' && e.$2.isNotEmpty)) {
+    throw const _PageRejected(NoticeIgnoreFailure.unknownForm, 'formhash not found');
+  }
+  if (!fields.any((e) => e.$1 == requiredSubmit && e.$2.isNotEmpty)) {
+    throw _PageRejected(NoticeIgnoreFailure.unknownForm, '$requiredSubmit not found');
+  }
+  return (action, fields);
+}
+
+/// The privacy filter page of plugin 4.0.0 [json] (`type: privacy_filter`, `schema` 55) as the form the web page parses
+/// to ([parsePrivacyFilterPage]): the hidden fields of `submit`, every friend group of `groups` (checked as served) and
+/// every rule of `feeds` and `notices` (all checked: they are the rules there are), each with its field name and value
+/// as served and the text the web page prints next to its box (`话题回复 (ag_low2)`).
+///
+/// Fails closed like the page parser: a form posting elsewhere, without a `formhash` or its flag, a field name that is
+/// not a filter box, give [NoticeIgnoreFailure.unknownForm]. Never throws anything but the internal rejection.
+ParsedForumForm privacyFilterFormFromApi(Map<String, dynamic> json) {
+  try {
+    final (action, fields) = _apiSubmit(tsdmAppMap(json['submit']), const {
+      'mod': 'spacecp',
+      'ac': 'privacy',
+      'op': 'filter',
+    }, 'privacy2submit');
+    PrivacyFilterCheckbox box(Map<String, dynamic> row, PrivacyFilterCategory category, {String? label}) {
+      final name = tsdmAppText(row['field']);
+      final m = _filterNameRe.firstMatch(name);
+      final expected = switch (category) {
+        PrivacyFilterCategory.note => 'note',
+        PrivacyFilterCategory.icon => 'icon',
+        PrivacyFilterCategory.gid => 'gid',
+      };
+      if (m == null || m.group(1) != expected) {
+        throw _PageRejected(NoticeIgnoreFailure.unknownForm, 'unexpected filter field of $expected');
+      }
+      return PrivacyFilterCheckbox(
+        name: name,
+        value: tsdmAppText(row['value']),
+        checked: category != PrivacyFilterCategory.gid || row['checked'] == 1,
+        category: category,
+        key: m.group(2)!,
+        label: label,
+      );
+    }
+
+    String ruleLabel(Map<String, dynamic> row) => '${tsdmAppText(row['name'])} (${tsdmAppText(row['target'])})';
+    return ParsedForumForm._(
+      action: action,
+      fields: fields,
+      checkboxes: [
+        for (final row in tsdmAppList(json['groups']))
+          box(row, PrivacyFilterCategory.gid, label: tsdmAppText(row['name'])),
+        for (final row in tsdmAppList(json['feeds'])) box(row, PrivacyFilterCategory.icon, label: ruleLabel(row)),
+        for (final row in tsdmAppList(json['notices'])) box(row, PrivacyFilterCategory.note, label: ruleLabel(row)),
+      ],
+      fromApi: true,
+    );
+  } on _PageRejected {
+    rethrow;
+  } on Object catch (e) {
+    throw _PageRejected(NoticeIgnoreFailure.unknownForm, 'malformed privacy answer: $e');
+  }
+}
+
+/// The ignore window of plugin 4.0.0 [form] (small form `ignore`) for [target], as [parseNoticeIgnoreForm] reads the
+/// web window: the type it ignores must be [target]'s, its author choices exactly [target]'s author and everybody (0),
+/// its form posting to the forum's ignore operation of that type with a `formhash` and `ignoresubmit`. The author
+/// served as chosen is in the fields; the caller replaces it.
+///
+/// Never throws anything but the internal rejection.
+ParsedForumForm noticeIgnoreFormFromApi(SmallFormFields form, {required NoticeIgnoreTarget target}) {
+  try {
+    final json = form.json;
+    if (tsdmAppText(json['type_key']) != target.type) {
+      throw const _PageRejected(NoticeIgnoreFailure.unknownForm, 'ignore window of another type');
+    }
+    final author = tsdmAppMap(json['authorid']);
+    final choices = {for (final c in tsdmAppList(author['choices'])) tsdmAppText(c['value'])};
+    if (tsdmAppText(author['name']) != 'authorid' || !setEquals(choices, {'${target.authorId}', '0'})) {
+      throw const _PageRejected(NoticeIgnoreFailure.ruleNotFound, 'author choices do not match the notice');
+    }
+    final (action, fields) = _apiSubmit(tsdmAppMap(json['submit']), {
+      'mod': 'spacecp',
+      'ac': 'common',
+      'op': 'ignore',
+      'type': target.type,
+    }, 'ignoresubmit');
+    return ParsedForumForm._(
+      action: action,
+      fields: [...fields, ('authorid', tsdmAppText(author['value']))],
+      checkboxes: const [],
+      fromApi: true,
+    );
+  } on _PageRejected {
+    rethrow;
+  } on Object catch (e) {
+    throw _PageRejected(NoticeIgnoreFailure.unknownForm, 'malformed ignore window: $e');
+  }
+}
+
+/// What the structured answer of plugin 4.0.0 to a privacy filter or ignore form told ([tsdmAppV4WriteOutcomeOf]):
+/// null when the forum said `do_success`, the failure it means otherwise. A result the plugin could not read is
+/// [NoticeIgnoreFailure.unknownAfterSubmit]: the rules read again decide.
+NoticeIgnoreFailure? noticeIgnoreWriteFailureOf(Object? data, {required int uid}) {
+  switch (tsdmAppV4WriteOutcomeOf(data)) {
+    case TsdmAppV4Written(:final result) when result.uid != uid && !result.login:
+      return NoticeIgnoreFailure.accountMismatch;
+    case TsdmAppV4Written(:final result) when result.messageKey == 'do_success':
+      return null;
+    case TsdmAppV4Written(:final result) when result.login:
+      return NoticeIgnoreFailure.notLoggedIn;
+    case TsdmAppV4Written(:final result) when result.messageKey.isNotEmpty || result.isError:
+      return NoticeIgnoreFailure.forumError;
+    case _:
+      return NoticeIgnoreFailure.unknownAfterSubmit;
+  }
+}
+
 /// Server-side notice ignore rules (Discuz `filter_note`), NOT the forum blacklist and NOT the local block list.
 ///
 /// Every operation takes the [NetClientProvider] of the account it acts for and that account's uid, and uses that
@@ -505,7 +653,46 @@ class NoticeIgnoreRepository with LoggerMixin {
   /// Constructor.
   const NoticeIgnoreRepository();
 
+  /// The privacy filter form of account [uid]: the structured page of plugin 4.0.0 (`privacy_filter`, `schema` 55) when
+  /// the forum's plugin lists it, the web page otherwise and whenever the plugin's answer is not that page.
   Future<Either<NoticeIgnoreFailure, ParsedForumForm>> _fetchPrivacyForm(NetClientProvider client, int uid) async {
+    if (await _privacyFormFromApi(client, uid) case final answer?) {
+      return answer;
+    }
+    return _fetchPrivacyPage(client, uid);
+  }
+
+  /// The privacy filter form from the structured page of plugin 4.0.0, null to read the web page instead: the plugin
+  /// does not list the page, answered something else, refused it without a message, or the request failed (the web
+  /// page then tells a site challenge from a network failure).
+  Future<Either<NoticeIgnoreFailure, ParsedForumForm>?> _privacyFormFromApi(NetClientProvider client, int uid) async {
+    await TsdmAppApi.ensureStatus(client);
+    if (!TsdmAppV4.has(TsdmAppV4Group.blockPages, 'privacy_filter')) {
+      return null;
+    }
+    switch (await fetchTsdmAppV4Page(client, privacyFilterUrl, type: 'privacy_filter', schema: 55, uid: uid).run()) {
+      case Left(value: IdentityChangedException()):
+        return left(NoticeIgnoreFailure.accountMismatch);
+      case Left(:final value):
+        warning('privacy filter answer failed, reading the page: $value');
+        return null;
+      case Right(value: TsdmAppV4Page(:final json)):
+        try {
+          return right(privacyFilterFormFromApi(json));
+        } on _PageRejected catch (e) {
+          error('privacy filter answer rejected: $e');
+          return left(e.failure);
+        }
+      case Right(value: TsdmAppV4Message(login: true)):
+        return left(NoticeIgnoreFailure.notLoggedIn);
+      case Right(value: TsdmAppV4Message(:final message)) when message.isNotEmpty:
+        return left(NoticeIgnoreFailure.forumError);
+      case Right():
+        return null;
+    }
+  }
+
+  Future<Either<NoticeIgnoreFailure, ParsedForumForm>> _fetchPrivacyPage(NetClientProvider client, int uid) async {
     final resp = await client.get(privacyFilterUrl, options: pageReadOptions()).run();
     switch (resp) {
       case Left(:final value):
@@ -560,27 +747,17 @@ class NoticeIgnoreRepository with LoggerMixin {
       return NoticeIgnoreResult.success(rulesBefore, alreadyApplied: true);
     }
     final ParsedForumForm form;
-    final resp = await client
-        .get(
-          noticeIgnoreFormUrl(type: target.type, authorId: target.authorId),
-          options: pageReadOptions(),
-        )
-        .run();
-    switch (resp) {
-      case Left():
-        return const NoticeIgnoreResult.failed(NoticeIgnoreFailure.network);
-      case Right(:final value) when value.statusCode != HttpStatus.ok:
-        final failure = failureOfPageStatus(value);
-        error('notice ignore form answered ${value.statusCode}: $failure');
-        return NoticeIgnoreResult.failed(failure);
-      case Right(:final value) when value.data is! String:
-        return const NoticeIgnoreResult.failed(NoticeIgnoreFailure.unknownForm);
-      case Right(:final value):
-        try {
-          form = parseNoticeIgnoreForm(value.data as String, target: target, expectedUid: uid);
-        } on _PageRejected catch (e) {
-          error('notice ignore form rejected: $e');
-          return NoticeIgnoreResult.failed(e.failure);
+    switch (await _ignoreFormFromApi(client, uid: uid, target: target)) {
+      case Left(:final value):
+        return NoticeIgnoreResult.failed(value);
+      case Right(value: final parsed?):
+        form = parsed;
+      case Right():
+        switch (await _fetchIgnoreWindow(client, uid: uid, target: target)) {
+          case Left(:final value):
+            return NoticeIgnoreResult.failed(value);
+          case Right(:final value):
+            form = value;
         }
     }
     final data = formDataOf([
@@ -592,7 +769,95 @@ class NoticeIgnoreRepository with LoggerMixin {
       error('notice ignore form repeats a field with another value, not sent');
       return const NoticeIgnoreResult.failed(NoticeIgnoreFailure.unknownForm);
     }
-    return _submitAndVerify(client, uid: uid, action: form.action, data: data, expect: (rules) => rules.contains(rule));
+    return _submitAndVerify(
+      client,
+      uid: uid,
+      action: form.action,
+      data: data,
+      expect: (rules) => rules.contains(rule),
+      fromApi: form.fromApi,
+      inAjax: true,
+    );
+  }
+
+  /// The ignore window of plugin 4.0.0 (small form `ignore`) for [target], when the forum's plugin lists it: the form,
+  /// the forum's refusal, or null to read the web window instead (another answer, or a failed request).
+  Future<Either<NoticeIgnoreFailure, ParsedForumForm?>> _ignoreFormFromApi(
+    NetClientProvider client, {
+    required int uid,
+    required NoticeIgnoreTarget target,
+  }) async {
+    // `status` was made sure of by the privacy page read just before ([addRule]).
+    if (!TsdmAppV4.has(TsdmAppV4Group.forms, SmallFormKind.ignore.name)) {
+      return right(null);
+    }
+    final url = withTsdmAppV4Form(noticeIgnoreFormUrl(type: target.type, authorId: target.authorId));
+    final Object? data;
+    switch (await client.get(url, options: pageReadOptions()).run()) {
+      case Left(value: IdentityChangedException()):
+        return left(NoticeIgnoreFailure.accountMismatch);
+      case Left(:final value):
+        warning('notice ignore window answer failed, reading the window: $value');
+        return right(null);
+      case Right(:final value) when value.statusCode != HttpStatus.ok:
+        return right(null);
+      case Right(:final value):
+        data = value.data;
+    }
+    final answer = smallFormAnswerOf(data, SmallFormKind.ignore);
+    if (answer == null) {
+      return right(null);
+    }
+    if (answer.uid == 0) {
+      return left(NoticeIgnoreFailure.notLoggedIn);
+    }
+    if (!answer.servedTo(uid)) {
+      return left(NoticeIgnoreFailure.accountMismatch);
+    }
+    switch (answer) {
+      case SmallFormMessage(:final message) when message.isNotEmpty:
+        return left(NoticeIgnoreFailure.forumError);
+      case SmallFormMessage():
+        return right(null);
+      case final SmallFormFields fields:
+        try {
+          return right(noticeIgnoreFormFromApi(fields, target: target));
+        } on _PageRejected catch (e) {
+          error('notice ignore window answer rejected: $e');
+          return left(e.failure);
+        }
+    }
+  }
+
+  /// The web ignore window for [target], parsed by [parseNoticeIgnoreForm].
+  Future<Either<NoticeIgnoreFailure, ParsedForumForm>> _fetchIgnoreWindow(
+    NetClientProvider client, {
+    required int uid,
+    required NoticeIgnoreTarget target,
+  }) async {
+    final resp = await client
+        .get(
+          noticeIgnoreFormUrl(type: target.type, authorId: target.authorId),
+          options: pageReadOptions(),
+        )
+        .run();
+    switch (resp) {
+      case Left():
+        return left(NoticeIgnoreFailure.network);
+      case Right(:final value) when value.statusCode != HttpStatus.ok:
+        final failure = failureOfPageStatus(value);
+        error('notice ignore form answered ${value.statusCode}: $failure');
+        return left(failure);
+      case Right(:final value) when value.data is! String:
+        return left(NoticeIgnoreFailure.unknownForm);
+      case Right(:final value):
+        try {
+          return right(parseNoticeIgnoreForm(value.data as String, target: target, expectedUid: uid));
+        } on _PageRejected catch (e) {
+          error('notice ignore form rejected: $e');
+          return left(e.failure);
+        }
+    }
   }
 
   /// Remove [rule] of account [uid], keeping every other checked filter of the privacy form.
@@ -630,6 +895,7 @@ class NoticeIgnoreRepository with LoggerMixin {
         final now = after.checkboxes.where((c) => c.checked).map((c) => (c.category, c.key)).toSet();
         return !after.noteRules.contains(rule) && now.containsAll(kept);
       },
+      fromApi: form.fromApi,
     );
   }
 
@@ -640,10 +906,21 @@ class NoticeIgnoreRepository with LoggerMixin {
     required Map<String, String> data,
     required bool Function(List<NoticeIgnoreRule>) expect,
     bool Function(ParsedForumForm)? expectForm,
+    bool fromApi = false,
+    bool inAjax = false,
   }) async {
     final Object? raw;
     NoticeIgnoreFailure? refused;
-    switch (await client.postForm(action.toString(), data: data).run()) {
+    // A form of plugin 4.0.0 goes back with its result parameters, once ([postTsdmAppV4]): the result names the
+    // forum's message key. The ignore window is posted as the website's window posts it (`inajax=1`).
+    final sent = fromApi
+        ? postTsdmAppV4(
+            client,
+            inAjax ? withSmallFormInAjax(action.toString()) : action.toString(),
+            data,
+          ).map<Object?>((e) => e)
+        : client.postForm(action.toString(), data: data).map<Object?>((e) => e);
+    switch (await sent.run()) {
       case Left(value: HttpHandshakeFailedException(statusCode: 301 || 302 || 303)):
         // Discuz answers a form post it handled with a redirect (`showmessage` with `msgforward` quick). The dart:io
         // client does not follow it for a POST (the Android one does): the forum got the request, verify below.
@@ -659,10 +936,21 @@ class NoticeIgnoreRepository with LoggerMixin {
         error('notice ignore submit failed, result unknown: $value');
         return const NoticeIgnoreResult.failed(NoticeIgnoreFailure.unknownAfterSubmit);
       case Right(:final value):
-        raw = value.data;
+        raw = value is Response<dynamic> ? value.data : value;
+    }
+    if (fromApi) {
+      // Plugin 4.0.0: `do_success` is the forum's success, any other message key its refusal; the rules read again
+      // below decide either way.
+      if (noticeIgnoreWriteFailureOf(raw, uid: uid) case final failure?
+          when failure != NoticeIgnoreFailure.unknownAfterSubmit) {
+        warning('notice ignore submit answered $failure');
+        refused = failure;
+      }
     }
     // The write result of the forum's app API (plugin 2.6.0) is checked as the page it stands for.
-    final doc = tsdmAppWriteResultOf(raw)?.document ?? (raw is String ? parseHtmlDocument(unwrapAjax(raw)) : null);
+    final doc = fromApi
+        ? null
+        : tsdmAppWriteResultOf(raw)?.document ?? (raw is String ? parseHtmlDocument(unwrapAjax(raw)) : null);
     if (doc != null) {
       try {
         checkForumPage(doc, expectedUid: uid, requireIdentity: false);

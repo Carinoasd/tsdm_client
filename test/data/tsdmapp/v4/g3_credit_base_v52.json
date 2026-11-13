@@ -1,0 +1,350 @@
+{
+ "ok": 1,
+ "api": 1,
+ "time": 1794538537,
+ "uid": 31,
+ "formhash": "f1f2f3f4",
+ "checknewpm": "",
+ "timeoffset": 8,
+ "type": "credit_base",
+ "schema": 52,
+ "tabs": [
+  {
+   "op": "base",
+   "url": "home.php?mod=spacecp&ac=credit&op=base"
+  },
+  {
+   "op": "log",
+   "url": "home.php?mod=spacecp&ac=credit&op=log"
+  },
+  {
+   "op": "rule",
+   "url": "home.php?mod=spacecp&ac=credit&op=rule"
+  }
+ ],
+ "plugin_tabs": [],
+ "credits": [
+  {
+   "id": 2,
+   "title": "天使币",
+   "unit": "",
+   "icon": "",
+   "value": 1504,
+   "trans": 1,
+   "buy_url": ""
+  },
+  {
+   "id": 1,
+   "title": "威望",
+   "unit": "",
+   "icon": "",
+   "value": 391,
+   "trans": 0,
+   "buy_url": ""
+  },
+  {
+   "id": 3,
+   "title": "宣传",
+   "unit": "",
+   "icon": "",
+   "value": 0,
+   "trans": 0,
+   "buy_url": ""
+  },
+  {
+   "id": 4,
+   "title": "腹黑",
+   "unit": "",
+   "icon": "",
+   "value": -470,
+   "trans": 0,
+   "buy_url": ""
+  },
+  {
+   "id": 5,
+   "title": "天然",
+   "unit": "",
+   "icon": "",
+   "value": -460,
+   "trans": 0,
+   "buy_url": ""
+  },
+  {
+   "id": 6,
+   "title": "精灵",
+   "unit": "",
+   "icon": "",
+   "value": -7,
+   "trans": 0,
+   "buy_url": ""
+  }
+ ],
+ "total": {
+  "value": 2644,
+  "formula": "总积分=发帖数+精华帖数×5+威望×2+天使币+宣传"
+ },
+ "upgroup": null,
+ "logs": [
+  {
+   "logid": 7950,
+   "operation": "积分规则",
+   "optype": "RUL",
+   "filter_url": "home.php?mod=spacecp&ac=credit&op=log&optype=RUL",
+   "relatedid": 15,
+   "changes": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 2,
+     "text": "天使币 +2"
+    }
+   ],
+   "after": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 1504
+    }
+   ],
+   "type": "income",
+   "detail": "每天登录",
+   "url": "",
+   "dateline": 1794504470
+  },
+  {
+   "logid": 7333,
+   "operation": "积分规则",
+   "optype": "RUL",
+   "filter_url": "home.php?mod=spacecp&ac=credit&op=log&optype=RUL",
+   "relatedid": 15,
+   "changes": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 2,
+     "text": "天使币 +2"
+    }
+   ],
+   "after": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 1502
+    }
+   ],
+   "type": "income",
+   "detail": "每天登录",
+   "url": "",
+   "dateline": 1794469544
+  },
+  {
+   "logid": 7308,
+   "operation": "积分规则",
+   "optype": "RUL",
+   "filter_url": "home.php?mod=spacecp&ac=credit&op=log&optype=RUL",
+   "relatedid": 1,
+   "changes": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 2,
+     "text": "天使币 +2"
+    }
+   ],
+   "after": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 1500
+    }
+   ],
+   "type": "income",
+   "detail": "发表主题(fid:11)",
+   "url": "",
+   "dateline": 1794408924
+  },
+  {
+   "logid": 7307,
+   "operation": "积分规则",
+   "optype": "RUL",
+   "filter_url": "home.php?mod=spacecp&ac=credit&op=log&optype=RUL",
+   "relatedid": 1,
+   "changes": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 2,
+     "text": "天使币 +2"
+    }
+   ],
+   "after": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 1498
+    }
+   ],
+   "type": "income",
+   "detail": "发表主题(fid:11)",
+   "url": "",
+   "dateline": 1794408907
+  },
+  {
+   "logid": 7306,
+   "operation": "积分规则",
+   "optype": "RUL",
+   "filter_url": "home.php?mod=spacecp&ac=credit&op=log&optype=RUL",
+   "relatedid": 1,
+   "changes": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 2,
+     "text": "天使币 +2"
+    }
+   ],
+   "after": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 1496
+    }
+   ],
+   "type": "income",
+   "detail": "发表主题(fid:33)",
+   "url": "",
+   "dateline": 1794408888
+  },
+  {
+   "logid": 7305,
+   "operation": "积分规则",
+   "optype": "RUL",
+   "filter_url": "home.php?mod=spacecp&ac=credit&op=log&optype=RUL",
+   "relatedid": 1,
+   "changes": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 2,
+     "text": "天使币 +2"
+    }
+   ],
+   "after": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 1494
+    }
+   ],
+   "type": "income",
+   "detail": "发表主题(fid:33)",
+   "url": "",
+   "dateline": 1794408872
+  },
+  {
+   "logid": 7304,
+   "operation": "积分规则",
+   "optype": "RUL",
+   "filter_url": "home.php?mod=spacecp&ac=credit&op=log&optype=RUL",
+   "relatedid": 1,
+   "changes": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 2,
+     "text": "天使币 +2"
+    }
+   ],
+   "after": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 1492
+    }
+   ],
+   "type": "income",
+   "detail": "发表主题(fid:33)",
+   "url": "",
+   "dateline": 1794408856
+  },
+  {
+   "logid": 7303,
+   "operation": "积分规则",
+   "optype": "RUL",
+   "filter_url": "home.php?mod=spacecp&ac=credit&op=log&optype=RUL",
+   "relatedid": 1,
+   "changes": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 2,
+     "text": "天使币 +2"
+    }
+   ],
+   "after": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 1490
+    }
+   ],
+   "type": "income",
+   "detail": "发表主题(fid:33)",
+   "url": "",
+   "dateline": 1794408840
+  },
+  {
+   "logid": 7302,
+   "operation": "积分规则",
+   "optype": "RUL",
+   "filter_url": "home.php?mod=spacecp&ac=credit&op=log&optype=RUL",
+   "relatedid": 1,
+   "changes": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 2,
+     "text": "天使币 +2"
+    }
+   ],
+   "after": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 1488
+    }
+   ],
+   "type": "income",
+   "detail": "发表主题(fid:33)",
+   "url": "",
+   "dateline": 1794408824
+  },
+  {
+   "logid": 7298,
+   "operation": "积分规则",
+   "optype": "RUL",
+   "filter_url": "home.php?mod=spacecp&ac=credit&op=log&optype=RUL",
+   "relatedid": 1,
+   "changes": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 2,
+     "text": "天使币 +2"
+    }
+   ],
+   "after": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 1486
+    }
+   ],
+   "type": "income",
+   "detail": "发表主题(fid:33)",
+   "url": "",
+   "dateline": 1794408792
+  }
+ ],
+ "log_url": "home.php?mod=spacecp&ac=credit&op=log"
+}

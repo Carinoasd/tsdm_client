@@ -5,7 +5,10 @@ import 'package:tsdm_client/features/points/models/models.dart';
 import 'package:tsdm_client/features/points/repository/model/models.dart';
 import 'package:tsdm_client/features/points/utils/changelog_range.dart';
 import 'package:tsdm_client/features/points/utils/credit_page_api.dart';
+import 'package:tsdm_client/features/points/utils/parse_points.dart';
+import 'package:tsdm_client/features/tsdmapp/small_form.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
+import 'package:tsdm_client/features/tsdmapp/v4.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
 import 'package:tsdm_client/utils/load_failure.dart';
@@ -21,6 +24,9 @@ import 'package:universal_html/html.dart' as uh;
 /// [TsdmAppStructuredPage] for `pointsChangelogFromApi`; the statistics page (`op=base`) is still read from its
 /// blocks.
 final class PointsRepository with LoggerMixin {
+  /// Constructor.
+  PointsRepository({this.currentUid});
+
   static const _statisticsPageUrl = '$baseUrl/home.php?mod=spacecp&ac=credit&op=base';
   static const _changelogPageUrl = '$baseUrl/home.php?mod=spacecp&op=log&ac=credit';
 
@@ -30,6 +36,38 @@ final class PointsRepository with LoggerMixin {
   /// failed request, not a page without points ([TsdmAppPageHttpExt.mapHttpPage]).
   AsyncEither<uh.Document> fetchStatisticsPage() =>
       getIt.get<NetClientProvider>().get(withTsdmAppJson(_statisticsPageUrl)).mapHttpPage((document) => document);
+
+  /// Fetch the points statistics: the structured page of plugin 4.0.0 (`credit_base`, `schema` 52,
+  /// [pointsStatisticsFromApi]) when the forum's plugin lists it, the web page ([fetchStatisticsPage],
+  /// `parseStatisticsDocument`) otherwise and whenever the plugin's answer is not that page. The right of the result is
+  /// the statistics, or the forum's message instead of them (empty when it printed none).
+  AsyncEither<Either<String, PointsStatistics>> fetchStatistics() => AsyncEither(() async {
+    final client = getIt.get<NetClientProvider>();
+    await TsdmAppApi.ensureStatus(client);
+    if (TsdmAppV4.has(TsdmAppV4Group.creditPages, 'credit_base')) {
+      final uid = (currentUid ?? currentLoginUid)();
+      switch (await fetchTsdmAppV4Page(client, _statisticsPageUrl, type: 'credit_base', schema: 52, uid: uid).run()) {
+        case Left(:final value):
+          return left(value);
+        case Right(value: TsdmAppV4Page(:final json)):
+          return right(right(pointsStatisticsFromApi(json)));
+        case Right(value: TsdmAppV4Message(:final reason)) when reason.isNotEmpty:
+          return right(left(reason));
+        case Right():
+          break;
+      }
+    }
+    return fetchStatisticsPage().map((document) {
+      if (parseStatisticsDocument(document) case (final points, final changes)) {
+        return right<String, PointsStatistics>((points: points, changes: changes));
+      }
+      // The forum's page without the points: its message (a guest, a closed forum) when it has one.
+      return left<String, PointsStatistics>(document.querySelector('div#messagetext > p')?.innerText.trim() ?? '');
+    }).run();
+  });
+
+  /// The account the pages are asked for, the one logged in when null (tests inject their own).
+  final int Function()? currentUid;
 
   /// Fetch the points changelog page with given [parameter]: the structured answer ([TsdmAppStructuredPage]) or the
   /// web page ([TsdmAppWebPage]), which parses as before. An answer without a page is a failed request, not a page

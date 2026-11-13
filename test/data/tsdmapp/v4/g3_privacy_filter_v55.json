@@ -1,0 +1,81 @@
+{
+ "ok": 1,
+ "api": 1,
+ "time": 1794538521,
+ "uid": 31,
+ "formhash": "f1f2f3f4",
+ "checknewpm": "",
+ "timeoffset": 8,
+ "type": "privacy_filter",
+ "schema": 55,
+ "groups": [
+  {
+   "gid": 0,
+   "name": "其他",
+   "checked": 0,
+   "field": "privacy[filter_gid][0]",
+   "value": "0"
+  },
+  {
+   "gid": 1,
+   "name": "通过本站认识",
+   "checked": 0,
+   "field": "privacy[filter_gid][1]",
+   "value": "1"
+  },
+  {
+   "gid": 2,
+   "name": "通过活动认识",
+   "checked": 0,
+   "field": "privacy[filter_gid][2]",
+   "value": "2"
+  },
+  {
+   "gid": 3,
+   "name": "通过朋友认识",
+   "checked": 0,
+   "field": "privacy[filter_gid][3]",
+   "value": "3"
+  },
+  {
+   "gid": 4,
+   "name": "亲人",
+   "checked": 0,
+   "field": "privacy[filter_gid][4]",
+   "value": "4"
+  },
+  {
+   "gid": 5,
+   "name": "同事",
+   "checked": 0,
+   "field": "privacy[filter_gid][5]",
+   "value": "5"
+  },
+  {
+   "gid": 6,
+   "name": "同学",
+   "checked": 0,
+   "field": "privacy[filter_gid][6]",
+   "value": "6"
+  },
+  {
+   "gid": 7,
+   "name": "不认识",
+   "checked": 0,
+   "field": "privacy[filter_gid][7]",
+   "value": "7"
+  }
+ ],
+ "feeds": [],
+ "notices": [],
+ "submit": {
+  "url": "home.php?mod=spacecp&ac=privacy&op=filter",
+  "method": "POST",
+  "enctype": "application/x-www-form-urlencoded",
+  "fields": {
+   "formhash": "f1f2f3f4",
+   "privacy2submit": "true"
+  }
+ },
+ "hook_fields": []
+}

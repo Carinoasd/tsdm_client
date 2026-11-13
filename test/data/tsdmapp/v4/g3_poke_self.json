@@ -1,0 +1,9 @@
+{
+ "ok": 0,
+ "error": "message",
+ "message": "不能向自己打招呼",
+ "message_key": "not_to_their_own_greeted",
+ "login": 0,
+ "uid": 31,
+ "form": "poke"
+}

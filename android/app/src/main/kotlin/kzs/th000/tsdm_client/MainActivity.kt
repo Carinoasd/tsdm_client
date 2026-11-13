@@ -57,6 +57,11 @@ class MainActivityImpl: AudioServiceFragmentActivity() {
          * only there.
          */
         const val HAS_SYSTEM_BIOMETRIC_PROMPT = "hasSystemBiometricPrompt"
+        /** Whether a hardware keyboard is in use, see [HardwareKeyboards]: asked by Dart, and sent to it on changes. */
+        const val HAS_HARDWARE_KEYBOARD = "hasHardwareKeyboard"
+        const val HARDWARE_KEYBOARD_CHANGED = "hardwareKeyboardChanged"
+        /** Dart tells whether the background message service is wanted, see [BackgroundSyncGuard]. */
+        const val SET_BACKGROUND_SYNC_GUARD = "setBackgroundSyncGuard"
         /** Sent to Dart with whether the default network is metered, each time it changes. */
         const val NETWORK_METERED_CHANGED = "networkMeteredChanged"
 
@@ -121,9 +126,10 @@ class MainActivityImpl: AudioServiceFragmentActivity() {
      *
      * * the task was swiped away from the recents while the background service or the player kept the process, then
      *   the app is opened again;
-     * * the audio service was created without an activity and made this engine: bound by the Bluetooth stack when it
-     *   starts, or by the audio service's plugin of another engine of the process (the background service at boot or
-     *   after an update, the reply typed in a notification).
+     * * the audio service was created without an activity and made this engine: bound by the audio service's plugin
+     *   of another engine of the process (the background service at boot or after an update, the reply typed in a
+     *   notification), or started by a media button. (The Bluetooth stack bound it at boot too, until the service was
+     *   no longer exported.)
      *
      * In the first case that Dart asked for its launch link, share, shortcut and notification long ago and will not
      * ask again: what this activity was launched with is pushed to it, see [pushLaunchToRunningDart]. In the second
@@ -360,6 +366,11 @@ class MainActivityImpl: AudioServiceFragmentActivity() {
         super.onResume()
         // The display can change while in background (folding, an external screen), so pick the mode again.
         if (preferHighRefreshRate) applyRefreshRate()
+        // The background message service went while the process lived on: started again now that the app is in front.
+        BackgroundSyncGuard.onActivityResumed(applicationContext)
+        // A keyboard attached or removed while another activity was in front (the interactive viewer), or while this
+        // one did not exist (a task swiped away and opened again on the same Dart).
+        notifyHardwareKeyboard(resources.configuration)
     }
 
     override fun onDestroy() {
@@ -438,6 +449,12 @@ class MainActivityImpl: AudioServiceFragmentActivity() {
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
         sendWindowEvent("configurationChanged", describe(newConfig))
+        notifyHardwareKeyboard(newConfig)
+    }
+
+    /** Tell Dart whether a hardware keyboard is in use; Dart keeps the last value and ignores a repeated one. */
+    private fun notifyHardwareKeyboard(config: Configuration) {
+        mainChannel?.invokeMethod(HARDWARE_KEYBOARD_CHANGED, HardwareKeyboards.inUse(config))
     }
 
     override fun onMultiWindowModeChanged(isInMultiWindowMode: Boolean, newConfig: Configuration) {
@@ -570,6 +587,16 @@ class MainActivityImpl: AudioServiceFragmentActivity() {
                 result.success(if (maker.isEmpty() || model.startsWith(maker, ignoreCase = true)) model else "$maker $model")
             }
             HAS_SYSTEM_BIOMETRIC_PROMPT -> result.success(Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
+            HAS_HARDWARE_KEYBOARD -> result.success(HardwareKeyboards.inUse(resources.configuration))
+            SET_BACKGROUND_SYNC_GUARD -> {
+                val wanted = call.argument<Any>("wanted") as? Boolean
+                if (wanted == null) {
+                    result.error("invalid_arguments", "wanted is required", null)
+                } else {
+                    BackgroundSyncGuard.setWanted(applicationContext, wanted, call.argument<Any>("title") as? String)
+                    result.success(true)
+                }
+            }
             OPEN_ATTACHMENT -> result.success(
                 AttachmentFiles.open(this, call.argument<Any>("path") as? String) { startActivity(it) },
             )

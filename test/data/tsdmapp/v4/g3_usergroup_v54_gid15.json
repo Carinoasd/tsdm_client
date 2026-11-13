@@ -1,0 +1,804 @@
+{
+ "ok": 1,
+ "api": 1,
+ "time": 1794538543,
+ "uid": 31,
+ "formhash": "f1f2f3f4",
+ "checknewpm": "",
+ "timeoffset": 8,
+ "type": "usergroup_info",
+ "schema": 54,
+ "main": {
+  "gid": 23,
+  "title": "AG低權組",
+  "icon": "",
+  "stars": 4,
+  "credits": 2644,
+  "upgroup": null,
+  "perms": [
+   {
+    "key": "basic",
+    "name": "用户级别",
+    "rows": [
+     {
+      "key": "allowvisit",
+      "label": "访问论坛",
+      "type": "bool",
+      "value": 1
+     },
+     {
+      "key": "readaccess",
+      "label": "阅读权限",
+      "type": "number",
+      "value": 20
+     },
+     {
+      "key": "allowinvisible",
+      "label": "隐身",
+      "type": "bool",
+      "value": 0
+     },
+     {
+      "key": "allowsearch",
+      "label": "使用搜索",
+      "type": "text",
+      "value": "允许搜索帖子内容"
+     },
+     {
+      "key": "allowcstatus",
+      "label": "自定义头衔",
+      "type": "bool",
+      "value": 1
+     },
+     {
+      "key": "disablepostctrl",
+      "label": "发帖不受限制",
+      "type": "bool",
+      "value": 0
+     },
+     {
+      "key": "allowsendpm",
+      "label": "允许发短消息",
+      "type": "bool",
+      "value": 1
+     },
+     {
+      "key": "allowfriend",
+      "label": "允许加好友",
+      "type": "bool",
+      "value": 1
+     },
+     {
+      "key": "allowstatdata",
+      "label": "查看统计数据报表",
+      "type": "bool",
+      "value": 0
+     }
+    ]
+   },
+   {
+    "key": "post",
+    "name": "帖子相关",
+    "rows": [
+     {
+      "key": "allowpost",
+      "label": "发新话题",
+      "type": "bool",
+      "value": 1
+     },
+     {
+      "key": "allowreply",
+      "label": "发表回复",
+      "type": "bool",
+      "value": 1
+     },
+     {
+      "key": "allowpostpoll",
+      "label": "发起投票",
+      "type": "bool",
+      "value": 1
+     },
+     {
+      "key": "allowvote",
+      "label": "参与投票",
+      "type": "bool",
+      "value": 1
+     },
+     {
+      "key": "allowpostreward",
+      "label": "发表悬赏",
+      "type": "bool",
+      "value": 1
+     },
+     {
+      "key": "allowpostactivity",
+      "label": "发表活动",
+      "type": "bool",
+      "value": 1
+     },
+     {
+      "key": "allowpostdebate",
+      "label": "发表辩论",
+      "type": "bool",
+      "value": 1
+     },
+     {
+      "key": "allowposttrade",
+      "label": "发表交易",
+      "type": "bool",
+      "value": 1
+     },
+     {
+      "key": "allowat",
+      "label": "允许 @ 的人数",
+      "type": "number",
+      "value": 0
+     },
+     {
+      "key": "allowreplycredit",
+      "label": "允许设置回帖奖励",
+      "type": "bool",
+      "value": 1
+     },
+     {
+      "key": "allowposttag",
+      "label": "允许使用标签",
+      "type": "bool",
+      "value": 0
+     },
+     {
+      "key": "allowcreatecollection",
+      "label": "允许创建淘专辑的数量",
+      "type": "number",
+      "value": 5
+     },
+     {
+      "key": "maxsigsize",
+      "label": "最大签名长度",
+      "type": "text",
+      "value": "200 字节"
+     },
+     {
+      "key": "allowsigbbcode",
+      "label": "签名中使用编辑器代码",
+      "type": "bool",
+      "value": 1
+     },
+     {
+      "key": "allowsigimgcode",
+      "label": "签名中使用 [img] 代码",
+      "type": "bool",
+      "value": 0
+     },
+     {
+      "key": "allowrecommend",
+      "label": "主题评价影响值",
+      "type": "text",
+      "value": "+1"
+     },
+     {
+      "key": "raterange",
+      "label": "允许参与评分",
+      "type": "bool",
+      "value": 0
+     },
+     {
+      "key": "allowcommentpost",
+      "label": "允许参与点评",
+      "type": "bool",
+      "value": 1
+     },
+     {
+      "key": "allowmediacode",
+      "label": "允许使用多媒体代码",
+      "type": "bool",
+      "value": 0
+     }
+    ]
+   },
+   {
+    "key": "space",
+    "name": "家园相关",
+    "rows": [
+     {
+      "key": "allowpoke",
+      "label": "允许打招呼",
+      "type": "bool",
+      "value": 1
+     },
+     {
+      "key": "allowclick",
+      "label": "允许表态",
+      "type": "bool",
+      "value": 1
+     },
+     {
+      "key": "allowcomment",
+      "label": "发表留言/评论",
+      "type": "bool",
+      "value": 1
+     },
+     {
+      "key": "maxspacesize",
+      "label": "空间大小",
+      "type": "text",
+      "value": "没有限制"
+     },
+     {
+      "key": "maximagesize",
+      "label": "单张图片最大尺寸",
+      "type": "text",
+      "value": "没有限制"
+     },
+     {
+      "key": "allowblog",
+      "label": "发表日志",
+      "type": "bool",
+      "value": 1
+     },
+     {
+      "key": "allowupload",
+      "label": "上传图片",
+      "type": "bool",
+      "value": 1
+     },
+     {
+      "key": "allowdoing",
+      "label": "发表记录",
+      "type": "bool",
+      "value": 1
+     }
+    ]
+   },
+   {
+    "key": "attachment",
+    "name": "附件相关",
+    "rows": [
+     {
+      "key": "allowgetattach",
+      "label": "下载附件",
+      "type": "bool",
+      "value": 1
+     },
+     {
+      "key": "allowgetimage",
+      "label": "查看图片",
+      "type": "bool",
+      "value": 1
+     },
+     {
+      "key": "allowpostattach",
+      "label": "上传附件",
+      "type": "bool",
+      "value": 1
+     },
+     {
+      "key": "allowpostimage",
+      "label": "上传图片",
+      "type": "bool",
+      "value": 1
+     },
+     {
+      "key": "allowsetattachperm",
+      "label": "允许设置附件权限",
+      "type": "bool",
+      "value": 0
+     },
+     {
+      "key": "maxattachsize",
+      "label": "单个最大附件尺寸",
+      "type": "text",
+      "value": "1.95 MB"
+     },
+     {
+      "key": "maxsizeperday",
+      "label": "每天最大附件总尺寸",
+      "type": "text",
+      "value": "没有限制"
+     },
+     {
+      "key": "maxattachnum",
+      "label": "每天最大附件数量",
+      "type": "text",
+      "value": "没有限制"
+     },
+     {
+      "key": "attachextensions",
+      "label": "附件类型",
+      "type": "text",
+      "value": "chm, pdf, zip, rar, tar, gz, bzip2, gif, jpg, jpeg, png"
+     }
+    ]
+   }
+  ]
+ },
+ "viewed": {
+  "gid": 15,
+  "title": "论坛元老",
+  "icon": "",
+  "stars": 8,
+  "category": "upgrade",
+  "grouptype": "member",
+  "credits_name": "",
+  "credits_formula": "",
+  "threshold": 3000,
+  "credits_left": 356,
+  "expiry": 0,
+  "actions": [],
+  "perms": [
+   {
+    "key": "basic",
+    "name": "用户级别",
+    "rows": [
+     {
+      "key": "allowvisit",
+      "label": "访问论坛",
+      "type": "bool",
+      "value": 1
+     },
+     {
+      "key": "readaccess",
+      "label": "阅读权限",
+      "type": "number",
+      "value": 90
+     },
+     {
+      "key": "allowinvisible",
+      "label": "隐身",
+      "type": "bool",
+      "value": 1
+     },
+     {
+      "key": "allowsearch",
+      "label": "使用搜索",
+      "type": "text",
+      "value": "允许搜索帖子内容"
+     },
+     {
+      "key": "allowcstatus",
+      "label": "自定义头衔",
+      "type": "bool",
+      "value": 1
+     },
+     {
+      "key": "disablepostctrl",
+      "label": "发帖不受限制",
+      "type": "bool",
+      "value": 0
+     },
+     {
+      "key": "allowsendpm",
+      "label": "允许发短消息",
+      "type": "bool",
+      "value": 1
+     },
+     {
+      "key": "allowfriend",
+      "label": "允许加好友",
+      "type": "bool",
+      "value": 1
+     },
+     {
+      "key": "allowstatdata",
+      "label": "查看统计数据报表",
+      "type": "bool",
+      "value": 0
+     }
+    ]
+   },
+   {
+    "key": "post",
+    "name": "帖子相关",
+    "rows": [
+     {
+      "key": "allowpost",
+      "label": "发新话题",
+      "type": "bool",
+      "value": 1
+     },
+     {
+      "key": "allowreply",
+      "label": "发表回复",
+      "type": "bool",
+      "value": 1
+     },
+     {
+      "key": "allowpostpoll",
+      "label": "发起投票",
+      "type": "bool",
+      "value": 1
+     },
+     {
+      "key": "allowvote",
+      "label": "参与投票",
+      "type": "bool",
+      "value": 1
+     },
+     {
+      "key": "allowpostreward",
+      "label": "发表悬赏",
+      "type": "bool",
+      "value": 1
+     },
+     {
+      "key": "allowpostactivity",
+      "label": "发表活动",
+      "type": "bool",
+      "value": 1
+     },
+     {
+      "key": "allowpostdebate",
+      "label": "发表辩论",
+      "type": "bool",
+      "value": 1
+     },
+     {
+      "key": "allowposttrade",
+      "label": "发表交易",
+      "type": "bool",
+      "value": 1
+     },
+     {
+      "key": "allowat",
+      "label": "允许 @ 的人数",
+      "type": "number",
+      "value": 0
+     },
+     {
+      "key": "allowreplycredit",
+      "label": "允许设置回帖奖励",
+      "type": "bool",
+      "value": 1
+     },
+     {
+      "key": "allowposttag",
+      "label": "允许使用标签",
+      "type": "bool",
+      "value": 0
+     },
+     {
+      "key": "allowcreatecollection",
+      "label": "允许创建淘专辑的数量",
+      "type": "number",
+      "value": 5
+     },
+     {
+      "key": "maxsigsize",
+      "label": "最大签名长度",
+      "type": "text",
+      "value": "500 字节"
+     },
+     {
+      "key": "allowsigbbcode",
+      "label": "签名中使用编辑器代码",
+      "type": "bool",
+      "value": 1
+     },
+     {
+      "key": "allowsigimgcode",
+      "label": "签名中使用 [img] 代码",
+      "type": "bool",
+      "value": 1
+     },
+     {
+      "key": "allowrecommend",
+      "label": "主题评价影响值",
+      "type": "text",
+      "value": "+1"
+     },
+     {
+      "key": "raterange",
+      "label": "允许参与评分",
+      "type": "bool",
+      "value": 0
+     },
+     {
+      "key": "allowcommentpost",
+      "label": "允许参与点评",
+      "type": "bool",
+      "value": 1
+     },
+     {
+      "key": "allowmediacode",
+      "label": "允许使用多媒体代码",
+      "type": "bool",
+      "value": 0
+     }
+    ]
+   },
+   {
+    "key": "space",
+    "name": "家园相关",
+    "rows": [
+     {
+      "key": "allowpoke",
+      "label": "允许打招呼",
+      "type": "bool",
+      "value": 1
+     },
+     {
+      "key": "allowclick",
+      "label": "允许表态",
+      "type": "bool",
+      "value": 1
+     },
+     {
+      "key": "allowcomment",
+      "label": "发表留言/评论",
+      "type": "bool",
+      "value": 1
+     },
+     {
+      "key": "maxspacesize",
+      "label": "空间大小",
+      "type": "text",
+      "value": "没有限制"
+     },
+     {
+      "key": "maximagesize",
+      "label": "单张图片最大尺寸",
+      "type": "text",
+      "value": "没有限制"
+     },
+     {
+      "key": "allowblog",
+      "label": "发表日志",
+      "type": "bool",
+      "value": 1
+     },
+     {
+      "key": "allowupload",
+      "label": "上传图片",
+      "type": "bool",
+      "value": 1
+     },
+     {
+      "key": "allowdoing",
+      "label": "发表记录",
+      "type": "bool",
+      "value": 1
+     }
+    ]
+   },
+   {
+    "key": "attachment",
+    "name": "附件相关",
+    "rows": [
+     {
+      "key": "allowgetattach",
+      "label": "下载附件",
+      "type": "bool",
+      "value": 1
+     },
+     {
+      "key": "allowgetimage",
+      "label": "查看图片",
+      "type": "bool",
+      "value": 1
+     },
+     {
+      "key": "allowpostattach",
+      "label": "上传附件",
+      "type": "bool",
+      "value": 1
+     },
+     {
+      "key": "allowpostimage",
+      "label": "上传图片",
+      "type": "bool",
+      "value": 1
+     },
+     {
+      "key": "allowsetattachperm",
+      "label": "允许设置附件权限",
+      "type": "bool",
+      "value": 1
+     },
+     {
+      "key": "maxattachsize",
+      "label": "单个最大附件尺寸",
+      "type": "text",
+      "value": "1.95 MB"
+     },
+     {
+      "key": "maxsizeperday",
+      "label": "每天最大附件总尺寸",
+      "type": "text",
+      "value": "没有限制"
+     },
+     {
+      "key": "maxattachnum",
+      "label": "每天最大附件数量",
+      "type": "text",
+      "value": "没有限制"
+     },
+     {
+      "key": "attachextensions",
+      "label": "附件类型",
+      "type": "text",
+      "value": "chm, pdf, zip, rar, tar, gz, bzip2, gif, jpg, jpeg, png"
+     }
+    ]
+   }
+  ]
+ },
+ "menus": [
+  {
+   "key": "my",
+   "name": "我的用户组",
+   "groups": [
+    {
+     "gid": 23,
+     "title": "AG低權組",
+     "icon": "",
+     "active": 0
+    }
+   ]
+  },
+  {
+   "key": "upgrade",
+   "name": "会员用户组",
+   "groups": [
+    {
+     "gid": 9,
+     "title": "限制会员",
+     "icon": "",
+     "active": 0
+    },
+    {
+     "gid": 10,
+     "title": "新手上路",
+     "icon": "",
+     "active": 0
+    },
+    {
+     "gid": 11,
+     "title": "注册会员",
+     "icon": "",
+     "active": 0
+    },
+    {
+     "gid": 12,
+     "title": "中级会员",
+     "icon": "",
+     "active": 0
+    },
+    {
+     "gid": 13,
+     "title": "高级会员",
+     "icon": "",
+     "active": 0
+    },
+    {
+     "gid": 14,
+     "title": "金牌会员",
+     "icon": "",
+     "active": 0
+    },
+    {
+     "gid": 15,
+     "title": "论坛元老",
+     "icon": "",
+     "active": 1
+    }
+   ]
+  },
+  {
+   "key": "user",
+   "name": "普通用户组",
+   "groups": [
+    {
+     "gid": 24,
+     "title": "AG效能組",
+     "icon": "",
+     "active": 0
+    },
+    {
+     "gid": 23,
+     "title": "AG低權組",
+     "icon": "",
+     "active": 0
+    },
+    {
+     "gid": 22,
+     "title": "字幕組",
+     "icon": "",
+     "active": 0
+    },
+    {
+     "gid": 20,
+     "title": "GLTEST 臨時組（沉睡降級）",
+     "icon": "",
+     "active": 0
+    },
+    {
+     "gid": 8,
+     "title": "等待验证会员",
+     "icon": "",
+     "active": 0
+    },
+    {
+     "gid": 7,
+     "title": "游客",
+     "icon": "",
+     "active": 0
+    },
+    {
+     "gid": 6,
+     "title": "禁止 IP",
+     "icon": "",
+     "active": 0
+    },
+    {
+     "gid": 5,
+     "title": "禁止访问",
+     "icon": "",
+     "active": 0
+    },
+    {
+     "gid": 4,
+     "title": "禁止发言",
+     "icon": "",
+     "active": 0
+    }
+   ]
+  },
+  {
+   "key": "admin",
+   "name": "站点管理组",
+   "groups": [
+    {
+     "gid": 2,
+     "title": "超级版主",
+     "icon": "",
+     "active": 0
+    },
+    {
+     "gid": 21,
+     "title": "區版主",
+     "icon": "",
+     "active": 0
+    },
+    {
+     "gid": 19,
+     "title": "审核员",
+     "icon": "",
+     "active": 0
+    },
+    {
+     "gid": 18,
+     "title": "信息监察员",
+     "icon": "",
+     "active": 0
+    },
+    {
+     "gid": 17,
+     "title": "网站编辑",
+     "icon": "",
+     "active": 0
+    },
+    {
+     "gid": 16,
+     "title": "实习版主",
+     "icon": "",
+     "active": 0
+    },
+    {
+     "gid": 3,
+     "title": "版主",
+     "icon": "",
+     "active": 0
+    },
+    {
+     "gid": 1,
+     "title": "管理员",
+     "icon": "",
+     "active": 0
+    }
+   ]
+  }
+ ],
+ "url": "home.php?mod=spacecp&ac=usergroup",
+ "list_url": "home.php?mod=spacecp&ac=usergroup&do=list",
+ "hook_fields": []
+}

@@ -7,12 +7,24 @@ import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/utils/show_dialog.dart';
 import 'package:tsdm_client/widgets/section_list_tile.dart';
 
+/// Whether the background message service is on while the system may stop it for good (P13): without the battery
+/// optimization exemption Android 12+ refuses to start it again once the process was killed, until the app is opened.
+/// Unknown (not read yet) is not at risk.
+bool backgroundReceiveAtRisk({required bool serviceOn, required PermissionStatus? ignoreBattery}) =>
+    serviceOn && ignoreBattery != null && ignoreBattery != PermissionStatus.granted;
+
 /// The two Android-only rows in the behavior section: notification permission and battery optimization (#13, #3).
+///
+/// With the background message service on and no exemption, the battery row is drawn in the error color
+/// ([backgroundReceiveAtRisk]); its tap asks the system for the exemption.
 ///
 /// Needs an [AndroidPermissionCubit] above it.
 class AndroidPermissionTiles extends StatelessWidget {
   /// Constructor.
-  const AndroidPermissionTiles({super.key});
+  const AndroidPermissionTiles({this.backgroundServiceOn = false, super.key});
+
+  /// Whether the background message service is switched on.
+  final bool backgroundServiceOn;
 
   @override
   Widget build(BuildContext context) {
@@ -33,6 +45,8 @@ class AndroidPermissionTiles extends StatelessWidget {
           PermissionStatus.granted => tr.ignoreBatteryOptimizations.granted,
           _ => tr.ignoreBatteryOptimizations.denied,
         };
+        final atRisk = backgroundReceiveAtRisk(serviceOn: backgroundServiceOn, ignoreBattery: state.ignoreBattery);
+        final error = Theme.of(context).colorScheme.error;
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -63,10 +77,11 @@ class AndroidPermissionTiles extends StatelessWidget {
               },
             ),
             SectionListTile(
-              leading: const Icon(Icons.battery_saver_outlined),
+              key: const ValueKey('settings-ignore-battery'),
+              leading: Icon(Icons.battery_saver_outlined, color: atRisk ? error : null),
               title: Text(tr.ignoreBatteryOptimizations.title),
               subtitle: Text(tr.ignoreBatteryOptimizations.detail),
-              trailing: Text(battery, style: style),
+              trailing: Text(battery, style: atRisk ? style?.copyWith(color: error) : style),
               onTap: () async => context.read<AndroidPermissionCubit>().requestIgnoreBattery(),
             ),
           ],

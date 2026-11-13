@@ -8,6 +8,7 @@ import 'package:tsdm_client/features/blocking/models/website_blocklist.dart';
 import 'package:tsdm_client/features/blocking/repository/notice_ignore_repository.dart';
 import 'package:tsdm_client/features/blocking/utils/forum_url.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
+import 'package:tsdm_client/features/tsdmapp/v4.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
 import 'package:tsdm_client/utils/logger.dart';
@@ -261,8 +262,14 @@ final class WebsiteBlocklistDocument {
     required this.lookup,
     required Map<int, _PluginForm> removers,
     required _PluginForm? adder,
+    this.fromApi = false,
   }) : _removers = removers,
        _adder = adder;
+
+  /// Read from the structured page of plugin 4.0.0 ([websiteBlocklistDocumentFromApi]): its forms are posted back
+  /// with [withTsdmAppV4Write] and their result read from the answer (a redirect, or the page drawn again with its
+  /// `error`).
+  final bool fromApi;
 
   /// The list shown on the page.
   final WebsiteBlocklist list;
@@ -524,6 +531,170 @@ WebsiteBlocklistDocument _parsePage(String raw, {required int expectedUid, int? 
   return WebsiteBlocklistDocument._(list: list, lookup: lookup, removers: removers, adder: adder);
 }
 
+/// The plugin POST form of a structured blacklist page [form] (`add` or `remove` of plugin 4.0.0) for user [target]:
+/// its fields as served (the web forms carry `formhash` and the flag of [kind]) and the uid as `buid`, with the same
+/// checks ([websiteBlocklistActionOf], `formhash` and the flag not blank, never the other form's flag, the uid field
+/// named `buid`).
+_PluginForm _apiPluginForm(Map<String, dynamic> form, _FormKind kind, int target) {
+  if (tsdmAppText(form['method']).toUpperCase() != 'POST') {
+    _unsupported('structured form is not post');
+  }
+  final action = websiteBlocklistActionOf(tsdmAppText(form['url']));
+  if (action == null) {
+    _unsupported('structured form action is not the plugin page');
+  }
+  if (tsdmAppText(form['uid_field']) != 'buid') {
+    _unsupported('structured form uid field');
+  }
+  // Every field as served (a field a later plugin adds goes back too), then the uid; the two the plugin checks
+  // must be there and not blank.
+  final fields = <String, String>{
+    for (final MapEntry(:key, :value) in tsdmAppMap(form['fields']).entries)
+      if (value is String) key: value else if (value is num) key: '$value',
+    'buid': '$target',
+  };
+  if (!['formhash', kind.flag].every((name) => (fields[name] ?? '').isNotEmpty) ||
+      fields.containsKey(kind == _FormKind.add ? _FormKind.remove.flag : _FormKind.add.flag)) {
+    _unsupported('structured form fields');
+  }
+  return _PluginForm(action: action, fields: Map.unmodifiable(fields), target: target);
+}
+
+/// The blacklist page of plugin 4.0.0 [json] (`type: blockuser`, `schema` 56) of account [expectedUid], read as
+/// [parseWebsiteBlocklistDocument] reads the web page; with [lookupUid], also the lookup of that member (`bu_q`).
+///
+/// * `list` rows as the table's rows: each a uid, never the account itself nor twice (an account that is gone has no
+///   name: shown by uid); each removable with the `remove` form.
+/// * The quota is `count` of `max`; the list is complete when it is not split into pages and holds `count` rows.
+/// * The lookup: `confirm` is the member found (it must be [lookupUid]) and can be added with the `add` form while the
+///   page says so (`can_add`); `error.code` `dup` is a member on the list already, `notfound` none found, `self` and
+///   `bad_uid` another target than a member, `full` and `closed` the forum refusing to add any.
+///
+/// Never throws anything but [WebsiteBlocklistRejected].
+WebsiteBlocklistDocument websiteBlocklistDocumentFromApi(
+  Map<String, dynamic> json, {
+  required int expectedUid,
+  int? lookupUid,
+}) {
+  try {
+    return _documentFromApi(json, expectedUid: expectedUid, lookupUid: lookupUid);
+  } on WebsiteBlocklistRejected {
+    rethrow;
+  } on Object catch (e) {
+    throw WebsiteBlocklistRejected(WebsiteBlocklistFailure.unsupported, 'malformed answer: ${e.runtimeType}');
+  }
+}
+
+WebsiteBlocklistDocument _documentFromApi(Map<String, dynamic> json, {required int expectedUid, int? lookupUid}) {
+  final remove = tsdmAppMap(json['remove']);
+  final rows = <WebsiteBlockedUser>[];
+  final removers = <int, _PluginForm>{};
+  for (final row in tsdmAppList(json['list'])) {
+    final uid = row['uid'] is int ? row['uid'] as int : null;
+    if (uid == null || uid <= 0 || uid > 0x7fffffff) {
+      _unsupported('row without a user id');
+    }
+    if (uid == expectedUid) {
+      _unsupported('row of the account itself');
+    }
+    if (rows.any((e) => e.uid == uid)) {
+      _unsupported('user listed twice');
+    }
+    try {
+      removers[uid] = _apiPluginForm(remove, _FormKind.remove, uid);
+    } on WebsiteBlocklistRejected catch (e) {
+      talker.warning('website blacklist remove form skipped: ${e.reason}');
+    }
+    rows.add(
+      WebsiteBlockedUser(
+        uid: uid,
+        username: row['gone'] == 1 ? '' : tsdmAppText(row['username']).trim(),
+        removable: removers.containsKey(uid),
+      ),
+    );
+  }
+  final count = tsdmAppInt(json['count']);
+  final max = tsdmAppInt(json['max']);
+  final quota = max > 0 ? WebsiteBlocklistQuota(used: count, limit: max) : null;
+  final list = WebsiteBlocklist(
+    ownerUid: expectedUid,
+    rows: rows,
+    complete: tsdmAppInt(json['pages']) <= 1 && count == rows.length,
+    quota: quota,
+  );
+  if (lookupUid == null) {
+    return WebsiteBlocklistDocument._(list: list, lookup: null, removers: removers, adder: null, fromApi: true);
+  }
+  final listed = list.rowOf(lookupUid);
+  final error = tsdmAppMap(json['error']);
+  final confirm = tsdmAppMap(json['confirm']);
+  WebsiteBlocklistLookup? lookup;
+  _PluginForm? adder;
+  switch (tsdmAppText(error['code'])) {
+    case 'self' || 'bad_uid':
+      _mismatch('lookup of no other member');
+    case 'full' || 'closed':
+      throw const WebsiteBlocklistRejected(WebsiteBlocklistFailure.forumError, 'lookup refused');
+    case 'dup':
+      final name = listed?.username ?? tsdmAppText(error['username']).trim();
+      lookup = WebsiteBlocklistLookup(uid: lookupUid, username: name, alreadyListed: true, canAdd: false);
+    case 'notfound':
+      lookup = null;
+    case _ when confirm.isNotEmpty:
+      if (confirm['uid'] != lookupUid) {
+        _mismatch('lookup shows another user');
+      }
+      if (listed == null && json['can_add'] == 1) {
+        try {
+          adder = _apiPluginForm(tsdmAppMap(json['add']), _FormKind.add, lookupUid);
+        } on WebsiteBlocklistRejected catch (e) {
+          talker.warning('website blacklist add form skipped: ${e.reason}');
+        }
+      }
+      lookup = WebsiteBlocklistLookup(
+        uid: lookupUid,
+        username: tsdmAppText(confirm['username']).trim(),
+        alreadyListed: listed != null,
+        canAdd: adder != null,
+      );
+    case _ when listed != null:
+      lookup = WebsiteBlocklistLookup(uid: lookupUid, username: listed.username, alreadyListed: true, canAdd: false);
+    case _:
+      lookup = null;
+  }
+  return WebsiteBlocklistDocument._(list: list, lookup: lookup, removers: removers, adder: adder, fromApi: true);
+}
+
+/// What the answer [data] to a blacklist form of plugin 4.0.0 told: null when nothing speaks against the write (the
+/// plugin's redirect, the member on the list already), the refusal otherwise. The list read again decides either way.
+WebsiteBlocklistError? websiteBlocklistWriteErrorOf(Object? data, {required int uid}) {
+  switch (tsdmAppV4WriteOutcomeOf(data, type: 'blockuser', schema: 56)) {
+    case TsdmAppV4Written(:final result) when result.login:
+      return const WebsiteBlocklistError(WebsiteBlocklistFailure.notLoggedIn);
+    case TsdmAppV4Written(:final result) when result.uid != uid:
+      return const WebsiteBlocklistError(WebsiteBlocklistFailure.accountMismatch);
+    case TsdmAppV4Written(:final result) when result.kind == TsdmAppWriteKind.redirect && result.ok:
+      return null;
+    case TsdmAppV4Written(:final result) when !result.ok || result.isError:
+      return WebsiteBlocklistError(WebsiteBlocklistFailure.forumError, message: _displayMessage(result.message));
+    case TsdmAppV4Redrawn(answer: TsdmAppV4Message(login: true)):
+      return const WebsiteBlocklistError(WebsiteBlocklistFailure.notLoggedIn);
+    case TsdmAppV4Redrawn(:final answer) when answer.uid != uid:
+      return const WebsiteBlocklistError(WebsiteBlocklistFailure.accountMismatch);
+    case TsdmAppV4Redrawn(answer: TsdmAppV4Message(:final message)):
+      return WebsiteBlocklistError(WebsiteBlocklistFailure.forumError, message: _displayMessage(message));
+    case TsdmAppV4Redrawn(answer: TsdmAppV4Page(:final json)):
+      return switch (tsdmAppText(tsdmAppMap(json['error'])['code'])) {
+        '' || 'dup' => null,
+        'notfound' => const WebsiteBlocklistError(WebsiteBlocklistFailure.notFound),
+        'self' || 'bad_uid' => const WebsiteBlocklistError(WebsiteBlocklistFailure.targetMismatch),
+        _ => const WebsiteBlocklistError(WebsiteBlocklistFailure.forumError),
+      };
+    case _:
+      return null;
+  }
+}
+
 /// Website blacklist of the forum's `blockuser` plugin: NOT the Discuz friend blacklist, NOT the notice ignore rules
 /// (`filter_note`) and NOT the local block list.
 ///
@@ -544,6 +715,9 @@ class WebsiteBlocklistRepository with LoggerMixin {
     required int uid,
     int? lookupUid,
   }) async {
+    if (await _readFromApi(client, url, uid: uid, lookupUid: lookupUid) case final answer?) {
+      return answer;
+    }
     final resp = await client.get(url, options: pageReadOptions()).run();
     switch (resp) {
       case Left(:final value):
@@ -563,6 +737,41 @@ class WebsiteBlocklistRepository with LoggerMixin {
           error('website blacklist page rejected: $e');
           return left(e.error);
         }
+    }
+  }
+
+  /// The page [url] from the structured answer of plugin 4.0.0 (`blockuser`, `schema` 56) when the forum's plugin
+  /// lists it; null to read the web page instead (another answer, a refusal without a message, a failed request: the
+  /// web page then tells a site challenge from a network failure).
+  Future<Either<WebsiteBlocklistError, WebsiteBlocklistDocument>?> _readFromApi(
+    NetClientProvider client,
+    String url, {
+    required int uid,
+    int? lookupUid,
+  }) async {
+    await TsdmAppApi.ensureStatus(client);
+    if (!TsdmAppV4.has(TsdmAppV4Group.blockPages, 'blockuser')) {
+      return null;
+    }
+    switch (await fetchTsdmAppV4Page(client, url, type: 'blockuser', schema: 56, uid: uid).run()) {
+      case Left(value: IdentityChangedException()):
+        return left(const WebsiteBlocklistError(WebsiteBlocklistFailure.accountMismatch));
+      case Left(:final value):
+        warning('website blacklist answer failed, reading the page: ${value.runtimeType}');
+        return null;
+      case Right(value: TsdmAppV4Page(:final json)):
+        try {
+          return right(websiteBlocklistDocumentFromApi(json, expectedUid: uid, lookupUid: lookupUid));
+        } on WebsiteBlocklistRejected catch (e) {
+          error('website blacklist answer rejected: $e');
+          return left(e.error);
+        }
+      case Right(value: TsdmAppV4Message(login: true)):
+        return left(const WebsiteBlocklistError(WebsiteBlocklistFailure.notLoggedIn));
+      case Right(value: TsdmAppV4Message(:final message)) when message.isNotEmpty:
+        return left(WebsiteBlocklistError(WebsiteBlocklistFailure.forumError, message: _displayMessage(message)));
+      case Right():
+        return null;
     }
   }
 
@@ -648,6 +857,7 @@ class WebsiteBlocklistRepository with LoggerMixin {
       target: target,
       present: true,
       stillCurrent: stillCurrent,
+      fromApi: page.fromApi,
     );
   }
 
@@ -695,6 +905,7 @@ class WebsiteBlocklistRepository with LoggerMixin {
       target: target,
       present: false,
       stillCurrent: stillCurrent,
+      fromApi: page.fromApi,
     );
   }
 
@@ -711,12 +922,31 @@ class WebsiteBlocklistRepository with LoggerMixin {
     required int target,
     required bool present,
     required WebsiteBlocklistStillCurrent? stillCurrent,
+    bool fromApi = false,
   }) async {
     if (stillCurrent?.call() == false) {
       warning('website blacklist write expired before sending, not sent');
       return _expired;
     }
     WebsiteBlocklistError? refused;
+    if (fromApi) {
+      // Plugin 4.0.0: the form goes back with the result parameters, once; a success is the plugin's redirect, a
+      // refusal the page drawn again with its `error`. The list read again below decides.
+      switch (await postTsdmAppV4(client, action.toString(), data).run()) {
+        case Left(value: HttpHandshakeFailedException(statusCode: 403 || 503, :final headers))
+            when headers?.value('cf-mitigated')?.toLowerCase() == 'challenge':
+          warning('website blacklist write stopped by a site challenge');
+          refused = const WebsiteBlocklistError(WebsiteBlocklistFailure.challenge);
+        case Left(:final value):
+          error('website blacklist write failed, result unknown: ${value.runtimeType}');
+        case Right(:final value):
+          refused = websiteBlocklistWriteErrorOf(value, uid: uid);
+          if (refused != null) {
+            warning('website blacklist write answered ${refused.failure}');
+          }
+      }
+      return _verify(client, uid: uid, target: target, present: present, refused: refused);
+    }
     switch (await client.postForm(action.toString(), data: data, singleAttempt: true).run()) {
       case Left(value: HttpHandshakeFailedException(statusCode: 301 || 302 || 303)):
         // A form post the forum handled answers with a redirect, not followed for a single attempt: verify below.
@@ -738,6 +968,18 @@ class WebsiteBlocklistRepository with LoggerMixin {
       case Right():
         break;
     }
+    return _verify(client, uid: uid, target: target, present: present, refused: refused);
+  }
+
+  /// Read the list again after a write: confirmed only when [target] is [present] (absent: in a complete list) and the
+  /// answer to the write did not refuse it ([refused]).
+  Future<WebsiteBlocklistWrite> _verify(
+    NetClientProvider client, {
+    required int uid,
+    required int target,
+    required bool present,
+    required WebsiteBlocklistError? refused,
+  }) async {
     switch (await _read(client, websiteBlocklistUrl, uid: uid)) {
       case Left():
         return WebsiteBlocklistWrite.failed(
