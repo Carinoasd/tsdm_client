@@ -4,7 +4,7 @@
 /// pages (`schema: 9`, a member's threads too) asked with `tsdmpreview=1` carry `preview` on every thread row: the
 /// excerpt of the first floor, up to three of its images and how many it has, or the reason the plugin gives none (a
 /// paid thread, a read permission, a password, a forum the viewer may not enter…). The app asks for it once the plugin
-/// told it answers it (`status` `preview: 1`, or a version of 3.1.0 or later) and a setting shows some of it; a card
+/// told it answers it (`status` `preview: 1`, or a version of 3.5.0 or later) and a setting shows some of it; a card
 /// then shows two lines of the excerpt under the title and one thumbnail on the right ("+N" when there are more),
 /// nothing at all for a withheld preview. Settings: the excerpt on or off, the thumbnail always, on Wi-Fi only (the
 /// default) or never.
@@ -259,7 +259,7 @@ final Uint8List _tinyPng = base64Decode(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
 );
 
-void _knowsPreview() => TsdmAppApi.pluginInfo.value = TsdmAppPluginInfo.fromAnswer(_status('3.1.0', preview: true));
+void _knowsPreview() => TsdmAppApi.pluginInfo.value = TsdmAppPluginInfo.fromAnswer(_status('3.5.0', preview: true));
 
 bool _asksPreview(RequestOptions o) => o.uri.queryParameters['tsdmpreview'] == '1';
 
@@ -297,25 +297,27 @@ void main() {
   });
 
   group('A. the plugin tells it answers the previews', () {
-    test('status preview: 1, or a version of 3.1.0 or later; never before something told', () {
-      expect(tsdmAppPreviewVersion, '3.1.0');
-      expect(compareTsdmAppVersions(expectedTsdmAppVersion, '3.1.0'), greaterThanOrEqualTo(0));
+    test('status preview: 1, or a version of 3.5.0 (the oldest plugin used) or later; never before something told', () {
+      expect(tsdmAppMinimumVersion, '3.5.0');
+      expect(compareTsdmAppVersions(expectedTsdmAppVersion, tsdmAppMinimumVersion), greaterThanOrEqualTo(0));
       expect(TsdmAppApi.knowsPreview, isFalse, reason: 'nothing told yet');
 
-      final status = TsdmAppPluginInfo.fromAnswer(_status('3.1.0', preview: true))!;
+      final status = TsdmAppPluginInfo.fromAnswer(_status('3.5.0', preview: true))!;
       expect(status.preview, isTrue);
-      expect(TsdmAppPluginInfo.fromAnswer(_status('3.1.0'))!.preview, isFalse);
-      TsdmAppApi.pluginInfo.value = TsdmAppPluginInfo.fromAnswer(_status('3.1.0'));
+      expect(TsdmAppPluginInfo.fromAnswer(_status('3.5.0'))!.preview, isFalse);
+      TsdmAppApi.pluginInfo.value = TsdmAppPluginInfo.fromAnswer(_status('3.5.0'));
       expect(TsdmAppApi.knowsPreview, isFalse, reason: 'a status without preview: 1 says no, whatever its version');
-      expect(TsdmAppPluginInfo.fromAnswer({'ok': 1, 'version': '3.1.0'})!.preview, isNull, reason: 'not a status');
-      expect(status, isNot(TsdmAppPluginInfo.fromAnswer(_status('3.1.0'))));
+      expect(TsdmAppPluginInfo.fromAnswer({'ok': 1, 'version': '3.5.0'})!.preview, isNull, reason: 'not a status');
+      expect(status, isNot(TsdmAppPluginInfo.fromAnswer(_status('3.5.0'))));
 
       TsdmAppApi.pluginInfo.value = status;
       expect(TsdmAppApi.knowsPreview, isTrue);
-      TsdmAppApi.pluginInfo.value = const TsdmAppPluginInfo(version: '3.1.0', api: 1, nodoc: false);
+      TsdmAppApi.pluginInfo.value = const TsdmAppPluginInfo(version: '3.5.0', api: 1, nodoc: false);
       expect(TsdmAppApi.knowsPreview, isTrue, reason: 'notify names the version only');
       TsdmAppApi.pluginInfo.value = const TsdmAppPluginInfo(version: '3.10.0', api: 1, nodoc: false);
       expect(TsdmAppApi.knowsPreview, isTrue);
+      TsdmAppApi.pluginInfo.value = TsdmAppPluginInfo.fromAnswer(_status('3.1.0', preview: true));
+      expect(TsdmAppApi.knowsPreview, isFalse, reason: 'older than the oldest plugin used, whatever it says');
       TsdmAppApi.pluginInfo.value = const TsdmAppPluginInfo(version: '3.0.0', api: 1, nodoc: true);
       expect(TsdmAppApi.knowsPreview, isFalse, reason: 'the small forms, not the previews');
       TsdmAppApi.reset();
@@ -327,8 +329,8 @@ void main() {
       await app.setUp();
       addTearDown(app.tearDown);
       app.forum.answer = (r) => r.uri.queryParameters['action'] == 'status'
-          ? _status('3.1.0', preview: true)
-          : {'ok': 1, 'api': 1, 'version': '3.1.0', 'time': 1700000000, 'notices': <Object>[]};
+          ? _status('3.5.0', preview: true)
+          : {'ok': 1, 'api': 1, 'version': '3.5.0', 'time': 1700000000, 'notices': <Object>[]};
       final client = getIt.get<NetClientProvider>();
       await TsdmAppApi.ask(client, 'status');
       expect(TsdmAppApi.pluginInfo.value?.preview, isTrue);

@@ -87,7 +87,15 @@ final class _Forum implements HttpClientAdapter {
     }
     final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
     return ResponseBody.fromString(
-      jsonEncode({'ok': 1, 'api': 1, 'time': now, 'notices': <Object>[], 'pms': <Object>[], 'announces': <Object>[]}),
+      jsonEncode({
+        'ok': 1,
+        'api': 1,
+        'version': '3.5.0',
+        'time': now,
+        'notices': <Object>[],
+        'pms': <Object>[],
+        'announces': <Object>[],
+      }),
       200,
       headers: {
         Headers.contentTypeHeader: ['application/json; charset=utf-8'],

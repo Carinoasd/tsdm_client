@@ -31,7 +31,8 @@ import 'package:tsdm_client/shared/providers/providers.dart';
 /// The forum clock: now, since the repository clamps `since` to three days ago (a fixed time broke on 2026-10-10).
 final int _now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
 
-/// A `notify` answer as the plugin gives it (1.1.0 on the test forum, names replaced).
+/// A `notify` answer without the lists (1.1.0 on the test forum, names replaced), named 3.5.0: an older plugin's is
+/// not used (test 975).
 Map<String, Object?> _notify({
   List<Map<String, Object?>> notices = const [],
   List<Map<String, Object?>> pms = const [],
@@ -39,6 +40,7 @@ Map<String, Object?> _notify({
 }) => {
   'ok': 1,
   'api': 1,
+  'version': '3.5.0',
   'time': _now,
   'uid': 35,
   'counts': {'notice': notices.length, 'pm': pms.length, 'announce': announces.length},
@@ -253,14 +255,17 @@ void main() {
       expect(forum.requests, hasLength(1));
     });
 
-    test('the first fetch (no timestamp) asks once and reads the pages: an older plugin only gates polls', () async {
-      // Plugin 1.9.0 answers the lists themselves (test 211); this answer is an older plugin's.
-      final forum = _Forum(api: _notify(), pages: [_noticePage, _emptyPage, _emptyPage]);
-      final result = await NotificationRepository().fetchNotificationWith(_client(forum)).run();
-      expect(result.isRight(), isTrue);
-      expect(forum.apiRequests, hasLength(1));
-      expect(forum.requests, hasLength(4));
-    });
+    test(
+      'the first fetch (no timestamp) asks once and reads the pages: an answer without lists only gates polls',
+      () async {
+        // Plugin 1.9.0 answers the lists themselves (test 211); this answer leaves them out.
+        final forum = _Forum(api: _notify(), pages: [_noticePage, _emptyPage, _emptyPage]);
+        final result = await NotificationRepository().fetchNotificationWith(_client(forum)).run();
+        expect(result.isRight(), isTrue);
+        expect(forum.apiRequests, hasLength(1));
+        expect(forum.requests, hasLength(4));
+      },
+    );
   });
 
   group('checkin', () {

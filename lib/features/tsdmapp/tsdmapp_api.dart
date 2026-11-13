@@ -73,6 +73,13 @@ import 'package:universal_html/parsing.dart';
 /// `action=admin` tells what the account may use, and every other admin action carries the short-lived token the
 /// account gets for its login password ([askWithHeaders], `admin_tools`). It also answers the moderation panel's report
 /// page (`schema: 28`) and the background grant (`bggrant`, `schema: 31`) as the other plugin forms.
+///
+/// The actions of a plugin older than [tsdmAppMinimumVersion] (3.5.0, the version the forum ran the longest) are not
+/// used: a `status` or `notify` answer naming such a version (or a `notify` naming none, before 1.9.0) is dropped and
+/// the API treated as missing for [unavailableFor] ([knownTooOld]), so every caller takes its web page path. Only
+/// `status` and `notify` are asked of such a plugin after that, to see it upgraded. The pages asked in the JSON mode
+/// ([withTsdmAppJson]) name no version, and the first of them (the homepage) is asked before `notify`: the readers of
+/// their answers keep telling an older plugin's answer from its fields.
 abstract final class TsdmAppApi {
   /// Url of an action.
   static String url(String action, [Map<String, String> query = const {}]) => Uri.parse(
@@ -96,8 +103,34 @@ abstract final class TsdmAppApi {
   /// Forget a missing plugin, and what the plugin told about itself (for tests, or after the user asks to check again).
   static void reset() {
     _unavailableUntil = null;
+    _tooOld = false;
     pluginInfo.value = null;
     _postFormSeen = false;
+  }
+
+  static bool _tooOld = false;
+
+  /// Whether the last `status` or `notify` answer was of a plugin older than [tsdmAppMinimumVersion]: then no other
+  /// action is asked or posted until a `status` or `notify` names a supported version.
+  static bool get knownTooOld => _tooOld;
+
+  /// Whether [action]'s answer [json] tells the plugin's version: `status` and `notify` name it (`notify` since 1.9.0);
+  /// what other actions name `version` may be something else (the smilies table, the batch rate plugin).
+  static bool _tellsVersion(String action, Map<String, dynamic> json) =>
+      (action == 'status' || action == 'notify') && json['ok'] == 1;
+
+  /// Whether [action]'s answer [json] is of a plugin older than [tsdmAppMinimumVersion]; null when it does not tell.
+  static bool? _olderThanMinimum(String action, Map<String, dynamic> json) {
+    if (!_tellsVersion(action, json)) {
+      return null;
+    }
+    final version = json['version'];
+    if (version is! String || version.isEmpty) {
+      // A `notify` without a version is of a plugin before 1.9.0; every `status` names one, so one without tells
+      // nothing.
+      return action == 'notify' ? true : null;
+    }
+    return compareTsdmAppVersions(version, tsdmAppMinimumVersion) < 0;
   }
 
   static bool _postFormSeen = false;
@@ -106,7 +139,7 @@ abstract final class TsdmAppApi {
   static void notePostForm() => _postFormSeen = true;
 
   /// Whether the forum's plugin is known to answer the post forms as structured fields (plugin 2.9.0): it named
-  /// [tsdmAppPostFormVersion] or later in an answer of an action ([pluginInfo]: the notification poll asks `notify`
+  /// [tsdmAppMinimumVersion] or later in an answer of an action ([pluginInfo]: the notification poll asks `notify`
   /// soon after the app starts), or such a form came back in this run ([notePostForm]).
   ///
   /// Only a hint for the reply window: the forum's own window is an AJAX fragment (`inajax=1`), while the structured
@@ -115,20 +148,20 @@ abstract final class TsdmAppApi {
   /// back as a post form is asked again the way it always was.
   static bool get knowsPostForm {
     final info = pluginInfo.value;
-    return _postFormSeen || (info != null && compareTsdmAppVersions(info.version, tsdmAppPostFormVersion) >= 0);
+    return _postFormSeen || (info != null && !info.olderThanMinimum);
   }
 
   /// Whether the forum's plugin is known to answer the previews of the list rows (plugin 3.1.0, `tsdmpreview=1`): the
   /// last `status` said so (`preview: 1`; a `status` without it says no, whatever its version), or, when no `status`
-  /// told it, an answer of an action named [tsdmAppPreviewVersion] or later ([pluginInfo]: the notification fetch asks
-  /// `notify` once the homepage loaded).
+  /// told it, an answer of an action named [tsdmAppMinimumVersion] or later ([pluginInfo]: the notification fetch asks
+  /// `notify` once the homepage loaded). A plugin older than that is never asked for them.
   ///
   /// The list pages carry the parameter only then: an older plugin ignores it (its rows have no `preview`), but the
   /// plugin asks the app to send it only once `status` named it. Until something told the version, the lists are
   /// asked as before.
   static bool get knowsPreview {
     final info = pluginInfo.value;
-    return info != null && (info.preview ?? compareTsdmAppVersions(info.version, tsdmAppPreviewVersion) >= 0);
+    return info != null && !info.olderThanMinimum && (info.preview ?? true);
   }
 
   /// Whether the forum's plugin keeps the devices an account logged in on (plugin 3.6.0, the `device` action): the
@@ -170,6 +203,10 @@ abstract final class TsdmAppApi {
 
   /// Behave as on a forum without the plugin for [unavailableFor] (for tests of the web page paths).
   static void markUnavailable() => _unavailableUntil = DateTime.now().add(unavailableFor);
+
+  /// Let [unavailableFor] pass, keeping what is known of the plugin (for tests).
+  @visibleForTesting
+  static void expireUnavailable() => _unavailableUntil = null;
 
   /// Ask [action] with [client]; the parsed JSON object when the forum answered one, null otherwise.
   ///
@@ -228,7 +265,7 @@ abstract final class TsdmAppApi {
     bool keepActionError = false,
     Map<String, String> headers = const {},
   }) async {
-    if (knownUnavailable) {
+    if (knownUnavailable || (_tooOld && action != 'status' && action != 'notify')) {
       return null;
     }
     final result = await client
@@ -295,6 +332,20 @@ abstract final class TsdmAppApi {
           return null;
         }
         _notePluginInfo(decoded);
+        switch (_olderThanMinimum(action, decoded)) {
+          case true:
+            talker.info(
+              'tsdmapp plugin ${decoded['version'] ?? 'before 1.9.0'} is older than $tsdmAppMinimumVersion, '
+              'using web pages for ${unavailableFor.inMinutes} min',
+            );
+            _tooOld = true;
+            _unavailableUntil = DateTime.now().add(unavailableFor);
+            return null;
+          case false:
+            _tooOld = false;
+          case null:
+            break;
+        }
         return decoded;
     }
   }
@@ -305,8 +356,8 @@ abstract final class TsdmAppApi {
   /// Unlike [ask], an answer that is not JSON does not mark the API missing: Discuz itself answers a form hash it
   /// does not take with its "System Error" page (HTTP 503, a failed request here), before the plugin is reached, and
   /// that tells nothing about the plugin. A failed request, HTTP 429 (`error: busy`), an older plugin without the
-  /// action (`error: action`) and an API switched off (`error: off`) give null as well. The caller logs it and asks
-  /// again on its next fetch.
+  /// action (`error: action`), an API switched off (`error: off`) and a plugin older than [tsdmAppMinimumVersion]
+  /// ([knownTooOld], nothing posted) give null as well. The caller logs it and asks again on its next fetch.
   ///
   /// An answer with an HTTP status in [acceptStatus] is given back like a 200 (the `sync` action of plugin 3.4.0
   /// answers a conflict as 409 and an oversized document as 413, each with its JSON); any other error status is a
@@ -318,7 +369,7 @@ abstract final class TsdmAppApi {
     Set<int> acceptStatus = const {},
     Map<String, String> headers = const {},
   }) async {
-    if (knownUnavailable) {
+    if (knownUnavailable || _tooOld) {
       return null;
     }
     // The plugin's own API answers JSON as it is: never asked for a write result.
@@ -373,13 +424,10 @@ abstract final class TsdmAppApi {
 /// the version the forum's plugin last named ([TsdmAppApi.pluginInfo]).
 const expectedTsdmAppVersion = '3.9.0';
 
-/// The first version of the forum's plugin that answers the post forms (a new thread, a reply, an edit, the reply
-/// window) as structured fields (`type: post`, `schema` 16): see [TsdmAppApi.knowsPostForm].
-const tsdmAppPostFormVersion = '2.9.0';
-
-/// The first version of the forum's plugin that answers the previews of the list rows (`tsdmpreview=1`): see
-/// [TsdmAppApi.knowsPreview].
-const tsdmAppPreviewVersion = '3.1.0';
+/// The oldest version of the forum's plugin whose actions the app uses ([TsdmAppApi.knownTooOld]): the forum ran it for
+/// a long time. It answers the post forms (2.9.0, [TsdmAppApi.knowsPostForm]) and the previews of the list rows
+/// (3.1.0, [TsdmAppApi.knowsPreview]); the switches of 3.6.0 to 3.9.0 are told by `status` itself.
+const tsdmAppMinimumVersion = '3.5.0';
 
 /// What the forum's plugin tells about itself in the answer of an action: `status` and `notify` name their `version`
 /// since plugin 1.0.0 (1.9.0 for `notify`), 2.3.0 adds `nodoc: 1` to `status` when it takes [tsdmAppNodocQuery] and
@@ -453,6 +501,9 @@ final class TsdmAppPluginInfo {
 
   /// Whether [version] is older than [expectedTsdmAppVersion]: some pages are then parsed from the web page.
   bool get olderThanExpected => compareTsdmAppVersions(version, expectedTsdmAppVersion) < 0;
+
+  /// Whether [version] is older than [tsdmAppMinimumVersion]: the app uses none of its actions.
+  bool get olderThanMinimum => compareTsdmAppVersions(version, tsdmAppMinimumVersion) < 0;
 
   @override
   bool operator ==(Object other) =>

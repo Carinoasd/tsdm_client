@@ -203,7 +203,9 @@ void main() {
 
   group('B. the header', () {
     test('only to the forum, only once status named it, only with an id; a header set by the caller stays', () async {
-      final forum = _Forum((o) => _ok(_action(o) == 'status' ? _status() : <String, Object?>{'ok': 1}));
+      final forum = _Forum(
+        (o) => _ok(_action(o) == 'status' ? _status() : <String, Object?>{'ok': 1, 'version': '3.6.0'}),
+      );
       final client = _client(forum);
 
       await TsdmAppApi.ask(client, 'status');

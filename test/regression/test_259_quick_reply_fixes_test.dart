@@ -661,6 +661,7 @@ void main() {
     Map<String, dynamic> nothingNew() => {
       'ok': 1,
       'api': 1,
+      'version': '3.5.0',
       'time': DateTime.now().millisecondsSinceEpoch ~/ 1000,
       'uid': 31,
       'notices': <Object>[],
