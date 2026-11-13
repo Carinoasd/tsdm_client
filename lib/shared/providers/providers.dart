@@ -8,6 +8,7 @@ import 'package:tsdm_client/features/local_draft/repository/local_draft_store.da
 import 'package:tsdm_client/features/offline_thread/repository/offline_thread_repository.dart';
 import 'package:tsdm_client/features/pokemon/repository/adventure_cache.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
+import 'package:tsdm_client/features/thread_follow/repository/followed_thread_store.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/cookie_provider/cookie_provider.dart';
 import 'package:tsdm_client/shared/providers/image_cache_provider/image_cache_provider.dart';
@@ -81,6 +82,8 @@ Future<void> initProviders() async {
     ..registerSingleton(FloorBookmarkStore())
     // What every account watches for new threads: one store for the page, the check and the cross-device sync.
     ..registerSingleton(ForumWatchStore(storageProvider), dispose: (s) async => s.dispose())
+    // The threads every account follows: one store for the list, its check and the cross-device sync.
+    ..registerSingleton(FollowedThreadStore(storageProvider), dispose: (s) async => s.dispose())
     ..registerSingleton(RecentEmojiStore())
     // The custom emoji packs and the uploads made of their images.
     ..registerSingleton(CustomEmojiStore());

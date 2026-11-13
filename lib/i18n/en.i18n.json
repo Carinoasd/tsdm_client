@@ -371,7 +371,10 @@
         "drafts": "Local drafts",
         "bookmarks": "Floor bookmarks",
         "pinnedForums": "Pinned forums",
-        "forumWatch": "New thread and keyword alerts"
+        "forumWatch": "New thread and keyword alerts",
+        "replyTemplates": "Reply templates",
+        "readLater": "Read later",
+        "followedThreads": "Followed threads"
       },
       "loginDevices": "Login devices",
       "security": "Password and security",

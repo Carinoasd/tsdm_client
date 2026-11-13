@@ -14,6 +14,7 @@ import 'package:tsdm_client/features/sync/models/sync_settings.dart';
 import 'package:tsdm_client/features/sync/repository/sync_api.dart';
 import 'package:tsdm_client/features/sync/repository/sync_local_store.dart';
 import 'package:tsdm_client/features/sync/repository/sync_repository.dart';
+import 'package:tsdm_client/features/thread_follow/repository/followed_thread_store.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
@@ -23,8 +24,9 @@ import 'package:tsdm_client/utils/logger.dart';
 /// When the cross-device sync runs: a pull when the app starts with an account and at every login, again when the app
 /// comes to the front after [pullAgainAfter] in the background; a push a while after the visit records, the quick
 /// phrases, the block list, the fast rate templates, the synced settings, the local drafts, the floor bookmarks, the
-/// pinned forums or what is watched for new threads of the account change on this device. Nothing while the setting
-/// is off; a pull when it (or one of its categories) is switched on.
+/// pinned forums, what is watched for new threads, the fast reply templates, the read later list or the followed
+/// threads of the account change on this device. Nothing while the setting is off; a pull when it (or one of its
+/// categories) is switched on.
 final class SyncCoordinator with LoggerMixin {
   /// Constructor.
   SyncCoordinator({
@@ -36,6 +38,7 @@ final class SyncCoordinator with LoggerMixin {
     Stream<int>? draftChanges,
     Stream<int>? bookmarkChanges,
     Stream<int>? watchChanges,
+    Stream<int>? followedChanges,
   }) : _repository = repository,
        _authentication = authentication,
        _settings = settings,
@@ -43,7 +46,8 @@ final class SyncCoordinator with LoggerMixin {
        _storage = storage,
        _draftChanges = draftChanges,
        _bookmarkChanges = bookmarkChanges,
-       _watchChanges = watchChanges;
+       _watchChanges = watchChanges,
+       _followedChanges = followedChanges;
 
   /// The coordinator on the app's repositories.
   factory SyncCoordinator.build({
@@ -73,6 +77,7 @@ final class SyncCoordinator with LoggerMixin {
       draftChanges: LocalDraftStore.app?.changes,
       bookmarkChanges: FloorBookmarkStore.app?.changes,
       watchChanges: ForumWatchStore.app?.configChanges,
+      followedChanges: FollowedThreadStore.app?.changes,
     );
   }
 
@@ -84,6 +89,9 @@ final class SyncCoordinator with LoggerMixin {
     SyncCategory.bookmarks => settings.crossDeviceSyncBookmarks,
     SyncCategory.pinnedForums => settings.crossDeviceSyncPinnedForums,
     SyncCategory.forumWatch => settings.crossDeviceSyncForumWatch,
+    SyncCategory.replyTemplates => settings.crossDeviceSyncReplyTemplates,
+    SyncCategory.readLater => settings.crossDeviceSyncReadLater,
+    SyncCategory.followedThreads => settings.crossDeviceSyncFollowedThreads,
   };
 
   static String _settingsSnapshotOf(SettingsMap settings) =>
@@ -108,12 +116,17 @@ final class SyncCoordinator with LoggerMixin {
   final Stream<int>? _draftChanges;
   final Stream<int>? _bookmarkChanges;
   final Stream<int>? _watchChanges;
+  final Stream<int>? _followedChanges;
 
   StreamSubscription<AuthStatus>? _authSub;
   StreamSubscription<List<FastRateTemplateModel>>? _templatesSub;
   StreamSubscription<int>? _draftsSub;
   StreamSubscription<int>? _bookmarksSub;
   StreamSubscription<int>? _watchSub;
+  StreamSubscription<int>? _followedSub;
+  StreamSubscription<List<FastReplyTemplateModel>>? _replyTemplatesSub;
+  String? _replyTemplates;
+  StreamSubscription<void>? _readLaterSub;
   String? _pinned;
   String? _settingsSnapshot;
   String? _templates;
@@ -203,6 +216,23 @@ final class SyncCoordinator with LoggerMixin {
         _repository.schedulePush(uid);
       }
     });
+    _followedSub = _followedChanges?.listen((uid) {
+      if (uid == _uid) {
+        _repository.schedulePush(uid);
+      }
+    });
+    _replyTemplatesSub = _storage.watchAllFastReplyTemplate().listen(
+      (templates) {
+        final snapshot = SyncRepository.encodeReplyTemplates(templates);
+        // The first value is the current state, not a change.
+        final before = _replyTemplates;
+        _replyTemplates = snapshot;
+        if (before != null && before != snapshot) {
+          unawaited(_repository.onReplyTemplatesChanged(_uid, snapshot));
+        }
+      },
+      onError: (Object e, StackTrace st) => error('sync: failed to watch the reply templates: $e', e, st),
+    );
   }
 
   static String? _pinnedOf(SettingsMap settings, int? uid) =>
@@ -216,27 +246,35 @@ final class SyncCoordinator with LoggerMixin {
       // A write scheduled for the account before must not run for this one.
       _repository.cancelScheduled();
       unawaited(_visitsSub?.cancel());
+      unawaited(_readLaterSub?.cancel());
       _visitsSub = null;
+      _readLaterSub = null;
       if (uid != null) {
-        var first = true;
-        _visitsSub = _storage.watchThreadVisitChanges(uid).listen(
-          (_) {
-            // The first value is the current state, not a change.
-            if (first) {
-              first = false;
-              return;
-            }
-            if (_uid == uid) {
-              _repository.schedulePush(uid);
-            }
-          },
-          onError: (Object e, StackTrace st) => error('sync: failed to watch the visits: $e', e, st),
-        );
+        _visitsSub = _pushOnChange(uid, _storage.watchThreadVisitChanges(uid), 'visits');
+        _readLaterSub = _pushOnChange(uid, _storage.watchReadLater(uid), 'read later list');
       }
     }
     if (pull && uid != null) {
       unawaited(_repository.pull(uid, dedupe: pullDedupe));
     }
+  }
+
+  /// A write for account [uid] after each change [changes] reports while it is the account in use; the first value is
+  /// the current state, not a change.
+  StreamSubscription<void> _pushOnChange(int uid, Stream<Object?> changes, String what) {
+    var first = true;
+    return changes.listen(
+      (_) {
+        if (first) {
+          first = false;
+          return;
+        }
+        if (_uid == uid) {
+          _repository.schedulePush(uid);
+        }
+      },
+      onError: (Object e, StackTrace st) => error('sync: failed to watch the $what: $e', e, st),
+    );
   }
 
   /// The app came to the front: a pull when the last one asked for this account is [pullAgainAfter] ago or more
@@ -258,6 +296,9 @@ final class SyncCoordinator with LoggerMixin {
     await _draftsSub?.cancel();
     await _bookmarksSub?.cancel();
     await _watchSub?.cancel();
+    await _followedSub?.cancel();
+    await _replyTemplatesSub?.cancel();
+    await _readLaterSub?.cancel();
     await _repository.dispose();
   }
 }

@@ -24,6 +24,7 @@ final class FollowedThread {
     this.lastReplyAt,
     this.checkedAt,
     this.notified = false,
+    this.fromSync = false,
   });
 
   /// Read one entry written by [toJson]; null when it is not one.
@@ -47,6 +48,7 @@ final class FollowedThread {
       lastReplyAt: time(json['last']),
       checkedAt: time(json['checked']),
       notified: json['notified'] == true,
+      fromSync: json['synced'] == true,
     );
   }
 
@@ -74,6 +76,10 @@ final class FollowedThread {
   /// Whether the new replies were announced and the thread not read since.
   final bool notified;
 
+  /// Whether the thread came from another device of the account (the cross-device sync) and was neither checked nor
+  /// read here since: its first check only takes the replies it has then as seen, nothing is announced.
+  final bool fromSync;
+
   /// Replies posted since the account last read the thread.
   int get newReplies => knownReplies > seenReplies ? knownReplies - seenReplies : 0;
 
@@ -87,6 +93,7 @@ final class FollowedThread {
     if (lastReplyAt != null) 'last': lastReplyAt!.millisecondsSinceEpoch,
     if (checkedAt != null) 'checked': checkedAt!.millisecondsSinceEpoch,
     if (notified) 'notified': true,
+    if (fromSync) 'synced': true,
   };
 
   /// A copy with the fields given.
@@ -97,15 +104,18 @@ final class FollowedThread {
     DateTime? lastReplyAt,
     DateTime? checkedAt,
     bool? notified,
+    bool? fromSync,
+    DateTime? followedAt,
   }) => FollowedThread(
     tid: tid,
     title: title ?? this.title,
     seenReplies: seenReplies ?? this.seenReplies,
     knownReplies: knownReplies ?? this.knownReplies,
-    followedAt: followedAt,
+    followedAt: followedAt ?? this.followedAt,
     lastReplyAt: lastReplyAt ?? this.lastReplyAt,
     checkedAt: checkedAt ?? this.checkedAt,
     notified: notified ?? this.notified,
+    fromSync: fromSync ?? this.fromSync,
   );
 
   /// The thread read now with [replies] (null: not known, what was known stays), [title] and the newest floor seen
@@ -120,6 +130,7 @@ final class FollowedThread {
           ? lastReplyAt
           : null,
       notified: false,
+      fromSync: false,
     );
   }
 
@@ -133,10 +144,12 @@ final class FollowedThread {
       other.followedAt == followedAt &&
       other.lastReplyAt == lastReplyAt &&
       other.checkedAt == checkedAt &&
-      other.notified == notified;
+      other.notified == notified &&
+      other.fromSync == fromSync;
 
   @override
-  int get hashCode => Object.hash(tid, title, seenReplies, knownReplies, followedAt, lastReplyAt, checkedAt, notified);
+  int get hashCode =>
+      Object.hash(tid, title, seenReplies, knownReplies, followedAt, lastReplyAt, checkedAt, notified, fromSync);
 
   @override
   String toString() =>

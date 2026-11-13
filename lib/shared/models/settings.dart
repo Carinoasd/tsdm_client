@@ -329,8 +329,9 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
   postMediaPreview<bool>(name: 'postMediaPreview', type: bool, defaultValue: true),
 
   /// Keep the reading progress, the quick phrases and the block list of the account on the forum (plugin 3.4.0) and
-  /// take them back on every device the account logs in on; the fast rate templates, the reading settings and the
-  /// local drafts too, each on its own switch below. Off: nothing is read or written there.
+  /// take them back on every device the account logs in on; the fast rate templates, the reading settings, the local
+  /// drafts, the floor bookmarks, the pinned forums, the watch for new threads, the fast reply templates, the read later
+  /// list and the followed threads too, each on its own switch below. Off: nothing is read or written there.
   crossDeviceSync<bool>(name: 'crossDeviceSync', type: bool, defaultValue: true),
 
   /// With [crossDeviceSync], keep the fast rate templates the same on every device too.
@@ -357,6 +358,16 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
 
   /// With [crossDeviceSync], keep the forums and keywords the account watches for new threads on every device too.
   crossDeviceSyncForumWatch<bool>(name: 'crossDeviceSyncForumWatch', type: bool, defaultValue: true),
+
+  /// With [crossDeviceSync], keep the fast reply templates the same on every device too.
+  crossDeviceSyncReplyTemplates<bool>(name: 'crossDeviceSyncReplyTemplates', type: bool, defaultValue: true),
+
+  /// With [crossDeviceSync], keep the read later list of the account on every device too.
+  crossDeviceSyncReadLater<bool>(name: 'crossDeviceSyncReadLater', type: bool, defaultValue: true),
+
+  /// With [crossDeviceSync], keep the threads the account follows on every device too (what each device's check of
+  /// them found stays on it).
+  crossDeviceSyncFollowedThreads<bool>(name: 'crossDeviceSyncFollowedThreads', type: bool, defaultValue: true),
 
   /// Interaction mode on thread floors.
   threadFloorInteractionMode<ThreadFloorInteractionMode>(

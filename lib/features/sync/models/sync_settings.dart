@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show ThemeMode;
+import 'package:tsdm_client/features/post/utils/image_edits.dart';
 import 'package:tsdm_client/features/settings/widgets/font_scale_dialog.dart';
 import 'package:tsdm_client/features/settings/widgets/thread_content_scale_dialog.dart';
 import 'package:tsdm_client/shared/models/models.dart';
@@ -12,7 +13,10 @@ import 'package:tsdm_client/utils/html/post_typography.dart';
 /// A setting the cross-device sync carries in the `settings` section, by its stored name ([SettingsKeys.name]).
 @immutable
 final class SyncedSetting<T extends Object> {
-  const SyncedSetting._(this.key, this._read, {num? min, num? max}) : _min = min, _max = max;
+  const SyncedSetting._(this.key, this._read, {num? min, num? max, List<int>? oneOf})
+    : _min = min,
+      _max = max,
+      _oneOf = oneOf;
 
   /// The key.
   final SettingsKeys<T> key;
@@ -20,6 +24,9 @@ final class SyncedSetting<T extends Object> {
   final T Function(SettingsMap settings) _read;
   final num? _min;
   final num? _max;
+
+  /// The only values an int setting takes, null for any in range.
+  final List<int>? _oneOf;
 
   /// The value in the document: the setting's value; an enum by its index.
   Object encode(SettingsMap settings) => encodeValue(_read(settings));
@@ -35,7 +42,7 @@ final class SyncedSetting<T extends Object> {
       return value is String ? value : null;
     }
     if (key.type == int) {
-      return value is int && inRange(value) ? value : null;
+      return value is int && inRange(value) && (_oneOf?.contains(value) ?? true) ? value : null;
     }
     if (key.type == double) {
       return value is num && value.isFinite && inRange(value) ? value.toDouble() : null;
@@ -64,8 +71,13 @@ final class SyncedSetting<T extends Object> {
 /// * the window (size, position), the network (proxy, headers), the login, the locale and the font (installed per
 ///   device), the accent color (it may follow the wallpaper), the refresh rate, the two-pane layout and the widest
 ///   floors (the width of the screen);
-/// * the notifications, the auto sync and the background service, the update check, the debug switch;
-/// * the image cache and the offline threads (the storage of the device), the homepage group last opened;
+/// * the notifications (which kinds, the quiet hours, how often the followed threads and the watched forums are
+///   checked, the content hidden, the direct reply, the permission of iOS, macOS and Linux), the auto sync and the
+///   background service, the update check, the debug switch;
+/// * the tray, the app icon, the in-app browser (only where there is a web view), the app lock, the reading time
+///   statistics (counted on the device);
+/// * the image cache, the offline threads, the data saver and the download folder (the storage and the network of the
+///   device), the homepage group last opened;
 /// * the quick phrases (their own section) and the switches of the sync itself.
 final syncedSettings = <SyncedSetting<Object>>[
   // Theme.
@@ -145,6 +157,10 @@ final syncedSettings = <SyncedSetting<Object>>[
   ),
   SyncedSetting._(SettingsKeys.enableAppPostRenderer, (s) => s.enableAppPostRenderer),
   SyncedSetting._(SettingsKeys.enableEditorBBCodeParser, (s) => s.enableEditorBBCodeParser),
+  // Images uploaded in the editors.
+  SyncedSetting._(SettingsKeys.editImageBeforeUpload, (s) => s.editImageBeforeUpload),
+  SyncedSetting._(SettingsKeys.uploadImageMaxSide, (s) => s.uploadImageMaxSide, oneOf: uploadImageMaxSides),
+  SyncedSetting._(SettingsKeys.uploadImageQuality, (s) => s.uploadImageQuality, min: 10, max: 100),
   // Unread badges.
   SyncedSetting._(SettingsKeys.showUnreadInfoHint, (s) => s.showUnreadInfoHint),
   SyncedSetting._(SettingsKeys.showUnreadNoticeBadge, (s) => s.showUnreadNoticeBadge),
@@ -156,6 +172,14 @@ final syncedSettings = <SyncedSetting<Object>>[
   SyncedSetting._(SettingsKeys.checkinFeeling, (s) => s.checkinFeeling),
   SyncedSetting._(SettingsKeys.checkinMessage, (s) => s.checkinMessage),
 ];
+
+/// The stored names of the settings of [syncedSettings] added after a first sync of the settings could have run: a
+/// device that synced its settings before it knew them takes the forum's value of each where it has the default
+/// (`SyncRepository`), instead of sending its default over the value another device chose.
+///
+/// A setting added to [syncedSettings] later goes here too: the names a device keeps once it ran this version
+/// (`SyncLocalStore.settingsKnown`) only cover the devices that ran it.
+const syncedSettingsAddedLater = {'editImageBeforeUpload', 'uploadImageMaxSide', 'uploadImageQuality'};
 
 /// The values of [syncedSettings] in [settings], by stored name: the `values` of the `settings` section.
 Map<String, Object> syncedSettingsValues(SettingsMap settings) => {

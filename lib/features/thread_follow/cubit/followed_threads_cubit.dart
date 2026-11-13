@@ -175,10 +175,16 @@ final class FollowedThreadsCubit extends Cubit<FollowedThreadsState> with Logger
 
   /// Put [thread] back in the list of the account in use as it was (undo of [unfollow]).
   ///
-  /// [index] is where it was in the list.
+  /// [index] is where it was in the list. It counts as followed again now for the cross-device sync: later than the
+  /// removal it undoes, which may have reached the forum already.
   Future<void> restore(FollowedThread thread, {int? index}) async {
     if (_uid case final uid?) {
-      await _store.update(uid, thread.tid, (current) => current ?? thread, insertAt: index);
+      await _store.update(
+        uid,
+        thread.tid,
+        (current) => current ?? thread.copyWith(followedAt: DateTime.now()),
+        insertAt: index,
+      );
     }
   }
 
