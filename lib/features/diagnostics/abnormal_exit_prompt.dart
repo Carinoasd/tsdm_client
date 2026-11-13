@@ -18,10 +18,9 @@ Future<void> askAboutAbnormalExit(BuildContext context, {AbnormalExitRecorder? r
   if (getIt.isRegistered<AppLockCubit>()) {
     final lock = getIt.get<AppLockCubit>();
     if (lock.state.covering) {
-      try {
-        await lock.stream.firstWhere((s) => !s.covering);
-      } on StateError {
-        // The lock went away (the app is closing): not asked.
+      // The lock closed meanwhile (the app is closing): still covering, not asked.
+      final unlocked = await lock.stream.firstWhere((s) => !s.covering, orElse: () => lock.state);
+      if (unlocked.covering) {
         return;
       }
     }
