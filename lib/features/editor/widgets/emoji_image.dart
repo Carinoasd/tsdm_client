@@ -1,10 +1,11 @@
 import 'dart:async';
-import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/features/editor/bloc/emoji_bloc.dart';
+import 'package:tsdm_client/features/editor/repository/editor_repository.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
@@ -25,7 +26,8 @@ final _emojiCodeRe = RegExp(r'^\{:(\d+)_(\d+):\}$');
 /// The image of the emoji [id] of group [groupId] in the emoji cache, [placeholder] while it is not there.
 ///
 /// Read again when [revision] changes while it is missing (a group downloading, [EmojiGroupView]); with [fetch] it
-/// downloads the image itself (an emoji shown alone: a recent one, one in the editor).
+/// downloads the image itself (an emoji shown alone: a recent one, one in the editor), the emoji list first when this
+/// device has none yet ([EmojiListInBackground]), and again when the list comes later (the emoji panel loaded it).
 class EmojiCacheImage extends StatefulWidget {
   /// Constructor.
   const EmojiCacheImage({
@@ -81,18 +83,58 @@ class _EmojiCacheImageState extends State<EmojiCacheImage> {
   }
 
   Future<void> _download() async {
+    final cache = _cache;
+    if (cache == null) {
+      return;
+    }
     final groupId = widget.groupId;
     final id = widget.id;
-    final bytes = await _cache?.getOrMakeEmojiCache(groupId, id);
+    var bytes = await cache.getOrMakeEmojiCache(groupId, id);
+    if (bytes == null && !await cache.hasEmojiList()) {
+      // Not in the list because there is no list yet: fetched once, then the image.
+      if (await EmojiListInBackground.ensure(cache)) {
+        bytes = await cache.getOrMakeEmojiCache(groupId, id);
+      } else {
+        _waitForList(cache);
+      }
+    }
     if (bytes != null && mounted && widget.groupId == groupId && widget.id == id) {
       setState(() => _bytes = bytes);
     }
+  }
+
+  /// The list the emoji panel saves later (the fetch here failed): the image is downloaded then.
+  ValueListenable<int>? _listRevision;
+
+  void _waitForList(ImageCacheProvider cache) {
+    if (!mounted || _listRevision != null) {
+      return;
+    }
+    _listRevision = cache.emojiListRevision..addListener(_onList);
+  }
+
+  void _onList() {
+    _stopWaitingForList();
+    if (mounted && _bytes == null && widget.fetch) {
+      unawaited(_download());
+    }
+  }
+
+  void _stopWaitingForList() {
+    _listRevision?.removeListener(_onList);
+    _listRevision = null;
   }
 
   @override
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void dispose() {
+    _stopWaitingForList();
+    super.dispose();
   }
 
   @override
