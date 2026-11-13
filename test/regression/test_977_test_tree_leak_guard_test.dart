@@ -5,15 +5,21 @@
 // reads every text file under `test/` (plain, JSON / HTML / URL escapes undone, base64 runs decoded) and fails on:
 // - the test site's name, in either script;
 // - the loopback address and the docker bridge gateway;
+// - any other public IPv4 address, outside the documentation ranges (192.0.2.0/24, 198.51.100.0/24,
+//   203.0.113.0/24) and the obvious placeholders `1.2.3.4`, `1.2.1.1`;
 // - `localhost` used as a host (after `//` or `@`, or followed by a port);
 // - an absolute path under the home directory root;
 // - the account name the test runs under (`$USER`, skipped on CI and for generic accounts like `runner`);
 // - the test accounts' name prefix;
-// - a Discuz cookie prefix other than the live forum's `Ystv_2132_` (or the `xxxx_2132_` placeholder).
+// - a Discuz cookie prefix other than the live forum's `Ystv_2132_` (or the placeholders `xxxx_2132_`, `test_`).
+//
+// Kept on purpose: the test accounts' names (`ag_low`, `ag_admin`, ...) as post authors; they say nothing about a
+// person and the tests read them.
 //
 // Before pushing a new or re-recorded fixture:
 // 1. Replace the site name with 「测试论坛」, the site address with `https://forum.test` (or `https://www.tsdm39.com`
-//    where a forum URL is expected, e.g. inside the base64 `REPORTURL`), the cookie prefix with `Ystv_2132_`, and the
+//    where a forum URL is expected, e.g. inside the base64 `REPORTURL`), the cookie prefix with `Ystv_2132_`, an IP
+//    address with one of the documentation ranges (`203.0.113.x`, `198.51.100.x`, `192.0.2.x`), and the
 //    uid / formhash / posttime with the fake values of the existing fixtures (uid 31, formhash `f1f2f3f4`, posttime
 //    `1700000000`; see `test/data/tsdmapp/post_v16_newthread.json`). Never commit a password, a real cookie or a
 //    real formhash.
@@ -173,8 +179,41 @@ String? _decodeBase64(String run) {
   }
 }
 
-Iterable<String> _rulesHit(String text, Map<String, RegExp> rules) =>
-    rules.entries.where((e) => e.value.hasMatch(text)).map((e) => e.key);
+final _ipv4 = RegExp(r'(?<![\w.])(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})(?![\w]|\.\d)');
+
+/// Whether [text] holds a public IPv4 address that is neither a documentation address nor an obvious placeholder.
+bool _hasPublicIpv4(String text) {
+  for (final m in _ipv4.allMatches(text)) {
+    final o = [for (var i = 1; i <= 4; i++) int.parse(m[i]!)];
+    if (o.any((e) => e > 255)) {
+      continue;
+    }
+    final (a, b, c) = (o[0], o[1], o[2]);
+    final notPublic =
+        a == 0 ||
+        a == 10 ||
+        a == 127 ||
+        a >= 224 ||
+        (a == 100 && b >= 64 && b < 128) ||
+        (a == 169 && b == 254) ||
+        (a == 172 && b >= 16 && b < 32) ||
+        (a == 192 && b == 168) ||
+        (a == 192 && b == 0 && c == 2) ||
+        (a == 198 && b == 51 && c == 100) ||
+        (a == 203 && b == 0 && c == 113) ||
+        (a == 198 && (b == 18 || b == 19));
+    final placeholder = m[0] == _ip([1, 2, 3, 4]) || m[0] == _ip([1, 2, 1, 1]);
+    if (!notPublic && !placeholder) {
+      return true;
+    }
+  }
+  return false;
+}
+
+Iterable<String> _rulesHit(String text, Map<String, RegExp> rules) => [
+  ...rules.entries.where((e) => e.value.hasMatch(text)).map((e) => e.key),
+  if (_hasPublicIpv4(text)) 'public IPv4',
+];
 
 List<_Finding> _scanFile(String path, String content, Map<String, RegExp> rules) {
   final findings = <_Finding>[];
@@ -214,7 +253,8 @@ List<_Finding> _scanFile(String path, String content, Map<String, RegExp> rules)
 
 const _binaryExtensions = {'.png', '.jpg', '.jpeg', '.gif', '.webp', '.avif', '.bmp', '.ico', '.sqlite', '.db', '.zip'};
 
-/// Tracked text files under `test/`; the drift migration files `Makefile.dart` writes are skipped (git ignores them).
+/// Every text file under `test/`, untracked ones included (a stray local file fails here before it is pushed); the
+/// drift migration files `Makefile.dart` writes are skipped (git ignores them).
 List<File> _testFiles() {
   final files = <File>[];
   for (final entity in Directory('test').listSync(recursive: true, followLinks: false)) {
@@ -251,6 +291,11 @@ void main() {
       expect(hits('user Ag${'Test'}3'), 'test account prefix|plain');
       expect(hits("cookiepre = 'RrRm_21${'32'}_'"), 'cookie prefix|plain');
       expect(hits("cookiepre = 'Ystv_21${'32'}_', s_21${'32'}_auth"), isEmpty);
+      expect(hits('<em>IP</em>${_ip([175, 143, 216, 138])}:0'), 'public IPv4|plain');
+      expect(
+        hits('ip ${_ip([203, 0, 113, 10])}, ${_ip([10, 1, 2, 3])}, ${_ip([1, 2, 3, 4])}, version 1.54.1+169'),
+        isEmpty,
+      );
     });
 
     test('escaped and encoded forms are found too', () {

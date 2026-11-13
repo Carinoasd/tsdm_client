@@ -14,9 +14,13 @@
 //   `flutter test`, so a call without a mocked handler ends in a `MissingPluginException`, never on the network.
 // - `Process`: not intercepted (tests run `chmod`, `id`, ...); no code under test spawns a network tool.
 //
-// Not covered: an isolate the code under test spawns (`Isolate.run`, `compute`) does not inherit these overrides.
-// Nothing in `lib/` does network work in such an isolate today (they crop images, hash PINs, list cache files and
-// build exports).
+// Not covered (nothing in `lib/` uses these today):
+// - an isolate the code under test spawns (`Isolate.run`, `compute`) does not inherit these overrides; the ones in
+//   `lib/` crop images, hash PINs, list cache files and build exports;
+// - `SecureSocket.connect`, `RawSocket.connect`, `RawDatagramSocket.bind` (they bypass `IOOverrides`) and DNS
+//   lookups (`InternetAddress.lookup`);
+// - connections opened in `setUpAll` / `tearDownAll` are blocked, but only reported by the next test's `setUp`, and
+//   not at all after the last test.
 //
 // A test that needs a server of its own binds it to loopback (`HttpServer.bind(InternetAddress.loopbackIPv4, 0)`)
 // and calls [allowLoopbackNetwork] first; only loopback is let through, and only for that test.
@@ -90,6 +94,8 @@ final class _NoNetworkHttpOverrides extends HttpOverrides {
         if (_check(host, port, '$uri') case final blocked?) {
           return Future.error(blocked);
         }
+        // Loopback only from here on. A direct https connection to it loses the client's `badCertificateCallback` and
+        // `keyLog`; no test serves https on loopback today.
         if (proxyHost == null && uri.isScheme('https')) {
           return SecureSocket.startConnect(host, port ?? 443, context: context);
         }
