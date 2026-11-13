@@ -148,7 +148,8 @@ Map<String, Object?> _announce(int id, int dateline, String text) => {
   'text': text,
 };
 
-/// A `notify` answer; [lists] false is a plugin before 1.9.0 (no version, no form hash).
+/// A `notify` answer of 3.5.0, the oldest plugin the app uses (the lists since 1.9.0); [lists] false is a plugin
+/// before 1.9.0 (no version, no form hash), which the app does not use any more.
 Map<String, Object?> _notify({
   List<Map<String, Object?>> notices = const [],
   List<Map<String, Object?>> pms = const [],
@@ -161,7 +162,7 @@ Map<String, Object?> _notify({
 }) => {
   'ok': 1,
   'api': 1,
-  if (lists) 'version': '1.9.0',
+  if (lists) 'version': '3.5.0',
   'time': time ?? _now,
   'uid': _uid,
   if (lists) 'formhash': formhash,
@@ -1063,20 +1064,17 @@ void main() {
       expect(value.info.personalMessageList.map((e) => e.peerUid), [3001]);
     });
 
-    test('plugin 1.8.0, a poll with nothing new: notify only, even with unread notices (no seen)', () async {
-      for (final notices in [
-        <Map<String, Object?>>[],
-        [_notice(90, _since - 3600)],
-      ]) {
-        final old = forum(_Answer.json(_notify(notices: notices, lists: false)));
-        final value = await _fetch(old, timestamp: _since);
-        expect(old.names, ['notify']);
-        expect(value.info, NotificationV2.empty);
-      }
+    test('plugin 1.8.0, a poll with nothing new: not used, the three pages', () async {
+      final old = forum(_Answer.json(_notify(lists: false)));
+      await _fetch(old, timestamp: _since);
+      expect(old.names.first, 'notify');
+      expect(old.names.skip(1), unorderedEquals(pages));
+      expect(TsdmAppApi.knownTooOld, isTrue);
     });
 
-    test('plugin 1.8.0, a refresh and the first fetch: notify is asked, its answer ignored, the three pages', () async {
+    test('plugin 1.8.0, a refresh and the first fetch: notify is asked, its answer dropped, the three pages', () async {
       for (final (timestamp, bypass) in [(_since, true), (null, false)]) {
+        TsdmAppApi.reset();
         final old = forum(_Answer.json(_notify(lists: false)));
         final value = await _fetch(old, timestamp: timestamp, bypassGate: bypass);
         expect(old.names.first, 'notify');
@@ -1085,7 +1083,7 @@ void main() {
       }
     });
 
-    test('a 1.9.0 answer without timeoffset: the three pages', () async {
+    test('an answer with the lists but without timeoffset: the three pages', () async {
       final old = forum(_Answer.json(_notify(notices: notices, pmLast: _since + 130)..remove('timeoffset')));
       await _fetch(old, timestamp: _since);
       expect(old.names.first, 'notify');

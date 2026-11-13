@@ -874,8 +874,7 @@
         "detail": "显示仅用来调试的操作选项"
       },
       "exportLog": {
-        "title": "导出日志",
-        "detail": "日志已导出到 ${path: String}"
+        "title": "导出日志"
       },
       "viewLog": {
         "title": "查看日志"
@@ -4548,5 +4547,11 @@
       "removed": "移除",
       "knownIssues": "已知问题"
     }
+  },
+  "diagnostics": {
+    "errorBlock": "这里出了点问题",
+    "export": "导出诊断",
+    "saved": "已保存到 ${path: String}",
+    "failed": "导出失败"
   }
 }

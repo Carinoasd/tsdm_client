@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:responsive_framework/responsive_framework.dart';
@@ -35,6 +36,7 @@ import 'package:tsdm_client/utils/android_activity.dart';
 import 'package:tsdm_client/utils/app_language.dart';
 import 'package:tsdm_client/utils/close_to_tray.dart';
 import 'package:tsdm_client/utils/desktop_tray_policy.dart';
+import 'package:tsdm_client/utils/error_reporting.dart';
 import 'package:tsdm_client/utils/platform.dart';
 import 'package:tsdm_client/utils/tray_helper.dart';
 import 'package:tsdm_client/utils/window_configs.dart';
@@ -53,19 +55,9 @@ Future<void> _boot(List<String> args) async {
   await waitForAndroidActivity();
 
   // Widget errors never reach the zone handler: the framework catches them itself and, in a release build, shows a
-  // plain grey box in place of the failing subtree with nothing in the exported log. Record them so a report of
-  // "a grey block flashed" carries the widget and the stack (GitHub #55).
-  final presentError = FlutterError.onError;
-  FlutterError.onError = (details) {
-    // `context` is the "building <widget>" part, the one thing that says where the grey box was.
-    final where = details.context?.toDescription();
-    talker.handle(
-      details.exception,
-      details.stack,
-      'FlutterError in ${details.library ?? 'widgets'}${where == null ? '' : ': $where'}',
-    );
-    presentError?.call(details);
-  };
+  // box in place of the failing subtree. Record them so a report of "a grey block flashed" carries the widget and the
+  // stack (GitHub #55); the box is the error block with its diagnostics export.
+  installErrorReporting(debug: kDebugMode);
 
   parseCmdArgs(args);
 

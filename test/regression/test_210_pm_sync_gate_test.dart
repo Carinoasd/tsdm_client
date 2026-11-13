@@ -63,10 +63,12 @@ Map<String, String> _jar(String token) => {
 /// The forum clock: now, since the repository clamps `since` to three days ago.
 int get _now => DateTime.now().millisecondsSinceEpoch ~/ 1000;
 
-/// A `notify` answer with nothing unread, as every plugin version gives it; [pmLast] as plugin 1.8.0 adds it.
+/// A `notify` answer with nothing unread, without the lists of 1.9.0; [pmLast] as plugin 1.8.0 adds it. Named 3.5.0:
+/// an older plugin's answer is not used.
 Map<String, Object?> _notify({int? pmLast}) => {
   'ok': 1,
   'api': 1,
+  'version': '3.5.0',
   'time': _now,
   'uid': _alice.uid,
   'counts': {'notice': 0, 'pm': 0, 'announce': 0},

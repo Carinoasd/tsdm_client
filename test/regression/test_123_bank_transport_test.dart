@@ -14,6 +14,8 @@ import 'package:tsdm_client/shared/providers/net_client_provider/net_client_prov
 import 'package:tsdm_client/shared/providers/net_client_provider/net_error_saver.dart';
 import 'package:universal_html/parsing.dart';
 
+import '../network_guard.dart';
+
 BankTransactionForm _form() => parseBankSavings(
   parseHtmlDocument('''
 <div class="tbn"><ul><li><font>Test coins:</font><span><b>800</b></span>(银行货币)</li></ul></div>
@@ -95,6 +97,7 @@ void main() {
 
   for (final status in [303, 307, 308]) {
     test('desktop transport does not follow a $status response to a single-attempt form', () async {
+      allowLoopbackNetwork();
       final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       addTearDown(() => server.close(force: true));
       var requests = 0;
@@ -111,7 +114,7 @@ void main() {
       final client = NetClientProvider.buildNoCookie(dio: dio, cookie: CookieProvider.buildEmpty());
       final result = await client
           .postForm(
-            'http://127.0.0.1:${server.port}/bank',
+            'http://${InternetAddress.loopbackIPv4.address}:${server.port}/bank',
             data: <String, String>{'banknum': '12', 'bankpass': 'synthetic-secret'},
             singleAttempt: true,
           )

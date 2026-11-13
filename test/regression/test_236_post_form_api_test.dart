@@ -1268,12 +1268,14 @@ N1_BODY_000000 & "引號" 'single' <b>不是標籤</b> &amp; [b]粗體[/b]
       });
     });
 
-    test('known from the version the plugin named', () async {
-      TsdmAppApi.pluginInfo.value = const TsdmAppPluginInfo(version: '2.9.0', api: 1, nodoc: true);
+    test('known from the version the plugin named: 3.5.0 (the oldest plugin used) or later', () async {
+      TsdmAppApi.pluginInfo.value = const TsdmAppPluginInfo(version: '3.5.0', api: 1, nodoc: true);
       expect(TsdmAppApi.knowsPostForm, isTrue);
-      TsdmAppApi.pluginInfo.value = const TsdmAppPluginInfo(version: '2.8.4', api: 1, nodoc: true);
+      TsdmAppApi.pluginInfo.value = const TsdmAppPluginInfo(version: '3.4.9', api: 1, nodoc: true);
       expect(TsdmAppApi.knowsPostForm, isFalse);
-      TsdmAppApi.pluginInfo.value = const TsdmAppPluginInfo(version: '2.10.0', api: 1, nodoc: true);
+      TsdmAppApi.pluginInfo.value = const TsdmAppPluginInfo(version: '2.9.0', api: 1, nodoc: true);
+      expect(TsdmAppApi.knowsPostForm, isFalse, reason: 'it answers the post forms, but is not used any more');
+      TsdmAppApi.pluginInfo.value = const TsdmAppPluginInfo(version: '3.10.0', api: 1, nodoc: true);
       expect(TsdmAppApi.knowsPostForm, isTrue);
     });
 

@@ -31,6 +31,8 @@ import 'package:tsdm_client/shared/providers/providers.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/models/database/database.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 
+import '../network_guard.dart';
+
 /// GitHub #80: the Android background message service is one more caller of the sync everything else uses. A tick
 /// reads the settings from the database, syncs the current account through `NotificationSyncAllRepository`, stores
 /// the rows and announces only what is new; the in-app sync running afterwards finds nothing new. What is announced
@@ -400,6 +402,7 @@ void main() {
     test('the client is built from the settings as they are now, proxy included', () async {
       await loggedIn();
       // A local "proxy": with a proxy set, the client sends the whole URL to it instead of resolving the host.
+      allowLoopbackNetwork();
       final proxy = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       addTearDown(() => proxy.close(force: true));
       final seen = <String>[];
@@ -413,7 +416,7 @@ void main() {
       // The app sets a proxy after the service started: the isolate's snapshot is from before.
       final app = StorageProvider(db, {}, {});
       await app.saveBool(SettingsKeys.netClientUseProxy.name, value: true);
-      await app.saveString(SettingsKeys.netClientProxy.name, '127.0.0.1:${proxy.port}');
+      await app.saveString(SettingsKeys.netClientProxy.name, '${InternetAddress.loopbackIPv4.address}:${proxy.port}');
       expect(settings.currentSettings.netClientUseProxy, isFalse, reason: 'stale snapshot');
       var asked = 0;
       await refreshBackgroundNetworkSettings(settings: settings, updateProxy: () async => asked++);
@@ -434,7 +437,7 @@ void main() {
       seen.clear();
       final direct = await settings
           .buildDefaultDio(nativeHttp: false)
-          .get<String>('http://127.0.0.1:${proxy.port}/direct');
+          .get<String>('http://${InternetAddress.loopbackIPv4.address}:${proxy.port}/direct');
       expect(direct.data, 'ok');
       expect(seen, ['/direct']);
     });

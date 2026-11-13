@@ -10,7 +10,6 @@ import 'package:talker_flutter/talker_flutter.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/date_time.dart';
-import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/features/settings/models/historical_log.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
@@ -73,27 +72,15 @@ class DebugHistoricalLogPage extends StatelessWidget with LoggerMixin {
 
     // The app's own days, and those of the Android background message service (`_bg_`): a report of messages missed
     // while the app was in the background needs the service's log, which only it writes (GitHub #173).
-    final nameRe = RegExp(r'^tsdm_client_(?<bg>bg_)?(?<year>\d\d\d\d)(?<month>\d\d)(?<day>\d\d)\.log$');
     for (final logFile in logDir.listSync()) {
       if (logFile.statSync().type != FileSystemEntityType.file) {
         continue;
       }
-      final fileName = path.basename(logFile.path);
-      final m = nameRe.firstMatch(fileName);
-      if (m == null) {
+      final name = HistoricalLog.parseFileName(path.basename(logFile.path));
+      if (name == null) {
         continue;
       }
-
-      final year = m.namedGroup('year')!.parseToInt()!;
-      final month = m.namedGroup('month')!.parseToInt()!;
-      final day = m.namedGroup('day')!.parseToInt()!;
-
-      final logTime = DateTime(year, month, day);
-      if (logTime.month != month || logTime.day != day) {
-        // Not a date (`20261399`): DateTime would roll it over into another day.
-        continue;
-      }
-      logFiles.add(HistoricalLog(logTime, File(logFile.path), background: m.namedGroup('bg') != null));
+      logFiles.add(HistoricalLog(name.day, File(logFile.path), background: name.background));
     }
 
     return logFiles;

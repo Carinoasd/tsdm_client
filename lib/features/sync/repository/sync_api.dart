@@ -130,6 +130,10 @@ final class TsdmAppSyncApi implements SyncApi {
 
   @override
   Future<SyncPullAnswer> pull(int uid) async {
+    // A plugin older than 3.5.0 is not used: told as one without the action, so the sync stays off for a while.
+    if (TsdmAppApi.knownTooOld) {
+      return const SyncUnsupported();
+    }
     // Waits for a "too soon" answer: the read follows the notification poll at the start, on another action.
     final json = await TsdmAppApi.askWaitingKeepingAction(_buildClient(uid), action);
     if (json == null) {

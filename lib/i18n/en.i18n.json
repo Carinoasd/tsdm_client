@@ -874,8 +874,7 @@
         "detail": "Show operations meant only for debugging"
       },
       "exportLog": {
-        "title": "Export log",
-        "detail": "Log has been exported to ${path: String}"
+        "title": "Export log"
       },
       "viewLog": {
         "title": "View log"
@@ -4548,5 +4547,11 @@
       "removed": "Removed",
       "knownIssues": "Known issues"
     }
+  },
+  "diagnostics": {
+    "errorBlock": "Something went wrong here",
+    "export": "Export diagnostics",
+    "saved": "Saved to ${path: String}",
+    "failed": "Export failed"
   }
 }
