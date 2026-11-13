@@ -216,7 +216,7 @@ void main() {
       expect(item.subject, '测试待审主題 2');
       expect(item.author, '测试会员');
       expect(item.authorUid, 32);
-      expect(item.time, '发表于 2026-11-7 22:26');
+      expect(item.time, '2026-11-7 22:26');
       expect(item.message, '待審核主題 2 的內容，用來測試審核隊列。');
       expect(list.hasNext, isFalse);
     });
