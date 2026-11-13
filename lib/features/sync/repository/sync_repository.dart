@@ -9,10 +9,13 @@ import 'package:tsdm_client/features/forum/utils/frequent_forums.dart';
 import 'package:tsdm_client/features/forum_watch/models/forum_watch_config.dart';
 import 'package:tsdm_client/features/forum_watch/models/forum_watch_sync.dart';
 import 'package:tsdm_client/features/local_draft/models/local_draft.dart';
+import 'package:tsdm_client/features/read_later/models/read_later_sync.dart';
 import 'package:tsdm_client/features/sync/models/sync_document.dart';
+import 'package:tsdm_client/features/sync/models/sync_removals.dart';
 import 'package:tsdm_client/features/sync/models/sync_settings.dart';
 import 'package:tsdm_client/features/sync/repository/sync_api.dart';
 import 'package:tsdm_client/features/sync/repository/sync_local_store.dart';
+import 'package:tsdm_client/features/thread_follow/models/followed_thread_sync.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/utils/logger.dart';
 
@@ -65,11 +68,20 @@ enum SyncCategory {
   /// The forums the account watches for new threads, its alert keywords and where they are looked for
   /// (`watch_forums`, `watch_keywords`, `watch_scope`).
   forumWatch,
+
+  /// The fast reply templates (`reply_templates`).
+  replyTemplates,
+
+  /// The read later list of the account (`read_later`).
+  readLater,
+
+  /// The threads the account follows (`follows`).
+  followedThreads,
 }
 
 /// Keeps the reading progress, the quick phrases, the block list, the fast rate templates, the reading settings, the
-/// local drafts, the floor bookmarks, the pinned forums and the forums and keywords watched for new threads of an
-/// account the same on every device it logs in on, through the forum's `sync` action (plugin 3.4.0, one document per
+/// local drafts, the floor bookmarks, the pinned forums, the forums and keywords watched for new threads, the fast
+/// reply templates, the read later list and the followed threads of an account the same on every device it logs in on, through the forum's `sync` action (plugin 3.4.0, one document per
 /// account, see [SyncDocument]).
 ///
 /// [pull] reads the forum's document, merges it with this device's ([SyncDocument.merge]: per item, the later change
@@ -128,6 +140,7 @@ final class SyncRepository with LoggerMixin {
   String? _appliedPhrases;
   String? _appliedRateTemplates;
   String? _appliedSettings;
+  String? _appliedReplyTemplates;
 
   /// The drafts this device held when its document was last built: a draft deleted since (while the run was on its
   /// way) is not written back by the apply.
@@ -245,6 +258,46 @@ final class SyncRepository with LoggerMixin {
     if (uid != null) {
       schedulePush(uid);
     }
+  }
+
+  /// The fast reply templates changed on this device to [snapshot] ([encodeReplyTemplates]): note the time, unless it
+  /// is what the sync wrote itself, and schedule a write for account [uid].
+  Future<void> onReplyTemplatesChanged(int? uid, String snapshot) async {
+    if (snapshot == _appliedReplyTemplates) {
+      return;
+    }
+    _appliedReplyTemplates = null;
+    await _store.saveReplyTemplatesUpdated(_now().millisecondsSinceEpoch);
+    if (uid != null) {
+      schedulePush(uid);
+    }
+  }
+
+  /// The text the sync compares the fast reply [templates] by (their names and texts, in their order; never when
+  /// they were last used).
+  static String encodeReplyTemplates(List<FastReplyTemplateModel> templates) =>
+      jsonEncode([for (final t in templates) replyTemplateToItem(t)]);
+
+  /// The document item of the fast reply template [template] (an item of the `reply_templates` list).
+  static Map<String, dynamic> replyTemplateToItem(FastReplyTemplateModel template) => {
+    'name': template.name,
+    'data': template.data,
+  };
+
+  /// The fast reply templates of the `reply_templates` [item]: the ones this version reads (a name and a text), the
+  /// first of each name, at most [syncReplyTemplatesMax].
+  static List<FastReplyTemplateModel> replyTemplatesOf(Map<String, dynamic> item) {
+    final names = <String>{};
+    final templates = <FastReplyTemplateModel>[];
+    for (final e in item['items'] is List ? item['items'] as List : const []) {
+      if (e is Map && e['name'] is String && e['data'] is String && (e['name'] as String).isNotEmpty) {
+        final name = e['name'] as String;
+        if (names.add(name) && templates.length < syncReplyTemplatesMax) {
+          templates.add(FastReplyTemplateModel(name: name, data: e['data'] as String));
+        }
+      }
+    }
+    return templates;
   }
 
   /// The text the sync compares the fast rate [templates] by.
@@ -374,6 +427,8 @@ final class SyncRepository with LoggerMixin {
     }
     await _unitePhrasesOnFirstSync(remote);
     await _uniteRateTemplatesOnFirstSync(remote);
+    await _uniteReplyTemplatesOnFirstSync(remote);
+    await _takeSettingsAddedLater(remote);
     await _stampSettingsOnFirstSync(remote);
     final last = await _store.lastSynced(uid);
     final base = SyncDocument.parse(last?.document);
@@ -479,6 +534,62 @@ final class SyncRepository with LoggerMixin {
       }
     }
     await _store.saveRateTemplatesUpdated(mine.isEmpty ? 0 : _now().millisecondsSinceEpoch);
+  }
+
+  /// The first sync of the fast reply templates on a device (never stamped): like the rate templates, this device's
+  /// templates and the forum's that it lacks (by name) are united, then stamped as of now (0 when there are none).
+  Future<void> _uniteReplyTemplatesOnFirstSync(SyncDocument remote) async {
+    if (!_on(SyncCategory.replyTemplates) || await _store.replyTemplatesUpdated() != null) {
+      return;
+    }
+    var mine = await _store.replyTemplates();
+    final theirs = remote.single('reply_templates');
+    if (mine.isNotEmpty && theirs != null) {
+      final names = {for (final t in mine) t.name};
+      final union = [
+        ...mine,
+        ...replyTemplatesOf(theirs).where((t) => !names.contains(t.name)),
+      ].take(syncReplyTemplatesMax).toList();
+      if (union.length != mine.length) {
+        info('sync: first sync, ${union.length - mine.length} reply templates of the forum added to this device');
+        _appliedReplyTemplates = encodeReplyTemplates(union);
+        await _store.saveReplyTemplates(union);
+        mine = union;
+      }
+    }
+    await _store.saveReplyTemplatesUpdated(mine.isEmpty ? 0 : _now().millisecondsSinceEpoch);
+  }
+
+  /// A device that synced its settings before this version knew some of them ([syncedSettingsAddedLater], or the
+  /// names it kept, [SyncLocalStore.settingsKnown]): each such setting still at its default here takes the forum's
+  /// value, so the default of a device updated later never goes over what another device chose. A device that never
+  /// synced its settings is left to [_stampSettingsOnFirstSync]. The names known are kept after.
+  Future<void> _takeSettingsAddedLater(SyncDocument remote) async {
+    if (!_on(SyncCategory.settings)) {
+      return;
+    }
+    final names = {for (final s in syncedSettings) s.key.name};
+    final known = await _store.settingsKnown();
+    if (known != null && known.containsAll(names)) {
+      return;
+    }
+    final theirs = remote.single('settings');
+    if (await _store.settingsUpdated() != null && theirs != null) {
+      final fresh = names.difference(known ?? names.difference(syncedSettingsAddedLater));
+      final mine = await _store.settingsValues();
+      final defaults = syncedSettingsDefaults();
+      final fill = {
+        for (final MapEntry(:key, :value) in settingsValuesOf(theirs).entries)
+          if (fresh.contains(key) && mine[key] == defaults[key]) key: value,
+      };
+      final next = syncedSettingsApplied(mine, fill);
+      if (!mapEquals(next, mine)) {
+        info('sync: settings new to this device taken from the forum where it has the defaults');
+        _appliedSettings = encodeSettingsValues(next);
+        await _store.applySettingsValues(fill);
+      }
+    }
+    await _store.saveSettingsKnown({...?known, ...names});
   }
 
   /// The first sync of the settings on a device (never stamped). A device with only the defaults takes the forum's
@@ -643,6 +754,26 @@ final class SyncRepository with LoggerMixin {
       );
     }
 
+    // Reply templates: one item, like the rate templates, as long as they fit in their budget; over it the forum's
+    // section stays as it is (part of the list would read as the rest deleted on the other devices).
+    if (_on(SyncCategory.replyTemplates)) {
+      final templates = await _store.replyTemplates();
+      final updated = await _store.replyTemplatesUpdated() ?? (templates.isEmpty ? 0 : now);
+      final baseItem = base.single('reply_templates') ?? const <String, dynamic>{};
+      final item = templates.isEmpty && updated == 0 && baseItem.isEmpty
+          ? null
+          : {
+              ...baseItem,
+              'updated': updated,
+              'items': [for (final t in templates.take(syncReplyTemplatesMax)) replyTemplateToItem(t)],
+            };
+      if (item != null && _bytesOf(item) > syncReplyTemplatesMaxBytes) {
+        info('sync: the reply templates take ${_bytesOf(item)} bytes, over $syncReplyTemplatesMaxBytes: kept here');
+      } else {
+        doc = doc.withSingle('reply_templates', item);
+      }
+    }
+
     // Settings: one item; values of settings this version does not carry are kept. A device that never stamped them
     // says nothing (see _stampSettingsOnFirstSync).
     if (_on(SyncCategory.settings)) {
@@ -724,6 +855,26 @@ final class SyncRepository with LoggerMixin {
         if (forumWatchScopeItem(watch) case final scope?) {
           doc = doc.withSingle(forumWatchScopeSection, {...?base.single(forumWatchScopeSection), ...scope});
         }
+      }
+    }
+    // The read later list: the threads on it and the records of the ones taken off here, over the forum's.
+    if (_on(SyncCategory.readLater)) {
+      final (:entries, :removed) = await _store.readLater(uid);
+      doc = doc.withItems(
+        readLaterSection,
+        _heldOver(base.items(readLaterSection), readLaterSyncItems(entries, removed)),
+      );
+    }
+
+    // The followed threads: the threads followed and the records of the ones unfollowed here, over the forum's. Never
+    // what the check of this device knows of them.
+    if (_on(SyncCategory.followedThreads)) {
+      if (await _store.followedThreads(uid) case (:final threads, :final removed)?) {
+        final baseItems = base.items(followedThreadsSection);
+        doc = doc.withItems(
+          followedThreadsSection,
+          _heldOver(baseItems, followedThreadSyncItems(threads, removed, baseItems)),
+        );
       }
     }
     return _fit(doc);
@@ -886,6 +1037,24 @@ final class SyncRepository with LoggerMixin {
             goneMax: forumWatchKeywordRemovalMax,
             maxBytes: syncWatchKeywordsMaxBytes,
           ),
+        )
+        .withItems(
+          readLaterSection,
+          listed(
+            readLaterSection,
+            liveMax: syncReadLaterMax,
+            goneMax: syncRemovalsMax,
+            maxBytes: syncReadLaterMaxBytes,
+          ),
+        )
+        .withItems(
+          followedThreadsSection,
+          listed(
+            followedThreadsSection,
+            liveMax: syncFollowedThreadsMax,
+            goneMax: syncRemovalsMax,
+            maxBytes: syncFollowedThreadsMaxBytes,
+          ),
         );
     // Size: the oldest visits go first, then the oldest deletion records, then the drafts, then the bookmarks.
     while (fitted.encodedLength > _documentMaxBytes) {
@@ -1023,6 +1192,19 @@ final class SyncRepository with LoggerMixin {
       }
     }
 
+    if (_on(SyncCategory.replyTemplates)) {
+      final item = merged.single('reply_templates');
+      if (item != null && SyncDocument.updatedOf(item) > (await _store.replyTemplatesUpdated() ?? 0)) {
+        await _store.saveReplyTemplatesUpdated(SyncDocument.updatedOf(item));
+        final templates = replyTemplatesOf(item);
+        final encoded = encodeReplyTemplates(templates);
+        if (encoded != encodeReplyTemplates(await _store.replyTemplates())) {
+          _appliedReplyTemplates = encoded;
+          await _store.saveReplyTemplates(templates);
+        }
+      }
+    }
+
     // Drafts item by item, each where the merge is later than this device's (the same time leaves this device's own:
     // it may carry the editor document the forum's copy went without); a draft not in the document stays.
     if (_on(SyncCategory.drafts)) {
@@ -1094,6 +1276,21 @@ final class SyncRepository with LoggerMixin {
       final items = merged.items('pinned_forums');
       if (items.isNotEmpty) {
         await _store.applyPinnedForums(uid, items);
+      }
+    }
+
+    // The read later list and the followed threads thread by thread, each where the merge is later than this device's;
+    // a thread not in the document stays.
+    if (_on(SyncCategory.readLater)) {
+      final items = merged.items(readLaterSection);
+      if (items.isNotEmpty) {
+        await _store.applyReadLater(uid, items);
+      }
+    }
+    if (_on(SyncCategory.followedThreads)) {
+      final items = merged.items(followedThreadsSection);
+      if (items.isNotEmpty) {
+        await _store.applyFollowedThreads(uid, items);
       }
     }
 

@@ -371,7 +371,10 @@
         "drafts": "本机草稿",
         "bookmarks": "楼层书签",
         "pinnedForums": "钉选的版块",
-        "forumWatch": "新帖与关键字提醒"
+        "forumWatch": "新帖与关键字提醒",
+        "replyTemplates": "回复模板",
+        "readLater": "稍后阅读",
+        "followedThreads": "追踪的帖子"
       },
       "loginDevices": "登录设备",
       "security": "密码与安全",

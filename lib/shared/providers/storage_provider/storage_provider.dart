@@ -17,6 +17,7 @@ import 'package:tsdm_client/features/attachment_download/repository/attachment_d
 import 'package:tsdm_client/features/attachment_download/repository/attachment_download_store.dart';
 import 'package:tsdm_client/features/floor_bookmark/repository/floor_bookmark_store.dart';
 import 'package:tsdm_client/features/local_draft/repository/local_draft_store.dart';
+import 'package:tsdm_client/features/sync/models/sync_removals.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/models/notification_type.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/models/database/dao/dao.dart';
@@ -240,6 +241,14 @@ class StorageProvider with LoggerMixin {
   /// Settings name of the threads account [uid] follows (`FollowedThreadStore`), a JSON list.
   static String followedThreadsKey(int uid) => 'followedThreads.$uid';
 
+  /// Settings name of the records of the threads account [uid] stopped following (`FollowedThreadStore`), for the
+  /// cross-device sync: a JSON object, thread id to the time (milliseconds).
+  static String followedThreadsRemovedKey(int uid) => 'followedThreadsRemoved.$uid';
+
+  /// Settings name of the records of the threads account [uid] took off its read later list, for the cross-device
+  /// sync: a JSON object, thread id to the time (milliseconds), see `readLaterRemovedOf`.
+  static String readLaterRemovedKey(int uid) => 'readLaterRemoved.$uid';
+
   /// Settings name of the time the followed threads of account [uid] were last checked (`FollowedThreadCheckSlot`), in
   /// milliseconds since epoch.
   static String followedThreadsCheckedAtKey(int uid) => 'followedThreadsCheckedAt.$uid';
@@ -279,6 +288,8 @@ class StorageProvider with LoggerMixin {
     await settings.deleteByName(notificationPolledAtKey(uid));
     await settings.deleteByName(notificationPolledManuallyAtKey(uid));
     await settings.deleteByName(followedThreadsKey(uid));
+    await settings.deleteByName(followedThreadsRemovedKey(uid));
+    await settings.deleteByName(readLaterRemovedKey(uid));
     await settings.deleteByName(followedThreadsCheckedAtKey(uid));
     await settings.deleteByName(forumWatchKey(uid));
     await settings.deleteByName(forumWatchStateKey(uid));
@@ -989,9 +1000,10 @@ class StorageProvider with LoggerMixin {
 
   /*        read later        */
 
-  /// Put thread [tid] aside for user [uid] to read later; an entry already there is replaced.
+  /// Put thread [tid] aside for user [uid] to read later; an entry already there is replaced, and a record of the
+  /// thread taken off before is dropped.
   ///
-  /// A local list only. Removed with the account.
+  /// A local list, the same on the account's other devices through the cross-device sync. Removed with the account.
   Future<void> addReadLater({
     required int uid,
     required int tid,
@@ -999,14 +1011,27 @@ class StorageProvider with LoggerMixin {
     String? author,
     String? forumName,
     DateTime? time,
-  }) async {
+  }) => _db.transaction(() async {
     await ReadLaterDao(_db).add(uid: uid, tid: tid, title: title, author: author, forumName: forumName, time: time);
-  }
+    final removed = await readLaterRemoved(uid);
+    if (removed.containsKey(tid)) {
+      await _saveReadLaterRemoved(
+        uid,
+        syncRemovalsWith(removed, back: [tid], at: DateTime.now().millisecondsSinceEpoch),
+      );
+    }
+  });
 
-  /// Take thread [tid] off the read later list of user [uid].
-  Future<void> removeReadLater(int uid, int tid) async {
-    await ReadLaterDao(_db).remove(uid, tid);
-  }
+  /// Take thread [tid] off the read later list of user [uid], noting when for the cross-device sync.
+  Future<void> removeReadLater(int uid, int tid) => removeReadLaterAt(uid, tid, DateTime.now());
+
+  /// Take thread [tid] off the read later list of user [uid] as of [at] (when another device took it off, the
+  /// cross-device sync), noting it.
+  Future<void> removeReadLaterAt(int uid, int tid, DateTime at) => _db.transaction(() async {
+    if (await ReadLaterDao(_db).remove(uid, tid) > 0) {
+      await _noteReadLaterRemoved(uid, [tid], at);
+    }
+  });
 
   /// The read later entries of user [uid], the latest put aside first.
   Future<List<ReadLaterEntity>> fetchReadLater(int uid) async => ReadLaterDao(_db).selectByUid(uid);
@@ -1014,10 +1039,28 @@ class StorageProvider with LoggerMixin {
   /// Watch the read later entries of user [uid], the latest put aside first.
   Stream<List<ReadLaterEntity>> watchReadLater(int uid) => ReadLaterDao(_db).watchByUid(uid);
 
-  /// Empty the read later list of user [uid].
-  Future<void> clearReadLater(int uid) async {
+  /// Empty the read later list of user [uid], noting when for the cross-device sync.
+  Future<void> clearReadLater(int uid) => _db.transaction(() async {
+    final tids = [for (final e in await ReadLaterDao(_db).selectByUid(uid)) e.tid];
     await ReadLaterDao(_db).deleteByUid(uid);
+    if (tids.isNotEmpty) {
+      await _noteReadLaterRemoved(uid, tids, DateTime.now());
+    }
+  });
+
+  /// The records of the threads user [uid] took off the read later list: thread id to the time (milliseconds).
+  Future<Map<int, int>> readLaterRemoved(int uid) async => syncRemovalsOf(await getString(readLaterRemovedKey(uid)));
+
+  Future<void> _noteReadLaterRemoved(int uid, List<int> tids, DateTime at) async {
+    final ms = at.millisecondsSinceEpoch;
+    await _saveReadLaterRemoved(
+      uid,
+      syncRemovalsWith(await readLaterRemoved(uid), tids: {for (final tid in tids) tid: ms}, at: ms),
+    );
   }
+
+  Future<void> _saveReadLaterRemoved(int uid, String? raw) async =>
+      raw == null ? deleteKey(readLaterRemovedKey(uid)) : saveString(readLaterRemovedKey(uid), raw);
 
   /*        offline threads        */
 
@@ -1484,6 +1527,21 @@ class StorageProvider with LoggerMixin {
       FastReplyTemplateCompanion(name: Value(reply.name), data: Value(reply.data), lastUsedTime: Value(DateTime.now())),
     );
 
+    return rightVoid();
+  });
+
+  /// Replace every fast reply template with [replies], in their order (the cross-device sync).
+  AsyncVoidEither replaceAllFastReplyTemplates(List<FastReplyTemplateModel> replies) => AsyncEither(() async {
+    final dao = FastReplyTemplateDao(_db);
+    final now = DateTime.now();
+    await _db.transaction(() async {
+      await dao.deleteAll();
+      for (final reply in replies) {
+        await dao.insertOrUpdate(
+          FastReplyTemplateCompanion(name: Value(reply.name), data: Value(reply.data), lastUsedTime: Value(now)),
+        );
+      }
+    });
     return rightVoid();
   });
 

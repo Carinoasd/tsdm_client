@@ -169,6 +169,18 @@ Future<FollowedThreadRound> checkFollowedThreads({
           if (current == null) {
             return null;
           }
+          if (current.fromSync) {
+            // Came from another device: what it has now counts as seen here, nothing posted before is announced.
+            return current.copyWith(
+              title: title == null || title.isEmpty ? null : title,
+              seenReplies: replies,
+              knownReplies: replies,
+              lastReplyAt: lastReplyAt,
+              checkedAt: now,
+              notified: false,
+              fromSync: false,
+            );
+          }
           final next = current.copyWith(
             title: title == null || title.isEmpty ? null : title,
             seenReplies: replies < current.seenReplies ? replies : null,

@@ -61,6 +61,29 @@ const int syncWatchForumsMaxBytes = 3 * 1024;
 /// go with the sync and the older ones stay on their device.
 const int syncWatchKeywordsMaxBytes = 8 * 1024;
 
+/// Most fast reply templates a document carries.
+const syncReplyTemplatesMax = 50;
+
+/// Most bytes the fast reply templates take in a document: a device whose templates take more (long texts) leaves the
+/// forum's as they are and keeps its own (a part of them would read as the others deleted on the other devices).
+const int syncReplyTemplatesMaxBytes = 6 * 1024;
+
+/// Most threads of the read later list a document carries: the latest put aside.
+const syncReadLaterMax = 200;
+
+/// Most bytes the read later list takes in a document, the records of the threads taken off with it: a thread with a
+/// Chinese title, its author and forum takes about 160 bytes, so the latest 50 or so go with the sync and the older ones
+/// stay on their device.
+const int syncReadLaterMaxBytes = 8 * 1024;
+
+/// Most followed threads a document carries: the latest followed.
+const syncFollowedThreadsMax = 200;
+
+/// Most bytes the followed threads take in a document, the records of the unfollowed ones with them: a thread with a
+/// Chinese title takes about 120 bytes, so the latest 50 or so go with the sync and the older ones stay on their
+/// device.
+const int syncFollowedThreadsMaxBytes = 6 * 1024;
+
 /// What one account keeps on the forum for its devices (plugin 3.4.0, `sync`): a JSON object the plugin stores as it
 /// is. This version reads and writes `schema` 1:
 ///
@@ -92,7 +115,12 @@ const int syncWatchKeywordsMaxBytes = 8 * 1024;
 ///                     "<fid>": {"updated": ms, "deleted": true}},
 ///  "watch_keywords": {"<keyword, lower case>": {"updated": ms, "text": "…"},
 ///                     "<keyword, lower case>": {"updated": ms, "deleted": true}},
-///  "watch_scope": {"updated": ms, "custom": false, "latest": true, "forums": [{"fid": 1, "name": "…"}]}}
+///  "watch_scope": {"updated": ms, "custom": false, "latest": true, "forums": [{"fid": 1, "name": "…"}]},
+///  "reply_templates": {"updated": ms, "items": [{"name": "…", "data": "…"}]},
+///  "read_later": {"<tid>": {"updated": ms, "title": "…", "author": "…", "forum": "…"},
+///                 "<tid>": {"updated": ms, "deleted": true}},
+///  "follows":    {"<tid>": {"updated": ms, "title": "…"},
+///                 "<tid>": {"updated": ms, "deleted": true}}}
 /// ```
 ///
 /// `rate_templates` and `settings` are one item each, like `phrases`: the later `updated` wins, whole (the values of
@@ -117,6 +145,17 @@ const int syncWatchKeywordsMaxBytes = 8 * 1024;
 /// threads announced, when it last ran) is never part of the document. Each of the three lists is held to the caps
 /// of a device and to a budget ([syncPinnedForumsMaxBytes], [syncWatchForumsMaxBytes], [syncWatchKeywordsMaxBytes]):
 /// together with the scope they take 12 KB when every list is full of usual names, about 18 KB at most.
+///
+/// `reply_templates`, `read_later` and `follows` came after those, the same way again, each on a switch of its own and
+/// each within a budget of its own, so a version that does not read them never has to make room for them by dropping
+/// what it reads. `reply_templates` is one item like `rate_templates` (the templates of the reply bar, the later
+/// change wins whole), within [syncReplyTemplatesMaxBytes]. `read_later` holds the read later list of the account
+/// (`read_later_sync.dart`), `follows` the threads it follows (`followed_thread_sync.dart`; what a device's check of
+/// them knows never goes with them): item by item the later wins, a thread taken off leaves the record of when, the
+/// latest [syncReadLaterMax] and [syncFollowedThreadsMax] within [syncReadLaterMaxBytes] and
+/// [syncFollowedThreadsMaxBytes]. The settings of `settings` grow the same way: a setting added to it later
+/// (`syncedSettingsAddedLater`) takes, on a device that synced settings before, the forum's value where the device
+/// has the default.
 ///
 /// Every item carries `updated`, the device clock (milliseconds since the epoch) of its last change; a deletion is an
 /// item with `deleted: true` and the time of the deletion, so a thread visit removed or a user unblocked on one device
@@ -216,10 +255,12 @@ final class SyncDocument {
     'pinned_forums',
     'watch_forums',
     'watch_keywords',
+    'read_later',
+    'follows',
   ];
 
   /// The sections this version reads as one item each.
-  static const singleSections = ['phrases', 'rate_templates', 'settings', 'watch_scope'];
+  static const singleSections = ['phrases', 'rate_templates', 'settings', 'watch_scope', 'reply_templates'];
 
   /// The items of section [name] (one of [itemSections]) by key, empty when the section is missing or not an object.
   /// Items that are not objects are left out.

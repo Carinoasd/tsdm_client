@@ -371,7 +371,10 @@
         "drafts": "本機草稿",
         "bookmarks": "樓層書籤",
         "pinnedForums": "釘選的版塊",
-        "forumWatch": "新帖與關鍵字提醒"
+        "forumWatch": "新帖與關鍵字提醒",
+        "replyTemplates": "回覆模板",
+        "readLater": "稍後閱讀",
+        "followedThreads": "追蹤的帖子"
       },
       "loginDevices": "登入裝置",
       "security": "密碼與安全",

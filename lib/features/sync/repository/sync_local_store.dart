@@ -13,8 +13,13 @@ import 'package:tsdm_client/features/forum_watch/models/forum_watch_sync.dart';
 import 'package:tsdm_client/features/forum_watch/repository/forum_watch_store.dart';
 import 'package:tsdm_client/features/local_draft/models/local_draft.dart';
 import 'package:tsdm_client/features/local_draft/repository/local_draft_store.dart';
+import 'package:tsdm_client/features/read_later/models/read_later_sync.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
+import 'package:tsdm_client/features/sync/models/sync_removals.dart';
 import 'package:tsdm_client/features/sync/models/sync_settings.dart';
+import 'package:tsdm_client/features/thread_follow/models/followed_thread.dart';
+import 'package:tsdm_client/features/thread_follow/models/followed_thread_sync.dart';
+import 'package:tsdm_client/features/thread_follow/repository/followed_thread_store.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/providers/cookie_provider/cookie_provider.dart';
@@ -351,6 +356,40 @@ abstract interface class SyncLocalStore {
     required Map<String, dynamic>? scope,
   });
 
+  /// The stored names of the synced settings this device knew at its last sync of them, null before this was kept:
+  /// a setting added to the sync since takes the forum's value where this device has the default.
+  Future<Set<String>?> settingsKnown();
+
+  /// Keep [names] as the [settingsKnown].
+  Future<void> saveSettingsKnown(Set<String> names);
+
+  /// The fast reply templates (of the device, not of one account), in their order.
+  Future<List<FastReplyTemplateModel>> replyTemplates();
+
+  /// Replace the fast reply templates.
+  Future<void> saveReplyTemplates(List<FastReplyTemplateModel> templates);
+
+  /// When the fast reply templates last changed (milliseconds), null when never noted.
+  Future<int?> replyTemplatesUpdated();
+
+  /// Note when the fast reply templates last changed.
+  Future<void> saveReplyTemplatesUpdated(int updated);
+
+  /// The read later list of account [uid] and the records of the threads it took off.
+  Future<({List<ReadLaterSyncEntry> entries, Map<int, int> removed})> readLater(int uid);
+
+  /// Take the items of `read_later` in for account [uid] ([readLaterSyncChanges]); nothing is written when nothing
+  /// changes.
+  Future<void> applyReadLater(int uid, Map<String, Map<String, dynamic>> items);
+
+  /// The threads account [uid] follows and the records of the ones it unfollowed; null when they can not be kept on
+  /// this device (left alone then).
+  Future<({List<FollowedThread> threads, Map<int, int> removed})?> followedThreads(int uid);
+
+  /// Take the items of `follows` in for account [uid] ([followedThreadSyncChanges]); nothing is written when nothing
+  /// changes.
+  Future<void> applyFollowedThreads(int uid, Map<String, Map<String, dynamic>> items);
+
   /// The document the forum held for account [uid] when it was last read or written, null before the first sync.
   Future<SyncLastSynced?> lastSynced(int uid);
 
@@ -384,6 +423,12 @@ final class StorageSyncLocalStore implements SyncLocalStore {
 
   /// The settings row of when the synced settings last changed.
   static const settingsUpdatedKey = 'sync.settingsUpdated';
+
+  /// The settings row of when the fast reply templates last changed.
+  static const replyTemplatesUpdatedKey = 'sync.replyTemplatesUpdated';
+
+  /// The settings row of the names of the synced settings this device knew at its last sync of them.
+  static const settingsKnownKey = 'sync.settingsKnown';
 
   /// The settings row of the drafts an account held after its last sync of them.
   static String draftsSeenKeyOf(int uid) => 'sync.draftsSeen.$uid';
@@ -577,6 +622,79 @@ final class StorageSyncLocalStore implements SyncLocalStore {
   }) async => ForumWatchStore.app?.applySynced(uid, forums: forums, keywords: keywords, scope: scope);
 
   @override
+  Future<Set<String>?> settingsKnown() async => (await _storage.getStringList(settingsKnownKey))?.toSet();
+
+  @override
+  Future<void> saveSettingsKnown(Set<String> names) => _storage.saveStringList(settingsKnownKey, names.toList());
+
+  @override
+  Future<List<FastReplyTemplateModel>> replyTemplates() async =>
+      switch (await _storage.getAllFastReplyTemplate().run()) {
+        Right(:final value) => value,
+        Left(:final value) => throw value,
+      };
+
+  @override
+  Future<void> saveReplyTemplates(List<FastReplyTemplateModel> templates) async {
+    if (await _storage.replaceAllFastReplyTemplates(templates).run() case Left(:final value)) {
+      throw value;
+    }
+  }
+
+  @override
+  Future<int?> replyTemplatesUpdated() => _storage.getInt(replyTemplatesUpdatedKey);
+
+  @override
+  Future<void> saveReplyTemplatesUpdated(int updated) => _storage.saveInt(replyTemplatesUpdatedKey, updated);
+
+  @override
+  Future<({List<ReadLaterSyncEntry> entries, Map<int, int> removed})> readLater(int uid) async => (
+    entries: [
+      for (final e in await _storage.fetchReadLater(uid))
+        ReadLaterSyncEntry(
+          tid: e.tid,
+          title: e.threadTitle,
+          addedAt: e.addedAt.millisecondsSinceEpoch,
+          author: e.author,
+          forum: e.forumName,
+        ),
+    ],
+    removed: await _storage.readLaterRemoved(uid),
+  );
+
+  @override
+  Future<void> applyReadLater(int uid, Map<String, Map<String, dynamic>> items) async {
+    final (:entries, :removed) = await readLater(uid);
+    final (:save, :remove) = readLaterSyncChanges(entries, removed, items);
+    for (final MapEntry(key: tid, value: at) in remove.entries) {
+      await _storage.removeReadLaterAt(uid, tid, DateTime.fromMillisecondsSinceEpoch(at));
+    }
+    for (final e in save) {
+      await _storage.addReadLater(
+        uid: uid,
+        tid: e.tid,
+        title: e.title,
+        author: e.author,
+        forumName: e.forum,
+        time: DateTime.fromMillisecondsSinceEpoch(e.addedAt),
+      );
+    }
+  }
+
+  @override
+  Future<({List<FollowedThread> threads, Map<int, int> removed})?> followedThreads(int uid) async {
+    final store = FollowedThreadStore.app;
+    if (store == null) {
+      return null;
+    }
+    return (threads: await store.load(uid), removed: await store.removed(uid));
+  }
+
+  @override
+  Future<void> applyFollowedThreads(int uid, Map<String, Map<String, dynamic>> items) async =>
+      FollowedThreadStore.app?.applySynced(uid, items);
+
+  @override
   Future<SyncLastSynced?> lastSynced(int uid) async {
     final document = await _storage.getString(lastDocumentKeyOf(uid));
     if (document == null) {
@@ -650,6 +768,30 @@ final class MemorySyncLocalStore implements SyncLocalStore {
 
   /// Accounts whose watch can not be kept ([forumWatch] reads null).
   final watchUnavailable = <int>{};
+
+  /// The names of the synced settings this device knew at its last sync of them.
+  Set<String>? settingsKnownNames;
+
+  /// The fast reply templates.
+  List<FastReplyTemplateModel> replyTemplateList = [];
+
+  /// When the fast reply templates last changed.
+  int? replyTemplatesUpdatedAt;
+
+  /// The read later lists by account and thread.
+  final readLaterByUid = <int, Map<int, ReadLaterSyncEntry>>{};
+
+  /// The records of the threads taken off the read later lists, by account.
+  final readLaterRemovedByUid = <int, Map<int, int>>{};
+
+  /// The threads each account follows, the one followed last first.
+  final followedByUid = <int, List<FollowedThread>>{};
+
+  /// The records of the threads each account unfollowed.
+  final followedRemovedByUid = <int, Map<int, int>>{};
+
+  /// Accounts whose followed threads can not be kept ([followedThreads] reads null).
+  final followedUnavailable = <int>{};
 
   /// The device clock (milliseconds) the pinned forums and the watch are taken in at.
   int Function() clock = () => DateTime.now().millisecondsSinceEpoch;
@@ -868,6 +1010,94 @@ final class MemorySyncLocalStore implements SyncLocalStore {
       watchByUid[uid] = next;
       writes.add('applyForumWatch');
     }
+  }
+
+  @override
+  Future<Set<String>?> settingsKnown() async => settingsKnownNames;
+
+  @override
+  Future<void> saveSettingsKnown(Set<String> names) async => settingsKnownNames = Set.of(names);
+
+  @override
+  Future<List<FastReplyTemplateModel>> replyTemplates() async => List.of(replyTemplateList);
+
+  @override
+  Future<void> saveReplyTemplates(List<FastReplyTemplateModel> templates) async {
+    replyTemplateList = List.of(templates);
+    writes.add('saveReplyTemplates');
+  }
+
+  @override
+  Future<int?> replyTemplatesUpdated() async => replyTemplatesUpdatedAt;
+
+  @override
+  Future<void> saveReplyTemplatesUpdated(int updated) async => replyTemplatesUpdatedAt = updated;
+
+  @override
+  Future<({List<ReadLaterSyncEntry> entries, Map<int, int> removed})> readLater(int uid) async => (
+    entries: (readLaterByUid[uid] ?? const {}).values.toList(),
+    removed: Map<int, int>.of(readLaterRemovedByUid[uid] ?? const {}),
+  );
+
+  /// Put thread [entry] aside for account [uid] as the app does (the time in whole seconds, a record of its removal
+  /// dropped).
+  void addReadLater(int uid, ReadLaterSyncEntry entry) {
+    final seconds = entry.addedAt - entry.addedAt % 1000;
+    (readLaterByUid[uid] ??= {})[entry.tid] = ReadLaterSyncEntry(
+      tid: entry.tid,
+      title: entry.title,
+      addedAt: seconds,
+      author: entry.author,
+      forum: entry.forum,
+    );
+    readLaterRemovedByUid[uid]?.remove(entry.tid);
+  }
+
+  /// Take thread [tid] off the read later list of account [uid] at [at], as the app does.
+  void removeReadLater(int uid, int tid, int at) {
+    if (readLaterByUid[uid]?.remove(tid) != null) {
+      readLaterRemovedByUid[uid] = syncRemovalsOf(
+        syncRemovalsWith(readLaterRemovedByUid[uid] ?? const {}, tids: {tid: at}, at: at),
+      );
+    }
+  }
+
+  @override
+  Future<void> applyReadLater(int uid, Map<String, Map<String, dynamic>> items) async {
+    final (:entries, :removed) = await readLater(uid);
+    final (:save, :remove) = readLaterSyncChanges(entries, removed, items);
+    for (final MapEntry(key: tid, value: at) in remove.entries) {
+      removeReadLater(uid, tid, at);
+      writes.add('removeReadLater $tid');
+    }
+    for (final e in save) {
+      addReadLater(uid, e);
+      writes.add('addReadLater ${e.tid}');
+    }
+  }
+
+  @override
+  Future<({List<FollowedThread> threads, Map<int, int> removed})?> followedThreads(int uid) async =>
+      followedUnavailable.contains(uid)
+      ? null
+      : (
+          threads: List<FollowedThread>.of(followedByUid[uid] ?? const []),
+          removed: Map<int, int>.of(followedRemovedByUid[uid] ?? const {}),
+        );
+
+  @override
+  Future<void> applyFollowedThreads(int uid, Map<String, Map<String, dynamic>> items) async {
+    final threads = followedByUid[uid] ?? const [];
+    final removed = followedRemovedByUid[uid] ?? const {};
+    final (:follow, :unfollow) = followedThreadSyncChanges(threads, removed, items);
+    if (follow.isEmpty && unfollow.isEmpty) {
+      return;
+    }
+    followedByUid[uid] = followedThreadsWithSynced(threads, follow, unfollow.keys);
+    followedRemovedByUid[uid] = syncRemovalsOf(
+      syncRemovalsWith(removed, tids: unfollow, back: [for (final t in follow) t.tid], at: clock()),
+    );
+    writes.add('applyFollowedThreads');
   }
 
   @override
