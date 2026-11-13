@@ -234,8 +234,8 @@ final class RateRepository with LoggerMixin {
   /// `type: ratings`, `schema` 48, [RateLogItem.listFromApi]) for the account that asks (`currentUid` of the
   /// constructor): the same rows as the window, the times to the second. The forum's message instead of the list is
   /// its refusal in its words ([ServerRespondedErrorException]), but "no rate on this floor"
-  /// (`thread_rate_log_nonexistence`), which the window shows as an empty list too. Any other answer reads the window
-  /// (the AJAX fragment) as before.
+  /// (`thread_rate_log_nonexistence`), which the window shows as an empty list too. Any other answer (a refusal of the
+  /// plugin, a message without words, not the page) reads the window (the AJAX fragment) as before.
   AsyncEither<List<RateLogItem>> fetchRateLog({required String tid, required String pid}) => AsyncEither(() async {
     final client = getIt.get<NetClientProvider>();
     if (TsdmAppV4.has(TsdmAppV4Group.threadLists, 'ratings')) {
@@ -254,11 +254,11 @@ final class RateRepository with LoggerMixin {
           return right(RateLogItem.listFromApi(json));
         case Right(value: TsdmAppV4Message(messageKey: 'thread_rate_log_nonexistence')):
           return right(const []);
-        case Right(value: TsdmAppV4Message(:final reason)):
+        case Right(value: TsdmAppV4Message(:final reason)) when reason.trim().isNotEmpty:
           return left(ServerRespondedErrorException(reason));
-        case Right(value: TsdmAppV4Refused(:final error)):
-          return left(ServerRespondedErrorException(error));
-        case Right(value: null):
+        case Right(value: TsdmAppV4Message() || TsdmAppV4Refused() || null):
+          // Nothing to tell the user in the forum's words (a refusal of the plugin, a message without text): the
+          // window says what it says.
           break;
       }
     }

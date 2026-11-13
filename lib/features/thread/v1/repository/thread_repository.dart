@@ -445,7 +445,7 @@ class ThreadRepository {
   /// `thread_mod`, `type: thread_mod`, `schema` 50, [OperationLogItem.listFromApi]) for the account logged in now:
   /// the same rows as the window. The forum's message instead of the log is an empty log when it says there is none
   /// (`threadmod_nonexistence`, as the window's notice is read), its refusal in its words otherwise. Any other answer
-  /// reads the window (the AJAX fragment) as before.
+  /// (a refusal of the plugin, a message without words, not the page) reads the window (the AJAX fragment) as before.
   ///
   /// [uid] is the account asking (the account logged in now by default).
   AsyncEither<List<OperationLogItem>> fetchOperationLog(String tid, {int? uid}) => AsyncEither(() async {
@@ -464,11 +464,11 @@ class ThreadRepository {
           return right(OperationLogItem.listFromApi(json));
         case Right(value: TsdmAppV4Message(messageKey: 'threadmod_nonexistence')):
           return right(const []);
-        case Right(value: TsdmAppV4Message(:final reason)):
+        case Right(value: TsdmAppV4Message(:final reason)) when reason.trim().isNotEmpty:
           return left(ServerRespondedErrorException(reason));
-        case Right(value: TsdmAppV4Refused(:final error)):
-          return left(ServerRespondedErrorException(error));
-        case Right(value: null):
+        case Right(value: TsdmAppV4Message() || TsdmAppV4Refused() || null):
+          // Nothing to tell the user in the forum's words (a refusal of the plugin, a message without text): the
+          // window says what it says.
           break;
       }
     }

@@ -145,18 +145,43 @@ abstract final class TsdmAppApi {
     if (_statusMissedAt case final at? when DateTime.now().difference(at) < statusRetryAfter) {
       return known;
     }
-    return _statusAsking ??= () async {
+    if (_statusAsking case final asking?) {
+      return asking;
+    }
+    final asking = () async {
       try {
         await askWaitingBriefly(client, 'status');
       } on Object catch (e) {
         talker.debug('tsdmapp api status failed: $e');
-      } finally {
-        _statusAsking = null;
       }
       final info = pluginInfo.value;
       _statusMissedAt = info?.v4 == null ? DateTime.now() : null;
       return info;
     }();
+    _statusAsking = asking;
+    return asking.whenComplete(() {
+      if (identical(_statusAsking, asking)) {
+        _statusAsking = null;
+      }
+    });
+  }
+
+  /// Forget what the last `status` told ([TsdmAppPluginInfo.v4]) and let [ensureStatus] ask again at once: an answer
+  /// contradicted it (asked as `status` said, answered as without the flag: the forum switched it off meanwhile).
+  static void forgetStatus() {
+    _statusMissedAt = null;
+    final known = pluginInfo.value;
+    if (known?.v4 == null) {
+      return;
+    }
+    pluginInfo.value = TsdmAppPluginInfo(
+      version: known!.version,
+      api: known.api,
+      nodoc: known.nodoc,
+      preview: known.preview,
+      device: known.device,
+      admin: known.admin,
+    );
   }
 
   static bool _tooOld = false;

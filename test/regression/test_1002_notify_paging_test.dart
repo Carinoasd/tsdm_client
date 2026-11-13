@@ -63,6 +63,9 @@ final class _Notify {
   /// A page answered instead, by its number (1 first), when given.
   final override = <int, V4Reply>{};
 
+  /// Answer as a plugin without paging (the flag switched off): `limit` ignored.
+  bool ignoreLimit = false;
+
   /// Refuse the next request of page N as too soon once.
   final busyOnce = <int>{};
 
@@ -70,7 +73,7 @@ final class _Notify {
   final times = <int, int>{};
 
   V4Reply answer(Map<String, String> q) {
-    final limit = int.tryParse(q['limit'] ?? '');
+    final limit = ignoreLimit ? null : int.tryParse(q['limit'] ?? '');
     final before = q['before'];
     if (limit == null) {
       return V4Reply({..._first(), 'notices': all.take(50).toList()});
@@ -317,6 +320,32 @@ void main() {
       expect(forum.unexpected, isEmpty);
       expect(_asked(forum, 'notify').map((r) => r.uri.queryParameters['before']), [null, p1['next']]);
       expect(await _seenNotice(forum), contains('notice=${p1['time']}'));
+    });
+  });
+
+  group('a stale flag', () {
+    test('asked with limit, answered without has_more: status forgotten, asked again next time', () async {
+      knowV4Status();
+      final notify = _Notify(_unread(80))..ignoreLimit = true;
+      final forum = _forum(notify, status: v4Status({'notify_paging': 0}));
+      final first = await _fetch(forum, timestamp: _since);
+      expect(first.info.noticeList, hasLength(50));
+      expect(_asked(forum, 'seen'), isEmpty, reason: 'the 30 not listed would be marked read unseen');
+      expect(TsdmAppApi.pluginInfo.value!.v4, isNull);
+      expect(forum.names, ['notify']);
+
+      await _fetch(forum, timestamp: _since);
+      expect(forum.names.skip(1).take(2), ['status', 'notify'], reason: 'status first, then notify without limit');
+      expect(_asked(forum, 'notify').last.uri.queryParameters.containsKey('limit'), isFalse);
+      expect(_asked(forum, 'seen'), hasLength(1), reason: 'paging off on the forum: as before 4.0.0');
+    });
+
+    test('asked with limit, answered without has_more, every unread listed: seen as usual', () async {
+      knowV4Status();
+      final forum = _forum(_Notify(_unread(20))..ignoreLimit = true);
+      await _fetch(forum, timestamp: _since);
+      expect(_asked(forum, 'seen'), hasLength(1));
+      expect(TsdmAppApi.pluginInfo.value!.v4, isNull);
     });
   });
 

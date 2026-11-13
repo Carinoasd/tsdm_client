@@ -409,9 +409,10 @@ final class NotificationRepository with LoggerMixin {
     }
     // Another poll of the account a moment ago (the background service and this page at app start or after an
     // account switch) is waited for when the plugin asks a second or two (GitHub #235), not read from the pages.
+    final paging = TsdmAppV4.notifyPaging;
     final notify = await TsdmAppApi.askWaitingBriefly(client, 'notify', {
       'since': '$since',
-      if (TsdmAppV4.notifyPaging) 'limit': '$notifyPageLimit',
+      if (paging) 'limit': '$notifyPageLimit',
     });
     switch (notifyGateOf(notify, since: since)) {
       case TsdmAppNotLoggedIn():
@@ -426,7 +427,7 @@ final class NotificationRepository with LoggerMixin {
         // bound ahead of the forum's clock: the notices since then were not fetched by this poll.
         // Not before every page of the unread notices was read (GitHub #156): `seen` marks them all.
         if (notifyCarriesLists(notify) && notifyListsUnreadNotice(notify!) && since <= (notify['time'] as int)) {
-          final all = await _allNotifyPages(client, notify, since: since);
+          final all = await _allNotifyPages(client, notify, since: since, askedWithLimit: paging);
           if (all.complete) {
             await _markSeen(client, notify['formhash'] as String, notice: all.json['time'] as int, pm: false);
           }
@@ -441,7 +442,7 @@ final class NotificationRepository with LoggerMixin {
         break;
     }
     if (notifyCarriesLists(notify)) {
-      final all = await _allNotifyPages(client, notify!, since: since);
+      final all = await _allNotifyPages(client, notify!, since: since, askedWithLimit: paging);
       return _fetchWithApiLists(
         client,
         all.json,
@@ -519,6 +520,9 @@ final class NotificationRepository with LoggerMixin {
   ///   [notifyPagingVersion] (as before). Otherwise `status` is asked ([TsdmAppApi.ensureStatus]) and, when `notify`
   ///   reads page by page, the first page is asked again with `limit`; when `status` tells nothing (no answer, too
   ///   soon) the answer is not complete; when it says `notify` does not read page by page, it is (as before).
+  ///   [askedWithLimit]: [first] was asked with `limit` as `status` said, and an answer without `has_more` then means
+  ///   the flag is stale ([TsdmAppApi.forgetStatus]: `status` is asked again on the next fetch); complete only when it
+  ///   lists every unread notice.
   ///
   /// The answer given is the first page with the notices of every page read; its `time` is the clock `seen` marks
   /// read as of (the first page's, as the plugin asks).
@@ -526,14 +530,19 @@ final class NotificationRepository with LoggerMixin {
     NetClientProvider client,
     Map<String, dynamic> first, {
     required int since,
+    required bool askedWithLimit,
   }) async {
     var page = first;
     if (first['has_more'] is! int) {
       final info = TsdmAppApi.pluginInfo.value;
-      if (!_listsMoreUnreadThanItShows(first) ||
-          _reachesBefore(first, since) ||
-          info == null ||
-          compareTsdmAppVersions(info.version, notifyPagingVersion) < 0) {
+      final listsAll = !_listsMoreUnreadThanItShows(first) || _reachesBefore(first, since);
+      if (askedWithLimit) {
+        // Asked page by page as `status` said, answered as without: the flag is stale (switched off meanwhile).
+        warning('notify ignored limit, asking status again on the next fetch');
+        TsdmAppApi.forgetStatus();
+        return (json: first, complete: listsAll);
+      }
+      if (listsAll || info == null || compareTsdmAppVersions(info.version, notifyPagingVersion) < 0) {
         return (json: first, complete: true);
       }
       await TsdmAppApi.ensureStatus(client);
@@ -551,6 +560,9 @@ final class NotificationRepository with LoggerMixin {
       });
       if (!notifyCarriesLists(again) || again!['uid'] != first['uid'] || again['has_more'] is! int) {
         warning('the unread notices could not be read page by page, not marking them seen');
+        if (notifyCarriesLists(again) && again!['has_more'] is! int) {
+          TsdmAppApi.forgetStatus();
+        }
         return (json: first, complete: false);
       }
       page = again;
@@ -574,7 +586,10 @@ final class NotificationRepository with LoggerMixin {
       }
       read++;
       notices.addAll(tsdmAppList(next['notices']).where((n) => ids.add(n['id'])));
-      page = {...page, 'notices': notices};
+      // The first page with every notice read; its cursor tells nothing of the list given.
+      page = {...page, 'notices': notices}
+        ..remove('has_more')
+        ..remove('next');
       hasMore = next['has_more'] == 1;
       final moved = tsdmAppText(next['next']);
       if (hasMore && moved == cursor) {

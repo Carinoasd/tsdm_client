@@ -150,6 +150,21 @@ void main() {
       expect(forum.requests, hasLength(2), reason: 'reset forgets the miss');
     });
 
+    test('forgetStatus: the flags dropped, the rest kept, asked again at once', () async {
+      final forum = V4Forum((o) => V4Reply(v4Status()));
+      final client = v4Client(forum);
+      await TsdmAppApi.ensureStatus(client);
+      final before = TsdmAppApi.pluginInfo.value!;
+      TsdmAppApi.forgetStatus();
+      expect(TsdmAppApi.pluginInfo.value!.v4, isNull);
+      expect(TsdmAppApi.pluginInfo.value!.version, before.version);
+      expect(TsdmAppApi.pluginInfo.value!.nodoc, before.nodoc);
+      expect(TsdmAppV4.on, isFalse);
+      await TsdmAppApi.ensureStatus(client);
+      expect(forum.requests, hasLength(2));
+      expect(TsdmAppV4.on, isTrue);
+    });
+
     test('not asked for a plugin known missing', () async {
       final forum = V4Forum((o) => V4Reply(v4Status()));
       TsdmAppApi.markUnavailable();

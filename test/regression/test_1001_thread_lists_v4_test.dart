@@ -123,6 +123,18 @@ void main() {
       expect(other.getLeft().toNullable(), isA<IdentityChangedException>());
     });
 
+    test('a refusal of the plugin, a message without words: the window says what it says', () async {
+      knowV4Status();
+      for (final answer in [
+        const {'ok': 0, 'error': 'privacy', 'uid': _uid},
+        const {'ok': 0, 'error': 'message', 'message': '', 'message_key': '', 'login': 0, 'uid': _uid},
+      ]) {
+        final forum = _forum(api: answer, window: v4Raw('ratings_v48_window.xml'));
+        expect(await fetch(forum), hasLength(5), reason: '$answer');
+        expect(forum.requests, hasLength(2));
+      }
+    });
+
     test('an answer that is not the page: the window', () async {
       knowV4Status();
       final forum = V4Forum((o) {
