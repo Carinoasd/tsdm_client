@@ -22,7 +22,7 @@ import 'package:universal_html/parsing.dart';
 /// Version 1 (plugin 1.0.0) is read-only: `status`, `notify`, `checkin`. Fields are only ever added; `api` is raised
 /// when the meaning of a field changes. Since plugin 1.1.0 the forum can switch the API off (`error: off`, treated as
 /// missing) and answers calls too close together with HTTP 429 (`error: busy`, a failed request here: the web path
-/// is used for that one call).
+/// is used for that one call, except for the notification poll, see [askWaitingKeepingBusy]).
 ///
 /// Plugin 1.9.0 adds the private conversation list (`pmlist`) and `seen`, the only action that writes: it does what
 /// opening the notice page and the private message page on the web does to the forum (the notices marked read, the
@@ -324,15 +324,36 @@ abstract final class TsdmAppApi {
   /// [ask], and an answer "too soon" of at most [maxWait] seconds is waited for and asked once more; a longer wait or
   /// a second "too soon" gives null, as [ask] does.
   ///
-  /// For the notification poll (GitHub #235): the background service and the page poll the same account at the same
-  /// moment (app start, an account switch), the second one was answered 429 and read the three notification pages
-  /// instead, three requests heavier than waiting a second for the plugin.
+  /// For `status` ([ensureStatus]): asked on the way to a page, which goes on without it. The notification poll waits
+  /// longer and never reads its pages for a "too soon" ([askWaitingKeepingBusy]).
   static Future<Map<String, dynamic>?> askWaitingBriefly(
     NetClientProvider client,
     String action, [
     Map<String, String> query = const {},
     int maxWait = 2,
   ]) => _ask(client, action, query, waitBusy: true, tries: 2, maxWait: maxWait);
+
+  /// [askWaiting], waiting at most [budget] seconds in all for the answers "too soon" (HTTP 429, `error: busy`; each
+  /// wait is `retry_after` and 300 ms more, the budget counts `retry_after`), and giving up with [busyAnswer] instead
+  /// of null: the caller tells "asked too soon, not answered" apart from a forum without the plugin or a failed first
+  /// request, and does not read the web pages for it ([isBusy]). A request after a wait that fails gives
+  /// [busyAnswer] too.
+  ///
+  /// For the notification poll: the first `notify` of a fetch refused as too soon is waited for (the plugin's own
+  /// `retry_after`) and asked again; past [budget], or refused once more after the last wait, the fetch gives up for
+  /// this round (GitHub #156: the three web pages read instead marked the notices read without `seen`).
+  static Future<Map<String, dynamic>?> askWaitingKeepingBusy(
+    NetClientProvider client,
+    String action,
+    Map<String, String> query, {
+    required int budget,
+  }) => _ask(client, action, query, waitBusy: true, tries: 3, maxWait: budget, keepBusy: true);
+
+  /// What [askWaitingKeepingBusy] gives when it gave up on answers "too soon".
+  static const busyAnswer = <String, dynamic>{'ok': 0, 'error': 'busy'};
+
+  /// Whether [json] is the "too soon" [askWaitingKeepingBusy] gave up on.
+  static bool isBusy(Map<String, dynamic>? json) => identical(json, busyAnswer);
 
   static Future<Map<String, dynamic>?> _ask(
     NetClientProvider client,
@@ -342,22 +363,31 @@ abstract final class TsdmAppApi {
     required int tries,
     int maxWait = 10,
     bool keepActionError = false,
+    bool keepBusy = false,
+    bool waited = false,
     Map<String, String> headers = const {},
   }) async {
     if (knownUnavailable || (_tooOld && action != 'status' && action != 'notify')) {
       return null;
     }
+    final takeBusy = waitBusy || keepBusy;
     final result = await client
         .get(
           url(action, query),
-          options: waitBusy || headers.isNotEmpty
+          options: takeBusy || headers.isNotEmpty
               ? Options(
-                  validateStatus: waitBusy ? (code) => code != null && (code < 300 || code == 429) : null,
+                  validateStatus: takeBusy ? (code) => code != null && (code < 300 || code == 429) : null,
                   headers: headers.isEmpty ? null : headers,
                 )
               : null,
         )
         .run();
+    if (keepBusy && !waitBusy) {
+      if (result case Right(value: final Response<dynamic> resp) when resp.statusCode == 429) {
+        talker.debug('tsdmapp api $action busy again, giving up');
+        return busyAnswer;
+      }
+    }
     if (waitBusy) {
       if (result case Right(value: final Response<dynamic> resp) when resp.statusCode == 429) {
         final data = resp.data;
@@ -369,11 +399,11 @@ abstract final class TsdmAppApi {
         }
         final wait = json is Map ? (json['retry_after'] as num?)?.toInt() ?? 3 : 3;
         // The wait is the plugin's interval (`retry_after`, its "最短间隔" setting: 3 s by default, 1 s on the forum
-        // now). [askWaitingBriefly] waits up to 2 s: the forum's 1 s is waited for, the default 3 s is not and the
-        // caller reads the pages as before; [askWaiting] waits up to 10 s.
+        // now). [askWaitingBriefly] waits up to 2 s: the forum's 1 s is waited for, the default 3 s is not;
+        // [askWaiting] waits up to 10 s each time, [askWaitingKeepingBusy] up to its budget in all.
         if (wait > maxWait) {
           talker.debug('tsdmapp api $action busy for ${wait}s, not waited');
-          return null;
+          return keepBusy ? busyAnswer : null;
         }
         await Future<void>.delayed(Duration(milliseconds: wait * 1000 + 300));
         // Another page or poller of the account may take the action again meanwhile: a few more waits, never the web
@@ -384,13 +414,21 @@ abstract final class TsdmAppApi {
           query,
           waitBusy: tries > 2,
           tries: tries - 1,
-          maxWait: maxWait,
+          // [askWaitingKeepingBusy] waits its budget in all, the others up to [maxWait] each time.
+          maxWait: keepBusy ? maxWait - wait : maxWait,
           keepActionError: keepActionError,
+          keepBusy: keepBusy,
+          waited: true,
           headers: headers,
         );
       }
     }
     switch (result) {
+      case Left(:final value) when keepBusy && waited:
+        // The plugin is there and asked to wait: a request after the wait that fails (a timeout, a 5xx) is no sign
+        // of a forum without it, and the caller must not read its pages for that either.
+        talker.debug('tsdmapp api $action failed after waiting for it: $value, giving up');
+        return busyAnswer;
       case Left(:final value):
         talker.debug('tsdmapp api $action failed: $value');
         return null;

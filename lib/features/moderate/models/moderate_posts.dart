@@ -547,6 +547,16 @@ String moderatePageMessage(uh.Document doc) {
   return '';
 }
 
+/// `home.php?mod=space&uid=N` or `space-uid-N.html`, see [modcpAuthorUidOf].
+final _authorUidRe = RegExp(r'(?:[?&]uid=|space-uid-)(\d+)');
+
+/// The uid of the author link [link] of a moderator panel page: `home.php?mod=space&uid=N`, or `space-uid-N.html`
+/// where the forum rewrites its links. Null without a link or a uid in it.
+int? modcpAuthorUidOf(uh.Element? link) {
+  final match = _authorUidRe.firstMatch(link?.attributes['href'] ?? '');
+  return match == null ? null : int.tryParse(match.group(1)!);
+}
+
 /// The list [kind] of the queue of forum [fid] on page [doc], served to [uid]; null when [doc] is not that list (the
 /// tab of another list or none, the form of another forum).
 ModerateQueueList? parseModerateQueue(
@@ -591,16 +601,15 @@ ModerateQueueList? parseModerateQueue(
     final lines = row.querySelectorAll('p.pbn');
     final authorBox = row.querySelector('span.xi2');
     final authorLink = authorBox?.querySelector('a');
-    // `home.php?mod=space&uid=N`, or `space-uid-N.html` where the forum rewrites its links. The panel links the
-    // author of a waiting thread only, never the one of a reply.
-    final uidMatch = RegExp(r'(?:[?&]uid=|space-uid-)(\d+)').firstMatch(authorLink?.attributes['href'] ?? '');
+    // The panel links the author of a waiting thread only (`moderate.php` wraps it in a link, the template prints
+    // `<span class="xi2">$post[author]</span>` for both): a reply's uid is read only where a template links it too.
     final note = row.querySelector('div#list_note_$id');
     items.add(
       ModerateQueueItem(
         id: id,
         subject: lines.firstOrNull?.querySelector('span.xw1')?.text?.trim() ?? '',
         author: authorBox?.text?.trim() ?? '',
-        authorUid: uidMatch == null ? null : int.tryParse(uidMatch.group(1)!),
+        authorUid: modcpAuthorUidOf(authorLink),
         // The panel prints "发表于 TIME"; the time alone, as the app API gives it.
         time: (row.querySelector('span.xg1')?.text ?? '').replaceFirst(postedOnPrefixRe, '').trim(),
         message: _noteText(note),

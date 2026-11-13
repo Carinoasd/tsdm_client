@@ -1090,11 +1090,13 @@ void main() {
       expect(old.names.skip(1), unorderedEquals(pages));
     });
 
-    test('notify refused as too soon: the three pages', () async {
+    test('notify refused as too soon every time: waited for, then given up, never the three pages', () async {
+      // Reading the notice page marks every notice read without `seen` (GitHub #156): a 429 is waited for (its
+      // `retry_after`, ten seconds in all) and the fetch gives up past that, see test_1150.
       final busy = forum(_busy);
-      await _fetch(busy, timestamp: _since);
-      expect(busy.names.first, 'notify');
-      expect(busy.names.skip(1), unorderedEquals(pages));
+      final result = await _run(busy, timestamp: _since);
+      expect(busy.names, ['notify', 'notify', 'notify']);
+      expect(result.getLeft().toNullable(), isA<HttpRequestFailedException>());
     });
 
     test('no plugin: the three pages, and the API is not asked again for an hour', () async {
