@@ -698,7 +698,8 @@ final class ModcpRepository with LoggerMixin {
           ModcpWriteDone() when now.message.isNotEmpty && remove.length == 1 => ModcpWriteDone(message: now.message),
           final outcome => outcome,
         });
-      case final now? when now.fid == list.fid && now.message.isNotEmpty:
+      // The panel's line, printed only for a list it saved (not the one beside the button when the list was read).
+      case final now? when now.fid == list.fid && now.message.isNotEmpty && now.message != list.message:
         return right(ModcpWriteDone(message: now.message));
       case _?:
         return right(const ModcpWriteUnknown());

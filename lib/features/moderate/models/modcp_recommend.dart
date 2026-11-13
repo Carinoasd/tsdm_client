@@ -45,6 +45,9 @@ final class RecommendedThread {
 /// A change of one recommended thread: its place, its title and until when (empty for no end).
 typedef RecommendEdit = ({int order, String subject, String expiration});
 
+/// The largest place the forum keeps (`displayorder` is a `tinyint`).
+const recommendOrderMax = 127;
+
 /// The panel's 推荐主题 of a forum (`forum.php?mod=modcp&action=forum&op=recommend`): the threads recommended in it, in
 /// the forum's order. A moderator of a forum (`adminid` 3) is shown the forum's own and theirs only.
 final class RecommendList {
@@ -156,18 +159,25 @@ RecommendList? parseRecommendList(uh.Document doc, {required int uid}) {
     if (orderInput.attributes.containsKey('readonly') || orderInput.attributes.containsKey('disabled')) {
       editable = false;
     }
+    final subjectInput = row.querySelector('input[name="subject[$tid]"]');
+    final expirationInput = row.querySelector('input[name="expirationrecommend[$tid]"]');
+    final order = int.tryParse((orderInput.attributes['value'] ?? '').trim());
+    if (subjectInput == null || expirationInput == null || order == null) {
+      // A row not as the panel prints it: posting the list would send its fields empty, so it is read only.
+      editable = false;
+    }
     final authorLink = cells[3].querySelector('a');
     final recommenderLink = cells[4].querySelector('a');
     threads.add(
       RecommendedThread(
         tid: tid,
-        order: int.tryParse(orderInput.attributes['value'] ?? '') ?? 0,
-        subject: row.querySelector('input[name="subject[$tid]"]')?.attributes['value'] ?? '',
+        order: order ?? 0,
+        subject: subjectInput?.attributes['value'] ?? '',
         author: _text(cells[3]),
         authorUid: modcpAuthorUidOf(authorLink),
         recommender: _text(cells[4]),
         recommenderUid: modcpAuthorUidOf(recommenderLink),
-        expiration: (row.querySelector('input[name="expirationrecommend[$tid]"]')?.attributes['value'] ?? '').trim(),
+        expiration: (expirationInput?.attributes['value'] ?? '').trim(),
       ),
     );
   }

@@ -189,6 +189,32 @@ void main() {
       expect(log.gets, hasLength(2));
     });
 
+    testWidgets('no empty title, no place the forum can not keep', (tester) async {
+      final log = _Log();
+      await _pump(
+        tester,
+        RecommendThreadsPage(
+          repository: _repo(log, pages: [_raw('editable')], posted: _raw('saved')),
+        ),
+      );
+      await tester.tap(find.text('本周推荐 <新番>'));
+      await tester.pumpAndSettle();
+      bool saveEnabled() =>
+          tester.widget<TextButton>(find.byKey(const ValueKey('modcp-recommend-save'))).onPressed != null;
+      await tester.enterText(find.byKey(const ValueKey('modcp-recommend-subject')), '  ');
+      await tester.pump();
+      expect(saveEnabled(), isFalse);
+      await tester.enterText(find.byKey(const ValueKey('modcp-recommend-subject')), 'x');
+      await tester.enterText(find.byKey(const ValueKey('modcp-recommend-order')), '200');
+      await tester.pump();
+      expect(saveEnabled(), isFalse);
+      await tester.enterText(find.byKey(const ValueKey('modcp-recommend-order')), '-5');
+      await tester.pump();
+      expect(tester.widget<TextField>(find.byKey(const ValueKey('modcp-recommend-order'))).controller!.text, '5');
+      expect(saveEnabled(), isTrue);
+      expect(log.posts, isEmpty);
+    });
+
     testWidgets('the threads picked are taken off after a confirmation', (tester) async {
       final log = _Log();
       await _pump(

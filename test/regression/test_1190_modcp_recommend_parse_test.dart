@@ -59,6 +59,18 @@ void main() {
       expect(anonymous.author, isEmpty);
     });
 
+    test('a row not as the panel prints it: read only, nothing posted empty', () {
+      final missing = _raw('editable').replaceFirst(RegExp(r'<input type="text" name="subject\[9199890\]"[^>]*>'), '');
+      final list = parseRecommendList(parseHtmlDocument(missing), uid: 33)!;
+      expect(list.threads, hasLength(2));
+      expect(list.editable, isFalse);
+      final badOrder = _raw('editable').replaceFirst(
+        RegExp(r'name="order\[9199890\]" class="px" size="3" value="\d+"'),
+        'name="order[9199890]" class="px" size="3" value="x"',
+      );
+      expect(parseRecommendList(parseHtmlDocument(badOrder), uid: 33)!.editable, isFalse);
+    });
+
     test('no thread recommended: the forum, an empty list', () {
       final list = _parse('empty')!;
       expect(list.fid, 7);

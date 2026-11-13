@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:fpdart/fpdart.dart' show Either, Right;
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/features/moderate/models/modcp_panel.dart';
@@ -46,10 +47,14 @@ class _RecommendThreadsPageState extends State<RecommendThreadsPage> {
     unawaited(_load());
   }
 
+  /// Bumped on each read: an answer to an earlier one (another forum, a refresh overtaken) is dropped.
+  int _generation = 0;
+
   Future<void> _load() async {
+    final generation = ++_generation;
     setState(() => _loading = true);
     final answer = await widget.repository.fetchRecommends(fid: _fid).run();
-    if (!mounted) {
+    if (!mounted || generation != _generation) {
       return;
     }
     setState(() {
@@ -335,13 +340,15 @@ class _RecommendEditDialogState extends State<_RecommendEditDialog> {
   DateTime? get _expirationTime => recommendExpirationTime(_expiration);
 
   Future<void> _pickExpiration() async {
-    final now = DateTime.now();
-    final current = _expirationTime ?? now;
+    final first = DateTime(2000);
+    final last = DateTime(2100);
+    var current = _expirationTime ?? DateTime.now();
+    current = current.isBefore(first) ? first : (current.isAfter(last) ? last : current);
     final date = await showDatePicker(
       context: context,
       initialDate: current,
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
+      firstDate: first,
+      lastDate: last,
     );
     if (date == null || !mounted) {
       return;
@@ -361,6 +368,7 @@ class _RecommendEditDialogState extends State<_RecommendEditDialog> {
   Widget build(BuildContext context) {
     final tr = context.t.modcpRecommend;
     final order = int.tryParse(_order.text.trim());
+    final valid = order != null && order >= 0 && order <= recommendOrderMax && _subject.text.trim().isNotEmpty;
     return CustomAlertDialog.sync(
       title: AppDialogTitle(icon: Icons.edit_outlined, title: context.t.modcp.subject),
       content: Column(
@@ -369,6 +377,7 @@ class _RecommendEditDialogState extends State<_RecommendEditDialog> {
           TextField(
             key: const ValueKey('modcp-recommend-subject'),
             controller: _subject,
+            onChanged: (_) => setState(() {}),
             minLines: 1,
             maxLines: 3,
             decoration: InputDecoration(labelText: context.t.modcp.subject),
@@ -378,6 +387,7 @@ class _RecommendEditDialogState extends State<_RecommendEditDialog> {
             key: const ValueKey('modcp-recommend-order'),
             controller: _order,
             keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(3)],
             onChanged: (_) => setState(() {}),
             decoration: InputDecoration(labelText: tr.order),
           ),
@@ -406,7 +416,7 @@ class _RecommendEditDialogState extends State<_RecommendEditDialog> {
         TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(context.t.general.cancel)),
         TextButton(
           key: const ValueKey('modcp-recommend-save'),
-          onPressed: order == null
+          onPressed: !valid
               ? null
               : () => Navigator.of(
                   context,
