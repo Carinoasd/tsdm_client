@@ -440,10 +440,59 @@ void main() {
         final (warn, _) = await open('floor_warn_refused', FloorModerateAction.warn, _tid, '11737');
         expect(_describe(warn), _describe(webOf('floor_warn_refused', FloorModerateAction.warn, _tid, '11737')));
         expect(_describe(warn), 'refused(抱歉，您没有权限警告该作者)');
-        final (first, _) = await open('floor_delpost_first', FloorModerateAction.delete, _tid, '11736');
+        // The first floor: the forum sends the window on to the thread's deletion, without words; the write result
+        // of plugin 3.9.0 (the old path) is the redirect.
+        final log = _Log();
+        final first =
+            (await _repo(
+              log,
+              api: _fx('floor_delpost_first.json'),
+            ).fetchFloorWindow(FloorModerateAction.delete, tid: _tid, fid: _fid, pid: '11736').run()).getOrElse(
+              (e) => throw StateError('$e'),
+            );
+        final before = ModerateRepository.floorWindowOf(
+          _fx('floor_delpost_first_v39.json'),
+          FloorModerateAction.delete,
+          tid: _tid,
+          fid: _fid,
+          pid: '11736',
+          uid: _mod,
+        ).getOrElse((e) => throw StateError('$e'));
+        expect(_describe(first), _describe(before));
         expect(_describe(first), 'refused()');
+        expect(log.gets, hasLength(1));
       },
     );
+
+    test('a message with words and a url keeps its words; only the thread deletion goes without', () async {
+      knowV4Status();
+      Map<String, Object?> message(String text, String url) => {
+        'ok': 0,
+        'error': 'message',
+        'message': text,
+        'message_key': text.isEmpty ? '' : 'admin_nopermission',
+        'login': 0,
+        'uid': _mod,
+        'form': 'delpost',
+        'url': url,
+      };
+      for (final (answer, expected) in [
+        (message('抱歉，您没有权限使用管理功能', 'https://forum.test/forum.php?mod=viewthread&tid=$_tid'), 'refused(抱歉，您没有权限使用管理功能)'),
+        (
+          message(
+            '',
+            'https://forum.test/forum.php?mod=topicadmin&action=moderate&operation=delete&optgroup=3&fid=2&moderate[]=$_tid',
+          ),
+          'refused()',
+        ),
+      ]) {
+        final window = await _repo(
+          _Log(),
+          api: answer,
+        ).fetchFloorWindow(FloorModerateAction.delete, tid: _tid, fid: _fid, pid: '11736').run();
+        expect(_describe(window.getOrElse((e) => throw StateError('$e'))), expected);
+      }
+    });
 
     test('a hidden floor checks the undoing', () async {
       knowV4Status();

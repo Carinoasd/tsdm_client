@@ -247,8 +247,8 @@ const moderateActionServedFields = {'formhash', 'fid', 'tid', 'handlekey'};
 
 /// The management window of the forum (`form#moderateform`) for one thread, as served to the account that asked.
 ///
-/// Read from the window `forum.php?mod=topicadmin&action=moderate&optgroup=N` ([ModerateForm.parse]); the forum's
-/// app API has no structured form for it (plugin 3.x `forms` lists rate, report, buy, usergroup and profile only).
+/// Read from the window `forum.php?mod=topicadmin&action=moderate&optgroup=N` ([ModerateForm.parse]), or from the small
+/// form `moderate` of the forum's app API when its `status` lists it (plugin 4.0.0, [ModerateForm.fromApi]).
 /// An operation of [ModerateOperation.group] 0 has a window `form#topicadminform` of its own action instead, but
 /// [ModerateOperation.repair], which has none ([ModerateForm.repair]).
 final class ModerateForm {
@@ -934,8 +934,7 @@ final class ModerateForm {
 
   /// The `operations[]` items of the answer [json] by their value.
   static Map<String, Map<String, dynamic>> _apiOperations(Map<String, dynamic> json) => {
-    for (final op in tsdmAppList(json['operations']))
-      ?_apiText(op['value']): op,
+    for (final op in tsdmAppList(json['operations'])) ?_apiText(op['value']): op,
   };
 
   /// The window of [asked] read from [answer], the threads it holds left out of [fields] when not [keepThread].
@@ -992,8 +991,7 @@ final class ModerateForm {
           return null;
         }
         final styles = {
-          for (final style in tsdmAppList(op['style']))
-            ?_apiText(style['name']): _apiText(style['value']) ?? '',
+          for (final style in tsdmAppList(op['style'])) ?_apiText(style['name']): _apiText(style['value']) ?? '',
         };
         // The window of several threads serves them empty: none.
         final index = int.tryParse(_apiText(tsdmAppMap(op['color'])['value'])?.trim() ?? '') ?? 0;

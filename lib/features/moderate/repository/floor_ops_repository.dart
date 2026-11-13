@@ -30,7 +30,7 @@ final class FloorOpsRepository {
        _getOnce = getOnce,
        _post = post,
        _currentUid = currentUid ?? currentLoginUid,
-       _ensureStatus = ensureStatus ?? _statusKnown;
+       _ensureStatus = ensureStatus ?? moderateStatusKnown;
 
   /// Uses the app's client.
   factory FloorOpsRepository.network() => FloorOpsRepository(
@@ -57,8 +57,6 @@ final class FloorOpsRepository {
 
   /// Asks the `status` of the forum's app API when it is not known yet ([moderateEnsureStatus]).
   final ModerateEnsureStatus _ensureStatus;
-
-  static Future<void> _statusKnown() async {}
 
   /// Ask the window taking rates of floor [pid] of thread [tid] back: the app API's `page`, or the AJAX fragment
   /// without the plugin; the forum's refusal is a [RemoveRateWindowRefused] with its words.

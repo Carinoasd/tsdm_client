@@ -33,6 +33,9 @@ typedef ModerateEnsureStatus = Future<void> Function();
 /// The `status` of the app's client ([TsdmAppApi.ensureStatus]).
 Future<void> moderateEnsureStatus() => TsdmAppApi.ensureStatus(getIt.get<NetClientProvider>());
 
+/// Asks nothing: the `status` known now is used (the repositories built with injected transports).
+Future<void> moderateStatusKnown() async {}
+
 /// Ask small form [kind] of plugin 4.0.0 at [url] with [get] for account [uid] ([currentUid] the account logged in
 /// now), when the last `status` lists it ([TsdmAppV4.has], after [ensureStatus]).
 ///
@@ -107,7 +110,7 @@ final class ModerateRepository with LoggerMixin {
        _post = post,
        _threadPage = threadPage ?? _networkThreadPage,
        _currentUid = currentUid ?? currentLoginUid,
-       _ensureStatus = ensureStatus ?? _statusKnown;
+       _ensureStatus = ensureStatus ?? moderateStatusKnown;
 
   /// Uses the app's client.
   factory ModerateRepository.network() => ModerateRepository(
@@ -130,8 +133,6 @@ final class ModerateRepository with LoggerMixin {
 
   /// Asks the `status` of the forum's app API when it is not known yet; without one, what is known is used.
   final ModerateEnsureStatus _ensureStatus;
-
-  static Future<void> _statusKnown() async {}
 
   /// Small form [kind] at [url] for account [uid] ([moderateV4Form]).
   Future<Either<AppException, SmallFormAnswer?>> _v4Form(SmallFormKind kind, String url, int uid) =>
@@ -691,7 +692,9 @@ final class ModerateRepository with LoggerMixin {
     required String pid,
     required int uid,
   }) => switch (answer) {
-    SmallFormMessage(:final reason, :final url) => FloorModerateWindowRefused(url.isNotEmpty ? '' : reason),
+    SmallFormMessage(:final reason, :final url) => FloorModerateWindowRefused(
+      _isThreadDeletion(url) && reason.trim().isEmpty ? '' : reason,
+    ),
     final SmallFormFields fields => switch (FloorModerateForm.fromApi(
       fields,
       action,
@@ -704,6 +707,13 @@ final class ModerateRepository with LoggerMixin {
       null => null,
     },
   };
+
+  /// [url] is where the forum sends a floor's deletion of the first floor on to: the thread's deletion
+  /// (`topicadmin&action=moderate&operation=delete`).
+  static bool _isThreadDeletion(String url) {
+    final query = Uri.tryParse(url)?.queryParameters ?? const {};
+    return query['mod'] == 'topicadmin' && query['action'] == 'moderate' && query['operation'] == 'delete';
+  }
 
   /// The window of [action] on floor [pid] in answer [data], asked by account [uid].
   static Either<AppException, FloorModerateWindow> floorWindowOf(

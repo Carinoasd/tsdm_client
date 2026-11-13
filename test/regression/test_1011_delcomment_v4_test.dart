@@ -17,11 +17,12 @@ const _tid = '9202953';
 const _comment = 30;
 
 final class _Forum {
-  _Forum({this.api, this.web, this.answer});
+  _Forum({this.api, this.web, this.answer, this.uid});
 
   final Object? api;
   final Object? web;
   final Object? answer;
+  final int? uid;
   final reads = <String>[];
   final sent = <(String, Map<String, String>)>[];
 
@@ -41,6 +42,7 @@ final class _Forum {
       }
       return answer;
     },
+    currentUid: uid == null ? null : () => uid!,
   );
 }
 
@@ -121,5 +123,13 @@ void main() {
     await forum.repository.openDelete(tid: _tid, commentId: 31);
     expect(forum.reads, hasLength(2));
     expect(Uri.parse(forum.reads.last).queryParameters, isNot(contains('tsdmv')));
+  });
+
+  test("another account's form is never used", () async {
+    knowV4Status();
+    final forum = _Forum(api: v4Json('g2_delcomment.json'), web: v4Raw('g2_delcomment.xml'), uid: 31);
+    final window = await forum.repository.openDelete(tid: _tid, commentId: _comment);
+    expect(window, isA<PostCommentWindowRefused>());
+    expect(forum.reads, hasLength(1));
   });
 }

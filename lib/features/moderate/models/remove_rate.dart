@@ -190,6 +190,7 @@ final class RemoveRateForm {
     for (final log in tsdmAppList(json['logs'])) {
       final logId = switch (log['value']) {
         final String s => s,
+        final num n => '$n',
         _ => '',
       };
       if (logId.trim().isEmpty || entries.any((e) => e.logId == logId)) {
@@ -213,6 +214,10 @@ final class RemoveRateForm {
           reason: tsdmAppText(log['reason']).replaceAll(RegExp(r'\s+'), ' ').trim(),
         ),
       );
+    }
+    if (entries.isEmpty && tsdmAppList(json['logs']).isNotEmpty) {
+      // Rates the app could not read: the web page's window is read instead.
+      return null;
     }
     final notify = json['notify'] is Map ? tsdmAppMap(json['notify']) : null;
     return RemoveRateForm(

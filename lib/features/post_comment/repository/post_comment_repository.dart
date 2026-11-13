@@ -108,8 +108,13 @@ typedef PostCommentPost = Future<Object?> Function(String url, Map<String, Strin
 /// the forum's fragment), which is read as before: one request either way.
 final class PostCommentRepository with LoggerMixin {
   /// Constructor; transports are injected so the flow is tested without the forum.
-  PostCommentRepository({required this.get, required this.post, Future<void> Function()? ensureStatus})
-    : _ensureStatus = ensureStatus ?? _statusKnown;
+  PostCommentRepository({
+    required this.get,
+    required this.post,
+    Future<void> Function()? ensureStatus,
+    int Function()? currentUid,
+  }) : _ensureStatus = ensureStatus ?? _statusKnown,
+       _currentUid = currentUid;
 
   /// Uses [client]: a GET with the result parameter, a POST through [NetClientProvider.postForm] (which adds it).
   factory PostCommentRepository.network(NetClientProvider client) => PostCommentRepository(
@@ -122,7 +127,11 @@ final class PostCommentRepository with LoggerMixin {
       Left(:final value) => throw value,
     },
     ensureStatus: () => TsdmAppApi.ensureStatus(client),
+    currentUid: currentLoginUid,
   );
+
+  /// The account logged in now, which a window of plugin 4.0.0 must have been served to; null checks nothing.
+  final int Function()? _currentUid;
 
   /// Asks the `status` of the forum's app API when it is not known yet ([TsdmAppApi.ensureStatus]); without one, what
   /// is known is used.
@@ -245,7 +254,14 @@ final class PostCommentRepository with LoggerMixin {
         error('delete comment window read failed: ${e.runtimeType}');
         return const PostCommentWindowFailed();
       }
-      switch (smallFormAnswerOf(data, SmallFormKind.delcomment)) {
+      final answer = smallFormAnswerOf(data, SmallFormKind.delcomment);
+      if (answer != null && _currentUid != null) {
+        if (answer.identityProblem(_currentUid()) case final problem?) {
+          // Served to a guest (the session ended) or to another account: never used.
+          return PostCommentWindowRefused(problem);
+        }
+      }
+      switch (answer) {
         case final SmallFormMessage message:
           return PostCommentWindowRefused(message.reason);
         case final SmallFormFields fields:
