@@ -94,11 +94,11 @@ String _formhash(int uid) => 'fh$uid';
 /// The id of the one unread notice account [uid] has.
 int _noticeId(int uid) => uid * 10;
 
-/// A `notify` answer of plugin 1.9.0 for account [uid]: one unread reply notice, two minutes old.
+/// A `notify` answer of plugin 3.5.0 (the lists of 1.9.0) for account [uid]: one unread reply notice, two minutes old.
 Map<String, Object?> _notifyOf(int uid) => {
   'ok': 1,
   'api': 1,
-  'version': '1.9.0',
+  'version': '3.5.0',
   'time': _now,
   'uid': uid,
   'formhash': _formhash(uid),

@@ -318,7 +318,7 @@ Map<String, Object?> _checkinAnswer({String? formHash}) => {
 Map<String, Object?> _statusAnswer({int uid = 1000, String? formHash = 'a1b2c3d4'}) => {
   'ok': 1,
   'api': 1,
-  'version': '1.5.0',
+  'version': '3.5.0',
   'time': 1791950400,
   'uid': uid,
   'formhash': ?formHash,
@@ -514,7 +514,9 @@ void main() {
         ('an empty body', _json('')),
         ('a blank body', _json(' \n')),
       ]) {
-        // The fetch asks the app API first: an older plugin with nothing new, which the first fetch reads past.
+        // The fetch asks the app API first: an older plugin with nothing new, which is not used (the API is then not
+        // asked for an hour: forgotten for the next case).
+        TsdmAppApi.reset();
         final olderNotify = _json({
           'ok': 1,
           'api': 1,
