@@ -24,6 +24,7 @@ import 'package:tsdm_client/features/moderate/widgets/floor_moderate_dialog.dart
 import 'package:tsdm_client/features/moderate/widgets/member_ban_dialog.dart';
 import 'package:tsdm_client/features/moderate/widgets/remove_rate_dialog.dart';
 import 'package:tsdm_client/features/moderate/widgets/thread_admin_dialogs.dart';
+import 'package:tsdm_client/features/moderate/widgets/warning_log_sheet.dart';
 import 'package:tsdm_client/features/netdisk/models/netdisk_link.dart';
 import 'package:tsdm_client/features/netdisk/utils/netdisk_parser.dart';
 import 'package:tsdm_client/features/post/models/models.dart';
@@ -414,9 +415,11 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
             sizedBoxW4H4,
           ],
           if (widget.post.warned) ...[
-            Tooltip(
-              message: context.t.moderate.warned,
-              child: Icon(Icons.report_outlined, size: 20, color: colorScheme.error),
+            // A tap shows the author's warnings: none for an anonymous floor (the forum does not tell its author) nor
+            // for an offline copy.
+            WarnedFloorMark(
+              tid: isOfflineFloor(context) ? null : int.tryParse(context.readOrNull<ThreadBloc>()?.state.tid ?? ''),
+              authorUid: int.tryParse(widget.post.author.uid ?? ''),
             ),
             sizedBoxW4H4,
           ],
