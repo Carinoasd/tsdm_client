@@ -6,9 +6,12 @@ import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
+import 'package:tsdm_client/features/blocking/utils/block_filter.dart';
 import 'package:tsdm_client/features/forum/utils/group.dart';
 import 'package:tsdm_client/features/homepage/utils/homepage_api.dart';
 import 'package:tsdm_client/features/jump_page/widgets/jump_page_dialog.dart';
+import 'package:tsdm_client/features/moderate/repository/moderate_repository.dart';
+import 'package:tsdm_client/features/moderate/widgets/thread_picking.dart';
 import 'package:tsdm_client/features/open_in_app/utils/forum_link_in_text.dart';
 import 'package:tsdm_client/features/open_in_app/view/open_in_app_page.dart';
 import 'package:tsdm_client/features/root/view/root_page.dart';
@@ -37,7 +40,16 @@ import 'package:tsdm_client/widgets/two_pane.dart';
 /// results.
 class SearchPage extends StatefulWidget {
   /// Constructor.
-  const SearchPage({this.keyword, this.authorUid, this.authorName, this.fid, this.page, super.key});
+  const SearchPage({
+    this.keyword,
+    this.authorUid,
+    this.authorName,
+    this.fid,
+    this.page,
+    this.repository,
+    this.moderateRepository,
+    super.key,
+  });
 
   /// Keyword to search.
   final String? keyword;
@@ -56,11 +68,28 @@ class SearchPage extends StatefulWidget {
   /// Page number of search result.
   final String? page;
 
+  /// Where the search goes (tests); the app's client when null.
+  final SearchRepository? repository;
+
+  /// Where the management of the threads picked goes (tests); the app's client when null.
+  final ModerateRepository? moderateRepository;
+
   @override
   State<SearchPage> createState() => _SearchPageState();
 }
 
-class _SearchPageState extends State<SearchPage> with LoggerMixin {
+class _SearchPageState extends State<SearchPage> with LoggerMixin, ListThreadPicking {
+  @override
+  late final ModerateRepository pickingRepository = widget.moderateRepository ?? ModerateRepository.network();
+
+  /// [thread] as a moderator may pick it.
+  static ListPickableThread _pickable(SearchedThread thread) => (
+    tid: '${thread.tid}',
+    title: thread.title,
+    fid: fidOfForumUrl(thread.forumUrl),
+    authorUid: thread.author.uid,
+    filtered: true,
+  );
   final formKey = GlobalKey<FormState>();
   final keywordController = TextEditingController();
   final authorController = TextEditingController();
@@ -739,7 +768,12 @@ class _SearchPageState extends State<SearchPage> with LoggerMixin {
             sliver: SliverList.separated(
               itemCount: results.length + 1,
               itemBuilder: (context, index) => index < results.length
-                  ? SearchedThreadCard(results[index])
+                  ? buildPickableCard(
+                      context,
+                      _pickable(results[index]),
+                      (onPick, onStartPicking) =>
+                          SearchedThreadCard(results[index], onPick: onPick, onStartPicking: onStartPicking),
+                    )
                   : ListFooter(
                       status: listFooterStatus(
                         hasMore: result.currentPage < result.totalPages,
@@ -790,7 +824,7 @@ class _SearchPageState extends State<SearchPage> with LoggerMixin {
   Widget _buildPage(BuildContext context) {
     return MultiBlocProvider(
       providers: [
-        RepositoryProvider(create: (_) => SearchRepository()),
+        RepositoryProvider(create: (_) => widget.repository ?? SearchRepository()),
         BlocProvider(create: (context) => SearchBloc(searchRepository: context.repo())),
       ],
       child: BlocConsumer<SearchBloc, SearchState>(
@@ -812,30 +846,45 @@ class _SearchPageState extends State<SearchPage> with LoggerMixin {
               }
             });
           }
-          return Scaffold(
-            appBar: AppBar(
-              title: Text(context.t.searchPage.title),
-              actions: [
-                const OpenInAppPageButton(),
-                IconButton(
-                  icon: const Icon(Icons.sell_outlined),
-                  tooltip: context.t.tagPage.cloudTitle,
-                  onPressed: () async => context.pushNamed(ScreenPaths.tagCloud),
-                ),
-                IconButton(
-                  icon: Icon(expandForm ? Icons.expand_less : Icons.expand_more),
-                  tooltip: expandForm
-                      ? MaterialLocalizations.of(context).expandedIconTapHint
-                      : MaterialLocalizations.of(context).collapsedIconTapHint,
-                  onPressed: () {
-                    setState(() {
-                      expandForm = !expandForm;
-                    });
-                  },
-                ),
-              ],
+          watchPickingAccount(context);
+          final bloc = context.read<SearchBloc>();
+          return buildPickingPopScope(
+            child: Scaffold(
+              appBar: isPicking
+                  ? buildPickingAppBar(
+                      context,
+                      [for (final thread in state.searchResult?.data ?? const <SearchedThread>[]) _pickable(thread)],
+                      // The search again from its first page, by the search id kept: not a new search.
+                      onDone: () {
+                        if (!bloc.isClosed && state.searchResult != null) {
+                          bloc.add(const SearchJumpPageRequested(1));
+                        }
+                      },
+                    )
+                  : AppBar(
+                      title: Text(context.t.searchPage.title),
+                      actions: [
+                        const OpenInAppPageButton(),
+                        IconButton(
+                          icon: const Icon(Icons.sell_outlined),
+                          tooltip: context.t.tagPage.cloudTitle,
+                          onPressed: () async => context.pushNamed(ScreenPaths.tagCloud),
+                        ),
+                        IconButton(
+                          icon: Icon(expandForm ? Icons.expand_less : Icons.expand_more),
+                          tooltip: expandForm
+                              ? MaterialLocalizations.of(context).expandedIconTapHint
+                              : MaterialLocalizations.of(context).collapsedIconTapHint,
+                          onPressed: () {
+                            setState(() {
+                              expandForm = !expandForm;
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+              body: SafeArea(bottom: false, child: _buildBody(context, state)),
             ),
-            body: SafeArea(bottom: false, child: _buildBody(context, state)),
           );
         },
       ),

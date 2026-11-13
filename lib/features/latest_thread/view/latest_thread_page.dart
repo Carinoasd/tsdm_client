@@ -2,8 +2,12 @@ import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
+import 'package:tsdm_client/features/blocking/utils/block_filter.dart';
 import 'package:tsdm_client/features/latest_thread/bloc/latest_thread_bloc.dart';
+import 'package:tsdm_client/features/latest_thread/models/latest_thread.dart';
 import 'package:tsdm_client/features/latest_thread/repository/latest_thread_repository.dart';
+import 'package:tsdm_client/features/moderate/repository/moderate_repository.dart';
+import 'package:tsdm_client/features/moderate/widgets/thread_picking.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/card/thread_card/thread_card.dart';
@@ -15,7 +19,7 @@ import 'package:tsdm_client/widgets/two_pane.dart';
 /// Page to show info about latest thread page.
 class LatestThreadPage extends StatefulWidget {
   /// Constructor.
-  const LatestThreadPage({required this.url, this.title, this.repository, super.key});
+  const LatestThreadPage({required this.url, this.title, this.repository, this.moderateRepository, super.key});
 
   /// Url the the page.
   final String url;
@@ -26,12 +30,27 @@ class LatestThreadPage extends StatefulWidget {
   /// Repository override (tests); the real one is used when null.
   final LatestThreadRepository? repository;
 
+  /// Where the management of the threads picked goes (tests); the app's client when null.
+  final ModerateRepository? moderateRepository;
+
   @override
   State<LatestThreadPage> createState() => _LatestThreadPageState();
 }
 
-class _LatestThreadPageState extends State<LatestThreadPage> {
+class _LatestThreadPageState extends State<LatestThreadPage> with ListThreadPicking {
   late final EasyRefreshController _refreshController;
+
+  @override
+  late final ModerateRepository pickingRepository = widget.moderateRepository ?? ModerateRepository.network();
+
+  /// [thread] as a moderator may pick it.
+  static ListPickableThread _pickable(LatestThread thread) => (
+    tid: thread.threadID ?? '',
+    title: thread.title ?? '',
+    fid: thread.threadID == null ? null : fidOfForumUrl(thread.forumUrl),
+    authorUid: thread.threadAuthor?.uid,
+    filtered: true,
+  );
 
   Widget _buildBody(BuildContext context, LatestThreadState state) {
     if (!state.refreshing) {
@@ -62,7 +81,15 @@ class _LatestThreadPageState extends State<LatestThreadPage> {
                 // The end of the list is its last item: built when it comes near, it asks the next page.
                 itemCount: state.threadList.length + 1,
                 itemBuilder: (context, index) => index < state.threadList.length
-                    ? LatestThreadCard(state.threadList[index])
+                    ? buildPickableCard(
+                        context,
+                        _pickable(state.threadList[index]),
+                        (onPick, onStartPicking) => LatestThreadCard(
+                          state.threadList[index],
+                          onPick: onPick,
+                          onStartPicking: onStartPicking,
+                        ),
+                      )
                     : ListFooter(
                         status: listFooterStatus(
                           hasMore: state.nextPageUrl != null,
@@ -134,19 +161,33 @@ class _LatestThreadPageState extends State<LatestThreadPage> {
             LatestThreadStatus.success => _buildBody(context, state),
           };
 
-          return Scaffold(
-            appBar: AppBar(
-              title: Text(
-                widget.title ??
-                    switch (state.tagName) {
-                      final name? => context.t.tagPage.title(name: name),
-                      // A tag page is named before the page tells the tag (loading, failed).
-                      null when widget.url.contains('mod=tag') => context.t.tagPage.cloudTitle,
-                      null => context.t.latestThreadPage.title,
-                    },
-              ),
+          watchPickingAccount(context);
+          final bloc = context.read<LatestThreadBloc>();
+          return buildPickingPopScope(
+            child: Scaffold(
+              appBar: isPicking
+                  ? buildPickingAppBar(
+                      context,
+                      [for (final thread in state.threadList) _pickable(thread)],
+                      onDone: () {
+                        if (!bloc.isClosed) {
+                          bloc.add(LatestThreadRefreshRequested(widget.url));
+                        }
+                      },
+                    )
+                  : AppBar(
+                      title: Text(
+                        widget.title ??
+                            switch (state.tagName) {
+                              final name? => context.t.tagPage.title(name: name),
+                              // A tag page is named before the page tells the tag (loading, failed).
+                              null when widget.url.contains('mod=tag') => context.t.tagPage.cloudTitle,
+                              null => context.t.latestThreadPage.title,
+                            },
+                      ),
+                    ),
+              body: SafeArea(bottom: false, child: body),
             ),
-            body: SafeArea(bottom: false, child: body),
           );
         },
       ),

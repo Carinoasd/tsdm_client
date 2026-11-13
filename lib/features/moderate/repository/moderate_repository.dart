@@ -8,6 +8,7 @@ import 'package:tsdm_client/features/moderate/models/modcp_panel.dart';
 import 'package:tsdm_client/features/moderate/models/modcp_v4.dart';
 import 'package:tsdm_client/features/moderate/models/moderate_form.dart';
 import 'package:tsdm_client/features/moderate/models/moderate_posts.dart';
+import 'package:tsdm_client/features/moderate/models/thread_perms.dart';
 import 'package:tsdm_client/features/thread/v1/repository/thread_repository.dart';
 import 'package:tsdm_client/features/thread/v1/utils/parse_thread_document.dart';
 import 'package:tsdm_client/features/tsdmapp/small_form.dart';
@@ -149,6 +150,10 @@ Future<Either<AppException, ModcpAnswer<T>?>> modcpV4Page<T>(
   }
 }
 
+/// Whether an account moderates a forum ([ModerateRepository.moderationOf]) and what the forum page told it may do
+/// with several threads of the forum, null when the page does not tell.
+typedef ForumModeration = ({bool moderates, ThreadPerms? perms});
+
 /// Read page [page] of thread [tid], oldest floor first, as the thread page reads it.
 typedef ModerateThreadPage = Future<Either<AppException, ThreadPageInfo>> Function(String tid, int page);
 
@@ -226,8 +231,9 @@ final class ModerateRepository with LoggerMixin {
     return answer;
   });
 
-  /// Whether an account moderates a forum, by `uid:fid`, with the time it was learnt.
-  static final _moderates = <String, (bool, DateTime)>{};
+  /// Whether an account moderates a forum and what it may do with several threads of it, by `uid:fid`, with the time
+  /// it was learnt.
+  static final _moderates = <String, (ForumModeration, DateTime)>{};
 
   /// How long [isModerator] keeps an answer.
   static const moderatorKeptFor = Duration(minutes: 10);
@@ -241,10 +247,16 @@ final class ModerateRepository with LoggerMixin {
   /// False for a guest, a forum page that is not the structured answer (no plugin, the forum's message: no
   /// permission) and an answer served to another account; null when the request failed (ask again later). Kept for
   /// [moderatorKeptFor] per account and forum.
-  Future<bool?> isModerator(int fid) async {
+  Future<bool?> isModerator(int fid) async => (await moderationOf(fid))?.moderates;
+
+  /// Whether the account logged in moderates forum [fid] and, when it does, what the forum page told it may do with
+  /// several threads of the forum (`perms`, plugin 3.8.0; null when the page does not tell), from the same request
+  /// and the same answers as [isModerator], kept with them.
+  Future<ForumModeration?> moderationOf(int fid) async {
+    const none = (moderates: false, perms: null);
     final uid = _currentUid();
     if (uid <= 0 || fid <= 0) {
-      return false;
+      return none;
     }
     final key = '$uid:$fid';
     if (_moderates[key] case (final known, final at) when DateTime.now().difference(at) < moderatorKeptFor) {
@@ -260,13 +272,15 @@ final class ModerateRepository with LoggerMixin {
     }
     final json = tsdmAppAnswerJson(data);
     if (json == null || _currentUid() != uid) {
-      return false;
+      return none;
     }
     final moderates = moderatorOf(json, uid: uid, fid: fid);
-    if (moderates != null) {
-      _moderates[key] = (moderates, DateTime.now());
+    if (moderates == null) {
+      return none;
     }
-    return moderates ?? false;
+    final known = (moderates: moderates, perms: moderates ? ThreadPerms.fromApi(json['perms']) : null);
+    _moderates[key] = (known, DateTime.now());
+    return known;
   }
 
   /// Whether forum page answer [json] says account [uid] moderates forum [fid]; null when it is not that answer
