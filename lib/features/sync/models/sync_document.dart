@@ -64,16 +64,18 @@ const int syncWatchKeywordsMaxBytes = 8 * 1024;
 /// Most fast reply templates a document carries.
 const syncReplyTemplatesMax = 50;
 
-/// Most bytes the fast reply templates take in a document: a device whose templates take more (long texts) leaves the
-/// forum's as they are and keeps its own (a part of them would read as the others deleted on the other devices).
+/// Most bytes the fast reply templates take in a document: a device whose templates take more (long texts), or that
+/// has more than [syncReplyTemplatesMax], keeps them out of the sync, neither written nor replaced by another device's
+/// (a part of them would read as the others deleted on the other devices; another device's list would take away the
+/// ones that never reached the forum).
 const int syncReplyTemplatesMaxBytes = 6 * 1024;
 
 /// Most threads of the read later list a document carries: the latest put aside.
 const syncReadLaterMax = 200;
 
 /// Most bytes the read later list takes in a document, the records of the threads taken off with it: a thread with a
-/// Chinese title, its author and forum takes about 160 bytes, so the latest 50 or so go with the sync and the older ones
-/// stay on their device.
+/// Chinese title, its author and forum takes about 160 bytes, so the latest 50 or so go with the sync and the older
+/// ones stay on their device.
 const int syncReadLaterMaxBytes = 8 * 1024;
 
 /// Most followed threads a document carries: the latest followed.

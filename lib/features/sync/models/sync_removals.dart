@@ -28,8 +28,8 @@ Map<int, int> syncRemovalsOf(String? raw) {
 }
 
 /// [removed] with the threads of [tids] taken off, each at its time (a later record of a thread kept), and the threads
-/// of [back] taken back in (their records dropped); the records older than [syncRemovalKeptFor] before [at] (now) dropped and at most
-/// [syncRemovalsMax] kept, the latest. The settings row to keep, null when there is no record left.
+/// of [back] taken back in (their records dropped); the records older than [syncRemovalKeptFor] before [at] (now)
+/// dropped and at most [syncRemovalsMax] kept, the latest. The settings row to keep, null when there is no record left.
 String? syncRemovalsWith(
   Map<int, int> removed, {
   required int at,

@@ -176,6 +176,9 @@ final syncedSettings = <SyncedSetting<Object>>[
 /// The stored names of the settings of [syncedSettings] added after a first sync of the settings could have run: a
 /// device that synced its settings before it knew them takes the forum's value of each where it has the default
 /// (`SyncRepository`), instead of sending its default over the value another device chose.
+///
+/// A setting added to [syncedSettings] later goes here too: the names a device keeps once it ran this version
+/// (`SyncLocalStore.settingsKnown`) only cover the devices that ran it.
 const syncedSettingsAddedLater = {'editImageBeforeUpload', 'uploadImageMaxSide', 'uploadImageQuality'};
 
 /// The values of [syncedSettings] in [settings], by stored name: the `values` of the `settings` section.

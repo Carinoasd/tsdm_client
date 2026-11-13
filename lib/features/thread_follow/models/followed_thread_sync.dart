@@ -17,7 +17,8 @@ const followedThreadsSection = 'follows';
 
 /// The items of [followedThreadsSection] a device holds: its [threads], and the records of the threads it unfollowed
 /// ([removed]) that it does not follow. A thread whose item in the forum's last document [base] is of the same time
-/// keeps that item (its title then), so a title the check found since is no change to write.
+/// or later keeps that item: a title the check found since is no change to write, and a thread the other device
+/// followed later too (both followed it) settles on the later time instead of writing the earlier one back for ever.
 Map<String, Map<String, dynamic>> followedThreadSyncItems(
   List<FollowedThread> threads,
   Map<int, int> removed,
@@ -25,7 +26,11 @@ Map<String, Map<String, dynamic>> followedThreadSyncItems(
 ) => syncItemsWithRemovals({
   for (final t in threads)
     t.tid: switch (base['${t.tid}']) {
-      final was? when was['deleted'] != true && was['updated'] == t.followedAt.millisecondsSinceEpoch => was,
+      final was?
+          when was['deleted'] != true &&
+              was['updated'] is num &&
+              (was['updated'] as num) >= t.followedAt.millisecondsSinceEpoch =>
+        was,
       _ => {'updated': t.followedAt.millisecondsSinceEpoch, 'title': t.title},
     },
 }, removed);

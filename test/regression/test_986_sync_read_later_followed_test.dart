@@ -412,6 +412,19 @@ void main() {
       expect(b.followedTids, isEmpty);
     });
 
+    test('both followed the same thread on their own: they settle on the later time, nothing more to write', () async {
+      a.follow(1);
+      tick();
+      b.follow(1);
+      await b.sync();
+      await a.sync();
+      expect(forum.items(followedThreadsSection)['1']!['updated'], _t + 1000);
+      final pulls = a.api.pulls;
+      expect(await a.repo.pushNow(_uid), SyncOutcome.upToDate);
+      expect(a.api.pulls, pulls, reason: 'the earlier time is not written back for ever');
+      expect(a.store.followedByUid[_uid]!.single.seenReplies, 5, reason: 'what the check knows here stays');
+    });
+
     test('both change at once: the refused write merges', () async {
       await a.sync();
       await b.sync();
@@ -541,6 +554,19 @@ void main() {
         expect((await store.removed(_uid))[2], t0 + 20);
         await Future<void>.delayed(Duration.zero);
         expect(changes, [_uid, _uid]);
+      });
+
+      test('an undo of an unfollow counts as followed now: later than the removal the forum may hold', () async {
+        await store.follow(_uid, tid: 4, title: 'd', replies: 2, now: DateTime(2026));
+        final thread = (await store.of(_uid, 4))!;
+        await store.unfollow(_uid, 4);
+        final removedAt = (await store.removed(_uid))[4]!;
+        final cubitLike = thread.copyWith(followedAt: DateTime.now());
+        await store.update(_uid, 4, (current) => current ?? cubitLike);
+        final back = (await store.of(_uid, 4))!;
+        expect(back.followedAt.millisecondsSinceEpoch, greaterThanOrEqualTo(removedAt));
+        expect(back.seenReplies, 2);
+        expect(await store.removed(_uid), isEmpty);
       });
 
       test('the first check of a thread from another device announces nothing; the next ones do', () async {

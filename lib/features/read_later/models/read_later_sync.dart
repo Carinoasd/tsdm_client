@@ -9,8 +9,8 @@ import 'package:tsdm_client/features/sync/models/sync_removals.dart';
 /// ```
 ///
 /// `updated` is when the thread was put aside (the stored time, whole seconds) or when it was taken off (a record of
-/// the removal, kept on the device as [syncRemovalsOf] reads them). Item by item the later wins: a thread taken off on one device is taken off the
-/// others unless one put it aside again after that.
+/// the removal, kept on the device as [syncRemovalsOf] reads them). Item by item the later wins: a thread taken off on
+/// one device is taken off the others unless one put it aside again after that.
 const readLaterSection = 'read_later';
 
 /// A thread on the read later list as the sync sees it.
@@ -93,6 +93,8 @@ Map<String, Map<String, dynamic>> readLaterSyncItems(List<ReadLaterSyncEntry> en
     }
     final mine = byTid[tid];
     if (item['deleted'] == true || item['deleted'] == 1) {
+      // The time put aside is whole seconds, a removal is milliseconds: a thread put back on one device within the
+      // second another took it off stays off (a trade-off kept: it would take two devices within one second).
       if (mine != null && mine.addedAt <= at.toInt()) {
         remove[tid] = at.toInt();
       }

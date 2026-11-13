@@ -25,8 +25,8 @@ import 'package:tsdm_client/utils/logger.dart';
 /// comes to the front after [pullAgainAfter] in the background; a push a while after the visit records, the quick
 /// phrases, the block list, the fast rate templates, the synced settings, the local drafts, the floor bookmarks, the
 /// pinned forums, what is watched for new threads, the fast reply templates, the read later list or the followed
-/// threads of the account change on this device. Nothing while the setting
-/// is off; a pull when it (or one of its categories) is switched on.
+/// threads of the account change on this device. Nothing while the setting is off; a pull when it (or one of its
+/// categories) is switched on.
 final class SyncCoordinator with LoggerMixin {
   /// Constructor.
   SyncCoordinator({

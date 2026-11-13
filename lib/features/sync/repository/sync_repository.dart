@@ -81,8 +81,8 @@ enum SyncCategory {
 
 /// Keeps the reading progress, the quick phrases, the block list, the fast rate templates, the reading settings, the
 /// local drafts, the floor bookmarks, the pinned forums, the forums and keywords watched for new threads, the fast
-/// reply templates, the read later list and the followed threads of an account the same on every device it logs in on, through the forum's `sync` action (plugin 3.4.0, one document per
-/// account, see [SyncDocument]).
+/// reply templates, the read later list and the followed threads of an account the same on every device it logs in on,
+/// through the forum's `sync` action (plugin 3.4.0, one document per account, see [SyncDocument]).
 ///
 /// [pull] reads the forum's document, merges it with this device's ([SyncDocument.merge]: per item, the later change
 /// wins), applies the result here and writes it back when this device had something newer. [schedulePush] waits a
@@ -273,10 +273,17 @@ final class SyncRepository with LoggerMixin {
     }
   }
 
-  /// The text the sync compares the fast reply [templates] by (their names and texts, in their order; never when
-  /// they were last used).
+  /// The text the sync compares the fast reply [templates] by (their names and texts, in their order: the order they
+  /// were inserted, as the storage reads them; never when they were last used).
   static String encodeReplyTemplates(List<FastReplyTemplateModel> templates) =>
       jsonEncode([for (final t in templates) replyTemplateToItem(t)]);
+
+  /// Whether the fast reply [templates] go with the sync: at most [syncReplyTemplatesMax] within
+  /// [syncReplyTemplatesMaxBytes]. A device whose templates do not fit keeps them out of the sync (neither written nor
+  /// replaced by those of another device) until they fit again.
+  static bool replyTemplatesFit(List<FastReplyTemplateModel> templates) =>
+      templates.length <= syncReplyTemplatesMax &&
+      _bytesOf([for (final t in templates) replyTemplateToItem(t)]) <= syncReplyTemplatesMaxBytes;
 
   /// The document item of the fast reply template [template] (an item of the `reply_templates` list).
   static Map<String, dynamic> replyTemplateToItem(FastReplyTemplateModel template) => {
@@ -574,7 +581,9 @@ final class SyncRepository with LoggerMixin {
       return;
     }
     final theirs = remote.single('settings');
-    if (await _store.settingsUpdated() != null && theirs != null) {
+    final stamped = await _store.settingsUpdated();
+    // A forum's item later than this device's is applied whole anyway (_apply).
+    if (stamped != null && theirs != null && stamped > SyncDocument.updatedOf(theirs)) {
       final fresh = names.difference(known ?? names.difference(syncedSettingsAddedLater));
       final mine = await _store.settingsValues();
       final defaults = syncedSettingsDefaults();
@@ -760,17 +769,21 @@ final class SyncRepository with LoggerMixin {
       final templates = await _store.replyTemplates();
       final updated = await _store.replyTemplatesUpdated() ?? (templates.isEmpty ? 0 : now);
       final baseItem = base.single('reply_templates') ?? const <String, dynamic>{};
-      final item = templates.isEmpty && updated == 0 && baseItem.isEmpty
-          ? null
-          : {
-              ...baseItem,
-              'updated': updated,
-              'items': [for (final t in templates.take(syncReplyTemplatesMax)) replyTemplateToItem(t)],
-            };
-      if (item != null && _bytesOf(item) > syncReplyTemplatesMaxBytes) {
-        info('sync: the reply templates take ${_bytesOf(item)} bytes, over $syncReplyTemplatesMaxBytes: kept here');
+      if (!replyTemplatesFit(templates)) {
+        info(
+          'sync: the reply templates are over $syncReplyTemplatesMax or $syncReplyTemplatesMaxBytes bytes: kept here',
+        );
       } else {
-        doc = doc.withSingle('reply_templates', item);
+        doc = doc.withSingle(
+          'reply_templates',
+          templates.isEmpty && updated == 0 && baseItem.isEmpty
+              ? null
+              : {
+                  ...baseItem,
+                  'updated': updated,
+                  'items': [for (final t in templates) replyTemplateToItem(t)],
+                },
+        );
       }
     }
 
@@ -1192,7 +1205,9 @@ final class SyncRepository with LoggerMixin {
       }
     }
 
-    if (_on(SyncCategory.replyTemplates)) {
+    // Templates over their budget here are neither written nor replaced: they never reached the forum, so a list of
+    // another device would take them away.
+    if (_on(SyncCategory.replyTemplates) && replyTemplatesFit(await _store.replyTemplates())) {
       final item = merged.single('reply_templates');
       if (item != null && SyncDocument.updatedOf(item) > (await _store.replyTemplatesUpdated() ?? 0)) {
         await _store.saveReplyTemplatesUpdated(SyncDocument.updatedOf(item));

@@ -424,17 +424,40 @@ void main() {
       expect(await b.sync(), SyncOutcome.upToDate);
     });
 
-    test('over their budget they stay on their device and the forum keeps its section', () async {
+    test('over their budget (or their number) they stay out of the sync: neither written nor replaced, until they fit '
+        'again', () async {
       a.store.replyTemplateList = [_r('短')];
       await a.sync();
       tick();
-      await b.setReplyTemplates([_r('长', '字' * 3000)]);
+      await b.setReplyTemplates([_r('长', '字' * 3000), _r('另一个')]);
       await b.sync();
       expect(SyncRepository.replyTemplatesOf(forum.doc['reply_templates'] as Map<String, dynamic>).single.name, '短');
-      expect(b.replyNames, ['长'], reason: 'nothing taken from the forum either: this device is later');
+      expect(b.replyNames, ['长', '另一个']);
+
+      // A changes its list later: B's never reached the forum, so A's does not take them away.
       tick();
+      await a.setReplyTemplates([_r('短'), _r('新')]);
       await a.sync();
-      expect(a.replyNames, ['短']);
+      tick();
+      await b.sync();
+      expect(b.replyNames, ['长', '另一个'], reason: 'over the budget here: not replaced');
+
+      // Too many is the same.
+      final many = [for (var i = 0; i <= syncReplyTemplatesMax; i++) _r('$i', 'x')];
+      expect(SyncRepository.replyTemplatesFit(many), isFalse);
+      expect(SyncRepository.replyTemplatesFit(many.take(syncReplyTemplatesMax).toList()), isTrue);
+
+      // Within the budget again: the later change wins whole, as always.
+      tick();
+      await b.setReplyTemplates([_r('另一个')]);
+      await b.sync();
+      await a.sync();
+      expect(a.replyNames, ['另一个']);
+      tick();
+      await a.setReplyTemplates([_r('另一个'), _r('A')]);
+      await a.sync();
+      await b.sync();
+      expect(b.replyNames, ['另一个', 'A']);
     });
 
     test('switched off: neither read nor written; switched on again it syncs', () async {
