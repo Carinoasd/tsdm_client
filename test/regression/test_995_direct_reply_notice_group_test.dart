@@ -71,8 +71,17 @@ final class _Plugin extends Fake implements FlutterLocalNotificationsPlugin {
     shade.remove((id, tag));
   }
 
+  /// Runs before each read of the shade: what another isolate posts meanwhile.
+  void Function(int read)? beforeRead;
+  int _reads = 0;
+
   @override
-  Future<List<ActiveNotification>> getActiveNotifications() async => [
+  Future<List<ActiveNotification>> getActiveNotifications() async {
+    beforeRead?.call(++_reads);
+    return _active();
+  }
+
+  List<ActiveNotification> _active() => [
     for (final MapEntry(key: (id, tag), value: n) in shade.entries)
       ActiveNotification(
         id: id,
@@ -231,6 +240,27 @@ void main() {
     expect(plugin.summaryOf(1000), isNull, reason: 'no texts: only taken back');
     await syncLocalNoticeGroupSummaries(plugin, translations: tr);
     expect(plugin.summaryOf(1000), isNotNull, reason: '${again.id} is still there');
+  });
+
+  test('a notification posted in the group by another isolate meanwhile: its summary stays, it is not taken '
+      'back with it', () async {
+    final plugin = _Plugin();
+    final storage = _storage();
+    final n = await post(plugin, storage, _reply());
+    await plugin.cancel(id: n.id, tag: n.details!.android!.tag);
+    // Android takes a group's notifications back with its summary: the background message service posts a newer item
+    // of the account between the read that finds the group empty and the summary being taken back.
+    final other = _Plugin();
+    await post(other, _storage(), _reply(pid: 9));
+    final newer = other.shown.firstWhere((e) => !(e.details?.android?.setAsGroupSummary ?? false));
+    plugin.beforeRead = (read) {
+      if (read == 2) {
+        plugin.shade[(newer.id, newer.details!.android!.tag)] = newer;
+      }
+    };
+    await syncLocalNoticeGroupSummaries(plugin, translations: tr);
+    expect(plugin.cancelled, isNot(contains((localNoticeGroupSummaryIdOf(1000), null))));
+    expect(plugin.summaryOf(1000), isNotNull);
   });
 
   test('a shade that can not be read: nothing happens, nothing throws', () async {

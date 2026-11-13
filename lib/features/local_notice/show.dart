@@ -142,8 +142,20 @@ Future<void> syncLocalNoticeGroupSummaries(FlutterLocalNotificationsPlugin plugi
         channels.putIfAbsent(uid, () => n.channelId);
       }
     }
-    for (final id in summaries) {
-      if (!channels.keys.any((uid) => localNoticeGroupSummaryIdOf(uid) == id)) {
+    final orphans = {
+      for (final id in summaries)
+        if (!channels.keys.any((uid) => localNoticeGroupSummaryIdOf(uid) == id)) id,
+    };
+    if (orphans.isNotEmpty) {
+      // Android takes the notifications of a group back with its summary: another isolate (the background message
+      // service, the reply's) may have posted one in the group since the shade was read. Read again right before.
+      for (final n in await plugin.getActiveNotifications()) {
+        final uid = isLocalNoticeGroupSummaryId(n.id) ? null : _uidOfGroup(n.groupKey);
+        if (uid != null) {
+          orphans.remove(localNoticeGroupSummaryIdOf(uid));
+        }
+      }
+      for (final id in orphans) {
         await plugin.cancel(id: id);
       }
     }

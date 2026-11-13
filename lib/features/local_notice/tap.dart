@@ -418,5 +418,6 @@ Future<void> keepDirectReplyDraft(int uid, LocalNoticeTarget target, {LocalDraft
     text: draft,
     at: now ?? DateTime.now(),
     maybeSent: target.maybeSent,
+    title: target.title,
   );
 }

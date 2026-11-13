@@ -30,10 +30,11 @@ import 'package:tsdm_client/utils/log_redaction.dart';
 /// (the user may have changed, sent or deleted the draft since).
 ///
 /// The file is
-/// `{"v": 1, "id": …, "uid": …, "tid": …, "pid": …, "peer": …, "text": …, "ms": bool, "at": <ms>, "title": …}`: the account the notification was about, the floor (`tid` and `pid`) or the conversation (`peer`),
-/// what was typed, whether it may have been sent after all, when it failed, and the title of the thread (the name of
-/// the peer) the notification named, when it named one ([LocalNoticeTarget.title]; absent in files of older versions). At most [maxPending] wait, the oldest go first; one
-/// older than [keepFor] is dropped; a file that does not parse is deleted.
+/// `{"v": 1, "id": …, "uid": …, "tid": …, "pid": …, "peer": …, "text": …, "ms": bool, "at": <ms>, "title": …}`:
+/// the account the notification was about, the floor (`tid` and `pid`) or the conversation (`peer`), what was typed,
+/// whether it may have been sent after all, when it failed, and the title of the thread (the name of the peer) the
+/// notification named, when it named one ([LocalNoticeTarget.title]; absent in files of older versions). At most
+/// [maxPending] wait, the oldest go first; one older than [keepFor] is dropped; a file that does not parse is deleted.
 final class DirectReplyDraftInbox {
   /// Constructor: the files in [directory] (`draft_inbox` in the app's support directory by default).
   DirectReplyDraftInbox({Future<Directory> Function()? directory, DateTime Function()? now, Random? random})

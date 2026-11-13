@@ -185,6 +185,23 @@ void main() {
     expect((await store.load(_uid, _floorKey))?.body, '没送出的回复');
   });
 
+  test('arrived while the editor looks for its draft: the arrived one is offered, not the older one found', () async {
+    store.save(_uid, LocalDraft(key: _floorKey, body: '旧的', updatedAt: now.subtract(const Duration(days: 1))));
+    await store.pendingWrites;
+    final e = editor();
+    var offered = 0;
+    final looking = e.saver.offerStored(_uid, (k) => k == _floorKey, onOffered: () => offered++);
+    // The failure lands aside of the older draft and is announced while the editor reads the store.
+    final aside = _floorKey.backupAt(now.millisecondsSinceEpoch);
+    store
+      ..save(_uid, LocalDraft(key: aside, body: '没送出的回复', updatedAt: now))
+      ..announceArrived(_uid, aside);
+    await looking;
+    await pumpEventQueue();
+    expect(e.saver.offer.value?.draft.body, '没送出的回复');
+    expect(offered, greaterThan(0), reason: 'the callback of the editor runs for it too');
+  });
+
   test('an editor that never looked for a draft offers nothing', () async {
     final e = editor();
     await failThenCollect('没送出的回复');
