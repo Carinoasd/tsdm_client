@@ -377,7 +377,8 @@ final class NotificationRepository with LoggerMixin {
   /// With [retry], a polling fetch that could not reach the forum at all (no answer: name resolution, connection or
   /// timeout) is tried once more after a few seconds: the network often comes back a moment after the device wakes
   /// up (GitHub #173). An answer with an error status is not retried. The in-app auto sync does not ask for it: the
-  /// wait would hold its "fetching" state, which the login and account switch flows wait on.
+  /// wait would hold its "fetching" state, which the login and account switch flows wait on. A first `notify` refused
+  /// as too soon holds it as well, up to [notifyBusyBudget] seconds, every fetch alike.
   AsyncEither<FetchedNotification> fetchNotificationWith(
     NetClientProvider client, {
     int? timestamp,
@@ -502,8 +503,8 @@ final class NotificationRepository with LoggerMixin {
   /// The plugin version whose `notify` may read the unread notices page by page ([TsdmAppV4.notifyPaging]).
   static const notifyPagingVersion = '4.0.0';
 
-  /// The most seconds a fetch waits in all for its first `notify` refused as too soon (the plugin's `retry_after`)
-  /// before it gives up for this round.
+  /// The most seconds a fetch waits in all for its first `notify` refused as too soon (the plugin's `retry_after`,
+  /// without the 300 ms added to each wait) before it gives up for this round.
   static const notifyBusyBudget = 10;
 
   /// How many notices a page of `notify` lists when it is read page by page (plugin 4.0.0: 1 to 200; the plugin's own

@@ -547,6 +547,16 @@ String moderatePageMessage(uh.Document doc) {
   return '';
 }
 
+/// `home.php?mod=space&uid=N` or `space-uid-N.html`, see [modcpAuthorUidOf].
+final _authorUidRe = RegExp(r'(?:[?&]uid=|space-uid-)(\d+)');
+
+/// The uid of the author link [link] of a moderator panel page: `home.php?mod=space&uid=N`, or `space-uid-N.html`
+/// where the forum rewrites its links. Null without a link or a uid in it.
+int? modcpAuthorUidOf(uh.Element? link) {
+  final match = _authorUidRe.firstMatch(link?.attributes['href'] ?? '');
+  return match == null ? null : int.tryParse(match.group(1)!);
+}
+
 /// The list [kind] of the queue of forum [fid] on page [doc], served to [uid]; null when [doc] is not that list (the
 /// tab of another list or none, the form of another forum).
 ModerateQueueList? parseModerateQueue(
@@ -666,12 +676,3 @@ final class FloorModerateWindowRefused extends FloorModerateWindow {
   /// The forum's message.
   final String message;
 }
-
-/// The uid of the author link [link] of a moderator panel page: `home.php?mod=space&uid=N`, or `space-uid-N.html`
-/// where the forum rewrites its links. Null without a link or a uid in it.
-int? modcpAuthorUidOf(uh.Element? link) {
-  final match = _authorUidRe.firstMatch(link?.attributes['href'] ?? '');
-  return match == null ? null : int.tryParse(match.group(1)!);
-}
-
-final _authorUidRe = RegExp(r'(?:[?&]uid=|space-uid-)(\d+)');

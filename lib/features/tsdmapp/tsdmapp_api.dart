@@ -333,9 +333,11 @@ abstract final class TsdmAppApi {
     int maxWait = 2,
   ]) => _ask(client, action, query, waitBusy: true, tries: 2, maxWait: maxWait);
 
-  /// [askWaiting], waiting at most [budget] seconds in all for the answers "too soon" (HTTP 429, `error: busy`), and
-  /// giving up with [busyAnswer] instead of null: the caller tells "asked too soon, not answered" apart from a forum
-  /// without the plugin or a failed request, and does not read the web pages for it ([isBusy]).
+  /// [askWaiting], waiting at most [budget] seconds in all for the answers "too soon" (HTTP 429, `error: busy`; each
+  /// wait is `retry_after` and 300 ms more, the budget counts `retry_after`), and giving up with [busyAnswer] instead
+  /// of null: the caller tells "asked too soon, not answered" apart from a forum without the plugin or a failed first
+  /// request, and does not read the web pages for it ([isBusy]). A request after a wait that fails gives
+  /// [busyAnswer] too.
   ///
   /// For the notification poll: the first `notify` of a fetch refused as too soon is waited for (the plugin's own
   /// `retry_after`) and asked again; past [budget], or refused once more after the last wait, the fetch gives up for
@@ -362,6 +364,7 @@ abstract final class TsdmAppApi {
     int maxWait = 10,
     bool keepActionError = false,
     bool keepBusy = false,
+    bool waited = false,
     Map<String, String> headers = const {},
   }) async {
     if (knownUnavailable || (_tooOld && action != 'status' && action != 'notify')) {
@@ -415,11 +418,17 @@ abstract final class TsdmAppApi {
           maxWait: keepBusy ? maxWait - wait : maxWait,
           keepActionError: keepActionError,
           keepBusy: keepBusy,
+          waited: true,
           headers: headers,
         );
       }
     }
     switch (result) {
+      case Left(:final value) when keepBusy && waited:
+        // The plugin is there and asked to wait: a request after the wait that fails (a timeout, a 5xx) is no sign
+        // of a forum without it, and the caller must not read its pages for that either.
+        talker.debug('tsdmapp api $action failed after waiting for it: $value, giving up');
+        return busyAnswer;
       case Left(:final value):
         talker.debug('tsdmapp api $action failed: $value');
         return null;

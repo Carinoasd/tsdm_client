@@ -113,6 +113,31 @@ void main() {
     }
   });
 
+  test('the request after the wait fails (no answer, a 5xx): given up, no page', () async {
+    for (final failure in [v4Offline, const V4Reply('<html><body>Server Error</body></html>', status: 502)]) {
+      TsdmAppApi.reset();
+      var refused = false;
+      final forum = V4Forum((o) {
+        if (o.uri.queryParameters['action'] != 'notify') {
+          return null;
+        }
+        return (refused = !refused) ? const V4Reply.busy(1) : failure;
+      });
+      final (_, result) = await _fetch(forum, timestamp: _since);
+      expect(forum.names, ['notify', 'notify'], reason: '${failure.status}');
+      expect(forum.unexpected, isEmpty, reason: '${failure.status}');
+      expect(result, _tooManyRequests, reason: '${failure.status}');
+    }
+  });
+
+  test('the first request fails: the pages as before (nothing told that the plugin is there)', () async {
+    final forum = V4Forum((o) => o.uri.queryParameters['action'] == 'notify' ? v4Offline : const V4Reply(_emptyPage));
+    final (_, result) = await _fetch(forum, timestamp: _since);
+    expect(forum.names.first, 'notify');
+    expect(forum.names.skip(1), hasLength(3));
+    expect(result, isA<FetchedNotification>());
+  });
+
   test('the budget counts every wait: a second wait past what is left is not taken', () async {
     final forum = _forum([6, 6]);
     final (took, result) = await _fetch(forum, timestamp: _since);
