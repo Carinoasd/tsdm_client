@@ -146,8 +146,8 @@ PostCommentPage? postCommentPageFromApi(Object? data, {num timeOffset = 8}) {
 /// `onclick="modaction('delcomment', 18)"`.
 final _deleteRe = RegExp(r"""modaction\(\s*['"]delcomment['"]\s*,\s*(\d+)""");
 
-/// The prefix of the time line ("发表于 …").
-final _postedOnRe = RegExp(r'^\s*(?:发表于|發表於)\s*');
+/// The prefix of the time line ("发表于 …"), in either script: the comments of a floor, the moderation queue.
+final postedOnPrefixRe = RegExp(r'^\s*(?:发表于|發表於)\s*');
 
 /// Split the comment block of floor [pid] out of the floor's content [data] (`div.pcb` of the web page, `body_html`
 /// of the app API).
@@ -291,7 +291,7 @@ PostComment? _commentOf(uh.Element row) {
           .join()
           .replaceAll(' ', ' ');
       final ip = text.indexOf('IP:');
-      time = (ip < 0 ? text : text.substring(0, ip)).replaceFirst(_postedOnRe, '').trim();
+      time = (ip < 0 ? text : text.substring(0, ip)).replaceFirst(postedOnPrefixRe, '').trim();
     }
     if (time.isEmpty) {
       time = null;

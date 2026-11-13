@@ -1,6 +1,7 @@
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart' show immutable;
 import 'package:tsdm_client/constants/url.dart';
+import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/features/moderate/models/moderate_posts.dart';
 import 'package:tsdm_client/features/thread_link_card/utils/thread_link.dart';
 import 'package:tsdm_client/features/tsdmapp/small_form.dart';
@@ -85,6 +86,15 @@ enum ModerateOperation {
 
   /// The `action` of `forum.php?mod=topicadmin` the operation is: `moderate`, or its own.
   String get action => group == 0 ? name : 'moderate';
+
+  /// The forum writes a thread or moves floors before it answers ([copy], [merge], [split]): a server error after
+  /// the request left may come with a new thread made, or floors moved, all the same (a copy answered 503 left an
+  /// empty thread behind). Sending it again is not the same as sending it once.
+  bool get writesBeforeAnswer => this == copy || this == merge || this == split;
+
+  /// Whether the failure [e] of sending this operation leaves its result unknown ([writesBeforeAnswer],
+  /// [writeMayHaveLanded]): said so, never sent again by the app.
+  bool resultUnknownOn(AppException e) => writesBeforeAnswer && writeMayHaveLanded(e);
 
   /// The `operations[]` value the forum knows the operation by.
   String get value => name;

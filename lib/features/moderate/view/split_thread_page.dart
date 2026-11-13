@@ -13,8 +13,9 @@ import 'package:tsdm_client/widgets/custom_alert_dialog.dart';
 import 'package:universal_html/parsing.dart';
 
 /// The thread a split made: its title, and its first floor (the earliest of the floors split off), by which it is
-/// opened (the forum's answer names no thread, its floors keep their ids).
-typedef ModerateSplitDone = ({String subject, String pid, String message});
+/// opened (the forum's answer names no thread, its floors keep their ids). `unconfirmed`: the request left and no
+/// verdict came back (a server error, a dropped connection), the thread may or may not have been made.
+typedef ModerateSplitDone = ({String subject, String pid, String message, bool unconfirmed});
 
 /// Open the split of thread [tid] in forum [fid]: pick the floors, give the new thread a title, send the forum's window.
 /// Null when nothing was split.
@@ -174,12 +175,17 @@ class _SplitThreadPageState extends State<SplitThreadPage> {
     }
     final floors = _picked.toList()..sort();
     final first = _floors.firstWhere((e) => e.postFloor == floors.first);
-    final done = await showDialog<({String subject, String message})>(
+    final done = await showDialog<({String subject, String message, bool unconfirmed})>(
       context: context,
       builder: (_) => _SplitDialog(form: form, floors: floors, repository: widget.repository),
     );
     if (done != null && mounted) {
-      Navigator.of(context).pop<ModerateSplitDone>((subject: done.subject, pid: first.postID, message: done.message));
+      Navigator.of(context).pop<ModerateSplitDone>((
+        subject: done.subject,
+        pid: first.postID,
+        message: done.message,
+        unconfirmed: done.unconfirmed,
+      ));
     }
   }
 
@@ -324,12 +330,15 @@ class _SplitDialogState extends State<_SplitDialog> {
     }
     switch (outcome) {
       case Right(value: ModerateSucceeded(:final message)):
-        Navigator.of(context).pop((subject: subject, message: message));
+        Navigator.of(context).pop((subject: subject, message: message, unconfirmed: false));
       case Right(value: ModerateRefused(:final message)):
         setState(() {
           _sending = false;
           _error = message.isNotEmpty ? context.displayText(message) : context.t.moderate.failed;
         });
+      case Left(:final value) when ModerateOperation.split.resultUnknownOn(value):
+        // The thread may be made all the same: told by the caller, nothing offered to send twice.
+        Navigator.of(context).pop((subject: subject, message: '', unconfirmed: true));
       case Left(:final value):
         setState(() {
           _sending = false;

@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>论坛 -  测试论坛</title>
+<base href="https://forum.test/" /><script type="text/javascript">var discuz_uid = '32';</script>
+<meta charset="utf-8" />
+</head>
+<body id="nv_forum" class="pg_modcp">
+<div id="wp" class="wp cl">
+<div class="mn">
+<script type="text/javascript">
+modclickcount = 0;
+function recountobj() {
+modclickcount = 0;
+var objform = $('moderate');
+for(var i = 0; i < objform.elements.length; i++) {
+if(objform.elements[i].name.match('moderate') && objform.elements[i].checked) {
+modclickcount++;
+}
+}
+$('modlayercount').innerHTML = modclickcount;
+}
+function modcheckall() {
+var count = 0;
+count = checkall($('moderate'), 'moderate', 'chkall');
+$('modlayercount').innerHTML = count;
+}
+function toggle_post(id) {
+var obj = $('list_note_' + id);
+obj.style.display='block';
+obj.style.height = obj.style.height == '155px' ? 'auto' : '155px' ;
+}
+ function modthreads(operation) {
+var checked = 0;
+var operation = !operation ? '' : operation;
+var objform = $('moderate');
+for(var i = 0; i < objform.elements.length; i++) {
+if(objform.elements[i].name.match('moderate') && objform.elements[i].checked) {
+checked = 1;
+break;
+}
+}
+if(!checked) {
+alert('请先选择操作对象！');
+} else {
+$('moderate').modact.value = operation;
+$('moderate').infloat.value = 'yes';
+showWindow('mods', 'moderate', 'post');
+}
+}
+</script>
+
+<div class="bm bw0 mdcp">
+<h1 class="mt">审核</h1>
+<ul class="tb cl">
+<li><a href="forum.php?mod=modcp&action=moderate&op=threads&amp;fid=25" hidefocus="true">主题</a></li>
+<li class="a"><a href="forum.php?mod=modcp&action=moderate&op=replies&amp;fid=25" hidefocus="true">回复</a></li>
+<li><a href="forum.php?mod=modcp&action=moderate&op=members" hidefocus="true">用户</a></li>
+</ul>
+
+<div class="exfm">
+<form method="post" autocomplete="off" action="forum.php?mod=modcp&action=moderate&op=replies">
+<input type="hidden" name="formhash" value="f1f2f3f4">
+<table cellspacing="0" cellpadding="0">
+<tr>
+<th width="10%">版块选择: </th>
+<th>
+<span class="ftid">
+<select name="fid" id="fid" width="124" class="ps">
+<option value="0">全部</option><option value="2" >📢 公告 & 新手報到</option>
+<option value="6" >新番追蹤</option>
+<option value="7" >神作殿堂</option>
+<option value="8" >聲優茶話會</option>
+<option value="9" >手遊情報站</option>
+<option value="10" >Galgame・美少女遊戲</option>
+<option value="11" >主機・PC 遊戲</option>
+<option value="12" >繪圖・插畫</option>
+<option value="13" >COS・攝影</option>
+<option value="14" >同人創作</option>
+<option value="15" >GLTEST 子版塊（型別 sub）</option>
+<option value="23" >LETIE_A7_子版測試</option>
+<option value="25" selected>周邊交易區</option>
+<option value="26" >BU 黑名單權限版 G</option>
+<option value="29" >BU 通知驗收版 H（1789171425534）</option>
+<option value="30" >BD 新人报到验收版</option>
+<option value="31" >PS 每日签到验收版</option>
+<option value="32" >CM 內容管理驗收版</option>
+<option value="33" >CM 內容管理驗收版2</option>
+<option value="34" >CM 內容管理驗收版3</option>
+</select>
+</span>
+</th>
+<th width="10%">帖子范围: </th>
+<td>
+<span class="ftid">
+<select name="filter" id="filter" width="124" class="ps">
+<option value="0" selected="selected">未审核回复</option>
+<option value="-3" >已忽略回复</option>
+</select>
+</span>
+</td>
+</tr>
+<tr>
+<td><label><input name="showcensor" type="checkbox" class="checkbox" value="yes" /><p style="display: inline;">显示过滤词</p></label></td>
+<td colspan="3"><button type="submit" name="submit" id="searchsubmit" class="pn" value="true"><strong>提交</strong></button></td>
+</tr>
+</table>
+</form>
+</div>
+
+<form method="post" autocomplete="off" name="moderate" id="moderate" action="forum.php?mod=modcp&action=moderate&op=replies" class="s_clear">
+<input type="hidden" name="formhash" value="f1f2f3f4" />
+<input type="hidden" name="fid" value="25" />
+<input type="hidden" name="modact" value="" />
+<input type="hidden" name="infloat" value="" />
+<input type="hidden" name="dosubmit" value="yes" />
+<input type="hidden" name="filter" value="0" />
+<input type="hidden" name="posttableid" value="0" /><div class="um " id="pid_22424">
+<p class="pbn">
+<span class="y">
+<a href="forum.php?mod=redirect&amp;goto=findpost&amp;ptid=9202864&amp;pid=22424&amp;modthreadkey=0123456789abcdef0123456789abcdef"  target="_blank" class="xi2">查看</a><span class="pipe">|</span>
+<a href="forum.php?mod=modcp&amp;action=moderate&amp;op=replies&amp;posttableid=0&amp;moderate[]=22424&amp;modact=validate&amp;filter=0&amp;dosubmit=1" onclick="showWindow('mods', this.href)" class="xi2">通过</a><span class="pipe">|</span>
+<a href="forum.php?mod=modcp&amp;action=moderate&amp;op=replies&amp;posttableid=0&amp;moderate[]=22424&amp;modact=delete&amp;filter=0&amp;dosubmit=1" onclick="showWindow('mods', this.href)" class="xi2">删除</a><span class="pipe">|</span>
+<a href="forum.php?mod=modcp&amp;action=moderate&amp;op=replies&amp;posttableid=0&amp;moderate[]=22424&amp;modact=dismiss&amp;filter=0&amp;dosubmit=1" onclick="showWindow('mods', this.href)" class="xi2">驳回</a><span class="pipe">|</span>
+<a href="forum.php?mod=modcp&amp;action=moderate&amp;op=replies&amp;posttableid=0&amp;moderate[]=22424&amp;modact=ignore&amp;filter=0&amp;dosubmit=1" onclick="showWindow('mods', this.href)" class="xi2">忽略</a><span class="pipe">|</span>
+<a href="javascript:;" onclick="toggle_post(22424);" class="xi2">展开</a>
+</span>
+<input type="checkbox" name="moderate[]" id="pidcheck_22424" class="pc" value="22424" onclick="recountobj()"/>
+<a href="forum.php?mod=forumdisplay&amp;fid=25" target="_blank" class="xi2 xw1">周邊交易區</a> &rsaquo; <span class="xw1">EM測試 回覆框自訂表情</span></p>
+<p class="pbn">
+<span class="xi2">ag_low2</span>
+<span class="xg1">发表于 2026-11-13 03:47</span>
+<div id="list_note_22424" style="overflow: auto; overflow-x: hidden; height: 155px; word-break: break-all;">
+写入结果实测审核回复 1794512826  </div>
+</p>
+</div>
+<div class="um alt" id="pid_3152">
+<p class="pbn">
+<span class="y">
+<a href="forum.php?mod=redirect&amp;goto=findpost&amp;ptid=9199072&amp;pid=3152&amp;modthreadkey=0123456789abcdef0123456789abcdef"  target="_blank" class="xi2">查看</a><span class="pipe">|</span>
+<a href="forum.php?mod=modcp&amp;action=moderate&amp;op=replies&amp;posttableid=0&amp;moderate[]=3152&amp;modact=validate&amp;filter=0&amp;dosubmit=1" onclick="showWindow('mods', this.href)" class="xi2">通过</a><span class="pipe">|</span>
+<a href="forum.php?mod=modcp&amp;action=moderate&amp;op=replies&amp;posttableid=0&amp;moderate[]=3152&amp;modact=delete&amp;filter=0&amp;dosubmit=1" onclick="showWindow('mods', this.href)" class="xi2">删除</a><span class="pipe">|</span>
+<a href="forum.php?mod=modcp&amp;action=moderate&amp;op=replies&amp;posttableid=0&amp;moderate[]=3152&amp;modact=dismiss&amp;filter=0&amp;dosubmit=1" onclick="showWindow('mods', this.href)" class="xi2">驳回</a><span class="pipe">|</span>
+<a href="forum.php?mod=modcp&amp;action=moderate&amp;op=replies&amp;posttableid=0&amp;moderate[]=3152&amp;modact=ignore&amp;filter=0&amp;dosubmit=1" onclick="showWindow('mods', this.href)" class="xi2">忽略</a><span class="pipe">|</span>
+<a href="javascript:;" onclick="toggle_post(3152);" class="xi2">展开</a>
+</span>
+<input type="checkbox" name="moderate[]" id="pidcheck_3152" class="pc" value="3152" onclick="recountobj()"/>
+<a href="forum.php?mod=forumdisplay&amp;fid=25" target="_blank" class="xi2 xw1">周邊交易區</a> &rsaquo; <span class="xw1">BU notify A 的通知目標主題（1789171425534）</span></p>
+<p class="pbn">
+<span class="xi2">ag_low2</span>
+<span class="xg1">发表于 2026-9-12 08:40</span>
+<div id="list_note_3152" style="overflow: auto; overflow-x: hidden; height: 155px; word-break: break-all;">
+notify：B 補發合併用回覆 2（mg2_1789173603978）  </div>
+</p>
+</div>
+<div class="um " id="pid_3151">
+<p class="pbn">
+<span class="y">
+<a href="forum.php?mod=redirect&amp;goto=findpost&amp;ptid=9199072&amp;pid=3151&amp;modthreadkey=0123456789abcdef0123456789abcdef"  target="_blank" class="xi2">查看</a><span class="pipe">|</span>
+<a href="forum.php?mod=modcp&amp;action=moderate&amp;op=replies&amp;posttableid=0&amp;moderate[]=3151&amp;modact=validate&amp;filter=0&amp;dosubmit=1" onclick="showWindow('mods', this.href)" class="xi2">通过</a><span class="pipe">|</span>
+<a href="forum.php?mod=modcp&amp;action=moderate&amp;op=replies&amp;posttableid=0&amp;moderate[]=3151&amp;modact=delete&amp;filter=0&amp;dosubmit=1" onclick="showWindow('mods', this.href)" class="xi2">删除</a><span class="pipe">|</span>
+<a href="forum.php?mod=modcp&amp;action=moderate&amp;op=replies&amp;posttableid=0&amp;moderate[]=3151&amp;modact=dismiss&amp;filter=0&amp;dosubmit=1" onclick="showWindow('mods', this.href)" class="xi2">驳回</a><span class="pipe">|</span>
+<a href="forum.php?mod=modcp&amp;action=moderate&amp;op=replies&amp;posttableid=0&amp;moderate[]=3151&amp;modact=ignore&amp;filter=0&amp;dosubmit=1" onclick="showWindow('mods', this.href)" class="xi2">忽略</a><span class="pipe">|</span>
+<a href="javascript:;" onclick="toggle_post(3151);" class="xi2">展开</a>
+</span>
+<input type="checkbox" name="moderate[]" id="pidcheck_3151" class="pc" value="3151" onclick="recountobj()"/>
+<a href="forum.php?mod=forumdisplay&amp;fid=25" target="_blank" class="xi2 xw1">周邊交易區</a> &rsaquo; <span class="xw1">BU notify A 的通知目標主題（1789171425534）</span></p>
+<p class="pbn">
+<span class="xi2">ag_low2</span>
+<span class="xg1">发表于 2026-9-12 08:40</span>
+<div id="list_note_3151" style="overflow: auto; overflow-x: hidden; height: 155px; word-break: break-all;">
+notify：B 補發合併用回覆 1（mg1_1789173603978）  </div>
+</p>
+</div>
+<div class="um alt" id="pid_3096">
+<p class="pbn">
+<span class="y">
+<a href="forum.php?mod=redirect&amp;goto=findpost&amp;ptid=9199060&amp;pid=3096&amp;modthreadkey=0123456789abcdef0123456789abcdef"  target="_blank" class="xi2">查看</a><span class="pipe">|</span>
+<a href="forum.php?mod=modcp&amp;action=moderate&amp;op=replies&amp;posttableid=0&amp;moderate[]=3096&amp;modact=validate&amp;filter=0&amp;dosubmit=1" onclick="showWindow('mods', this.href)" class="xi2">通过</a><span class="pipe">|</span>
+<a href="forum.php?mod=modcp&amp;action=moderate&amp;op=replies&amp;posttableid=0&amp;moderate[]=3096&amp;modact=delete&amp;filter=0&amp;dosubmit=1" onclick="showWindow('mods', this.href)" class="xi2">删除</a><span class="pipe">|</span>
+<a href="forum.php?mod=modcp&amp;action=moderate&amp;op=replies&amp;posttableid=0&amp;moderate[]=3096&amp;modact=dismiss&amp;filter=0&amp;dosubmit=1" onclick="showWindow('mods', this.href)" class="xi2">驳回</a><span class="pipe">|</span>
+<a href="forum.php?mod=modcp&amp;action=moderate&amp;op=replies&amp;posttableid=0&amp;moderate[]=3096&amp;modact=ignore&amp;filter=0&amp;dosubmit=1" onclick="showWindow('mods', this.href)" class="xi2">忽略</a><span class="pipe">|</span>
+<a href="javascript:;" onclick="toggle_post(3096);" class="xi2">展开</a>
+</span>
+<input type="checkbox" name="moderate[]" id="pidcheck_3096" class="pc" value="3096" onclick="recountobj()"/>
+<a href="forum.php?mod=forumdisplay&amp;fid=25" target="_blank" class="xi2 xw1">周邊交易區</a> &rsaquo; <span class="xw1">BU quotes區 QP 分頁與同帖查詢主題（1789163505012）</span></p>
+<p class="pbn">
+<span class="xi2">ag_low2</span>
+<span class="xg1">发表于 2026-9-12 05:53</span>
+<div id="list_note_3096" style="overflow: auto; overflow-x: hidden; height: 155px; word-break: break-all;">
+QPP-1789163505012 ag_low2 在發帖審核期間的待審回覆  </div>
+</p>
+</div>
+<div class="um bw0 cl">
+<label for="chkall"><input type="checkbox" class="pc" name="chkall" id="chkall" onclick="modcheckall()" />全选</label>
+<button onclick="modthreads('validate'); return false;" class="pn"><strong>通过</strong></button>
+<button onclick="modthreads('delete'); return false;" class="pn"><strong>删除</strong></button>
+<button onclick="modthreads('dismiss'); return false;" class="pn"><strong>驳回</strong></button>
+<button onclick="modthreads('ignore'); return false;" class="pn"><strong>忽略</strong></button>
+<label>当前已选定 <span id="modlayercount">0</span> 个</label>
+</div>
+</form>
+</div>
+</div>
+</body>
+</html>

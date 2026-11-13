@@ -209,7 +209,17 @@ final class LocalNoticeAccount {
   /// the account gets a notification of its own ([localNoticeIdOf]) and the payload names it. Otherwise the
   /// notification is exactly what it always was, one for the account in use.
   final bool named;
+
+  /// The name a title of a [named] notification starts with; null when it is not named or its name is not known.
+  String? get namedAs => named && username != null && username!.isNotEmpty ? username : null;
 }
+
+/// [title] of a notification about [account]: `[name] title` when the account is named ([LocalNoticeAccount.namedAs]),
+/// [title] as it is otherwise. The rule of every notification of the auto sync and of the outcomes of a direct reply.
+String localNoticeTitleOf(LocalNoticeAccount? account, String title) => switch (account?.namedAs) {
+  final username? => '[$username] $title',
+  null => title,
+};
 
 /// What is posted for an auto sync result: id, title, body and payload of the notification, and the lines and the
 /// summary of its expanded form (Android's inbox style; empty for a single new item).
@@ -251,12 +261,13 @@ LocalNotificationContent localNotificationContentOf(
   final tr = translations.localNotification;
   final head = hideContent ? (title: null, body: _countsOf(translations, info)) : _headOf(translations, info);
   final named = account != null && account.named;
-  final username = account?.username;
   final String title;
-  if (named && username != null && username.isNotEmpty) {
-    title = head.title == null ? tr.notice.titleOf(username: username) : '[$username] ${head.title}';
+  if (head.title case final headTitle?) {
+    title = localNoticeTitleOf(account, headTitle);
+  } else if (account?.namedAs case final username?) {
+    title = tr.notice.titleOf(username: username);
   } else {
-    title = head.title ?? tr.notice.title;
+    title = tr.notice.title;
   }
   final base = named ? LocalNoticeKeys.openNotificationOf(account.uid) : LocalNoticeKeys.openNotification;
   final target = info.total == 1 && account != null

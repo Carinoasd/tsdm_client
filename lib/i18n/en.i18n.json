@@ -2349,6 +2349,7 @@
     "moveRedirect": "Leave a redirect",
     "done": "Done",
     "failed": "Failed",
+    "unconfirmed": "Could not confirm the result, check the forum",
     "warn": "Warn",
     "unwarn": "Remove warning",
     "ban": "Hide post",

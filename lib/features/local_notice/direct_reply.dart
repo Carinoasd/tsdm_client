@@ -644,11 +644,7 @@ final class DirectReplyUnconfirmed extends DirectReplyOutcome {
 /// not be reached at all mean nothing was posted.
 bool directReplyMayHaveSent(AppException e) => switch (e) {
   ReplyWindowFetchFailedException() => false,
-  HttpHandshakeFailedException(statusCode: null) ||
-  HttpRequestFailedException(statusCode: null) => !isNoNetworkFailure(e),
-  HttpHandshakeFailedException(:final statusCode?) ||
-  HttpRequestFailedException(:final statusCode?) => statusCode >= 500 || (statusCode >= 300 && statusCode < 400),
-  _ => false,
+  _ => writeMayHaveLanded(e),
 };
 
 /// Post the message of a [DirectReplyRequest] with the client of its account.
@@ -757,24 +753,26 @@ typedef DirectReplyOutcomeContent = ({int id, String title, String body, String 
 /// text kept as its draft.
 ///
 /// [draftEvent] is the id the text of a reply not sent was kept under for the app ([LocalNoticeTarget.draftEvent]).
+/// The title names [account] as the notifications of the auto sync do ([localNoticeTitleOf], [directReplyAccountOf]).
 DirectReplyOutcomeContent directReplyOutcomeContentOf(
   Translations translations,
   DirectReplyRequest request,
   DirectReplyOutcome outcome, {
   String? draftEvent,
+  LocalNoticeAccount? account,
 }) {
   final tr = translations.localNotification.directReply;
   return switch (outcome) {
     DirectReplySent() => (
       id: request.resultNoticeId,
-      title: tr.sent,
+      title: localNoticeTitleOf(account, tr.sent),
       body: request.message,
       payload: request.payload,
       sent: true,
     ),
     DirectReplyNotSent(:final reason) => (
       id: request.resultNoticeId,
-      title: tr.failed,
+      title: localNoticeTitleOf(account, tr.failed),
       body: reason,
       payload: request.failedPayloadOf(draftEvent: draftEvent),
       sent: false,
@@ -782,7 +780,7 @@ DirectReplyOutcomeContent directReplyOutcomeContentOf(
     // The words of the chat page for a message whose result is unknown; the draft kept from it says it may be sent.
     DirectReplyUnconfirmed() => (
       id: request.resultNoticeId,
-      title: tr.unconfirmed,
+      title: localNoticeTitleOf(account, tr.unconfirmed),
       body: translations.chatPage.maybeSent,
       payload: request.failedPayloadOf(draftEvent: draftEvent, maybeSent: true),
       sent: false,
@@ -790,14 +788,36 @@ DirectReplyOutcomeContent directReplyOutcomeContentOf(
   };
 }
 
+/// The account of a reply of [uid] for the titles of its outcome ([directReplyOutcomeContentOf]): named as the other
+/// notifications are ([LocalNoticeAccount.named]) when every account is announced ([allAccounts],
+/// `SettingsKeys.backgroundSyncAllAccounts`), with its name among the saved accounts ([users]). Not named when either
+/// can not be read: the outcome is told all the same.
+Future<LocalNoticeAccount> directReplyAccountOf(
+  int uid, {
+  required Future<bool> Function() allAccounts,
+  required Future<List<UserLoginInfo>> Function() users,
+}) async {
+  try {
+    if (!await allAccounts()) {
+      return LocalNoticeAccount(uid: uid);
+    }
+    final username = (await users()).where((e) => e.uid == uid).firstOrNull?.username;
+    return LocalNoticeAccount(uid: uid, username: username, named: true);
+  } on Object catch (e) {
+    talker.warning('direct reply: the account of the outcome not read: ${e.runtimeType}');
+    return LocalNoticeAccount(uid: uid);
+  }
+}
+
 /// What the notification [request] was typed in says when it is closed without its texts being known
 /// ([RepliedNotice.seal]): the title and the body of [outcome], in the channel of its notification.
 RepliedNoticeTold repliedNoticeToldOf(
   Translations translations,
   DirectReplyRequest request,
-  DirectReplyOutcome outcome,
-) {
-  final content = directReplyOutcomeContentOf(translations, request, outcome);
+  DirectReplyOutcome outcome, {
+  LocalNoticeAccount? account,
+}) {
+  final content = directReplyOutcomeContentOf(translations, request, outcome, account: account);
   return (title: content.title, body: content.body, category: _outcomeCategoryOf(request));
 }
 
@@ -820,9 +840,16 @@ Future<void> showDirectReplyOutcome({
   required DirectReplyRequest request,
   required DirectReplyOutcome outcome,
   String? draftEvent,
+  LocalNoticeAccount? account,
   @visibleForTesting bool? android,
 }) async {
-  final content = directReplyOutcomeContentOf(translations, request, outcome, draftEvent: draftEvent);
+  final content = directReplyOutcomeContentOf(
+    translations,
+    request,
+    outcome,
+    draftEvent: draftEvent,
+    account: account,
+  );
   final category = _outcomeCategoryOf(request);
   await plugin.show(
     id: content.id,
