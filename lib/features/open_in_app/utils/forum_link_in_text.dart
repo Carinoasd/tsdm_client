@@ -35,22 +35,25 @@ final class ForumLinkInText {
 /// ends it. Shared texts often put words right after the link without a space.
 const _urlChars = r"[A-Za-z0-9\-._~:/?#\[\]@!$&'()*+,;=%]";
 
-/// Characters that may not come right before a link: a link starting there goes on from another one (the forum's
-/// link in a parameter of another site's, `other.site/?u=https://www.tsdm39.com/…`) or from a longer host. A colon, a
-/// comma, a bracket or a quote may ("链接:https://…").
-const _notBeforeLink = r'(?<![A-Za-z0-9\-._~/?#@!$&*+;=%])';
+/// The url characters right before a link (brackets, quotes and commas end them): [_anotherHostRe] tells whether the
+/// link sits inside a link of another site.
+final _runBeforeRe = RegExp(r'[A-Za-z0-9\-._~:/?#@!$&*+;=%]+$');
+
+/// A host name: a link right after one is a parameter of that site's link (`other.site/?u=https://www.tsdm39.com/…`).
+/// Not a word, a number or a BBCode tag (`[url=https://…]`, `EP03https://…`, `1.https://…`).
+final _anotherHostRe = RegExp(r'[A-Za-z0-9-]+\.[A-Za-z]{2,}');
 
 /// A web link with its scheme, or a link of the forum written without one (`www.tsdm39.com/…`, `tsdm39.com/…`) that
 /// does not go on into a longer host. Without a scheme something must follow the host, checked after the trim
 /// ([_hasPathAfterHost]): the bare name of the site in a sentence ("tsdm39.com 打不开", "tsdm39.com?") is no link.
 final _linkRe = RegExp(
-  '$_notBeforeLink(?:(?:https?://$_urlChars+)|'
-  '(?:(?:www\\.)?tsdm39\\.com(?![A-Za-z0-9\\-]|\\.[A-Za-z0-9])[/?#]$_urlChars*))',
+  '(?:https?://$_urlChars+)|'
+  '(?:(?<![A-Za-z0-9.\\-/@:%])(?:www\\.)?tsdm39\\.com(?![A-Za-z0-9\\-]|\\.[A-Za-z0-9])[/?#]$_urlChars*)',
   caseSensitive: false,
 );
 
-/// The host of a link of the forum written without a scheme, with the `/`, `?` or `#` after it.
-final _bareHostRe = RegExp(r'^(?:www\.)?tsdm39\.com[/?#]', caseSensitive: false);
+/// The host of a link of the forum written without a scheme, with the `/`, `?` and `#` after it.
+final _bareHostRe = RegExp(r'^(?:www\.)?tsdm39\.com[/?#]+', caseSensitive: false);
 
 /// Whether the link [raw] written without a scheme has something after its host: a path, a query or an anchor.
 bool _hasPathAfterHost(String raw) {
@@ -72,6 +75,10 @@ final _trailingRe = RegExp(r"[.,;:!?'\x22]+$");
 /// The link is then parsed as the app parses any forum link ([ParseUrl.parseUrlToRoute]).
 ForumLinkInText? findForumLinkInText(String text) {
   for (final match in _linkRe.allMatches(text)) {
+    final runBefore = _runBeforeRe.firstMatch(text.substring(0, match.start))?.group(0);
+    if (runBefore != null && _anotherHostRe.hasMatch(runBefore)) {
+      continue;
+    }
     final raw = _trimLink(match.group(0)!);
     final hasScheme = raw.toLowerCase().startsWith('http');
     if (!hasScheme && !_hasPathAfterHost(raw)) {

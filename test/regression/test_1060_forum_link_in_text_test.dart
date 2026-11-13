@@ -47,6 +47,20 @@ void main() {
       expect(findForumLinkInText('http://www.tsdm39.net/thread-5-1-1.html')!.url, contains('tid=5'));
     });
 
+    test('a word, a number, a mark or a BBCode tag may come right before a link', () {
+      for (final text in [
+        '[url=https://www.tsdm39.com/thread-5-1-1.html]帖子[/url]',
+        'url=https://www.tsdm39.com/thread-5-1-1.html',
+        'EP03https://www.tsdm39.com/thread-5-1-1.html',
+        '标题-https://www.tsdm39.com/thread-5-1-1.html',
+        '1.https://www.tsdm39.com/thread-5-1-1.html',
+        '看这个!https://www.tsdm39.com/thread-5-1-1.html',
+        '<a href="https://www.tsdm39.com/thread-5-1-1.html">',
+      ]) {
+        expect(findForumLinkInText(text)?.url, 'https://www.tsdm39.com/forum.php?mod=viewthread&tid=5', reason: text);
+      }
+    });
+
     test('a colon or a bracket may come before a link', () {
       expect(findForumLinkInText('链接:https://www.tsdm39.com/forum.php?mod=viewthread&tid=3')!.url, contains('tid=3'));
       expect(findForumLinkInText('(tsdm39.com/forum.php?mod=viewthread&tid=3)')!.url, contains('tid=3'));
@@ -91,6 +105,8 @@ void main() {
         '是tsdm39.com?还是别的',
         'tsdm39.com/ 打不开',
         'www.tsdm39.com# 呢',
+        'tsdm39.com/# 呢',
+        'tsdm39.com// 呢',
         'example.com/?u=www.tsdm39.com/forum.php?mod=viewthread&tid=1',
         'example.com/?u=https://www.tsdm39.com/forum.php?mod=viewthread&tid=1',
         '某某标题 点击链接直接打开',
