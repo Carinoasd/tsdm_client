@@ -194,14 +194,14 @@ final class AbnormalExitRecorder {
   }
 
   /// Write [line] to the mark [name]; false when it could not be written.
-  bool _write(String name, String line) {
+  bool _write(String name, String line, {bool flush = false}) {
     if (_writing) {
       return false;
     }
     _writing = true;
     try {
       directory.createSync(recursive: true);
-      _file(name).writeAsStringSync(line, flush: true);
+      _file(name).writeAsStringSync(line, flush: flush);
       return true;
     } on Object catch (_) {
       return false;
@@ -223,7 +223,9 @@ final class AbnormalExitRecorder {
     }
     _errorRecorded = true;
     try {
-      _write(errorFileName, _line(error.runtimeType.toString()));
+      // Flushed: the process may end right after it. The running mark is not (the page cache outlives the process,
+      // and it is written at every return to the front).
+      _write(errorFileName, _line(error.runtimeType.toString()), flush: true);
     } on Object catch (_) {
       // Never from an error handler.
     }

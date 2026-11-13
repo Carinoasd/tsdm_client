@@ -52,7 +52,7 @@ void main() {
     return home;
   }
 
-  testWidgets('asked once after an abnormal end, with the export', (tester) async {
+  testWidgets('asked once after an uncaught error, with the export', (tester) async {
     recorder().recordError(StateError('x'));
     AbnormalExitRecorder.disarm();
     final next = recorder();
@@ -60,7 +60,7 @@ void main() {
     final home = await pumpHome(tester);
     await askAboutAbnormalExit(home, recorder: next);
     await tester.pump();
-    expect(find.text(t.diagnostics.abnormalExit), findsOneWidget);
+    expect(find.text(t.diagnostics.lastRunError), findsOneWidget);
     expect(find.widgetWithText(SnackBarAction, t.diagnostics.export), findsOneWidget);
 
     ScaffoldMessenger.of(home).removeCurrentSnackBar();
@@ -68,7 +68,22 @@ void main() {
     // The home page built again: not asked again.
     await askAboutAbnormalExit(home, recorder: next);
     await tester.pump();
-    expect(find.text(t.diagnostics.abnormalExit), findsNothing);
+    expect(find.text(t.diagnostics.lastRunError), findsNothing);
+  });
+
+  testWidgets('vanished in the front: told it ended abnormally', (tester) async {
+    AbnormalExitRecorder(
+      directory: dir,
+      appVersion: '1.57.0',
+      trackForeground: true,
+    ).arm(lifecycle: AppLifecycleState.resumed);
+    AbnormalExitRecorder.disarm();
+    final next = recorder();
+
+    final home = await pumpHome(tester);
+    await askAboutAbnormalExit(home, recorder: next);
+    await tester.pump();
+    expect(find.text(t.diagnostics.abnormalExit), findsOneWidget);
   });
 
   testWidgets('nothing after a normal end', (tester) async {

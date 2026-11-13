@@ -4609,6 +4609,7 @@
     "feedback": "回饋問題",
     "shareBundle": "分享診斷包",
     "replyFeedbackThread": "到回饋帖回覆",
-    "abnormalExit": "上次異常結束"
+    "abnormalExit": "上次異常結束",
+    "lastRunError": "上次執行時出現錯誤"
   }
 }

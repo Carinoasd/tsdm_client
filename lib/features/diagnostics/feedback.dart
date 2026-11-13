@@ -19,17 +19,26 @@ import 'package:tsdm_client/features/authentication/repository/authentication_re
 import 'package:tsdm_client/features/share_qr/share_qr_dialog.dart' show shareQrThreadUrl;
 import 'package:tsdm_client/features/thread/v1/models/thread_reply_prefill.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/utils/log_redaction.dart';
 
 /// The environment told in a reply to the feedback thread, one line: the version of the app (with its build) and the
 /// platform with the version of its system, as the diagnostics bundle reads them.
+///
+/// On Android and Linux the version is the kernel's (`uname`: name, release, build): only its name and release are
+/// told, the build part (its time, a vendor's tag) has no place in a public thread.
 String feedbackEnvironmentLine({String? appVersion, String? platform, String? osVersion}) {
-  final os = (osVersion ?? Platform.operatingSystemVersion).replaceAll(RegExp(r'\s+'), ' ').trim();
-  return 'tsdm_client ${appVersion ?? appFullVersion} · ${platform ?? Platform.operatingSystem} $os';
+  final name = platform ?? Platform.operatingSystem;
+  var os = (osVersion ?? Platform.operatingSystemVersion).replaceAll(RegExp(r'\s+'), ' ').trim();
+  if (name == 'android' || name == 'linux') {
+    os = os.split(' ').take(2).join(' ');
+  }
+  return 'tsdm_client ${appVersion ?? appFullVersion} · $name $os';
 }
 
-/// The reply to the feedback thread: what the user wrote ([description], may be empty) and the [environment] line.
+/// The reply to the feedback thread: what the user wrote ([description], may be empty, redacted as in the diagnostics
+/// bundle: a pasted cookie or log line) and the [environment] line.
 String feedbackReplyText(String description, String environment) {
-  final text = description.trim();
+  final text = redactLogText(description.trim());
   return text.isEmpty ? environment : '$text\n\n$environment';
 }
 

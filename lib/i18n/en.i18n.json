@@ -4609,6 +4609,7 @@
     "feedback": "Report a problem",
     "shareBundle": "Share diagnostics",
     "replyFeedbackThread": "Reply in feedback thread",
-    "abnormalExit": "The app ended abnormally last time"
+    "abnormalExit": "The app ended abnormally last time",
+    "lastRunError": "Something went wrong last time"
   }
 }

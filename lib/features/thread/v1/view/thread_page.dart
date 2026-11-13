@@ -1918,10 +1918,18 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
   /// it, once the thread is loaded and can be replied to (a bar is built for it). Only once; never sent from here.
   void _applyReplyPrefill(ThreadState state) {
     final text = _pendingReplyPrefill;
-    if (text == null || state.postList.isEmpty || state.isOffline || state.threadClosed || state.needLogin) {
+    if (text == null || state.postList.isEmpty || state.isOffline) {
       return;
     }
     _pendingReplyPrefill = null;
+    if (state.threadClosed || state.needLogin) {
+      // Nowhere to put it: say why instead of a page without the reply.
+      showSnackBar(
+        context: context,
+        message: state.needLogin ? context.t.threadPage.needLogin : context.t.threadPage.closed,
+      );
+      return;
+    }
     // After the frame that builds the reply bar for this state.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) {

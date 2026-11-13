@@ -25,17 +25,25 @@ Future<void> askAboutAbnormalExit(BuildContext context, {AbnormalExitRecorder? r
       }
     }
   }
-  if (!context.mounted) {
+  // Counted as asked once taken: only taken when it can be shown.
+  if (!context.mounted || snackbarKey.currentState == null) {
     return;
   }
-  if (armed!.takePrompt() == null) {
+  final exit = armed!.takePrompt();
+  if (exit == null) {
     return;
   }
   talker.info('asking about the abnormal end of the last run');
   final tr = context.t.diagnostics;
   showSnackBar(
     context: context,
-    message: tr.abnormalExit,
+    message: switch (exit.kind) {
+      AbnormalExitKind.vanished => tr.abnormalExit,
+      // An uncaught error does not end the app by itself.
+      AbnormalExitKind.error => tr.lastRunError,
+    },
+    // Asked once only: longer than a hint.
+    duration: const Duration(seconds: 10),
     action: SnackBarAction(
       label: tr.export,
       onPressed: () {

@@ -57,12 +57,19 @@ void main() {
   });
 
   test('the environment line: version, platform and system, one line, nothing of the account', () {
-    final line = feedbackEnvironmentLine(
-      appVersion: '1.57.0+172.abc',
-      platform: 'android',
-      osVersion: 'Android 14\n(API 34)',
+    expect(
+      feedbackEnvironmentLine(appVersion: '1.57.0+172.abc', platform: 'ios', osVersion: 'Version 17.0\n(Build 21A329)'),
+      'tsdm_client 1.57.0+172.abc · ios Version 17.0 (Build 21A329)',
     );
-    expect(line, 'tsdm_client 1.57.0+172.abc · android Android 14 (API 34)');
+    // The kernel's build part (its time, a vendor tag) is left out of a public thread.
+    expect(
+      feedbackEnvironmentLine(
+        appVersion: '1.57.0',
+        platform: 'android',
+        osVersion: 'Linux 5.10.198-android13-4 #1 SMP PREEMPT Thu Jan 1 00:00:00 UTC 2026 vendor-S9080ZCU2',
+      ),
+      'tsdm_client 1.57.0 · android Linux 5.10.198-android13-4',
+    );
     // The real one, as the app builds it.
     final real = feedbackEnvironmentLine();
     expect(real, isNot(contains('\n')));
@@ -72,6 +79,13 @@ void main() {
   test('the reply: what the user wrote, then the environment', () {
     expect(feedbackReplyText('  Pages go blank.\nSecond line  ', _env), 'Pages go blank.\nSecond line\n\n$_env');
     expect(feedbackReplyText('   ', _env), _env);
+  });
+
+  test('the reply is redacted as the diagnostics bundle', () {
+    final text = feedbackReplyText('mail alice.secret@example.org, password=PwSecret-41aa', _env);
+    expect(text, isNot(contains('alice.secret@example.org')));
+    expect(text, isNot(contains('PwSecret-41aa')));
+    expect(text, endsWith(_env));
   });
 
   test('logged in: the thread opens with the reply written', () async {
@@ -112,6 +126,7 @@ void main() {
     await tester.enterText(find.byKey(const ValueKey('feedback-description')), 'The reply bar disappears.');
     await tester.tap(find.byKey(const ValueKey('feedback-reply-thread')));
     await tester.pumpAndSettle();
+    expect(fake.opened, hasLength(1));
 
     final (route, prefill) = fake.opened.single;
     expect(route.queryParameters['tid'], '1265238');

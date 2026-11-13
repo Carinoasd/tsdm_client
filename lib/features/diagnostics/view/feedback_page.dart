@@ -28,9 +28,20 @@ class _FeedbackPageState extends State<FeedbackPage> {
     super.dispose();
   }
 
+  /// Whether the thread is being opened (the login page first): a second tap meanwhile opens nothing.
+  bool _opening = false;
+
   Future<void> _replyInThread() async {
-    final opener = widget.opener ?? FeedbackThreadOpener.of(context);
-    await opener.openWith(_description.text);
+    if (_opening) {
+      return;
+    }
+    _opening = true;
+    try {
+      final opener = widget.opener ?? FeedbackThreadOpener.of(context);
+      await opener.openWith(_description.text);
+    } finally {
+      _opening = false;
+    }
   }
 
   @override
