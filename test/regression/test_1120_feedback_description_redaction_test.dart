@@ -84,6 +84,9 @@ void main() {
       ],
       '<input type="text" name="answer" value="MothersName">': ['MothersName'],
       'Ystv_2132_auth=a7Fk2QxAuthCookieZ; Ystv_2132_sid=Sd8Kq2': ['a7Fk2QxAuthCookieZ', 'Sd8Kq2'],
+      'https://forum.test/forum.php?mod=rss&fid=4&auth=a1b2c3%2Fxyz': ['a1b2c3'],
+      '<input type="hidden" name="auth" value="Au7-abc123">': ['Au7-abc123'],
+      'my_session_id=Ss-abc123, user_session_id: Ss-def456': ['Ss-abc123', 'Ss-def456'],
     };
     for (final MapEntry(key: text, value: secrets) in cases.entries) {
       test(text, () {
@@ -117,6 +120,7 @@ void main() {
       'authors list empty',
       'cookies cleared, still blank',
       'auth: failed after the update',
+      'my cookies: none, authorid=31',
       'passport: none, the answer: no, seccode: shown twice',
     ]) {
       expect(redactUserText(text), text);

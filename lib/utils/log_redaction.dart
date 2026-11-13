@@ -122,13 +122,14 @@ final List<RegExp> _secretFieldRes = _secretFieldPatterns(sensitiveNamePattern);
 /// [sensitiveNamePattern]: the account ids (`uid`), `answer`, `email`, `hash` or `auth` as words of a description are
 /// prose.
 const _userSecretNamePattern =
-    r'(?:[\w-]*?(?:pass(?!ed\b|es\b|ing\b|age|port)|pwd|token|secret|cookie|formhash|saltkey)[\w-]*|'
-    r'[\w-]*_auth|session_?id|phpsessid)';
+    r'(?:[\w-]*?(?:pass(?!ed\b|es\b|ing\b|age|port)|pwd|token|secret|cookie(?!s\b)|formhash|saltkey)[\w-]*|'
+    r'[\w-]*_auth|(?:[\w-]*_)?(?:session_?id|phpsessid))';
 
 /// [_userSecretNamePattern] and the names that are secrets only as fields of a form (`answer=…` of a pasted login
-/// request, `<input name="seccodeverify">`): the security answer, the captcha, a Discuz! session cookie (`…_sid`).
+/// request, `<input name="seccodeverify">`): the security answer, the captcha, a Discuz! session cookie (`…_sid`), the
+/// `auth` of a link (the forum's RSS links carry one).
 const _userSecretFormNamePattern =
-    '(?:$_userSecretNamePattern|[\\w-]*?(?:answer(?!ed\\b|s\\b)|seccode|secverify)[\\w-]*|[\\w-]*_sid)';
+    '(?:$_userSecretNamePattern|[\\w-]*?(?:answer(?!ed\\b|s\\b)|seccode|secverify)[\\w-]*|[\\w-]*_sid|auth)';
 
 /// Secret fields of a text the user wrote, see [_userSecretNamePattern] and [_userSecretFormNamePattern].
 final List<RegExp> _userSecretFieldRes = _secretFieldPatterns(
