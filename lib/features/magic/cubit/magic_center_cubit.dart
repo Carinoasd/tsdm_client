@@ -35,6 +35,7 @@ final class MagicCenterState {
     this.message,
     this.busy = false,
     this.result,
+    this.logAvailable = false,
   });
 
   /// The account this snapshot belongs to.
@@ -70,6 +71,9 @@ final class MagicCenterState {
   /// The latest buy or use.
   final MagicOperationResult? result;
 
+  /// The log can be opened (the forum's plugin answers it); the page offers no log otherwise.
+  final bool logAvailable;
+
   /// A copy with the given fields replaced.
   MagicCenterState copyWith({
     MagicListPage? shop,
@@ -92,6 +96,7 @@ final class MagicCenterState {
     message: message,
     busy: busy ?? this.busy,
     result: result ?? this.result,
+    logAvailable: logAvailable,
   );
 }
 
@@ -141,6 +146,7 @@ class MagicCenterCubit extends Cubit<MagicCenterState> {
         boxUrl: box,
         loading: true,
         result: keep.result,
+        logAvailable: keep.logAvailable,
       ),
     );
     await _fetch(generation, uid, shop, box, keep.result);
@@ -153,10 +159,20 @@ class MagicCenterCubit extends Cubit<MagicCenterState> {
         repo.fetchList(shopUrl, MagicList.shop, uid),
         repo.fetchList(boxUrl, MagicList.box, uid),
       ]);
+      // Asked after the lists: the plugin's `status` is known by then.
+      final log = await repo.logAvailable();
       if (!_current(generation, uid)) return;
       _repository = repo;
       emit(
-        MagicCenterState(uid: uid, shop: pages[0], box: pages[1], shopUrl: shopUrl, boxUrl: boxUrl, result: result),
+        MagicCenterState(
+          uid: uid,
+          shop: pages[0],
+          box: pages[1],
+          shopUrl: shopUrl,
+          boxUrl: boxUrl,
+          result: result,
+          logAvailable: log,
+        ),
       );
     } on MagicIdentityException catch (e) {
       if (!_current(generation, uid)) return;
@@ -176,6 +192,7 @@ class MagicCenterCubit extends Cubit<MagicCenterState> {
             boxUrl: boxUrl,
             failed: true,
             result: result,
+            logAvailable: state.logAvailable,
           ),
         );
       }
@@ -231,6 +248,7 @@ class MagicCenterCubit extends Cubit<MagicCenterState> {
         boxUrl: state.boxUrl,
         loading: true,
         result: result,
+        logAvailable: state.logAvailable,
       ),
     );
     await _fetch(generation, uid, state.shopUrl, state.boxUrl, result);

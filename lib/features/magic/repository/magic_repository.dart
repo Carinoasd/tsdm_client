@@ -1,4 +1,5 @@
 import 'package:fpdart/fpdart.dart';
+import 'package:tsdm_client/features/magic/models/magic_log.dart';
 import 'package:tsdm_client/features/magic/models/magic_models.dart';
 import 'package:tsdm_client/features/tsdmapp/small_form.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
@@ -114,6 +115,31 @@ class MagicRepository {
       throw MagicIdentityException(guest: served == null);
     }
     return parseMagicList(document, list);
+  }
+
+  /// The log is answered as fields (plugin 4.0.0: `status` lists `magic_log` in `magic_pages`). Without it the app has
+  /// no log page: the web page is not read.
+  Future<bool> logAvailable() => _has(TsdmAppV4Group.magicPages, 'magic_log');
+
+  /// Fetch page [page] of the log list [tab] served to [uid] ([magicLogPageFromApi]).
+  ///
+  /// Another account's page is refused, the login prompt is the login, the forum's message (magics closed) is
+  /// [MagicForumMessage]; any other answer fails (there is no web page to fall back to).
+  Future<MagicLogList> fetchLog(MagicLogTab tab, int page, int uid) async {
+    if (uid <= 0) throw const MagicIdentityException(guest: true);
+    if (!await logAvailable()) throw StateError('Magic log unavailable');
+    final answer = tsdmAppV4AnswerOf(await getV4!(withTsdmAppV4Page(tab.url(page))), type: 'magic_log', schema: 71);
+    if (answer != null && answer.uid != uid) throw MagicIdentityException(guest: answer.uid == 0);
+    switch (answer) {
+      case TsdmAppV4Page(:final json) when json['operation'] == tab.operation:
+        return magicLogPageFromApi(json, tab);
+      case TsdmAppV4Message(:final login) when login:
+        throw const MagicIdentityException(guest: true);
+      case TsdmAppV4Message(:final reason) when reason.trim().isNotEmpty:
+        throw MagicForumMessage(reason.trim());
+      case _:
+        throw const FormatException('Not the magic log');
+    }
   }
 
   /// The buy window of the shop's magic [identifier].

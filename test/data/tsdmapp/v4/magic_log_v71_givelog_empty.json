@@ -1,0 +1,29 @@
+{
+ "ok": 1,
+ "api": 1,
+ "time": 1700000000,
+ "uid": 31,
+ "formhash": "f1f2f3f4",
+ "checknewpm": "",
+ "type": "magic_log",
+ "schema": 71,
+ "timeoffset": 8,
+ "operation": "givelog",
+ "logtabs": {
+  "uselog": "home.php?mod=magic&action=log&operation=uselog",
+  "buylog": "home.php?mod=magic&action=log&operation=buylog",
+  "givelog": "home.php?mod=magic&action=log&operation=givelog",
+  "receivelog": "home.php?mod=magic&action=log&operation=receivelog"
+ },
+ "allow_give": 1,
+ "tabs": {
+  "shop": "home.php?mod=magic&action=shop",
+  "mybox": "home.php?mod=magic&action=mybox",
+  "log": "home.php?mod=magic&action=log&operation=uselog"
+ },
+ "page": 1,
+ "perpage": 16,
+ "count": 0,
+ "pages": 1,
+ "list": []
+}
