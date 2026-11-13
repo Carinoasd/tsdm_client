@@ -334,6 +334,26 @@ abstract final class TsdmAppApi {
     int maxWait = 2,
   ]) => _ask(client, action, query, waitBusy: true, tries: 2, maxWait: maxWait);
 
+  /// [askWaiting], waiting at most [budget] seconds in all for the answers "too soon" (HTTP 429, `error: busy`), and
+  /// giving up with [busyAnswer] instead of null: the caller tells "asked too soon, not answered" apart from a forum
+  /// without the plugin or a failed request, and does not read the web pages for it ([isBusy]).
+  ///
+  /// For the notification poll: the first `notify` of a fetch refused as too soon is waited for (the plugin's own
+  /// `retry_after`) and asked again; past [budget], or refused once more after the last wait, the fetch gives up for
+  /// this round (GitHub #156: the three web pages read instead marked the notices read without `seen`).
+  static Future<Map<String, dynamic>?> askWaitingKeepingBusy(
+    NetClientProvider client,
+    String action,
+    Map<String, String> query, {
+    required int budget,
+  }) => _ask(client, action, query, waitBusy: true, tries: 3, maxWait: budget, keepBusy: true);
+
+  /// What [askWaitingKeepingBusy] gives when it gave up on answers "too soon".
+  static const busyAnswer = <String, dynamic>{'ok': 0, 'error': 'busy'};
+
+  /// Whether [json] is the "too soon" [askWaitingKeepingBusy] gave up on.
+  static bool isBusy(Map<String, dynamic>? json) => identical(json, busyAnswer);
+
   static Future<Map<String, dynamic>?> _ask(
     NetClientProvider client,
     String action,
@@ -342,22 +362,30 @@ abstract final class TsdmAppApi {
     required int tries,
     int maxWait = 10,
     bool keepActionError = false,
+    bool keepBusy = false,
     Map<String, String> headers = const {},
   }) async {
     if (knownUnavailable || (_tooOld && action != 'status' && action != 'notify')) {
       return null;
     }
+    final takeBusy = waitBusy || keepBusy;
     final result = await client
         .get(
           url(action, query),
-          options: waitBusy || headers.isNotEmpty
+          options: takeBusy || headers.isNotEmpty
               ? Options(
-                  validateStatus: waitBusy ? (code) => code != null && (code < 300 || code == 429) : null,
+                  validateStatus: takeBusy ? (code) => code != null && (code < 300 || code == 429) : null,
                   headers: headers.isEmpty ? null : headers,
                 )
               : null,
         )
         .run();
+    if (keepBusy && !waitBusy) {
+      if (result case Right(value: final Response<dynamic> resp) when resp.statusCode == 429) {
+        talker.debug('tsdmapp api $action busy again, giving up');
+        return busyAnswer;
+      }
+    }
     if (waitBusy) {
       if (result case Right(value: final Response<dynamic> resp) when resp.statusCode == 429) {
         final data = resp.data;
@@ -369,11 +397,11 @@ abstract final class TsdmAppApi {
         }
         final wait = json is Map ? (json['retry_after'] as num?)?.toInt() ?? 3 : 3;
         // The wait is the plugin's interval (`retry_after`, its "最短间隔" setting: 3 s by default, 1 s on the forum
-        // now). [askWaitingBriefly] waits up to 2 s: the forum's 1 s is waited for, the default 3 s is not and the
-        // caller reads the pages as before; [askWaiting] waits up to 10 s.
+        // now). [askWaitingBriefly] waits up to 2 s: the forum's 1 s is waited for, the default 3 s is not;
+        // [askWaiting] waits up to 10 s each time, [askWaitingKeepingBusy] up to its budget in all.
         if (wait > maxWait) {
           talker.debug('tsdmapp api $action busy for ${wait}s, not waited');
-          return null;
+          return keepBusy ? busyAnswer : null;
         }
         await Future<void>.delayed(Duration(milliseconds: wait * 1000 + 300));
         // Another page or poller of the account may take the action again meanwhile: a few more waits, never the web
@@ -384,8 +412,10 @@ abstract final class TsdmAppApi {
           query,
           waitBusy: tries > 2,
           tries: tries - 1,
-          maxWait: maxWait,
+          // [askWaitingKeepingBusy] waits its budget in all, the others up to [maxWait] each time.
+          maxWait: keepBusy ? maxWait - wait : maxWait,
           keepActionError: keepActionError,
+          keepBusy: keepBusy,
           headers: headers,
         );
       }

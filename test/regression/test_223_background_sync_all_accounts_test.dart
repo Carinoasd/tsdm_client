@@ -875,6 +875,17 @@ void main() {
       expect(await storedNotices(1002), [_noticeId(1002)]);
     });
 
+    test('notify refused for longer than the fetch waits: rate limited, no page read, the bound kept', () async {
+      // GitHub #156: the notice page marks every notice read without `seen`; see test_1150.
+      await loggedIn(allAccounts: true);
+      forum.all['alice'] = _Answer.json({'ok': 0, 'error': 'busy', 'retry_after': 11}, status: 429);
+      final outcomes = await tick();
+      expect(outcomes.cast<BackgroundSyncDone>().first.result, isA<NotificationSyncResultRateLimited>());
+      expect(forum.of('alice'), ['notify']);
+      expect(forum.seenForms.where((e) => e.token == 'alice'), isEmpty);
+      expect(await boundOf(1000), isNull);
+    });
+
     test('a pause between two accounts that reached the forum', () async {
       await loggedIn(allAccounts: true);
       const gap = Duration(milliseconds: 300);
