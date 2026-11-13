@@ -119,6 +119,24 @@ void main() {
       );
     });
 
+    test('a line beside the button the list was read with does not tell it was saved', () async {
+      final list = _list('editable');
+      final read = RecommendList(
+        uid: list.uid,
+        fid: list.fid,
+        forums: list.forums,
+        threads: list.threads,
+        editable: true,
+        formHash: list.formHash,
+        message: '推荐主题更新成功，请继续操作',
+      );
+      final outcome = await _repo(
+        _Log(),
+        posted: _raw('saved'),
+      ).saveRecommends(read, edits: {9199890: (order: 3, subject: 'x', expiration: '')}).run();
+      expect(outcome.getRight().toNullable(), isA<ModcpWriteUnknown>());
+    });
+
     test('an end the forum does not take: its refusal in its words', () async {
       final outcome = await _repo(
         _Log(),
@@ -213,6 +231,28 @@ void main() {
       expect(tester.widget<TextField>(find.byKey(const ValueKey('modcp-recommend-order'))).controller!.text, '5');
       expect(saveEnabled(), isTrue);
       expect(log.posts, isEmpty);
+    });
+
+    testWidgets('a place the web page set out of range may stay as it is', (tester) async {
+      final page = _raw('editable').replaceFirst(
+        RegExp(r'name="order\[9199891\]" class="px" size="3" value="\d+"'),
+        'name="order[9199891]" class="px" size="3" value="-1"',
+      );
+      final log = _Log();
+      await _pump(
+        tester,
+        RecommendThreadsPage(
+          repository: _repo(log, pages: [page], posted: _raw('saved')),
+        ),
+      );
+      await tester.tap(find.text('本周推荐 <新番>'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const ValueKey('modcp-recommend-subject')), '改标题');
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('modcp-recommend-save')));
+      await tester.pumpAndSettle();
+      expect(log.posts.single.$2['order[9199891]'], '-1');
+      expect(log.posts.single.$2['subject[9199891]'], '改标题');
     });
 
     testWidgets('the threads picked are taken off after a confirmation', (tester) async {

@@ -368,7 +368,11 @@ class _RecommendEditDialogState extends State<_RecommendEditDialog> {
   Widget build(BuildContext context) {
     final tr = context.t.modcpRecommend;
     final order = int.tryParse(_order.text.trim());
-    final valid = order != null && order >= 0 && order <= recommendOrderMax && _subject.text.trim().isNotEmpty;
+    // A place kept as it is is fine whatever it is (the web page takes a negative one).
+    final valid =
+        order != null &&
+        (order == widget.thread.order || (order >= 0 && order <= recommendOrderMax)) &&
+        _subject.text.trim().isNotEmpty;
     return CustomAlertDialog.sync(
       title: AppDialogTitle(icon: Icons.edit_outlined, title: context.t.modcp.subject),
       content: Column(
