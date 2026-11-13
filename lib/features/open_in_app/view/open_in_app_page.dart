@@ -1,5 +1,6 @@
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
+import 'package:fpdart/fpdart.dart' show Either, Right;
 import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/material_symbols_icons.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
@@ -61,8 +62,9 @@ class _OpenInAppPageState extends State<OpenInAppPage> {
   /// Current resource type in [availableResources].
   int currentResourceIndex = 0;
 
-  /// Current parsed and recognized route parsed from user input url.
-  RecognizedRoute? currentRoute;
+  /// The input was checked once (an open tapped, a deep link opened): from then on the text under the field follows
+  /// every change of the input and of its kind.
+  bool _checked = false;
 
   /// A browser launch is in flight: further taps are ignored until it answers.
   bool _launchingBrowser = false;
@@ -92,30 +94,34 @@ class _OpenInAppPageState extends State<OpenInAppPage> {
     }
   }
 
-  /// 自动执行解析并跳转的逻辑
-  Future<void> _autoOpenIfNeeded() async {
+  /// What the input [text] opens as the kind of input chosen, or why it opens nothing: the one check of both the text
+  /// under the field and the open button.
+  Either<String, RecognizedRoute> _check(String? text) =>
+      availableResources[currentResourceIndex].validator()(context, text);
+
+  /// Check the input, showing why it opens nothing from now on, and open what it names in place of this page.
+  ///
+  /// Replacing this page keeps the page under it (the home page, with the back button and the login state) and drops
+  /// this one from the stack.
+  void _open() {
+    final route = _check(targetController.text);
+    setState(() => _checked = true);
+    if (route case Right(value: final route)) {
+      context.pushReplacementNamed(
+        route.screenPath,
+        pathParameters: route.pathParameters,
+        queryParameters: route.queryParameters,
+      );
+    }
+  }
+
+  /// Open the deep link [OpenInAppPage.initialUrl] when the app knows it. One it does not know stays on this page for
+  /// the user to decide whether to open it in the browser; the browser is never launched on its own (#105).
+  void _autoOpenIfNeeded() {
     if (!mounted) {
       return;
     }
-
-    // 主动触发表单校验，此时 TextFormField 的 validator 会被执行，从而更新 currentRoute
-    formKey.currentState?.validate();
-
-    // 等待一帧，让校验错误显示出来后再跳转
-    await Future<void>.delayed(Duration.zero);
-
-    // 无法识别的链接留在本页，由用户决定是否用浏览器打开，绝不自动启动浏览器 (#105)
-    if (!mounted || currentRoute == null) {
-      return;
-    }
-
-    // 使用 pushReplacementNamed 替换当前的中间页，
-    // 这样既能保留底部的 HomePage（拥有返回键和全局登录状态），又能清除中间的过渡页面。
-    context.pushReplacementNamed(
-      currentRoute!.screenPath,
-      pathParameters: currentRoute!.pathParameters,
-      queryParameters: currentRoute!.queryParameters,
-    );
+    _open();
   }
 
   /// Open the link in the input box in the external browser, recognized by the app or not (#105).
@@ -183,11 +189,8 @@ class _OpenInAppPageState extends State<OpenInAppPage> {
                           (idx, v) => FilterChip(
                             label: Text(v.typename(context)),
                             onSelected: (selected) => selected
-                                ? setState(() {
-                                    currentResourceIndex = idx;
-                                    // A route recognized as another kind of resource is not what the input means now.
-                                    currentRoute = null;
-                                  })
+                                // Checked again as the new kind once checked: the field rebuilds with the form.
+                                ? setState(() => currentResourceIndex = idx)
                                 : null,
                             selected: currentResourceIndex == idx,
                           ),
@@ -197,6 +200,7 @@ class _OpenInAppPageState extends State<OpenInAppPage> {
                   AppNoticeBanner(message: availableResources[currentResourceIndex].detail(context)),
                   Form(
                     key: formKey,
+                    autovalidateMode: _checked ? AutovalidateMode.always : AutovalidateMode.disabled,
                     child: TextFormField(
                       controller: targetController,
                       autofocus: true,
@@ -205,38 +209,13 @@ class _OpenInAppPageState extends State<OpenInAppPage> {
                         label: availableResources[currentResourceIndex].typename(context),
                         icon: isUrl ? Icons.link_outlined : Icons.tag,
                       ),
-                      onChanged: (_) => currentRoute = null,
-                      // Only [currentRoute] is updated here, it is not part of the build: no setState.
-                      validator: (v) => availableResources[currentResourceIndex].validator()(context, v).match(
-                        (e) {
-                          currentRoute = null;
-                          return e;
-                        },
-                        (v) {
-                          currentRoute = v;
-                          return null;
-                        },
-                      ),
+                      validator: (v) => _check(v).match((e) => e, (_) => null),
                     ),
                   ),
                   FilledButton.icon(
                     label: Text(tr.open),
                     icon: const Icon(Icons.open_in_new),
-                    onPressed: () async {
-                      if (!formKey.currentState!.validate()) {
-                        return;
-                      }
-                      if (currentRoute == null) {
-                        return;
-                      }
-
-                      // 手动点击也使用 pushReplacementNamed，保证路由栈干净
-                      context.pushReplacementNamed(
-                        currentRoute!.screenPath,
-                        pathParameters: currentRoute!.pathParameters,
-                        queryParameters: currentRoute!.queryParameters,
-                      );
-                    },
+                    onPressed: _open,
                   ),
                   if (isUrl) ...[
                     OutlinedButton.icon(
