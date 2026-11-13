@@ -83,6 +83,10 @@
                 <data android:scheme="https" android:host="www.tsdm39.com" android:pathPrefix="/forum.php" />
                 <!-- 对应解析器 isForumHost 中支持的 tsdm39.com（不带 www） -->
                 <data android:scheme="https" android:host="tsdm39.com" android:pathPrefix="/forum.php" />
+                <!-- GitHub #29: the members' pages (home.php?mod=space&uid=… or &username=…), and the rest of home.php.
+                     The data elements of a filter combine, so both hosts take it. What the app does not show itself
+                     stays on the "open page" screen with its button to the browser (ParseUrl.parseUrlToRoute). -->
+                <data android:pathPrefix="/home.php" />
             </intent-filter>
         </activity>
         <!-- The launcher entries of MainActivityImpl, one per app icon (AppIconSwitcher.kt enables exactly one). The default
