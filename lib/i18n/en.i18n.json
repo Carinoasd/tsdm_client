@@ -4646,6 +4646,13 @@
       "knownIssues": "Known issues"
     }
   },
+  "modcpRecommend": {
+    "title": "Recommended threads",
+    "order": "Order",
+    "expiration": "Expires",
+    "remove": "Remove recommendation",
+    "empty": "No recommended threads"
+  },
   "diagnostics": {
     "errorBlock": "Something went wrong here",
     "export": "Export diagnostics",

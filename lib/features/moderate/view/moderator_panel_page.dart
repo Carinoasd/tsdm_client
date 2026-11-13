@@ -37,6 +37,7 @@ import 'package:tsdm_client/features/moderate/view/modcp_posts_page.dart';
 import 'package:tsdm_client/features/moderate/view/modcp_threads_page.dart';
 import 'package:tsdm_client/features/moderate/view/moderate_queue_page.dart';
 import 'package:tsdm_client/features/moderate/view/moderator_log_page.dart';
+import 'package:tsdm_client/features/moderate/view/recommend_threads_page.dart';
 import 'package:tsdm_client/features/moderate/view/recycle_bin_page.dart';
 import 'package:tsdm_client/features/moderate/widgets/modcp_home_summary.dart';
 import 'package:tsdm_client/features/moderate/widgets/moderate_panel_login.dart';
@@ -395,6 +396,14 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
           Icons.rule_outlined,
           t.modcp.rules,
           () => ForumRulesPage(repository: repository),
+        ),
+      if (_offers((m) => m.canRecommend))
+        (
+          _PanelGroup.members,
+          const ValueKey('modcp-recommend'),
+          Icons.thumb_up_alt_outlined,
+          t.modcpRecommend.title,
+          () => RecommendThreadsPage(repository: repository),
         ),
       if (_offers((m) => m.canAnnounce))
         (

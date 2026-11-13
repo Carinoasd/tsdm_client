@@ -4646,6 +4646,13 @@
       "knownIssues": "已知問題"
     }
   },
+  "modcpRecommend": {
+    "title": "推薦主題",
+    "order": "順序",
+    "expiration": "有效期至",
+    "remove": "取消推薦",
+    "empty": "沒有推薦主題"
+  },
   "diagnostics": {
     "errorBlock": "這裡出了點問題",
     "export": "匯出診斷",
