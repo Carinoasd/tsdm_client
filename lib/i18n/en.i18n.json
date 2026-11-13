@@ -1483,6 +1483,7 @@
     "removeConfirm": "Remove \"${title}\" from favorites?",
     "removed": "Removed from favorites",
     "actionFailed": "Failed: $err",
+    "addUnconfirmed": "Could not confirm the favorite, refresh to check",
     "favoritedAt": "Added $time"
   },
   "offlineBatch": {

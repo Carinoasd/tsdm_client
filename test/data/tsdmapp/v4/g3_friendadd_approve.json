@@ -1,0 +1,70 @@
+{
+ "ok": 1,
+ "api": 1,
+ "time": 1794538548,
+ "uid": 32,
+ "formhash": "f1f2f3f4",
+ "type": "form",
+ "schema": 17,
+ "form": "friendadd",
+ "float": 1,
+ "ajax": 1,
+ "mode": "approve",
+ "touid": 35,
+ "username": "ag_low2",
+ "avatar": "https://www.tsdm39.com/data/avatar/000/00/00/35_avatar_small.jpg",
+ "submit": {
+  "url": "home.php?mod=spacecp&ac=friend&op=add&uid=35",
+  "method": "POST",
+  "enctype": "application/x-www-form-urlencoded",
+  "fields": {
+   "referer": "https://www.tsdm39.com/./",
+   "add2submit": "true",
+   "from": "notice",
+   "handlekey": "afr_35",
+   "formhash": "f1f2f3f4"
+  }
+ },
+ "note": null,
+ "gid": {
+  "name": "gid",
+  "type": "radio",
+  "value": "1",
+  "choices": [
+   {
+    "value": "0",
+    "label": "其他"
+   },
+   {
+    "value": "1",
+    "label": "通过本站认识"
+   },
+   {
+    "value": "2",
+    "label": "通过活动认识"
+   },
+   {
+    "value": "3",
+    "label": "通过朋友认识"
+   },
+   {
+    "value": "4",
+    "label": "亲人"
+   },
+   {
+    "value": "5",
+    "label": "同事"
+   },
+   {
+    "value": "6",
+    "label": "同学"
+   },
+   {
+    "value": "7",
+    "label": "不认识"
+   }
+  ]
+ },
+ "hook_fields": [],
+ "unsupported": []
+}

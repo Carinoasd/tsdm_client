@@ -1,6 +1,7 @@
 import 'package:tsdm_client/features/points/models/models.dart';
 import 'package:tsdm_client/features/points/repository/model/models.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
+import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 
 /// The structured credit log answer in [data]: a JSON answer of the forum's app API that carries the credit log page
@@ -108,6 +109,38 @@ String _nameOf(Map<String, dynamic> option) {
 /// The `value` of a filter option [option] as the query sends it: a number (`exttype`, `income`) or a code
 /// (`optype`; empty for the choice of no operation).
 String _valueOf(Map<String, dynamic> option) => switch (option['value']) {
+  final num n => '${n.toInt()}',
+  final String s => s.trim(),
+  _ => '',
+};
+
+/// The statistics page of the credits: each credit with its value as the page prints it, then the total, and the
+/// latest changes, newest first.
+typedef PointsStatistics = ({Map<String, String> points, List<PointsChange> changes});
+
+/// The statistics page of plugin 4.0.0 [json] (`type: credit_base`, `schema` 52) as `parseStatisticsDocument` reads the
+/// web page: `credits` in the page's order, each its title and its value with the unit the page prints after it; then
+/// the total (the forum names it with the word of its language pack, the app with its own), and the total of a special
+/// upgrade group when the account is in one; `logs` as the rows of the credit log ([PointsChange.fromApi]).
+PointsStatistics pointsStatisticsFromApi(Map<String, dynamic> json) {
+  final credits = t.profilePage.statistics.credits;
+  final timeOffset = tsdmAppTimeOffset(json);
+  final total = tsdmAppMap(json['total']);
+  final upgroup = tsdmAppMap(json['upgroup']);
+  return (
+    points: {
+      for (final credit in tsdmAppList(json['credits']))
+        if (tsdmAppText(credit['title']).trim() case final String title when title.isNotEmpty)
+          title: '${_number(credit['value'])} ${tsdmAppText(credit['unit'])}'.trim(),
+      if (total.isNotEmpty) credits: _number(total['value']),
+      if (upgroup.isNotEmpty) '${tsdmAppText(upgroup['name']).trim()}$credits': _number(upgroup['value']),
+    },
+    changes: tsdmAppList(json['logs']).map((e) => PointsChange.fromApi(e, timeOffset: timeOffset)).nonNulls.toList(),
+  );
+}
+
+/// A number of the answer as the page prints it.
+String _number(Object? value) => switch (value) {
   final num n => '${n.toInt()}',
   final String s => s.trim(),
   _ => '',

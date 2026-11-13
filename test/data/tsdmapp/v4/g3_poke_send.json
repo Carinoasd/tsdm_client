@@ -1,0 +1,116 @@
+{
+ "ok": 1,
+ "api": 1,
+ "time": 1794538552,
+ "uid": 31,
+ "formhash": "f1f2f3f4",
+ "type": "form",
+ "schema": 17,
+ "form": "poke",
+ "float": 1,
+ "ajax": 1,
+ "op": "send",
+ "touid": 35,
+ "username": "ag_low2",
+ "avatar": "https://www.tsdm39.com/data/avatar/000/00/00/35_avatar_small.jpg",
+ "submit": {
+  "url": "home.php?mod=spacecp&ac=poke&op=send&uid=35",
+  "method": "POST",
+  "enctype": "application/x-www-form-urlencoded",
+  "fields": {
+   "referer": "https://www.tsdm39.com/./",
+   "pokesubmit": "true",
+   "formhash": "f1f2f3f4",
+   "from": "",
+   "handlekey": "propokehk_35"
+  }
+ },
+ "to_username": null,
+ "iconid": {
+  "name": "iconid",
+  "type": "radio",
+  "value": "3",
+  "choices": [
+   {
+    "value": "0",
+    "label": "不用动作",
+    "icon": ""
+   },
+   {
+    "value": "1",
+    "label": "踩一下",
+    "icon": "https://www.tsdm39.com/static/image/poke/cyx.gif"
+   },
+   {
+    "value": "2",
+    "label": "握个手",
+    "icon": "https://www.tsdm39.com/static/image/poke/wgs.gif"
+   },
+   {
+    "value": "3",
+    "label": "微笑",
+    "icon": "https://www.tsdm39.com/static/image/poke/wx.gif"
+   },
+   {
+    "value": "4",
+    "label": "加油",
+    "icon": "https://www.tsdm39.com/static/image/poke/jy.gif"
+   },
+   {
+    "value": "5",
+    "label": "抛媚眼",
+    "icon": "https://www.tsdm39.com/static/image/poke/pmy.gif"
+   },
+   {
+    "value": "6",
+    "label": "拥抱",
+    "icon": "https://www.tsdm39.com/static/image/poke/yb.gif"
+   },
+   {
+    "value": "7",
+    "label": "飞吻",
+    "icon": "https://www.tsdm39.com/static/image/poke/fw.gif"
+   },
+   {
+    "value": "8",
+    "label": "挠痒痒",
+    "icon": "https://www.tsdm39.com/static/image/poke/nyy.gif"
+   },
+   {
+    "value": "9",
+    "label": "给一拳",
+    "icon": "https://www.tsdm39.com/static/image/poke/gyq.gif"
+   },
+   {
+    "value": "10",
+    "label": "电一下",
+    "icon": "https://www.tsdm39.com/static/image/poke/dyx.gif"
+   },
+   {
+    "value": "11",
+    "label": "依偎",
+    "icon": "https://www.tsdm39.com/static/image/poke/yw.gif"
+   },
+   {
+    "value": "12",
+    "label": "拍拍肩膀",
+    "icon": "https://www.tsdm39.com/static/image/poke/ppjb.gif"
+   },
+   {
+    "value": "13",
+    "label": "咬一口",
+    "icon": "https://www.tsdm39.com/static/image/poke/yyk.gif"
+   }
+  ]
+ },
+ "note": {
+  "name": "note",
+  "type": "text",
+  "value": "",
+  "max": 30,
+  "unit": "chars",
+  "cut": 1
+ },
+ "hook_fields": [],
+ "unsupported": []
+}

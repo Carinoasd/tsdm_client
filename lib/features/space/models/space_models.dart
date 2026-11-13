@@ -347,10 +347,19 @@ final class PokeForm {
     required this.selected,
     required this.reply,
     this.targetName,
+    this.submitUrl,
+    this.submitFields,
   });
 
   /// The account the form was served to.
   final int uid;
+
+  /// Where the form posts (absolute), for the small form `poke` of plugin 4.0.0; null for the web page.
+  final String? submitUrl;
+
+  /// The fields of the form as the plugin served them (`submit.fields`), sent back as they are with the greeting and
+  /// the note; null for the web page.
+  final Map<String, String>? submitFields;
 
   /// Who is greeted.
   final int targetUid;

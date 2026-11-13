@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root><![CDATA[
+<h3 class="flb">
+<em id="return_noticeignore">屏蔽通知</em>
+<span><a href="javascript:;" onclick="hideWindow('noticeignore');" class="flbc" title="关闭">关闭</a></span></h3>
+<form method="post" autocomplete="off" id="ignoreform_DVtTVIKm" name="ignoreform_DVtTVIKm" action="home.php?mod=spacecp&amp;ac=common&amp;op=ignore&amp;type=post&amp;id=0" onsubmit="ajaxpost(this.id, 'return_noticeignore');">
+<input type="hidden" name="handlekey" value="noticeignore" /><input type="hidden" name="ignoresubmit" value="true" />
+<input type="hidden" name="formhash" value="f1f2f3f4" />
+<input type="hidden" name="referer" value="https://www.tsdm39.com/./">
+<div class="c altw">
+<p>在下次浏览时不再显示此类通知</p>
+<p class="ptn"><label><input type="radio" name="authorid" id="authorid1" value="35" checked="checked" />仅屏蔽该好友的</label></p>
+<p class="ptn"><label><input type="radio" name="authorid" id="authorid0" value="0" />屏蔽所有好友的</label></p>
+</div>
+<p class="o pns">
+<button type="submit" name="feedignoresubmit" value="true" class="pn pnc"><strong>确定</strong></button>
+</p>
+</form>
+
+]]></root>

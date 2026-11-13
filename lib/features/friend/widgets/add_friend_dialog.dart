@@ -46,7 +46,7 @@ Future<void> showAddFriendDialog(
     return;
   }
   final result = await repository
-      .addFriend(uid: uid, formHash: form.formHash, note: choice.note, gid: choice.gid)
+      .addFriend(uid: uid, formHash: form.formHash, note: choice.note, gid: choice.gid, form: form)
       .run();
   if (!context.mounted) {
     return;
