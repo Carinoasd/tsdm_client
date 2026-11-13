@@ -1,0 +1,56 @@
+{
+ "ok": 1,
+ "api": 1,
+ "version": "4.0.0",
+ "time": 1794534246,
+ "uid": 34,
+ "formhash": "f1f2f3f4",
+ "timeoffset": 8,
+ "notices": [
+  {
+   "id": 26545,
+   "new": 1,
+   "type": "system",
+   "category": 3,
+   "authorid": 0,
+   "author": "",
+   "note": "待評分：ag_admin 在您管轄的版塊發了新主題「豁免驗收 HFACCMVQTZUY6」<a href=\"forum.php?mod=viewthread&tid=9202679\">查看</a>　<a href=\"forum.php?mod=modcp&action=plugin&op=base&id=selfrate%3Amodcp_base&fid=15\">去評分</a>",
+   "text": "待評分：ag_admin 在您管轄的版塊發了新主題「豁免驗收 HFACCMVQTZUY6」查看 去評分",
+   "dateline": 1793114401,
+   "from_id": 9202679,
+   "from_idtype": "selfrate",
+   "from_num": 1
+  },
+  {
+   "id": 26542,
+   "new": 1,
+   "type": "system",
+   "category": 3,
+   "authorid": 0,
+   "author": "",
+   "note": "待評分：ag_admin 在您管轄的版塊發了新主題「豁免驗收 HFACCMVQTY1YG」<a href=\"forum.php?mod=viewthread&tid=9202676\">查看</a>　<a href=\"forum.php?mod=modcp&action=plugin&op=base&id=selfrate%3Amodcp_base&fid=15\">去評分</a>",
+   "text": "待評分：ag_admin 在您管轄的版塊發了新主題「豁免驗收 HFACCMVQTY1YG」查看 去評分",
+   "dateline": 1793114317,
+   "from_id": 9202676,
+   "from_idtype": "selfrate",
+   "from_num": 1
+  },
+  {
+   "id": 26539,
+   "new": 1,
+   "type": "system",
+   "category": 3,
+   "authorid": 0,
+   "author": "",
+   "note": "待評分：ag_admin 在您管轄的版塊發了新主題「豁免驗收 HFACCMVQTUYVD」<a href=\"forum.php?mod=viewthread&tid=9202673\">查看</a>　<a href=\"forum.php?mod=modcp&action=plugin&op=base&id=selfrate%3Amodcp_base&fid=15\">去評分</a>",
+   "text": "待評分：ag_admin 在您管轄的版塊發了新主題「豁免驗收 HFACCMVQTUYVD」查看 去評分",
+   "dateline": 1793114173,
+   "from_id": 9202673,
+   "from_idtype": "selfrate",
+   "from_num": 1
+  }
+ ],
+ "limit": 3,
+ "has_more": 1,
+ "next": "1793114173_26539"
+}

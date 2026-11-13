@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io' if (dart.libaray.js) 'package:web/web.dart';
 
 import 'package:dio/dio.dart' show Response;
@@ -13,13 +14,16 @@ import 'package:tsdm_client/features/notification/utils/fetch_bound.dart';
 import 'package:tsdm_client/features/notification/utils/relative_time.dart';
 import 'package:tsdm_client/features/thread/v1/utils/parse_thread_document.dart';
 import 'package:tsdm_client/features/thread/v1/utils/thread_page_api.dart';
+import 'package:tsdm_client/features/tsdmapp/small_form.dart' show currentLoginUid;
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
+import 'package:tsdm_client/features/tsdmapp/v4.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/cookie_provider/cookie_provider.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:universal_html/html.dart' as uh;
+import 'package:universal_html/parsing.dart';
 
 /// One fetch of every notification kind, with the forum's clock when it was answered and the lower bound (seconds)
 /// the fetch used, after the clamp to the last three days: `window`. `servedUid` is the account the forum answered
@@ -58,6 +62,59 @@ final class NoticeThreadPageDocument extends NoticeThreadPage {
 
   /// The `page` of the url the forum redirected to, null when it named none.
   final String? page;
+}
+
+/// The detail of a broadcast message read from the forum's app API ([NotificationRepository.fetchAnnounceDetail]).
+sealed class AnnounceDetailAnswer {
+  const AnnounceDetailAnswer();
+
+  /// The detail in [answer], a page of plugin 4.0.0 read as `announcepm` (`schema` 40).
+  static AnnounceDetailAnswer of(TsdmAppV4Answer answer) {
+    switch (answer) {
+      case TsdmAppV4Page(:final json, :final timeOffset):
+        final announce = json['announce'];
+        if (announce is! Map<String, dynamic>) {
+          return const AnnounceDetailRefused('');
+        }
+        var html = tsdmAppText(announce['message_html']);
+        if (html.trim().isEmpty) {
+          html = htmlEscape.convert(tsdmAppText(announce['text'])).replaceAll('\n', '<br />');
+        }
+        final dateTime = tsdmAppWallClockTime(announce['dateline'], timeOffset);
+        final node = parseHtmlDocument('<html><body><div class="pm_smry">$html</div></body></html>').querySelector(
+          'body > div.pm_smry',
+        );
+        if (dateTime == null || node == null) {
+          return const AnnounceDetailRefused('');
+        }
+        return AnnounceDetail(dateTime: dateTime, messageNode: node);
+      case TsdmAppV4Message(:final reason):
+        return AnnounceDetailRefused(reason);
+      case TsdmAppV4Refused(:final error):
+        return AnnounceDetailRefused(error);
+    }
+  }
+}
+
+/// The message and when it was written.
+final class AnnounceDetail extends AnnounceDetailAnswer {
+  /// Constructor.
+  const AnnounceDetail({required this.dateTime, required this.messageNode});
+
+  /// The forum's wall clock of the time it was written, as the page prints it.
+  final DateTime dateTime;
+
+  /// The message, the forum's html in a `div`.
+  final uh.Element messageNode;
+}
+
+/// No message to show: the forum's [reason] (empty when it gave none).
+final class AnnounceDetailRefused extends AnnounceDetailAnswer {
+  /// Constructor.
+  const AnnounceDetailRefused(this.reason);
+
+  /// The forum's message, or the plugin's code.
+  final String reason;
 }
 
 /// Repository of notification.
@@ -136,6 +193,33 @@ final class NotificationRepository with LoggerMixin {
       )),
     },
   );
+
+  /// The detail of broadcast message [pmid] from the forum's app API (plugin 4.0.0: `subop=viewg` asked with
+  /// `tsdmv=4`, `type: announcepm`, `schema` 40), for the account logged in now ([currentLoginUid]):
+  ///
+  /// * [AnnounceDetail]: the message as the forum stored it (`message_html`, the site's own html: shown by the
+  ///   renderer of the posts, which keeps only what it knows) and the time it was written, as the page prints it;
+  /// * [AnnounceDetailRefused]: the forum's message instead (private messages switched off, `pm_status_off`; the login
+  ///   prompt), or no such message in the account's inbox (`announce: null`);
+  /// * `null`: the plugin does not answer it ([TsdmAppV4.announce] off, an older plugin's answer): read the web page.
+  ///
+  /// The forum marks the message read when it is asked, as the web page does: only when the user opens it, never to
+  /// preview it (the list carries the whole text).
+  ///
+  /// [uid] is the account asking (the account logged in now by default).
+  AsyncEither<AnnounceDetailAnswer?> fetchAnnounceDetail(String pmid, {int? uid}) => AsyncEither(() async {
+    if (!TsdmAppV4.announce) {
+      return right(null);
+    }
+    final answer = await fetchTsdmAppV4Page(
+      getIt.get<NetClientProvider>(),
+      '$broadcastMessageDetailUrl$pmid',
+      type: 'announcepm',
+      schema: 40,
+      uid: uid ?? currentLoginUid(),
+    ).run();
+    return answer.map((a) => a == null ? null : AnnounceDetailAnswer.of(a));
+  });
 
   /// Fetch the thread page a notice points to ([url], the `findpost` redirect of the notice), see [NoticeThreadPage].
   ///
@@ -317,9 +401,19 @@ final class NotificationRepository with LoggerMixin {
     final since = _buildSinceTimestamp(timestamp);
     // A poll inside a known window; the first fetch and a refresh the user asked for read everything there is.
     final polling = timestamp != null && !bypassGate;
+    // A plugin known to be 4.0.0 or later whose `status` did not tell yet whether `notify` reads page by page (the
+    // background service starts with nothing known): asked first, so this fetch reads every page (GitHub #156).
+    if (TsdmAppApi.pluginInfo.value case final info?
+        when info.v4 == null && compareTsdmAppVersions(info.version, notifyPagingVersion) >= 0) {
+      await TsdmAppApi.ensureStatus(client);
+    }
     // Another poll of the account a moment ago (the background service and this page at app start or after an
     // account switch) is waited for when the plugin asks a second or two (GitHub #235), not read from the pages.
-    final notify = await TsdmAppApi.askWaitingBriefly(client, 'notify', {'since': '$since'});
+    final paging = TsdmAppV4.notifyPaging;
+    final notify = await TsdmAppApi.askWaitingBriefly(client, 'notify', {
+      'since': '$since',
+      if (paging) 'limit': '$notifyPageLimit',
+    });
     switch (notifyGateOf(notify, since: since)) {
       case TsdmAppNotLoggedIn():
         // Every plugin version answers it before reading the action: the pages would be the guest page.
@@ -331,8 +425,12 @@ final class NotificationRepository with LoggerMixin {
         // (or something else left it unread), and the web keeps its red dot until the next new event otherwise.
         // The "new private message" prompt is not retried: `notify` does not tell it. Nor is anything marked with a
         // bound ahead of the forum's clock: the notices since then were not fetched by this poll.
+        // Not before every page of the unread notices was read (GitHub #156): `seen` marks them all.
         if (notifyCarriesLists(notify) && notifyListsUnreadNotice(notify!) && since <= (notify['time'] as int)) {
-          await _markSeen(client, notify['formhash'] as String, notice: notify['time'] as int, pm: false);
+          final all = await _allNotifyPages(client, notify, since: since, askedWithLimit: paging);
+          if (all.complete) {
+            await _markSeen(client, notify['formhash'] as String, notice: all.json['time'] as int, pm: false);
+          }
         }
         return right((
           info: NotificationV2.empty,
@@ -344,7 +442,15 @@ final class NotificationRepository with LoggerMixin {
         break;
     }
     if (notifyCarriesLists(notify)) {
-      return _fetchWithApiLists(client, notify!, since: since, polling: polling, bypassGate: bypassGate);
+      final all = await _allNotifyPages(client, notify!, since: since, askedWithLimit: paging);
+      return _fetchWithApiLists(
+        client,
+        all.json,
+        since: since,
+        polling: polling,
+        bypassGate: bypassGate,
+        allNotices: all.complete,
+      );
     }
     final results = await Future.wait([
       _fetchPageWithTime(client, noticeUrl).run(),
@@ -385,15 +491,146 @@ final class NotificationRepository with LoggerMixin {
     ));
   });
 
+  /// The plugin version whose `notify` may read the unread notices page by page ([TsdmAppV4.notifyPaging]).
+  static const notifyPagingVersion = '4.0.0';
+
+  /// How many notices a page of `notify` lists when it is read page by page (plugin 4.0.0: 1 to 200; the plugin's own
+  /// advice, fewer pages within its interval between two calls).
+  static const notifyPageLimit = 200;
+
+  /// The most pages of `notify` one fetch reads ([notifyPageLimit] notices each): a fetch holds the "fetching" state
+  /// the login and account switch flows wait on, and every page after the first waits for the plugin's interval. Past
+  /// it, the notices read are kept and `seen` is not posted; the next fetch reads again from the newest.
+  static const notifyMaxPages = 10;
+
+  /// Every unread notice of the `notify` answer [first] (the first page, asked for [since]), with whether all of them
+  /// were read (`complete`): only then may `seen` mark them read, which marks every unread notice of the forum (GitHub
+  /// #156: `notify` lists the newest 50 alone, the 51st and later were marked read unseen).
+  ///
+  /// * An answer of plugin 4.0.0 asked with `limit` tells `has_more` and the cursor of the next page (`next`): the
+  ///   pages are asked with `before` until `has_more` is 0, or until a page lists an unread notice older than [since]
+  ///   (every one left is older still: outside the window, marked read by `seen` as before 4.0.0, [_reachesBefore]),
+  ///   each waiting for the plugin's interval
+  ///   ([TsdmAppApi.askWaiting]: a page right after another is answered "too soon"). A page that fails (no answer,
+  ///   another account, `error: before`), a cursor that does not move and [notifyMaxPages] end the reading: the notices
+  ///   read so far are given, not `complete`.
+  /// * An answer without `has_more` (asked without `limit`: an older plugin, or the flags of 4.0.0 not known when it
+  ///   was asked) is complete when it lists every unread notice (`counts.notice`) or one older than [since], or comes
+  ///   from a plugin older than
+  ///   [notifyPagingVersion] (as before). Otherwise `status` is asked ([TsdmAppApi.ensureStatus]) and, when `notify`
+  ///   reads page by page, the first page is asked again with `limit`; when `status` tells nothing (no answer, too
+  ///   soon) the answer is not complete; when it says `notify` does not read page by page, it is (as before).
+  ///   [askedWithLimit]: [first] was asked with `limit` as `status` said, and an answer without `has_more` then means
+  ///   the flag is stale ([TsdmAppApi.forgetStatus]: `status` is asked again on the next fetch); complete only when it
+  ///   lists every unread notice.
+  ///
+  /// The answer given is the first page with the notices of every page read; its `time` is the clock `seen` marks
+  /// read as of (the first page's, as the plugin asks).
+  Future<({Map<String, dynamic> json, bool complete})> _allNotifyPages(
+    NetClientProvider client,
+    Map<String, dynamic> first, {
+    required int since,
+    required bool askedWithLimit,
+  }) async {
+    var page = first;
+    if (first['has_more'] is! int) {
+      final info = TsdmAppApi.pluginInfo.value;
+      final listsAll = !_listsMoreUnreadThanItShows(first) || _reachesBefore(first, since);
+      if (askedWithLimit) {
+        // Asked page by page as `status` said, answered as without: the flag is stale (switched off meanwhile).
+        warning('notify ignored limit, asking status again on the next fetch');
+        TsdmAppApi.forgetStatus();
+        return (json: first, complete: listsAll);
+      }
+      if (listsAll || info == null || compareTsdmAppVersions(info.version, notifyPagingVersion) < 0) {
+        return (json: first, complete: true);
+      }
+      await TsdmAppApi.ensureStatus(client);
+      if (TsdmAppApi.pluginInfo.value?.v4 == null) {
+        // Paging may well be there, only not known: the notices not listed are not marked read unseen.
+        warning('more unread notices than notify lists and no status told how to read them, not marking them seen');
+        return (json: first, complete: false);
+      }
+      if (!TsdmAppV4.notifyPaging) {
+        return (json: first, complete: true);
+      }
+      final again = await TsdmAppApi.askWaiting(client, 'notify', {
+        'since': '$since',
+        'limit': '$notifyPageLimit',
+      });
+      if (!notifyCarriesLists(again) || again!['uid'] != first['uid'] || again['has_more'] is! int) {
+        warning('the unread notices could not be read page by page, not marking them seen');
+        if (notifyCarriesLists(again) && again!['has_more'] is! int) {
+          TsdmAppApi.forgetStatus();
+        }
+        return (json: first, complete: false);
+      }
+      page = again;
+    }
+    final notices = [...tsdmAppList(page['notices'])];
+    final ids = {for (final n in notices) n['id']};
+    var hasMore = page['has_more'] == 1;
+    var cursor = tsdmAppText(page['next']);
+    var read = 1;
+    while (hasMore && !_reachesBefore(page, since)) {
+      if (cursor.isEmpty || read >= notifyMaxPages) {
+        warning('stopped reading the unread notices after $read pages (cursor "$cursor"), not marking them seen');
+        return (json: {...page, 'notices': notices}, complete: false);
+      }
+      final next = await TsdmAppApi.askWaiting(client, 'notify', {'limit': '$notifyPageLimit', 'before': cursor});
+      if (next == null || next['ok'] != 1 || next['uid'] != page['uid'] || next['notices'] is! List) {
+        warning(
+          'page ${read + 1} of the unread notices failed (${next?['error'] ?? 'no answer'}), not marking them seen',
+        );
+        return (json: {...page, 'notices': notices}, complete: false);
+      }
+      read++;
+      notices.addAll(tsdmAppList(next['notices']).where((n) => ids.add(n['id'])));
+      page = {...page, 'notices': notices};
+      hasMore = next['has_more'] == 1;
+      final moved = tsdmAppText(next['next']);
+      if (hasMore && moved == cursor) {
+        warning('the cursor of the unread notices did not move ($cursor), not marking them seen');
+        return (json: {...page, 'notices': notices}, complete: false);
+      }
+      cursor = moved;
+    }
+    if (read > 1) {
+      debug('read ${notices.length} notices in $read pages of notify');
+    }
+    // The first page with every notice read; its cursor tells nothing of the list given.
+    return (
+      json: {...page}
+        ..remove('has_more')
+        ..remove('next'),
+      complete: true,
+    );
+  }
+
+  /// Whether the answer [json] lists an unread notice older than [since] (seconds): `notify` lists them newest first,
+  /// so every unread notice not listed is older still. Those are outside the window and kept by no fetch, and `seen`
+  /// marked such notices read before plugin 4.0.0 as well: reading their pages changes nothing but the time it takes.
+  static bool _reachesBefore(Map<String, dynamic> json, int since) => tsdmAppList(
+    json['notices'],
+  ).any((n) => n['new'] == 1 && tsdmAppInt(n['dateline']) > 0 && tsdmAppInt(n['dateline']) < since);
+
+  /// Whether a `notify` answer [json] asked without `limit` counts more unread notices (`counts.notice`) than it lists.
+  static bool _listsMoreUnreadThanItShows(Map<String, dynamic> json) {
+    final unread = tsdmAppInt(tsdmAppMap(json['counts'])['notice']);
+    return unread > tsdmAppList(json['notices']).where((n) => n['new'] == 1).length;
+  }
+
   /// The rest of a fetch since [since] whose `notify` answer [notify] carries the lists ([notifyCarriesLists], plugin
   /// 1.9.0), see [fetchNotificationWith]. [polling] is a poll inside a known window, [bypassGate] a refresh that keeps
-  /// every conversation.
+  /// every conversation. [allNotices] tells that [notify] lists every unread notice ([_allNotifyPages]): `seen` marks
+  /// them read only then.
   Future<Either<AppException, FetchedNotification>> _fetchWithApiLists(
     NetClientProvider client,
     Map<String, dynamic> notify, {
     required int since,
     required bool polling,
     required bool bypassGate,
+    required bool allNotices,
   }) async {
     final timeOffset = notify['timeoffset'] as num;
     // The relative times of the notification page read "now" in the member's offset too.
@@ -413,8 +650,11 @@ final class NotificationRepository with LoggerMixin {
         .toList();
     // The first fetch and a refresh list every conversation; a poll only when one changed since its window began.
     final personalMessages = !polling || notifyPmSignalOf(notify, since: since) ? _personalMessagesWith(client) : null;
-    // `notify` holds the unread broadcast messages only, which is all a poll keeps (GitHub #154).
-    final broadcastPage = polling ? null : _fetchPageWithTime(client, broadcastMessageUrl).run();
+    // `notify` holds the unread broadcast messages only, which is all a poll keeps (GitHub #154). The first fetch and
+    // a refresh read the read ones too: from `pmlist&filter=announce` (plugin 4.0.0) after the conversation list (the
+    // two share the interval of `pmlist`), else the broadcast message page alongside it.
+    final announceList = !polling && TsdmAppV4.announce;
+    var broadcastPage = polling || announceList ? null : _fetchPageWithTime(client, broadcastMessageUrl).run();
 
     final pageTimes = <DateTime?>[];
     var pmListRead = false;
@@ -435,8 +675,23 @@ final class NotificationRepository with LoggerMixin {
           pageTimes.add(value.serverTime);
       }
     }
-    final List<BroadcastMessageV2> broadcasts;
-    if (broadcastPage == null) {
+    var broadcastSource = polling ? 'notify' : 'page';
+    List<BroadcastMessageV2>? broadcasts;
+    if (announceList) {
+      broadcasts = BroadcastMessage.listFromApi(
+        await TsdmAppApi.askWaiting(client, 'pmlist', const {'filter': 'announce'}),
+        uid: _servedUidOfNotify(notify),
+      );
+      if (broadcasts != null) {
+        broadcastSource = 'pmlist';
+      } else {
+        debug('pmlist&filter=announce not answered, reading the broadcast message page');
+        broadcastPage = _fetchPageWithTime(client, broadcastMessageUrl).run();
+      }
+    }
+    if (broadcasts != null) {
+      // Read from `pmlist&filter=announce` above.
+    } else if (broadcastPage == null) {
       broadcasts = (notify['announces'] as List)
           .whereType<Map<String, dynamic>>()
           .map((e) => BroadcastMessage.toV2FromApi(e, timeOffset: timeOffset))
@@ -470,18 +725,21 @@ final class NotificationRepository with LoggerMixin {
     final serverTime = earliestOf([
       DateTime.fromMillisecondsSinceEpoch((notify['time'] as int) * 1000, isUtc: true),
       ...pageTimes,
+      // Not every unread notice was read: the next fetch keeps this window, or those not read (all older than the
+      // ones read) fall before its bound and are never shown, once a later fetch marks them seen.
+      if (!allNotices) DateTime.fromMillisecondsSinceEpoch(since * 1000, isUtc: true),
     ]);
     debug(
       'fetched notification by the app api since $since${bypassGate ? ' (gate bypassed, every conversation)' : ''}: '
       'notice=${info.noticeList.length} pm=${info.personalMessageList.length} '
       '(${personalMessages == null ? 'not asked' : (pmListRead ? 'pmlist' : 'page')}) '
-      'bm=${info.broadcastMessageList.length} (${broadcastPage == null ? 'notify' : 'page'}) '
+      'bm=${info.broadcastMessageList.length} ($broadcastSource) '
       'serverTime=${serverTime?.toIso8601String() ?? 'unknown'}',
     );
 
     // Not with a bound ahead of the forum's clock either, see the poll with nothing new above.
     final time = notify['time'] as int;
-    final seenNotice = notifyListsUnreadNotice(notify) && since <= time ? time : null;
+    final seenNotice = allNotices && notifyListsUnreadNotice(notify) && since <= time ? time : null;
     if (seenNotice != null || seenPm) {
       await _markSeen(client, notify['formhash'] as String, notice: seenNotice, pm: seenPm);
     }

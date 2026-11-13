@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root><![CDATA[
+<div class="f_c">
+<h3 class="flb">
+<em id="return_viewratings">查看全部评分</em>
+<span>
+<a href="javascript:;" class="flbc" onclick="hideWindow('viewratings')" title="关闭">关闭</a></span>
+</h3>
+<div class="c floatwrap">
+<table class="list" cellspacing="0" cellpadding="0">
+<thead>
+<tr>
+<td>积分</td>
+<td>用户名</td>
+<td>时间</td>
+<td>理由</td>
+</tr>
+</thead><tr>
+<td>天然 -500 </td>
+<td><a href="home.php?mod=space&amp;uid=32">ag_admin</a></td>
+<td>2026-10-10 10:56</td>
+<td>批量評分組合實測 六項含負分（威望-50 天 ...</td>
+</tr>
+<tr>
+<td>腹黑 -500 </td>
+<td><a href="home.php?mod=space&amp;uid=32">ag_admin</a></td>
+<td>2026-10-10 10:56</td>
+<td>批量評分組合實測 六項含負分（威望-50 天 ...</td>
+</tr>
+<tr>
+<td>宣传 -10 </td>
+<td><a href="home.php?mod=space&amp;uid=32">ag_admin</a></td>
+<td>2026-10-10 10:56</td>
+<td>批量評分組合實測 六項含負分（威望-50 天 ...</td>
+</tr>
+<tr>
+<td>天使币 -9000 </td>
+<td><a href="home.php?mod=space&amp;uid=32">ag_admin</a></td>
+<td>2026-10-10 10:56</td>
+<td>批量評分組合實測 六項含負分（威望-50 天 ...</td>
+</tr>
+<tr>
+<td>威望 -50 </td>
+<td><a href="home.php?mod=space&amp;uid=32">ag_admin</a></td>
+<td>2026-10-10 10:56</td>
+<td>批量評分組合實測 六項含負分（威望-50 天 ...</td>
+</tr>
+</table>
+</div>
+</div>
+<div class="o pns">
+总计:&nbsp;天然 -500  &nbsp;
+&nbsp;腹黑 -500  &nbsp;
+&nbsp;宣传 -10  &nbsp;
+&nbsp;天使币 -9000  &nbsp;
+&nbsp;威望 -50  &nbsp;
+</div>
+
+]]></root>

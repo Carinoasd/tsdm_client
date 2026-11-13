@@ -4,7 +4,9 @@ import 'package:tsdm_client/features/authentication/utils/logged_user_parser.dar
 import 'package:tsdm_client/features/poll/models/forum_poll.dart';
 import 'package:tsdm_client/features/poll/models/poll_voters.dart';
 import 'package:tsdm_client/features/thread/v1/utils/thread_page_api.dart';
+import 'package:tsdm_client/features/tsdmapp/small_form.dart' show currentLoginUid;
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
+import 'package:tsdm_client/features/tsdmapp/v4.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
 import 'package:universal_html/html.dart' as uh;
@@ -13,7 +15,7 @@ import 'package:universal_html/parsing.dart';
 /// Account-bound access to a poll. No automatic POST retry or persisted forms.
 class PollRepository {
   /// Inject transports in tests; production binds a client to the active identity.
-  PollRepository({required this.getPage, required this.postForm, this.getVoters});
+  PollRepository({required this.getPage, required this.postForm, this.getVoters, this.getVotersApi});
 
   /// Build using the app's existing cookie, identity and error handling.
   ///
@@ -26,11 +28,24 @@ class PollRepository {
   ///
   /// An answer without a page (an empty body) fails the read ([fetchTsdmAppPageAnswer]) instead of being a page served
   /// to nobody, which the card would show as a poll to log in for.
-  factory PollRepository.network(NetClientProvider client) => PollRepository(
+  ///
+  /// [currentUid] tells the account the voters page of the forum's app API is asked for (the account logged in now
+  /// by default).
+  factory PollRepository.network(NetClientProvider client, {int Function()? currentUid}) => PollRepository(
     getPage: (url) => fetchTsdmAppPageAnswer(client, url),
     getVoters: (url) async => switch (await client.get(url).run()) {
       Right(:final value) when value.data is String => value.data as String,
       Right(:final value) => throw HttpRequestFailedException(value.statusCode),
+      Left(:final value) => throw value,
+    },
+    getVotersApi: (url) async => switch (await fetchTsdmAppV4Page(
+      client,
+      url,
+      type: 'poll_voters',
+      schema: 49,
+      uid: (currentUid ?? currentLoginUid)(),
+    ).run()) {
+      Right(:final value) => value,
       Left(:final value) => throw value,
     },
     // The write result of the forum's app API (plugin 2.6.0) is read by [vote]; anything else is the forum's answer.
@@ -45,6 +60,10 @@ class PollRepository {
 
   /// GET transport of the voters window (an ajax url, answered as xml text); null where voters are not read.
   final Future<String> Function(String url)? getVoters;
+
+  /// GET transport of the voters page of the forum's app API (plugin 4.0.0, `poll_voters`, [fetchTsdmAppV4Page]): the
+  /// answer read, null when it is not that page (the window is read then); null where it is not asked.
+  final Future<TsdmAppV4Answer?> Function(String url)? getVotersApi;
 
   /// POST transport, the forum's answer. Indexed PHP array keys preserve every choice while keeping
   /// the string-valued map required by the Android Kotlin HTTP adapter.
@@ -62,7 +81,25 @@ class PollRepository {
 
   /// Page [page] of the voters of option [optionId], from the poll's [votersUrl]. Throws [FormatException] when the
   /// url is not a voters page or the answer is not a voters window (the forum refused).
+  ///
+  /// Read from the forum's app API when it answers the page as fields (plugin 4.0.0: `thread_lists` names
+  /// `poll_voters`, `type: poll_voters`, `schema` 49, [pollVotersPageFromApi]): the same voters, a next page while
+  /// `page` is below `pages`. The forum's message (a poll whose voters only its starter sees…) and the plugin's
+  /// `error: polloption` (an option that is not this poll's) throw as a window that is not the voters window does.
+  /// Any other answer reads the window as before.
   Future<PollVotersPage> fetchVoters(String votersUrl, String optionId, {int page = 1}) async {
+    final apiUrl = pollVotersApiPageUrl(votersUrl, optionId, page);
+    final getApi = getVotersApi;
+    if (apiUrl != null && getApi != null && TsdmAppV4.has(TsdmAppV4Group.threadLists, 'poll_voters')) {
+      switch (await getApi(apiUrl)) {
+        case TsdmAppV4Page(:final json):
+          return pollVotersPageFromApi(json, optionId: optionId) ?? (throw const FormatException('Not this option'));
+        case TsdmAppV4Message() || TsdmAppV4Refused():
+          throw const FormatException('No voters window');
+        case null:
+          break;
+      }
+    }
     final url = pollVotersPageUrl(votersUrl, optionId, page);
     final get = getVoters;
     if (url == null || get == null) throw const FormatException('Invalid voters request');

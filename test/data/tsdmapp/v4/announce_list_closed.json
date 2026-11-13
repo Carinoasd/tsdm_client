@@ -1,0 +1,14 @@
+{
+ "ok": 1,
+ "api": 1,
+ "time": 1794534263,
+ "uid": 31,
+ "timeoffset": 8,
+ "filter": "announce",
+ "closed": 1,
+ "page": 1,
+ "perpage": 20,
+ "count": 0,
+ "unread": 0,
+ "announces": []
+}

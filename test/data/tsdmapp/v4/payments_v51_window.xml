@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root><![CDATA[
+<div class="f_c">
+<h3 class="flb">
+<em id="return_pay">记录</em>
+<span>
+<a href="javascript:;" class="flbc" onclick="hideWindow('pay')" title="关闭">关闭</a></span>
+</h3>
+<div class="c floatwrap">
+<table class="list" cellspacing="0" cellpadding="0">
+<thead>
+<tr>
+<td>用户名</td>
+<td>时间</td>
+<td>天使币</td>
+</tr>
+</thead>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=35">ag_low2</a></td>
+<td>2026-10-27 19:53</td>
+<td>5 </td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=44">ag_t08</a></td>
+<td>2026-10-27 19:53</td>
+<td>5 </td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=41">ag_t05</a></td>
+<td>2026-10-27 19:53</td>
+<td>5 </td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=86">cb_ipbuy</a></td>
+<td>2026-10-27 21:32</td>
+<td>5 </td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=45">ag_t09</a></td>
+<td>2026-10-27 21:51</td>
+<td>5 </td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=46">ag_t10</a></td>
+<td>2026-10-27 21:54</td>
+<td>5 </td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=47">ag_t11</a></td>
+<td>2026-10-27 22:01</td>
+<td>5 </td>
+</tr>
+</table>
+</div>
+</div>
+
+]]></root>

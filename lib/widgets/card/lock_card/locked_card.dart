@@ -3,24 +3,18 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/constants/layout.dart';
-import 'package:tsdm_client/constants/url.dart';
-import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/date_time.dart';
-import 'package:tsdm_client/extensions/fp.dart';
 import 'package:tsdm_client/extensions/list.dart';
-import 'package:tsdm_client/extensions/string.dart';
-import 'package:tsdm_client/extensions/universal_html.dart';
 import 'package:tsdm_client/features/purchase/bloc/purchase_bloc.dart';
 import 'package:tsdm_client/features/purchase/repository/purchase_repository.dart';
+import 'package:tsdm_client/features/purchase/utils/sales_history.dart';
 import 'package:tsdm_client/features/root/view/root_page.dart';
 import 'package:tsdm_client/features/thread/v1/bloc/thread_bloc.dart';
 import 'package:tsdm_client/features/thread/v1/utils/offline_floor.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
-import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
-import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/show_dialog.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
@@ -29,18 +23,6 @@ import 'package:tsdm_client/widgets/custom_alert_dialog.dart';
 import 'package:tsdm_client/widgets/heroes.dart';
 import 'package:tsdm_client/widgets/single_line_text.dart';
 import 'package:tsdm_client/widgets/text_widget_span.dart';
-import 'package:universal_html/parsing.dart';
-
-/// Each history item in sales log.
-class _SaleLogItem {
-  /// Constructor.
-  const _SaleLogItem({required this.username, required this.uid, required this.time, required this.price});
-
-  final String username;
-  final String uid;
-  final DateTime time;
-  final String price;
-}
 
 // TODO: Separate purchase widget.
 /// Widget shows a locked area in `post`.
@@ -63,45 +45,6 @@ class _LockedCardState extends State<LockedCard> with LoggerMixin {
     context.read<PurchaseBloc>().add(
       PurchaseFetchConfirmInfoRequested(tid: widget.locked.tid!, pid: widget.locked.pid!),
     );
-  }
-
-  Future<List<_SaleLogItem>> _fetchSalesHistory(String tid) async {
-    final result = await getIt
-        .get<NetClientProvider>()
-        .get(
-          '$baseUrl/forum.php?mod=misc&action=viewpayments&tid=$tid'
-          '&infloat=yes&handlekey=pay&inajax=1&ajaxtarget=fwin_content_pay',
-        )
-        .mapHttp((v) => v.data as String)
-        .map((e) => parseXmlDocument(e).documentElement?.nodes.first.text ?? '')
-        .map(parseHtmlDocument)
-        .map((v) => v.querySelectorAll('table.list tr'))
-        .run();
-    if (result.isLeft()) {
-      error('failed to parse sales history item: ${result.unwrapErr()}');
-      return const [];
-    }
-
-    final logItemNodes = result.unwrap();
-    final logItems = <_SaleLogItem>[];
-
-    for (final logItemNode in logItemNodes) {
-      final tdNodes = logItemNode.querySelectorAll('td');
-      if (tdNodes.length != 3) {
-        continue;
-      }
-      final userNode = tdNodes.first.querySelector('a');
-      final username = userNode?.innerText.trim();
-      final uid = userNode?.attributes['href']?.tryParseAsUri()?.queryParameters['uid'];
-      final time = tdNodes[1].dateTime();
-      final price = tdNodes[2].innerText.trim();
-
-      if (username != null && uid != null && time != null) {
-        logItems.add(_SaleLogItem(username: username, uid: uid, time: time, price: price));
-      }
-    }
-
-    return logItems;
   }
 
   WidgetSpan _buildUnderlineText(BuildContext context, String text) {
@@ -270,7 +213,7 @@ class _LockedCardState extends State<LockedCard> with LoggerMixin {
                         Expanded(child: Text(tr.sale.dialog.title)),
                       ],
                     ),
-                    future: _fetchSalesHistory(widget.locked.tid!),
+                    future: fetchSalesHistory(widget.locked.tid!),
                     successBuilder: (context, snapshot) {
                       final salesHistory = snapshot;
                       if (salesHistory.isEmpty) {

@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
+import 'package:tsdm_client/features/tsdmapp/v4.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
@@ -74,6 +75,16 @@ import 'package:universal_html/parsing.dart';
 /// account gets for its login password ([askWithHeaders], `admin_tools`). It also answers the moderation panel's report
 /// page (`schema: 28`) and the background grant (`bggrant`, `schema: 31`) as the other plugin forms.
 ///
+/// Plugin 4.0.0 answers what the app still read from the forum's web pages as structured fields: the broadcast
+/// messages (a list in `pmlist&filter=announce`, the detail `schema` 40), the moderation windows and the small dialogs
+/// (more small forms), the rest of the moderation panel, the lists of the thread page, the credits and the user group
+/// pages, the block lists, the member's space, the tasks, the achievements and the magic items (`schema` 42 to 71).
+/// The app already asks many of those urls in the JSON mode, so the plugin answers them only with `tsdmv=4` (an answer
+/// without it is that of 3.9.0, word for word): `status` names what it answers so (`v4: 1` and its lists,
+/// [TsdmAppPluginInfo.v4], [TsdmAppV4]), and the app sends the parameter only after a `status` of the plugin's version
+/// told it ([ensureStatus], `v4.dart`). `notify` also reads the unread notices page by page (`limit`, `before`,
+/// `notify_paging: 1`): the notification fetch reads every page before it marks them read (GitHub #156).
+///
 /// The actions of a plugin older than [tsdmAppMinimumVersion] (3.5.0, the version the forum ran the longest) are not
 /// used: a `status` or `notify` answer naming such a version (or a `notify` naming none, before 1.9.0) is dropped and
 /// the API treated as missing for [unavailableFor] ([knownTooOld]), so every caller takes its web page path. Only
@@ -106,6 +117,71 @@ abstract final class TsdmAppApi {
     _tooOld = false;
     pluginInfo.value = null;
     _postFormSeen = false;
+    _statusAsking = null;
+    _statusMissedAt = null;
+  }
+
+  /// How long a `status` that told nothing ([ensureStatus]: no answer, refused as too soon) is not asked again.
+  static const statusRetryAfter = Duration(minutes: 5);
+
+  static Future<TsdmAppPluginInfo?>? _statusAsking;
+
+  static DateTime? _statusMissedAt;
+
+  /// What the forum's plugin told about itself, with what only `status` tells ([TsdmAppPluginInfo.v4]: what it
+  /// answers with `tsdmv=4`, plugin 4.0.0): [pluginInfo] when a `status` of the plugin's version told it already in
+  /// this run, else what a `status` asked of [client] now tells.
+  ///
+  /// Asked at most once at a time (callers at the same moment share it), and not again for [statusRetryAfter] after
+  /// one that told nothing (no answer, the plugin missing, an answer refused as too soon: not waited for more than a
+  /// second or two). `status` is an action of its own: it takes nothing of the interval of `notify` or of a page. A
+  /// `notify` of another version than the one known replaces [pluginInfo] without the flags, so the next call asks
+  /// again. Never throws.
+  static Future<TsdmAppPluginInfo?> ensureStatus(NetClientProvider client) async {
+    final known = pluginInfo.value;
+    if (known?.v4 != null || knownUnavailable || _tooOld) {
+      return known;
+    }
+    if (_statusMissedAt case final at? when DateTime.now().difference(at) < statusRetryAfter) {
+      return known;
+    }
+    if (_statusAsking case final asking?) {
+      return asking;
+    }
+    final asking = () async {
+      try {
+        await askWaitingBriefly(client, 'status');
+      } on Object catch (e) {
+        talker.debug('tsdmapp api status failed: $e');
+      }
+      final info = pluginInfo.value;
+      _statusMissedAt = info?.v4 == null ? DateTime.now() : null;
+      return info;
+    }();
+    _statusAsking = asking;
+    return asking.whenComplete(() {
+      if (identical(_statusAsking, asking)) {
+        _statusAsking = null;
+      }
+    });
+  }
+
+  /// Forget what the last `status` told ([TsdmAppPluginInfo.v4]) and let [ensureStatus] ask again at once: an answer
+  /// contradicted it (asked as `status` said, answered as without the flag: the forum switched it off meanwhile).
+  static void forgetStatus() {
+    _statusMissedAt = null;
+    final known = pluginInfo.value;
+    if (known?.v4 == null) {
+      return;
+    }
+    pluginInfo.value = TsdmAppPluginInfo(
+      version: known!.version,
+      api: known.api,
+      nodoc: known.nodoc,
+      preview: known.preview,
+      device: known.device,
+      admin: known.admin,
+    );
   }
 
   static bool _tooOld = false;
@@ -196,6 +272,7 @@ abstract final class TsdmAppApi {
         preview: info.preview ?? known.preview,
         device: info.device ?? known.device,
         admin: info.admin ?? known.admin,
+        v4: info.v4 ?? known.v4,
       );
     }
     if (info != known) {
@@ -424,7 +501,7 @@ abstract final class TsdmAppApi {
 /// the lean answers it asks for (`nodoc=1`), are what that plugin gives. An older plugin answers less; the app then
 /// parses those pages from the web page (or the blocks of the answer) as before. Shown on the settings page beside
 /// the version the forum's plugin last named ([TsdmAppApi.pluginInfo]).
-const expectedTsdmAppVersion = '3.9.0';
+const expectedTsdmAppVersion = '4.0.0';
 
 /// The oldest version of the forum's plugin whose actions the app uses ([TsdmAppApi.knownTooOld]): the forum ran it for
 /// a long time. It answers the post forms (2.9.0, [TsdmAppApi.knowsPostForm]) and the previews of the list rows
@@ -452,6 +529,7 @@ final class TsdmAppPluginInfo {
     this.preview,
     this.device,
     this.admin,
+    this.v4,
   });
 
   /// The info of an action answer [json], null when it names no `version` (or `plugin_version`, which comes first).
@@ -483,6 +561,9 @@ final class TsdmAppPluginInfo {
         0 => false,
         _ => null,
       },
+      // `status` of 4.0.0 names what it answers with `tsdmv=4`; a `status` without `v4` is a plugin that answers none
+      // of it (an empty [TsdmAppV4Flags]); another action tells nothing.
+      v4: json['actions'] is List ? TsdmAppV4Flags.fromStatus(json) : null,
     );
   }
 
@@ -508,6 +589,11 @@ final class TsdmAppPluginInfo {
   /// `admin: 0`, null when the answer does not tell (an older plugin's `status`, another action).
   final bool? admin;
 
+  /// What the plugin said it answers with `tsdmv=4` (plugin 4.0.0, [TsdmAppV4Flags]): the flags of the last `status`
+  /// of this version (none on for an older plugin's `status`), null when no `status` of this version told it (another
+  /// action's answer, or none asked yet: [TsdmAppApi.ensureStatus]).
+  final TsdmAppV4Flags? v4;
+
   /// Whether [version] is older than [expectedTsdmAppVersion]: some pages are then parsed from the web page.
   bool get olderThanExpected => compareTsdmAppVersions(version, expectedTsdmAppVersion) < 0;
 
@@ -523,15 +609,16 @@ final class TsdmAppPluginInfo {
       other.nodoc == nodoc &&
       other.preview == preview &&
       other.device == device &&
-      other.admin == admin;
+      other.admin == admin &&
+      other.v4 == v4;
 
   @override
-  int get hashCode => Object.hash(version, api, nodoc, preview, device, admin);
+  int get hashCode => Object.hash(version, api, nodoc, preview, device, admin, v4);
 
   @override
   String toString() =>
       'TsdmAppPluginInfo(version: $version, api: $api, nodoc: $nodoc, preview: $preview, device: $device, '
-      'admin: $admin)';
+      'admin: $admin, v4: $v4)';
 }
 
 /// Compare two dotted versions [a] and [b] (`2.3.0`, `2.10.1`) part by part as numbers, a missing part as 0, a part

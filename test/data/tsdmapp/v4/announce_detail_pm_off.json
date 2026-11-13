@@ -1,0 +1,8 @@
+{
+ "ok": 0,
+ "error": "message",
+ "message": "抱歉，私信功能尚未开启",
+ "login": 0,
+ "uid": 31,
+ "message_key": "pm_status_off"
+}

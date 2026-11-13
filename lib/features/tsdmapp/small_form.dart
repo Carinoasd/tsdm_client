@@ -48,6 +48,53 @@ enum SmallFormKind {
 
   /// Refunding the buyers of a paid thread (`forum.php?mod=topicadmin&action=refund`, plugin 3.9.0).
   refund,
+
+  // The forms of plugin 4.0.0, asked with `withTsdmAppV4Form` (`tsdmv=4`) and only when `status` lists them
+  // (`TsdmAppV4.has(TsdmAppV4Group.forms, kind.name)`).
+
+  /// The thread moderation window (`forum.php?mod=topicadmin&action=moderate|stamp|stamplist|copy|merge|split`,
+  /// plugin 4.0.0).
+  moderate,
+
+  /// Deleting floors (`forum.php?mod=topicadmin&action=delpost`, plugin 4.0.0).
+  delpost,
+
+  /// Warning floors (`forum.php?mod=topicadmin&action=warn`, plugin 4.0.0).
+  warn,
+
+  /// Banning floors (`forum.php?mod=topicadmin&action=banpost`, plugin 4.0.0).
+  banpost,
+
+  /// Deleting a comment of a floor (`forum.php?mod=topicadmin&action=delcomment`, plugin 4.0.0).
+  delcomment,
+
+  /// Taking back rates of a floor (`forum.php?mod=misc&action=removerate`, plugin 4.0.0).
+  removerate,
+
+  /// The thread types of a forum, for moving or copying a thread (`forum.php?mod=ajax&action=getthreadtypes`, plugin
+  /// 4.0.0): no form to post.
+  threadtypes,
+
+  /// Adding a friend, or approving a friend request (`home.php?mod=spacecp&ac=friend&op=add`, plugin 4.0.0).
+  friendadd,
+
+  /// Adding a favorite with a description (`home.php?mod=spacecp&ac=favorite`, plugin 4.0.0).
+  favorite,
+
+  /// Poking a member, or poking back (`home.php?mod=spacecp&ac=poke`, plugin 4.0.0).
+  poke,
+
+  /// Adding a thread to a collection (`forum.php?mod=collection&action=edit&op=addthread`, plugin 4.0.0).
+  collection,
+
+  /// Blocking a kind of notice (`home.php?mod=spacecp&ac=common&op=ignore`, plugin 4.0.0).
+  ignore,
+
+  /// Buying a magic item (the `buy_url` of the shop page, plugin 4.0.0).
+  magicbuy,
+
+  /// Using a magic item (the `use_url` of the item box page, plugin 4.0.0).
+  magicuse,
 }
 
 /// Add [tsdmAppJsonQuery] and [tsdmAppFormQuery] to [url] (and [tsdmAppNodocQuery] for a whole [page]: the user group
@@ -125,6 +172,23 @@ final class SmallFormFields extends SmallFormAnswer {
   Map<String, String> get submitFields => {
     for (final MapEntry(:key, :value) in tsdmAppMap(_submit['fields']).entries)
       if (_text(value) case final String v) key: v,
+  };
+
+  /// The fields of the form sent once per value under the same name (`submit.lists`, plugin 4.0.0: `moderate[]`,
+  /// `topiclist[]`…), as served; empty when there are none.
+  Map<String, List<String>> get submitLists => {
+    for (final MapEntry(:key, :value) in tsdmAppMap(_submit['lists']).entries)
+      if (value is List) key: [for (final v in value) ?_text(v)],
+  };
+
+  /// [submitLists] as the fields of a form whose values are one string each: `name[]` numbered `name[0]`, `name[1]`…
+  /// (PHP reads both the same), any other name with one value as it is.
+  Map<String, String> get submitListFields => {
+    for (final MapEntry(:key, :value) in submitLists.entries)
+      if (key.endsWith('[]'))
+        for (final (i, v) in value.indexed) '${key.substring(0, key.length - 2)}[$i]': v
+      else if (value.isNotEmpty)
+        key: value.first,
   };
 
   /// The url the form posts to as served (`submit.url`), relative to the forum; empty when there is none.

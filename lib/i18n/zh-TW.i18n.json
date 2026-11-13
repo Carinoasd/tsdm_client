@@ -1191,7 +1191,8 @@
     "replyInBrowser": "在瀏覽器中回覆",
     "draft": "草稿",
     "operationLog": {
-      "title": "操作記錄"
+      "title": "操作記錄",
+      "permanent": "永久"
     },
     "softCloseHint": "貼文已關閉，回覆前請注意",
     "offlineBanner": "離線內容（${time: String} 保存）",
