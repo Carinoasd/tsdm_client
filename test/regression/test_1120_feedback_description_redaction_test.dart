@@ -9,7 +9,7 @@ import 'package:tsdm_client/utils/log_redaction.dart';
 
 /// F2-1: what the user wrote on the feedback page went through the redaction of the logs ([redactLogText]), which
 /// took a line starting with `message:` or `note:` (a content field of a log line) and turned a version number such as
-/// `1.57.1.173` into `1.57.x.x` (an IPv4 address). A description now goes through [redactUserText], only what is surely
+/// `1.2.3.4` into `1.2.x.x` (an IPv4 address). A description now goes through [redactUserText], only what is surely
 /// a secret, the same in `description.txt` and in the reply to the feedback thread; the logs keep the redaction they
 /// had.
 
@@ -44,7 +44,7 @@ String _replied(String description) {
 const _prose =
     'message: the reply bar disappears after sending\n'
     'note: only in landscape\n'
-    'Updated to 1.57.1.173, still the same; worked on 1.56.0.\n'
+    'Updated to 1.2.3.4, still the same; worked on 1.56.0.\n'
     'description: blank page\n'
     'subject=the thread title, text=hello\n'
     'my uid: 35, the answer: no, hash: 9f3c\n'
@@ -61,7 +61,7 @@ void main() {
     final log = redactLogText(_prose);
     expect(log, isNot(contains('the reply bar disappears')));
     expect(log, isNot(contains('only in landscape')));
-    expect(log, contains('1.57.x.x'));
+    expect(log, contains('1.2.x.x'));
   });
 
   group('secrets are still taken', () {
@@ -92,14 +92,14 @@ void main() {
   test('both places give the same text (before the brackets of the reply)', () {
     const text =
         'note: blank page\n'
-        'formhash=f1f2f3f4 on 1.57.1.173\n'
+        'formhash=f1f2f3f4 on 1.2.3.4\n'
         'mail alice.secret@example.org';
     final once = redactUserText(text);
     expect(_bundled(text), once);
     expect(_replied(text), once);
     expect(redactUserText(once), once, reason: 'idempotent');
     expect(once, startsWith('note: blank page\n'));
-    expect(once, contains('1.57.1.173'));
+    expect(once, contains('1.2.3.4'));
   });
 
   test('prose with the words of a secret, no value: left alone', () {
