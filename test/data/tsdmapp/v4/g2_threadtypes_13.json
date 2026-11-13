@@ -1,0 +1,1 @@
+{"ok":1,"api":1,"time":1700000000,"uid":70,"formhash":"f1f2f3f4","type":"form","schema":17,"form":"threadtypes","float":0,"ajax":1,"fid":13,"required":1,"select":{"name":"threadtypeid","type":"select","value":"3","choices":[{"value":"3","label":"年度分享"},{"value":"5","label":"其他"}]},"submit":null,"hook_fields":[],"unsupported":[]}

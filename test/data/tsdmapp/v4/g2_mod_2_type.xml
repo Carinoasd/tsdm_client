@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root><![CDATA[
+<div class="tm_c" id="floatlayout_topicadmin">
+<h3 class="flb">
+<em id="return_mods">选择了 1 篇帖子</em>
+<span>
+<a href="javascript:;" class="flbc" onclick="hideWindow('mods')" title="关闭">关闭</a>
+</span>
+</h3>
+<form id="moderateform" method="post" autocomplete="off" action="forum.php?mod=topicadmin&amp;action=moderate&amp;optgroup=2&amp;modsubmit=yes&amp;infloat=yes" onsubmit="ajaxpost('moderateform', 'return_mods', 'return_mods', 'onerror');return false;">
+<input type="hidden" name="frommodcp" value="" />
+<input type="hidden" name="formhash" value="f1f2f3f4" />
+<input type="hidden" name="fid" value="2" />
+<input type="hidden" name="redirect" value="https://forum.test/./" />
+<input type="hidden" name="handlekey" value="mods" /><input type="hidden" name="moderate[]" value="9202952" />
+<div class="c">
+<div class="tplw">
+当前版块无分类设置，请联系管理员到后台设置主题分类</div>
+<div class="tpclg">
+</div>
+</div>
+</form>
+</div>
+
+<script src="data/cache/calendar.js?eSz" type="text/javascript" reload="1"></script>
+
+<script type="text/javascript" reload="1">
+function succeedhandle_mods(locationhref) {
+hideWindow('mods');
+location.href = locationhref;
+}
+var lastsel = null;
+function switchitemcp(id) {
+if(lastsel) {
+lastsel.className = '';
+}
+$(id).className = 'copt';
+lastsel = $(id);
+}
+
+if($('itemcp_type')) {
+switchitemcp('itemcp_type');
+}
+function switchhl(obj, v) {
+if(parseInt($('highlight_style_' + v).value)) {
+$('highlight_style_' + v).value = 0;
+obj.className = obj.className.replace(/ cnt/, '');
+} else {
+$('highlight_style_' + v).value = 1;
+obj.className += ' cnt';
+}
+}
+function showHighLightColor(hlid) {
+var showid = hlid + '_ctrl';
+if(!$(showid + '_menu')) {
+var str = '';
+var coloroptions = {'0' : '#000', '1' : '#EE1B2E', '2' : '#EE5023', '3' : '#996600', '4' : '#3C9D40', '5' : '#2897C5', '6' : '#2B65B7', '7' : '#8F2A90', '8' : '#EC1282'};
+var menu = document.createElement('div');
+menu.id = showid + '_menu';
+menu.className = 'cmen';
+menu.style.display = 'none';
+for(var i in coloroptions) {
+str += '<a href="javascript:;" onclick="$(\'' + hlid + '\').value=' + i + ';$(\'' + showid + '\').style.backgroundColor=\'' + coloroptions[i] + '\';hideMenu(\'' + menu.id + '\')" style="background:' + coloroptions[i] + ';color:' + coloroptions[i] + ';">' + coloroptions[i] + '</a>';
+}
+menu.innerHTML = str;
+$('append_parent').appendChild(menu);
+}
+showMenu({'ctrlid':hlid + '_ctrl','evt':'click','showid':showid});
+}
+if($('moveto')) {
+ajaxget('forum.php?mod=ajax&action=getthreadtypes&fid=' + $('moveto').value, 'threadtypes');if($('moveto').value) {$('moveext').style.display='';} else {$('moveext').style.display='none';}
+}
+</script>
+
+]]></root>

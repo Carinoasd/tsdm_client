@@ -6,6 +6,7 @@ import 'package:tsdm_client/features/moderate/models/remove_rate.dart';
 import 'package:tsdm_client/features/moderate/repository/moderate_repository.dart';
 import 'package:tsdm_client/features/tsdmapp/small_form.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
+import 'package:tsdm_client/features/tsdmapp/v4.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
 import 'package:universal_html/parsing.dart';
@@ -24,10 +25,12 @@ final class FloorOpsRepository {
     required ModerateGet getOnce,
     required ModeratePost post,
     int Function()? currentUid,
+    ModerateEnsureStatus? ensureStatus,
   }) : _get = get,
        _getOnce = getOnce,
        _post = post,
-       _currentUid = currentUid ?? currentLoginUid;
+       _currentUid = currentUid ?? currentLoginUid,
+       _ensureStatus = ensureStatus ?? moderateStatusKnown;
 
   /// Uses the app's client.
   factory FloorOpsRepository.network() => FloorOpsRepository(
@@ -44,12 +47,16 @@ final class FloorOpsRepository {
           Left(:final value) => left(value),
           Right(:final value) => right((statusCode: value.statusCode ?? 0, data: value.data)),
         },
+    ensureStatus: moderateEnsureStatus,
   );
 
   final ModerateGet _get;
   final ModerateGet _getOnce;
   final ModeratePost _post;
   final int Function() _currentUid;
+
+  /// Asks the `status` of the forum's app API when it is not known yet ([moderateEnsureStatus]).
+  final ModerateEnsureStatus _ensureStatus;
 
   /// Ask the window taking rates of floor [pid] of thread [tid] back: the app API's `page`, or the AJAX fragment
   /// without the plugin; the forum's refusal is a [RemoveRateWindowRefused] with its words.
@@ -59,7 +66,27 @@ final class FloorOpsRepository {
         if (uid <= 0) {
           return left(IdentityChangedException());
         }
-        final resp = await _get(withTsdmAppJsonWrite(RemoveRateForm.windowUrl(tid: tid, pid: pid)));
+        final url = RemoveRateForm.windowUrl(tid: tid, pid: pid);
+        switch (await moderateV4Form(
+          SmallFormKind.removerate,
+          url,
+          get: _get,
+          ensureStatus: _ensureStatus,
+          uid: uid,
+          currentUid: _currentUid,
+        )) {
+          case Left(:final value):
+            return left(value);
+          case Right(value: SmallFormMessage(:final reason)):
+            return right(RemoveRateWindowRefused(reason));
+          case Right(value: final SmallFormFields fields):
+            if (RemoveRateForm.fromApi(fields, tid: tid, pid: pid, uid: uid) case final form?) {
+              return right(RemoveRateWindowReady(form));
+            }
+          case Right(value: null):
+            break;
+        }
+        final resp = await _get(withTsdmAppJsonWrite(url));
         switch (resp) {
           case Left(:final value):
             return left(value);
@@ -119,7 +146,7 @@ final class FloorOpsRepository {
     if (!body.keys.any((e) => e.startsWith('logidarray['))) {
       return left(HttpRequestFailedException(null));
     }
-    final resp = await _post(RemoveRateForm.submitUrl, body);
+    final resp = await _post(form.postUrl, body);
     return switch (resp) {
       Left(:final value) => left(value),
       Right(:final value) when value.statusCode != HttpStatus.ok => left(HttpRequestFailedException(value.statusCode)),
@@ -144,9 +171,13 @@ final class FloorOpsRepository {
     if (uid <= 0 || formUid != uid) {
       return left(IdentityChangedException());
     }
-    final resp = await _getOnce(
-      withTsdmAppJsonWrite(deleteAttachmentUrl(tid: tid, pid: pid, aid: aid, formHash: formHash)),
-    );
+    // Plugin 4.0.0 tells the number deleted as `count` with its own `message_key` ([deleteAttachmentOutcomeOf]).
+    await _ensureStatus();
+    final url = deleteAttachmentUrl(tid: tid, pid: pid, aid: aid, formHash: formHash);
+    if (_currentUid() != uid) {
+      return left(IdentityChangedException());
+    }
+    final resp = await _getOnce(TsdmAppV4.on ? withTsdmAppV4Write(url) : withTsdmAppJsonWrite(url));
     switch (resp) {
       case Left(:final value):
         return left(value);
