@@ -14,6 +14,7 @@ import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/providers/cookie_provider/cookie_provider.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
 import 'package:tsdm_client/shared/providers/providers.dart';
+import 'package:tsdm_client/utils/log_redaction.dart';
 
 /// The isolate side of the reply typed in a notification (`direct_reply.dart`): [onNotificationActionInBackground].
 ///
@@ -98,7 +99,7 @@ Future<void> _handle(NotificationResponse response) async {
   } on Object catch (e) {
     // Set up as the last step: tried again with the next reply.
     _logSink = null;
-    debugPrint('direct reply: no log: $e');
+    debugPrint(redactSensitive('direct reply: no log: $e'));
     await _showUnsent(response, request);
     return;
   }
@@ -226,7 +227,7 @@ Future<String?> _keepForApp(DirectReplyRequest request, DirectReplyOutcome outco
     return await _keepForAppOrThrow(request, outcome);
   } on Object catch (e) {
     // The notification telling it was not sent comes first: it carries the text all the same.
-    debugPrint('direct reply: the text was not kept for the app: $e');
+    debugPrint(redactSensitive('direct reply: the text was not kept for the app: $e'));
     return null;
   }
 }
@@ -270,7 +271,7 @@ Future<void> _showUnsent(NotificationResponse response, DirectReplyRequest? requ
       await replied?.seal(t, payload: request?.payload);
     } on Object catch (e) {
       // The log of this isolate may be what failed: telling the text was not sent comes first.
-      debugPrint('direct reply: closing the notification failed: $e');
+      debugPrint(redactSensitive('direct reply: closing the notification failed: $e'));
     }
     if (request != null) {
       final outcome = DirectReplyNotSent(t.localNotification.directReply.error);
@@ -284,6 +285,6 @@ Future<void> _showUnsent(NotificationResponse response, DirectReplyRequest? requ
     }
     await replied?.remove();
   } on Object catch (e) {
-    debugPrint('direct reply: telling it was not sent failed: $e');
+    debugPrint(redactSensitive('direct reply: telling it was not sent failed: $e'));
   }
 }

@@ -16,7 +16,6 @@ import 'package:tsdm_client/shared/providers/storage_provider/models/database/da
 import 'package:tsdm_client/shared/providers/storage_provider/saved_answer_store.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 import 'package:tsdm_client/utils/app_language.dart';
-import 'package:tsdm_client/utils/log_redaction.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/redacting_talker.dart';
 
@@ -192,24 +191,6 @@ final class BackgroundLogSink {
   }
 }
 
-/// Log lines of an isolate without a page go to their own file in the log directory, exported with the app's logs.
-final class _BackgroundLogObserver implements TalkerObserver {
-  _BackgroundLogObserver(this._sink);
-
-  final BackgroundLogSink _sink;
-
-  void _write(TalkerData data) => _sink.write('${redactSensitive(data.generateTextMessage())}\n');
-
-  @override
-  void onError(TalkerError err) => _write(err);
-
-  @override
-  void onException(TalkerException err) => _write(err);
-
-  @override
-  void onLog(TalkerData log) => _write(log);
-}
-
 /// Send the log lines of this isolate to the day's log file of the background isolates (`tsdm_client_bg_<day>.log`),
 /// and return its sink for the caller to flush.
 Future<BackgroundLogSink> initBackgroundLogger() async {
@@ -222,10 +203,8 @@ Future<BackgroundLogSink> initBackgroundLogger() async {
   final sink = BackgroundLogSink(
     File('${logDir.path}${Platform.pathSeparator}tsdm_client_bg_$day.log').openWrite(mode: FileMode.append),
   );
-  talker = RedactingTalker(
-    logger: TalkerLogger(output: debugPrint),
-    settings: TalkerSettings(colors: {TalkerKey.debug: AnsiPen()..xterm(60)}),
-    observer: _BackgroundLogObserver(sink),
-  );
+  // Log lines of an isolate without a page go to their own file in the log directory, exported with the app's logs;
+  // redacted as the app's own ([RedactingLogObserver]).
+  talker = buildRedactingTalker(console: debugPrint, writeLine: sink.write);
   return sink;
 }

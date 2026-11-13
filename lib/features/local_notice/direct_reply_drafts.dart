@@ -13,6 +13,7 @@ import 'package:tsdm_client/features/local_notice/direct_reply.dart';
 import 'package:tsdm_client/features/local_notice/keys.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
+import 'package:tsdm_client/utils/log_redaction.dart';
 
 /// The text of a reply typed in a notification that was not sent, kept the moment it fails.
 ///
@@ -364,7 +365,7 @@ void _warn(String message, {bool info = false}) {
       talker.warning(message);
     }
   } on Object {
-    debugPrint(message);
+    debugPrint(redactSensitive(message));
   }
 }
 

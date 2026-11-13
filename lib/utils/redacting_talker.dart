@@ -4,7 +4,8 @@ import 'package:tsdm_client/utils/log_redaction.dart';
 /// A [Talker] that redacts secrets before a log entry exists.
 ///
 /// Every message, and the text of every handled exception, goes through [redactSensitive]; so the in-app log viewer,
-/// the log files and the exported logs only ever see the redacted form.
+/// the console, the log files and the exported logs only ever see the redacted form. A log made outside the methods
+/// taking a message ([logCustom]) is redacted as it is turned into text.
 class RedactingTalker extends Talker {
   /// Constructor, same parameters as [Talker].
   RedactingTalker({super.logger, super.observer, super.settings, super.filter, super.errorHandler, super.history});
@@ -37,6 +38,9 @@ class RedactingTalker extends Talker {
   );
 
   @override
+  void logCustom(TalkerLog log) => super.logCustom(_RedactedLog(log));
+
+  @override
   void critical(dynamic msg, [Object? exception, StackTrace? stackTrace]) =>
       super.critical(_clean(msg), exception == null ? null : _cleanException(exception), stackTrace);
 
@@ -64,6 +68,83 @@ class RedactingTalker extends Talker {
   void handle(Object exception, [StackTrace? stackTrace, dynamic msg]) =>
       super.handle(_cleanException(exception), stackTrace, _clean(msg));
 }
+
+/// A log made with [Talker.logCustom], its message and exception redacted; its text (which a subclass of [TalkerLog]
+/// may build from fields of its own) redacted as well.
+final class _RedactedLog extends TalkerLog {
+  _RedactedLog(this._inner)
+    : super(
+        _inner.message == null ? null : redactSensitive(_inner.message!),
+        key: _inner.key,
+        title: _inner.title,
+        exception: _exceptionOf(_inner),
+        error: _errorOf(_inner),
+        stackTrace: _inner.stackTrace,
+        time: _inner.time,
+        pen: _inner.pen,
+        logLevel: _inner.logLevel,
+      );
+
+  final TalkerLog _inner;
+
+  /// The error of [log] unless its text carries a secret: the log screen shows it as it is.
+  static Error? _errorOf(TalkerLog log) {
+    final error = log.error;
+    return error == null || containsSensitive('$error') ? null : error;
+  }
+
+  /// The exception of [log] redacted, or its error when that one carried a secret ([_errorOf] dropped it).
+  static Object? _exceptionOf(TalkerLog log) {
+    if (log.exception case final exception?) {
+      return RedactingTalker._cleanException(exception);
+    }
+    final error = log.error;
+    return error != null && containsSensitive('$error') ? RedactingTalker._cleanException(error) : null;
+  }
+
+  @override
+  String generateTextMessage({TimeFormat timeFormat = TimeFormat.timeAndSeconds}) {
+    _inner
+      ..title = title
+      ..pen = pen;
+    return redactSensitive(_inner.generateTextMessage(timeFormat: timeFormat));
+  }
+}
+
+/// The line written to a log file for [data]: its text, redacted once more so a file never carries a secret even if
+/// an entry was built outside the talker methods. The format of the app's log file and of the background isolates'
+/// (`tsdm_client_bg_<day>.log`).
+String formatLogLine(TalkerData data) => '${redactSensitive(data.generateTextMessage())}\n';
+
+/// Writes every log entry of a [Talker] as a line ([formatLogLine]) to [write]: the log file of the app, of a
+/// background isolate.
+final class RedactingLogObserver implements TalkerObserver {
+  /// Constructor.
+  const RedactingLogObserver(this.write);
+
+  /// Takes each line.
+  final void Function(String line) write;
+
+  @override
+  void onError(TalkerError err) => write(formatLogLine(err));
+
+  @override
+  void onException(TalkerException err) => write(formatLogLine(err));
+
+  @override
+  void onLog(TalkerData log) => write(formatLogLine(log));
+}
+
+/// The logger of the app and of its background isolates: a [RedactingTalker] whose console output goes to [console]
+/// and whose entries go as lines to [writeLine] ([RedactingLogObserver]).
+RedactingTalker buildRedactingTalker({
+  required void Function(String message) console,
+  required void Function(String line) writeLine,
+}) => RedactingTalker(
+  logger: TalkerLogger(output: console),
+  settings: TalkerSettings(colors: {TalkerKey.debug: AnsiPen()..xterm(60)}),
+  observer: RedactingLogObserver(writeLine),
+);
 
 /// Stands in for an exception whose text contained a secret.
 final class RedactedException implements Exception {
