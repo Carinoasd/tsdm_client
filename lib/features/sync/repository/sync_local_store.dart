@@ -704,13 +704,21 @@ final class StorageSyncLocalStore implements SyncLocalStore {
       FollowedThreadStore.app?.applySynced(uid, items);
 
   @override
-  Future<({List<CustomImageSyncEntry> entries, Map<String, int> removed})> customImages() async => (
-    entries: [
-      for (final e in await _storage.fetchCustomImages())
-        CustomImageSyncEntry(url: e.url, name: e.name, updated: e.addedAt.millisecondsSinceEpoch),
-    ],
-    removed: await _storage.customImagesRemoved(),
-  );
+  Future<({List<CustomImageSyncEntry> entries, Map<String, int> removed})> customImages() async {
+    final named = await _storage.customImagesNamed();
+    return (
+      entries: [
+        for (final e in await _storage.fetchCustomImages())
+          CustomImageSyncEntry(
+            url: e.url,
+            name: e.name,
+            updated: e.addedAt.millisecondsSinceEpoch,
+            named: named[e.url],
+          ),
+      ],
+      removed: await _storage.customImagesRemoved(),
+    );
+  }
 
   @override
   Future<void> applyCustomImages(Map<String, Map<String, dynamic>> items) async {
@@ -720,7 +728,7 @@ final class StorageSyncLocalStore implements SyncLocalStore {
       return;
     }
     final deleted = await _storage.applySyncedCustomImages(
-      save: [for (final e in save) (url: e.url, name: e.name, updated: e.updated)],
+      save: [for (final e in save) (url: e.url, name: e.name, updated: e.updated, named: e.named)],
       remove: remove,
     );
     // Gone from the recent ones too, as when deleted here.
@@ -1142,10 +1150,16 @@ final class MemorySyncLocalStore implements SyncLocalStore {
   }
 
   /// Save the image of [url] named [name] at [at] (milliseconds) as the app does (the time in whole seconds, a record
-  /// of its deletion dropped; no name keeps the name of an image saved before).
+  /// of its deletion dropped; no name, or the name it has, keeps the name of an image saved before and its time).
   void saveCustomImage(String url, {required int at, String? name}) {
-    final kept = name ?? customImageList[url]?.name ?? '';
-    customImageList[url] = CustomImageSyncEntry(url: url, name: kept, updated: at - at % 1000);
+    final was = customImageList[url];
+    final renamed = was == null || (name != null && name != was.name);
+    customImageList[url] = CustomImageSyncEntry(
+      url: url,
+      name: renamed ? name ?? '' : was.name,
+      updated: at - at % 1000,
+      named: renamed ? null : was.named,
+    );
     customImagesRemovedAt = syncKeyRemovalsOf(syncKeyRemovalsWith(customImagesRemovedAt, back: [url], at: at));
   }
 
@@ -1171,7 +1185,12 @@ final class MemorySyncLocalStore implements SyncLocalStore {
       writes.add('deleteCustomImage $url');
     }
     for (final e in save) {
-      customImageList[e.url] = CustomImageSyncEntry(url: e.url, name: e.name, updated: e.updated - e.updated % 1000);
+      customImageList[e.url] = CustomImageSyncEntry(
+        url: e.url,
+        name: e.name,
+        updated: e.updated - e.updated % 1000,
+        named: e.named - e.named % 1000,
+      );
       customImagesRemovedAt = syncKeyRemovalsOf(syncKeyRemovalsWith(customImagesRemovedAt, back: [e.url], at: clock()));
       writes.add('saveCustomImage ${e.url}');
     }

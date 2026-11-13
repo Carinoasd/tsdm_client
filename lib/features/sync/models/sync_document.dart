@@ -86,14 +86,19 @@ const syncFollowedThreadsMax = 200;
 /// device.
 const int syncFollowedThreadsMaxBytes = 6 * 1024;
 
-/// Most saved images ("my images") a document carries: the latest saved or renamed (the budget,
-/// [syncCustomImagesMaxBytes], comes first with usual addresses).
+/// Most saved images ("my images") a document carries: the latest saved or renamed.
 const syncCustomImagesMax = 100;
 
 /// Most bytes the saved images take in a document, the records of the deleted ones with them: an image hosted on the
-/// forum with a short Chinese name takes about 120 bytes, so the latest 50 or so go with the sync and the older ones
-/// stay on their device.
-const int syncCustomImagesMaxBytes = 6 * 1024;
+/// forum with a short Chinese name takes about 130 bytes, so the 100 of [syncCustomImagesMax] go with the sync when
+/// their addresses are usual ones (some 13 KB); of long addresses the latest fit and the older ones stay on their
+/// device.
+const int syncCustomImagesMaxBytes = 14 * 1024;
+
+/// Most bytes of the saved images in `custom_images` itself, the part a version before `custom_images_more` reads (its
+/// whole budget then): the latest within it, the others in `custom_images_more`, so such a version finds the section
+/// as it would write it and leaves the document as it is.
+const int syncCustomImagesFirstMaxBytes = 6 * 1024;
 
 /// What one account keeps on the forum for its devices (plugin 3.4.0, `sync`): a JSON object the plugin stores as it
 /// is. This version reads and writes `schema` 1:
@@ -132,8 +137,9 @@ const int syncCustomImagesMaxBytes = 6 * 1024;
 ///                 "<tid>": {"updated": ms, "deleted": true}},
 ///  "follows":    {"<tid>": {"updated": ms, "title": "…"},
 ///                 "<tid>": {"updated": ms, "deleted": true}},
-///  "custom_images": {"<url>": {"updated": ms, "name": "…"},
-///                    "<url>": {"updated": ms, "deleted": true}}}
+///  "custom_images": {"<url>": {"updated": ms, "name": "…", "named": ms},
+///                    "<url>": {"updated": ms, "deleted": true}},
+///  "custom_images_more": {"<url>": …}}
 /// ```
 ///
 /// `rate_templates` and `settings` are one item each, like `phrases`: the later `updated` wins, whole (the values of
@@ -170,7 +176,10 @@ const int syncCustomImagesMaxBytes = 6 * 1024;
 /// (`custom_image_sync.dart`) by their address, the address and the name only (never the image), item by item the
 /// later wins and a deleted one leaves the record of when, the latest [syncCustomImagesMax] within
 /// [syncCustomImagesMaxBytes]; like the reply templates they are the device's, so every account synced on it carries
-/// them. The settings of `settings` grow the same way: a setting added to it later
+/// them. The name has a time of its own (`named`, left out when it is `updated`): `updated` is when the image was
+/// saved, saved again or renamed, `named` when it was given its name, so an image saved again on one device keeps a
+/// name given later on another ([mergeCustomImage]). The latest within [syncCustomImagesFirstMaxBytes] are in
+/// `custom_images`, the others in `custom_images_more` ([customImageItems] reads them as one). The settings of `settings` grow the same way: a setting added to it later
 /// (`syncedSettingsAddedLater`) takes, on a device that synced settings before, the forum's value where the device
 /// has the default.
 ///
@@ -214,8 +223,13 @@ final class SyncDocument {
   factory SyncDocument.merge(SyncDocument local, SyncDocument remote) {
     final result = <String, dynamic>{...local.raw, ...remote.raw, 'schema': syncSchema};
     for (final section in itemSections) {
-      final mine = local.items(section);
-      final theirs = remote.items(section);
+      final images = section == 'custom_images';
+      final mine = images ? local.customImageItems() : local.items(section);
+      final theirs = images ? remote.customImageItems() : remote.items(section);
+      if (images) {
+        // One section in the merge; the caps share them out again.
+        result.remove('custom_images_more');
+      }
       if (mine.isEmpty && theirs.isEmpty) {
         continue;
       }
@@ -226,7 +240,11 @@ final class SyncDocument {
         merged[key] = switch ((a, b)) {
           (final a?, null) => a,
           (null, final b?) => b,
-          (final a?, final b?) => section == 'visits' ? mergeVisit(a, b) : (updatedOf(a) > updatedOf(b) ? a : b),
+          (final a?, final b?) => switch (section) {
+            'visits' => mergeVisit(a, b),
+            'custom_images' => mergeCustomImage(a, b),
+            _ => updatedOf(a) > updatedOf(b) ? a : b,
+          },
           _ => const {},
         };
       }
@@ -290,6 +308,24 @@ final class SyncDocument {
     return {
       for (final MapEntry(:key, :value) in section.entries)
         if (key is String && value is Map<String, dynamic>) key: value,
+    };
+  }
+
+  /// The saved images of `custom_images` and `custom_images_more` together, by address; an address in both reads as
+  /// the merge of the two ([mergeCustomImage]).
+  Map<String, Map<String, dynamic>> customImageItems() {
+    final first = items('custom_images');
+    final more = items('custom_images_more');
+    if (more.isEmpty) {
+      return first;
+    }
+    return {
+      ...more,
+      for (final MapEntry(:key, :value) in first.entries)
+        key: switch (more[key]) {
+          final other? => mergeCustomImage(value, other),
+          null => value,
+        },
     };
   }
 
@@ -380,6 +416,34 @@ final class SyncDocument {
         if (!progressFields.contains(key)) key: value,
       for (final field in progressFields)
         if (progress.containsKey(field)) field: progress[field],
+    };
+  }
+
+  /// When the name of a saved image [item] was given (milliseconds): its `named`, else (none, or a version before
+  /// it) its `updated`; never after `updated`.
+  static int namedOf(Map<String, dynamic> item) {
+    final updated = updatedOf(item);
+    return switch (item['named']) {
+      final num n when n.toInt() < updated => n.toInt(),
+      _ => updated,
+    };
+  }
+
+  /// Merge two saved image items [a] (this device's) and [b] (the forum's) of the same address: the item that is
+  /// later by `updated`, ties to [b] (a deletion wins when it is later than the image was last saved or renamed),
+  /// with the name of the one named later ([namedOf], ties to the item taken), so an image saved again does not take
+  /// back the name given since on another device.
+  static Map<String, dynamic> mergeCustomImage(Map<String, dynamic> a, Map<String, dynamic> b) {
+    final (item, other) = updatedOf(a) > updatedOf(b) ? (a, b) : (b, a);
+    if (isDeleted(item) || isDeleted(other) || namedOf(other) <= namedOf(item)) {
+      return item;
+    }
+    final named = namedOf(other);
+    return {
+      for (final MapEntry(:key, :value) in item.entries)
+        if (key != 'named') key: value,
+      'name': other['name'] is String ? other['name'] : '',
+      if (named != updatedOf(item)) 'named': named,
     };
   }
 

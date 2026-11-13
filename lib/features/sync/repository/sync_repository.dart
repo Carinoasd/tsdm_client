@@ -901,13 +901,19 @@ final class SyncRepository with LoggerMixin {
       }
     }
 
-    // The saved images: the ones saved here and the records of the ones deleted here, over the forum's.
+    // The saved images: the ones saved here and the records of the ones deleted here, over the forum's (both of its
+    // sections: [_fit] shares them out again). The time of a name is left out when it is the time of the save: not
+    // kept from the forum's item then.
     if (_on(SyncCategory.customImages)) {
       final (:entries, :removed) = await _store.customImages();
-      doc = doc.withItems(
-        customImagesSection,
-        _heldOver(base.items(customImagesSection), customImageSyncItems(entries, removed)),
-      );
+      final mine = customImageSyncItems(entries, removed);
+      final held = _heldOver(base.customImageItems(), mine);
+      for (final MapEntry(:key, value: item) in mine.entries) {
+        if (!item.containsKey('named') && (held[key]?.containsKey('named') ?? false)) {
+          held[key] = {...held[key]!}..remove('named');
+        }
+      }
+      doc = doc.withItems(customImagesSection, held).withItems(customImagesMoreSection, const {});
     }
     return _fit(doc);
   }
@@ -1002,30 +1008,14 @@ final class SyncRepository with LoggerMixin {
     // device (in the order of the devices' own caps: the later first, ties by key) and together within the budget of
     // the section: over it the oldest item goes first, one in use (it stays on its device) or the record of a removal
     // alike, as for the bookmarks.
-    Map<String, Map<String, dynamic>> listed(
-      String section, {
-      required int liveMax,
-      required int goneMax,
-      required int maxBytes,
-    }) {
-      int byTimeThenKey(MapEntry<String, Map<String, dynamic>> a, MapEntry<String, Map<String, dynamic>> b) {
-        final byTime = SyncDocument.updatedOf(b.value).compareTo(SyncDocument.updatedOf(a.value));
-        return byTime != 0 ? byTime : a.key.compareTo(b.key);
-      }
-
-      final kept = withoutOldDeletions(section).entries;
-      final live = (kept.where((e) => !SyncDocument.isDeleted(e.value)).toList()..sort(byTimeThenKey))
-          .take(liveMax)
-          .toList();
-      final gone = (kept.where((e) => SyncDocument.isDeleted(e.value)).toList()..sort(byTimeThenKey))
-          .take(goneMax)
-          .toList();
-      Map<String, Map<String, dynamic>> items() => {
-        for (final e in live) e.key: e.value,
-        for (final e in gone) e.key: e.value,
-      };
+    Map<String, Map<String, dynamic>> itemsOf(List<_Item> live, List<_Item> gone) => {
+      for (final e in live) e.key: e.value,
+      for (final e in gone) e.key: e.value,
+    };
+    // [live] and [gone] (the latest first) within [maxBytes], a quarter of the document at most.
+    void shrink(List<_Item> live, List<_Item> gone, int maxBytes) {
       final budget = math.min(maxBytes, _documentMaxBytes ~/ 4);
-      while ((live.isNotEmpty || gone.isNotEmpty) && _bytesOf(items()) > budget) {
+      while ((live.isNotEmpty || gone.isNotEmpty) && _bytesOf(itemsOf(live, gone)) > budget) {
         if (gone.isEmpty ||
             (live.isNotEmpty && SyncDocument.updatedOf(live.last.value) <= SyncDocument.updatedOf(gone.last.value))) {
           live.removeLast();
@@ -1033,8 +1023,61 @@ final class SyncRepository with LoggerMixin {
           gone.removeLast();
         }
       }
-      return items();
     }
+
+    ({List<_Item> live, List<_Item> gone}) capped(
+      Iterable<_Item> kept, {
+      required int liveMax,
+      required int goneMax,
+      required int maxBytes,
+    }) {
+      int byTimeThenKey(_Item a, _Item b) {
+        final byTime = SyncDocument.updatedOf(b.value).compareTo(SyncDocument.updatedOf(a.value));
+        return byTime != 0 ? byTime : a.key.compareTo(b.key);
+      }
+
+      final live = (kept.where((e) => !SyncDocument.isDeleted(e.value)).toList()..sort(byTimeThenKey))
+          .take(liveMax)
+          .toList();
+      final gone = (kept.where((e) => SyncDocument.isDeleted(e.value)).toList()..sort(byTimeThenKey))
+          .take(goneMax)
+          .toList();
+      shrink(live, gone, maxBytes);
+      return (live: live, gone: gone);
+    }
+
+    Map<String, Map<String, dynamic>> listed(
+      String section, {
+      required int liveMax,
+      required int goneMax,
+      required int maxBytes,
+    }) {
+      final (:live, :gone) = capped(
+        withoutOldDeletions(section).entries,
+        liveMax: liveMax,
+        goneMax: goneMax,
+        maxBytes: maxBytes,
+      );
+      return itemsOf(live, gone);
+    }
+
+    // The saved images of both sections within their budget; the latest within the budget of the first section (as a
+    // version that reads only that one fits it: the same order, the same drops) go in it, the others in the second.
+    final images = capped(
+      [
+        for (final e in doc.customImageItems().entries)
+          if (!SyncDocument.isDeleted(e.value) || SyncDocument.updatedOf(e.value) >= keepSince) e,
+      ],
+      liveMax: syncCustomImagesMax,
+      goneMax: syncRemovalsMax,
+      maxBytes: syncCustomImagesMaxBytes,
+    );
+    final firstImages = (live: [...images.live], gone: [...images.gone]);
+    shrink(firstImages.live, firstImages.gone, syncCustomImagesFirstMaxBytes);
+    final moreImages = (
+      live: images.live.sublist(firstImages.live.length),
+      gone: images.gone.sublist(firstImages.gone.length),
+    );
 
     var fitted = doc
         .withItems('visits', {for (final e in live) e.key: e.value, for (final e in gone) e.key: e.value})
@@ -1088,18 +1131,23 @@ final class SyncRepository with LoggerMixin {
             maxBytes: syncFollowedThreadsMaxBytes,
           ),
         )
-        .withItems(
-          customImagesSection,
-          listed(
-            customImagesSection,
-            liveMax: syncCustomImagesMax,
-            goneMax: syncRemovalsMax,
-            maxBytes: syncCustomImagesMaxBytes,
-          ),
-        );
-    // Size: the oldest visits go first, then the oldest deletion records, then the drafts, then the bookmarks.
+        .withItems(customImagesSection, itemsOf(firstImages.live, firstImages.gone))
+        .withItems(customImagesMoreSection, itemsOf(moreImages.live, moreImages.gone));
+    // Size: the saved images past the first section go first (they take only the room the others leave), then the
+    // oldest visits, then the oldest deletion records, then the drafts, then the bookmarks.
     while (fitted.encodedLength > _documentMaxBytes) {
-      if (live.isNotEmpty) {
+      if (moreImages.live.isNotEmpty || moreImages.gone.isNotEmpty) {
+        final (live: imageLive, gone: imageGone) = moreImages;
+        if (imageGone.isEmpty ||
+            (imageLive.isNotEmpty &&
+                SyncDocument.updatedOf(imageLive.last.value) <= SyncDocument.updatedOf(imageGone.last.value))) {
+          imageLive.removeLast();
+        } else {
+          imageGone.removeLast();
+        }
+        fitted = fitted.withItems(customImagesMoreSection, itemsOf(imageLive, imageGone));
+        continue;
+      } else if (live.isNotEmpty) {
         live.removeLast();
       } else if (gone.isNotEmpty) {
         gone.removeLast();
@@ -1340,7 +1388,7 @@ final class SyncRepository with LoggerMixin {
     // The saved images address by address, each where the merge is later than this device's; an image not in the
     // document stays.
     if (_on(SyncCategory.customImages)) {
-      final items = merged.items(customImagesSection);
+      final items = merged.customImageItems();
       if (items.isNotEmpty) {
         await _store.applyCustomImages(items);
       }
@@ -1359,3 +1407,5 @@ final class SyncRepository with LoggerMixin {
     }
   }
 }
+
+typedef _Item = MapEntry<String, Map<String, dynamic>>;

@@ -281,7 +281,7 @@ void main() {
         tick();
       }
       await a.sync();
-      final sent = forum.items(customImagesSection);
+      final sent = SyncDocument.parse(forum.data).customImageItems();
       expect(utf8.encode(jsonEncode(sent)).length, lessThanOrEqualTo(syncCustomImagesMaxBytes));
       expect(sent.length, lessThan(120));
       expect(sent.keys, contains(_url(120)), reason: 'the latest go');

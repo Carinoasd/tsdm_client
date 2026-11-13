@@ -254,6 +254,11 @@ class StorageProvider with LoggerMixin {
   /// removed.
   static const customImagesRemovedKey = 'customImagesRemoved';
 
+  /// Settings name of when the saved images ("my images") were given their names, for the cross-device sync: a JSON
+  /// object, image address to the time (milliseconds), for the images saved again since (otherwise the time of the
+  /// last save, `addedAt`, is the time of the name).
+  static const customImagesNamedKey = 'customImagesNamed';
+
   /// Settings name of the time the followed threads of account [uid] were last checked (`FollowedThreadCheckSlot`), in
   /// milliseconds since epoch.
   static String followedThreadsCheckedAtKey(int uid) => 'followedThreadsCheckedAt.$uid';
@@ -1223,9 +1228,23 @@ class StorageProvider with LoggerMixin {
   }
 
   /// Save an image sticker [url] with an optional [name] (#5; none keeps the name of one saved before); returns the
-  /// row id. A record of the image deleted before is dropped.
+  /// row id. A record of the image deleted before is dropped. Saved again with the name it has, or none, the image
+  /// keeps the time of its name ([customImagesNamed]).
   Future<int> addCustomImage({required String url, String? name}) => _db.transaction(() async {
-    final id = await CustomImageDao(_db).add(url: url, name: name);
+    final dao = CustomImageDao(_db);
+    final existing = await dao.selectByUrl(url);
+    final named = await customImagesNamed();
+    final keptNamed = existing != null && (name == null || name == existing.name)
+        ? named[url] ?? existing.addedAt.millisecondsSinceEpoch
+        : null;
+    final id = await dao.add(url: url, name: name);
+    if (named[url] != keptNamed) {
+      await _saveCustomImagesNamed({
+        for (final MapEntry(:key, :value) in named.entries)
+          if (key != url) key: value,
+        url: ?keptNamed,
+      });
+    }
     final removed = await customImagesRemoved();
     if (removed.containsKey(url)) {
       await _saveCustomImagesRemoved(
@@ -1247,30 +1266,69 @@ class StorageProvider with LoggerMixin {
     final image = await dao.selectById(id);
     if (image != null && await dao.deleteById(id) > 0) {
       await _noteCustomImagesRemoved({image.url: DateTime.now().millisecondsSinceEpoch});
+      final named = await customImagesNamed();
+      if (named.remove(image.url) != null) {
+        await _saveCustomImagesNamed(named);
+      }
     }
   });
+
+  /// When the saved images saved again since they were named were given their names: address to the time
+  /// (milliseconds). An image not in it was named when it was last saved (`addedAt`).
+  Future<Map<String, int>> customImagesNamed() async {
+    final raw = await getString(customImagesNamedKey);
+    if (raw == null) {
+      return {};
+    }
+    try {
+      final json = jsonDecode(raw);
+      if (json is Map<String, dynamic>) {
+        return {
+          for (final MapEntry(:key, :value) in json.entries)
+            if (value is num) key: value.toInt(),
+        };
+      }
+    } on FormatException {
+      // Damaged: the times of the saves stand for the names.
+    }
+    return {};
+  }
+
+  Future<void> _saveCustomImagesNamed(Map<String, int> named) async =>
+      named.isEmpty ? deleteKey(customImagesNamedKey) : saveString(customImagesNamedKey, jsonEncode(named));
 
   /// The records of the image stickers deleted on this device: address to the time (milliseconds).
   Future<Map<String, int>> customImagesRemoved() async => syncKeyRemovalsOf(await getString(customImagesRemovedKey));
 
-  /// Take the image stickers of another device in (the cross-device sync): [save] each address with its name and the
-  /// time of its last change (milliseconds), in their order, and delete the addresses of [remove], each noted at its
-  /// time. Returns the addresses deleted.
+  /// Take the image stickers of another device in (the cross-device sync): [save] each address with its name, the
+  /// time of its last change and the time of its name (milliseconds), in their order, and delete the addresses of
+  /// [remove], each noted at its time. Returns the addresses deleted.
   Future<List<String>> applySyncedCustomImages({
-    required List<({String url, String name, int updated})> save,
+    required List<({String url, String name, int updated, int named})> save,
     required Map<String, int> remove,
   }) => _db.transaction(() async {
     final dao = CustomImageDao(_db);
     final deleted = <String>[];
     final noted = <String, int>{};
+    final named = await customImagesNamed();
+    final namedBefore = Map<String, int>.of(named);
     for (final MapEntry(key: url, value: at) in remove.entries) {
       if (await dao.deleteByUrl(url) > 0) {
         deleted.add(url);
         noted[url] = at;
       }
+      named.remove(url);
     }
     for (final e in save) {
       await dao.saveSynced(url: e.url, name: e.name, updated: DateTime.fromMillisecondsSinceEpoch(e.updated));
+      if (e.named < e.updated) {
+        named[e.url] = e.named;
+      } else {
+        named.remove(e.url);
+      }
+    }
+    if (!const MapEquality<String, int>().equals(named, namedBefore)) {
+      await _saveCustomImagesNamed(named);
     }
     final removed = await customImagesRemoved();
     final back = [
