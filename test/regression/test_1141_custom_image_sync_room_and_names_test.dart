@@ -312,6 +312,29 @@ void main() {
       expect([...a.store.writes, ...b.store.writes], isEmpty);
     });
 
+    test('the same time of a name on both (kept by a version before): the later save brings its name, '
+        'taken in once', () async {
+      a.save(1, name: 'X');
+      tick();
+      a.save(1);
+      expect(a.store.customImageList[_url(1)]!.named, _t);
+      // Renamed on a version before: the item replaced over the forum's, its `named` kept as it was.
+      forum.write({
+        'schema': 1,
+        customImagesSection: {
+          _url(1): {'updated': _t + 5000, 'name': 'Y', 'named': _t},
+        },
+      });
+      tick();
+      await a.sync();
+      expect(a.nameOf(1), 'Y');
+      a.store.writes.clear();
+      final pushes = a.api.pushes;
+      expect(await a.sync(), SyncOutcome.upToDate);
+      expect(a.store.writes, isEmpty);
+      expect(a.api.pushes, pushes);
+    });
+
     test('renamed on both: the later name wins, whichever device saved later', () async {
       a.save(1, name: '一');
       await a.sync();

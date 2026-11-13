@@ -99,8 +99,8 @@ Map<String, Map<String, dynamic>> customImageSyncItems(List<CustomImageSyncEntry
 }
 
 /// What taking the [items] of [customImagesSection] in changes on a device holding [entries] and the records
-/// [removed]: the images to save (new, saved again later, or named later elsewhere: the later of each time, the name
-/// with its own), the earliest first, and the addresses to delete, each with its time. An item changes the device only
+/// [removed]: the images to save (new, or changed as the document merges an item with the device's,
+/// `SyncDocument.mergeCustomImage`: saved again later, named later elsewhere), the earliest first, and the addresses to delete, each with its time. An item changes the device only
 /// when it is later than what the device has (the stored time is in whole seconds: an item within the same second is
 /// the same); a removal of an image the device does not hold changes nothing.
 ({List<CustomImageSyncEntry> save, Map<String, int> remove}) customImageSyncChanges(
@@ -136,19 +136,18 @@ Map<String, Map<String, dynamic>> customImageSyncItems(List<CustomImageSyncEntry
       }
       continue;
     }
-    final laterSave = updated > mine.updated;
-    final laterName = named > mine.named;
-    if (!laterSave && !laterName) {
-      continue;
-    }
-    save.add(
-      CustomImageSyncEntry(
-        url: key,
-        name: laterName ? entry.name : mine.name,
-        updated: laterSave ? updated : mine.updated,
-        named: laterName ? named : mine.named,
-      ),
+    // As the document merges them (SyncDocument.mergeCustomImage), in whole seconds.
+    final target = CustomImageSyncEntry.fromItem(
+      key,
+      SyncDocument.mergeCustomImage(mine.toItem(), {
+        'updated': updated,
+        'name': entry.name,
+        'named': named,
+      }),
     );
+    if (target != null && target != mine) {
+      save.add(target);
+    }
   }
   save.sort((a, b) => a.updated != b.updated ? a.updated.compareTo(b.updated) : a.url.compareTo(b.url));
   return (save: save, remove: remove);
