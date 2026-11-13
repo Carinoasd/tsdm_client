@@ -4537,5 +4537,16 @@
     "errorClearStart": "No cleanup of this member is open: submit the ban again with posts checked",
     "errorClearStuck": "The cleanup made no progress and stopped",
     "creditOverflow": "Out of the range credits can hold: ${list}"
+  },
+  "whatsNew": {
+    "updated": "Updated to $version",
+    "open": "View",
+    "sections": {
+      "added": "Added",
+      "changed": "Changed",
+      "fixed": "Fixed",
+      "removed": "Removed",
+      "knownIssues": "Known issues"
+    }
   }
 }

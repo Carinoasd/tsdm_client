@@ -488,6 +488,9 @@ class ScreenPaths {
   static const String update = '/update';
 
   /// Page to show the changelog bundled with app.
+  ///
+  /// * `since`: optional, the version seen before an update.
+  /// * `new`: optional, `1` marks the releases after `since` up to the running version.
   static const String localChangelog = '/localChangelog';
 
   /// Page to open any supported forum resources in app.

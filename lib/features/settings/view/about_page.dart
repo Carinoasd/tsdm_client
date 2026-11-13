@@ -144,6 +144,13 @@ class AboutPage extends StatelessWidget {
                     subtitle: const Text(appFullVersion),
                   ),
                   SectionListTile(
+                    key: const ValueKey('about-changelog'),
+                    leading: const Icon(Icons.history_outlined),
+                    title: Text(context.t.settingsPage.othersSection.changelog),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () async => context.pushNamed(ScreenPaths.localChangelog),
+                  ),
+                  SectionListTile(
                     leading: const FlutterLogo(),
                     title: Text(tr.flutterVersion),
                     subtitle: const Text('$flutterVersion ($flutterChannel) - $flutterFrameworkRevision'),
