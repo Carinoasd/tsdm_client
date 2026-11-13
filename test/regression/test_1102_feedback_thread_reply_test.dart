@@ -62,7 +62,7 @@ void main() {
       'tsdm_client 1.57.0+172.abc · ios Version 17.0 (Build 21A329)',
     );
     // Android: the display id of the build names the device model, left out.
-    for (final displayId in ['TP1A.220624.014.S908EXXU2CWA2', 'ANA-AN00 2.0.0.168(C00E160R5P3)']) {
+    for (final displayId in ['TP1A.220624.014.S908EXXU2CWA2', 'ANA-AN00 2.0.0(C00E160R5P3)']) {
       expect(
         feedbackEnvironmentLine(appVersion: '1.57.0', platform: 'android', osVersion: displayId),
         'tsdm_client 1.57.0 · android',
