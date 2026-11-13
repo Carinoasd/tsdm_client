@@ -2267,7 +2267,14 @@
     "newAnnouncement": "添加公告",
     "editAnnouncement": "编辑公告",
     "required": "必填",
-    "invalidUid": "UID 须为数字"
+    "invalidUid": "UID 须为数字",
+    "validUntil": "有效期至 $date",
+    "memberNotFound": "该用户不存在或被冻结，请重新输入",
+    "memberIsStaff": "管理面板无权操作该用户",
+    "ipBanFormat": "请输入标准 IP 地址",
+    "ipBanCidr": "只有管理员可以禁止 IP 段",
+    "ipBanExists": "该 IP 已在禁止范围内，或包含您目前的 IP",
+    "rulesLocked": "抱歉，您所在的用户组不允许修改版规！"
   },
   "modcpPages": {
     "notes": "版主留言",

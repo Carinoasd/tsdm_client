@@ -6,10 +6,12 @@ import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/features/moderate/models/member_ban.dart';
 import 'package:tsdm_client/features/moderate/models/modcp_members.dart';
 import 'package:tsdm_client/features/moderate/models/modcp_panel.dart';
+import 'package:tsdm_client/features/moderate/models/modcp_v4.dart';
 import 'package:tsdm_client/features/moderate/models/moderate_posts.dart';
 import 'package:tsdm_client/features/moderate/repository/moderate_repository.dart';
 import 'package:tsdm_client/features/tsdmapp/small_form.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
+import 'package:tsdm_client/features/tsdmapp/v4.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
 import 'package:tsdm_client/utils/logger.dart';
@@ -24,10 +26,15 @@ import 'package:universal_html/parsing.dart';
 /// everything: the forums offered, deleting for good, the refusals in its own words.
 final class ModcpRepository with LoggerMixin {
   /// Constructor; transports are injected so the flow is tested without the forum.
-  ModcpRepository({required ModerateGet get, required ModeratePost post, int Function()? currentUid})
-    : _get = get,
-      _post = post,
-      _currentUid = currentUid ?? currentLoginUid;
+  ModcpRepository({
+    required ModerateGet get,
+    required ModeratePost post,
+    int Function()? currentUid,
+    ModerateEnsureStatus? ensureStatus,
+  }) : _get = get,
+       _post = post,
+       _currentUid = currentUid ?? currentLoginUid,
+       _ensureStatus = ensureStatus ?? moderateStatusKnown;
 
   /// Uses the app's client.
   factory ModcpRepository.network() => ModcpRepository(
@@ -40,11 +47,40 @@ final class ModcpRepository with LoggerMixin {
           Left(:final value) => left(value),
           Right(:final value) => right((statusCode: value.statusCode ?? 0, data: value.data)),
         },
+    ensureStatus: moderateEnsureStatus,
   );
 
   final ModerateGet _get;
   final ModeratePost _post;
   final int Function() _currentUid;
+
+  /// Asks the `status` of the forum's app API when it is not known yet ([moderateEnsureStatus]).
+  final ModerateEnsureStatus _ensureStatus;
+
+  /// Read [page] of plugin 4.0.0 at [url] for the account logged in, when the last `status` lists it
+  /// ([modcpV4Page]); null when the web page is read instead.
+  Future<Either<AppException, ModcpAnswer<T>?>> _v4<T>(
+    ModcpV4Page page,
+    String url,
+    T? Function(Map<String, dynamic> json, int uid) read,
+  ) => modcpV4Page(page, url, read, get: _get, ensureStatus: _ensureStatus, currentUid: _currentUid);
+
+  /// [_v4], or the web page read by [read] when it is not answered.
+  Future<Either<AppException, ModcpAnswer<T>>> _pageOrV4<T>(
+    ModcpV4Page page,
+    String url,
+    T? Function(Map<String, dynamic> json, int uid) fromApi,
+    T? Function(uh.Document doc, int uid) read,
+  ) async {
+    switch (await _v4(page, url, fromApi)) {
+      case Left(:final value):
+        return left(value);
+      case Right(:final value?):
+        return right(value);
+      case Right(value: null):
+        return _page(url, read);
+    }
+  }
 
   /// The panel's login, as the moderation queue sends it.
   late final ModerateRepository _moderate = ModerateRepository(get: _get, post: _post, currentUid: _currentUid);
@@ -110,7 +146,12 @@ final class ModcpRepository with LoggerMixin {
 
   /// The forums the moderation queue offers (its forum select), to choose the one whose queue is shown.
   AsyncEither<ModcpAnswer<List<ModcpForum>>> fetchQueueForums() => AsyncEither(
-    () => _page(ModerateQueueList.url(ModerateQueueKind.threads, fid: 0), queueForumsOf),
+    () => _pageOrV4(
+      ModcpV4Page.moderate,
+      ModerateQueueList.url(ModerateQueueKind.threads, fid: 0),
+      (json, _) => json['op'] == ModerateQueueKind.threads.name ? modcpForumsFromApi(json) : null,
+      queueForumsOf,
+    ),
   );
 
   /// The forums of the queue's page [doc]; null when it is not the queue.
@@ -125,8 +166,10 @@ final class ModcpRepository with LoggerMixin {
   /// Read page [page] of bin [kind] of forum [fid] (none for 0: the forums offered only).
   AsyncEither<ModcpAnswer<RecycleBinList>> fetchRecycleBin(RecycleBinKind kind, {int fid = 0, int page = 1}) =>
       AsyncEither(
-        () => _page(
+        () => _pageOrV4(
+          ModcpV4Page.bin(kind),
           RecycleBinList.url(kind, fid: fid, page: page),
+          (json, uid) => recycleBinFromApi(json, kind, fid: fid, uid: uid, page: page),
           (doc, uid) => parseRecycleBin(doc, kind, fid: fid, uid: uid, page: page),
         ),
       );
@@ -138,11 +181,21 @@ final class ModcpRepository with LoggerMixin {
     required int fid,
     required int uid,
     int page = 1,
-  }) => answerOf(
-    data,
-    uid: uid,
-    read: (doc, uid) => parseRecycleBin(doc, kind, fid: fid, uid: uid, page: page),
-  );
+  }) {
+    // The bin of plugin 4.0.0 drawn again after an operation (or read), the web page otherwise.
+    final bin = ModcpV4Page.bin(kind);
+    if (tsdmAppV4AnswerOf(data, type: bin.type, schema: bin.schema) case final answer?) {
+      if (modcpV4AnswerOf(answer, uid, (json, uid) => recycleBinFromApi(json, kind, fid: fid, uid: uid, page: page))
+          case final read?) {
+        return read;
+      }
+    }
+    return answerOf(
+      data,
+      uid: uid,
+      read: (doc, uid) => parseRecycleBin(doc, kind, fid: fid, uid: uid, page: page),
+    );
+  }
 
   /// Do [action] on the items [ids] of bin [list], once; never when the account changed since the list was served
   /// ([IdentityChangedException]).
@@ -160,7 +213,7 @@ final class ModcpRepository with LoggerMixin {
     if (uid <= 0 || list.uid != uid || list.fid <= 0) {
       return left(IdentityChangedException());
     }
-    final resp = await _post(list.submitUrl, list.body(action, ids));
+    final resp = await _post(list.v4 ? withTsdmAppV4Write(list.submitUrl) : list.submitUrl, list.body(action, ids));
     final Object? data;
     switch (resp) {
       case Left(:final value):
@@ -307,8 +360,10 @@ final class ModcpRepository with LoggerMixin {
 
   /// Look member [query] up on the panel's 禁止用户 page, or its 编辑用户 page when [edit].
   AsyncEither<ModcpAnswer<ModcpMemberLookup>> lookupMember(ModcpMemberQuery query, {bool edit = false}) => AsyncEither(
-    () => _page(
+    () => _pageOrV4(
+      ModcpV4Page.member,
       query.url(edit ? 'edit' : 'ban'),
+      (json, uid) => memberLookupFromApi(json, uid: uid, edit: edit),
       (doc, uid) => edit ? parseMemberEditPage(doc, uid: uid) : parseMemberBanPage(doc, uid: uid),
     ),
   );
@@ -334,6 +389,15 @@ final class ModcpRepository with LoggerMixin {
     int? days,
     String reason = '',
   }) => AsyncEither(() async {
+    if (member.form.v4) {
+      return _sendV4(
+        member.form.uid,
+        MemberBanForm.submitUrl,
+        member.body(choice, days: days, reason: reason),
+        page: ModcpV4Page.member,
+        written: _keyOutcome('modcp_member_ban_succeed'),
+      );
+    }
     final sent = await _send(
       member.form.uid,
       withTsdmAppJsonWrite(MemberBanForm.submitUrl),
@@ -350,6 +414,15 @@ final class ModcpRepository with LoggerMixin {
     required String signature,
     bool clearAvatar = false,
   }) => AsyncEither(() async {
+    if (form.v4) {
+      return _sendV4(
+        form.uid,
+        MemberEditForm.submitUrl,
+        form.body(bio: bio, signature: signature, clearAvatar: clearAvatar),
+        page: ModcpV4Page.member,
+        written: _keyOutcome('members_edit_succeed'),
+      );
+    }
     final sent = await _send(
       form.uid,
       withTsdmAppJsonWrite(MemberEditForm.submitUrl),
@@ -359,12 +432,45 @@ final class ModcpRepository with LoggerMixin {
   });
 
   /// The panel's 禁止 IP page.
-  AsyncEither<ModcpAnswer<IpBanList>> fetchIpBans() =>
-      AsyncEither(() => _page(IpBanList.url, (doc, uid) => parseIpBanList(doc, uid: uid)));
+  AsyncEither<ModcpAnswer<IpBanList>> fetchIpBans() => AsyncEither(
+    () => _pageOrV4(
+      ModcpV4Page.ipban,
+      IpBanList.url,
+      (json, uid) => ipBanListFromApi(json, uid: uid),
+      (doc, uid) => parseIpBanList(doc, uid: uid),
+    ),
+  );
 
   /// Ban [ip] for [days], once. The panel draws its page again and prints a line only when adding failed: done when
   /// the list holds a new ban of it.
+  ///
+  /// The page of plugin 4.0.0 drawn again tells it itself (spec 4.3): done when `result.added`, refused by
+  /// `result.error_key` (a malformed IP, a range for an administrator only, banned already) whatever `ok` says.
   AsyncEither<ModcpWriteOutcome> addIpBan(IpBanList list, String ip, int days) => AsyncEither(() async {
+    if (list.v4) {
+      return _sendV4(
+        list.uid,
+        IpBanList.url,
+        list.addBody(ip, days),
+        page: ModcpV4Page.ipban,
+        drawn: (json) {
+          final result = tsdmAppMap(json['result']);
+          final error = tsdmAppText(result['error_key']);
+          if (error.isNotEmpty) {
+            return ModcpWriteRefused(ipBanErrorText(error));
+          }
+          final known = {for (final e in list.entries) e.id};
+          final now = ipBanListFromApi(json, uid: list.uid);
+          if (tsdmAppInt(result['added']) == 1 ||
+              (now?.entries.any((e) => !known.contains(e.id) && e.ip.toLowerCase() == ip.trim().toLowerCase()) ??
+                  false)) {
+            return const ModcpWriteDone();
+          }
+          // No word of the result: whether it was added is not known.
+          return const ModcpWriteUnknown();
+        },
+      );
+    }
     final sent = await _send(list.uid, IpBanList.url, list.addBody(ip, days));
     return sent.map(
       (written) => switch (written) {
@@ -387,6 +493,18 @@ final class ModcpRepository with LoggerMixin {
   /// Delete the IP bans [ids] of [list], once. The panel draws its list again without a word: what it still lists was
   /// not done.
   AsyncEither<ModcpWriteOutcome> deleteIpBans(IpBanList list, List<String> ids) => AsyncEither(() async {
+    if (list.v4) {
+      return _sendV4(
+        list.uid,
+        IpBanList.url,
+        list.deleteBody(ids),
+        page: ModcpV4Page.ipban,
+        drawn: (json) => switch (ipBanListFromApi(json, uid: list.uid)) {
+          null => const ModcpWriteUnknown(),
+          final now => _remaining(ids, now.entries.map((e) => e.id)),
+        },
+      );
+    }
     final sent = await _send(list.uid, IpBanList.url, list.deleteBody(ids));
     return sent.map(
       (written) => switch (written) {
@@ -401,7 +519,12 @@ final class ModcpRepository with LoggerMixin {
 
   /// Read page [page] of the new members waiting for approval.
   AsyncEither<ModcpAnswer<MemberReviewList>> fetchMemberReview({int page = 1}) => AsyncEither(
-    () => _page(MemberReviewList.url(page: page), (doc, uid) => parseMemberReview(doc, uid: uid, page: page)),
+    () => _pageOrV4(
+      ModcpV4Page.moderate,
+      MemberReviewList.url(page: page),
+      (json, uid) => memberReviewFromApi(json, uid: uid, page: page),
+      (doc, uid) => parseMemberReview(doc, uid: uid, page: page),
+    ),
   );
 
   /// Do [action] on the new members [ids] of [list] with [reason], once.
@@ -416,23 +539,40 @@ final class ModcpRepository with LoggerMixin {
     String reason = '',
     int lastPage = 1,
   }) => AsyncEither(() async {
-    final sent = await _send(
-      list.uid,
-      withTsdmAppJsonWrite(MemberReviewList.submitUrl),
-      list.body(action, ids, reason: reason),
-    );
-    final _Written written;
-    switch (sent) {
-      case Left(:final value):
-        return left(value);
-      case Right(:final value):
-        written = value;
-    }
-    switch (written) {
-      case _WrittenMessage(ok: true):
-        break;
-      case final other:
-        return right(_messageOutcome(other));
+    if (list.v4) {
+      // Plugin 4.0.0: the forum's verdict by its key (`modcp_mod_succeed`); the list read again tells which.
+      final told = await _sendV4(
+        list.uid,
+        MemberReviewList.submitUrl,
+        list.body(action, ids, reason: reason),
+        page: ModcpV4Page.moderate,
+        written: _keyOutcome('modcp_mod_succeed'),
+      );
+      switch (told) {
+        case Right(value: ModcpWriteDone()):
+          break;
+        case final other:
+          return other;
+      }
+    } else {
+      final sent = await _send(
+        list.uid,
+        withTsdmAppJsonWrite(MemberReviewList.submitUrl),
+        list.body(action, ids, reason: reason),
+      );
+      final _Written written;
+      switch (sent) {
+        case Left(:final value):
+          return left(value);
+        case Right(:final value):
+          written = value;
+      }
+      switch (written) {
+        case _WrittenMessage(ok: true):
+          break;
+        case final other:
+          return right(_messageOutcome(other));
+      }
     }
     final waiting = <String>{};
     var more = true;
@@ -458,7 +598,12 @@ final class ModcpRepository with LoggerMixin {
 
   /// The rules of forum [fid] (0: the forum the panel chooses).
   AsyncEither<ModcpAnswer<ForumRules>> fetchForumRules({int fid = 0}) => AsyncEither(
-    () => _page(ForumRules.url(fid: fid), (doc, uid) => parseForumRules(doc, uid: uid)),
+    () => _pageOrV4(
+      ModcpV4Page.editforum,
+      ForumRules.url(fid: fid),
+      (json, uid) => forumRulesFromApi(json, uid: uid),
+      (doc, uid) => parseForumRules(doc, uid: uid),
+    ),
   );
 
   /// Save [text] as the rules of [rules]' forum, once.
@@ -466,7 +611,25 @@ final class ModcpRepository with LoggerMixin {
   /// The panel prints 版规更新成功 even when it kept the rules (a group not allowed to change them, its editor then
   /// locked): done when the editor it draws again for the forum is open and holds what was sent, or says so (the
   /// forum turns some BBCode around: tabs to spaces, `[s]`, lists).
+  ///
+  /// The page of plugin 4.0.0 drawn again tells it itself (spec 4.5): done when `updated` (or the rules it holds are
+  /// what was sent), refused when the rules can not be changed.
   AsyncEither<ModcpWriteOutcome> saveForumRules(ForumRules rules, String text) => AsyncEither(() async {
+    if (rules.v4) {
+      return _sendV4(
+        rules.uid,
+        ForumRules.submitUrl,
+        rules.body(text),
+        page: ModcpV4Page.editforum,
+        drawn: (json) => switch (forumRulesFromApi(json, uid: rules.uid)) {
+          final now? when now.fid == rules.fid && tsdmAppInt(json['updated']) == 1 => const ModcpWriteDone(),
+          final now? when now.fid == rules.fid && !now.editable => ModcpWriteRefused(now.note),
+          final now? when now.fid == rules.fid && modcpNormalized(now.rules) == modcpNormalized(text) =>
+            const ModcpWriteDone(),
+          _ => const ModcpWriteUnknown(),
+        },
+      );
+    }
     final sent = await _send(rules.uid, ForumRules.submitUrl, rules.body(text));
     return sent.map(
       (written) => switch (written) {
@@ -484,12 +647,23 @@ final class ModcpRepository with LoggerMixin {
   });
 
   /// The announcements, and the form adding one.
-  AsyncEither<ModcpAnswer<AnnouncementList>> fetchAnnouncements() =>
-      AsyncEither(() => _page(AnnouncementList.url, (doc, uid) => parseAnnouncements(doc, uid: uid)));
+  AsyncEither<ModcpAnswer<AnnouncementList>> fetchAnnouncements() => AsyncEither(
+    () => _pageOrV4(
+      ModcpV4Page.announcement,
+      AnnouncementList.url,
+      (json, uid) => announcementsFromApi(json, uid: uid),
+      (doc, uid) => parseAnnouncements(doc, uid: uid),
+    ),
+  );
 
   /// The form of announcement [id].
   AsyncEither<ModcpAnswer<AnnouncementForm>> fetchAnnouncement(int id) => AsyncEither(
-    () => _page(AnnouncementForm.url(id), (doc, uid) => parseAnnouncementForm(doc, id: id, uid: uid)),
+    () => _pageOrV4(
+      ModcpV4Page.announcement,
+      AnnouncementForm.url(id),
+      (json, uid) => announcementFormFromApi(json, id: id, uid: uid),
+      (doc, uid) => parseAnnouncementForm(doc, id: id, uid: uid),
+    ),
   );
 
   /// Send the announcement [form] filled in, once: a new one (the list [known] the ids before), or the one edited.
@@ -505,6 +679,29 @@ final class ModcpRepository with LoggerMixin {
     required String message,
     Set<String> known = const {},
   }) => AsyncEither(() async {
+    if (form.v4) {
+      // Plugin 4.0.0: the page drawn again tells it (`result.added`, `result.edited`); a refusal is the forum's
+      // message (`modcp_ann_empty`, `modcp_ann_urlerror`, `modcp_ann_nofound`).
+      return _sendV4(
+        form.uid,
+        form.submitUrl,
+        form.body(subject: subject, type: type, start: start, end: end, message: message),
+        page: ModcpV4Page.announcement,
+        drawn: (json) {
+          final key = form.id > 0 ? 'edited' : 'added';
+          final result = json['result'];
+          // The forum's own word decides; the list drawn again only when it gave none.
+          if (result is Map<String, dynamic> && result.containsKey(key)) {
+            return tsdmAppInt(result[key]) == 1 ? const ModcpWriteDone() : const ModcpWriteRefused('');
+          }
+          if (form.id <= 0 &&
+              (announcementsFromApi(json, uid: form.uid)?.items.any((e) => !known.contains(e.id)) ?? false)) {
+            return const ModcpWriteDone();
+          }
+          return const ModcpWriteUnknown();
+        },
+      );
+    }
     final sent = await _send(
       form.uid,
       form.submitUrl,
@@ -544,6 +741,18 @@ final class ModcpRepository with LoggerMixin {
 
   /// Delete the announcements [ids] of [list], once. The panel draws the list again: what it still lists was not done.
   AsyncEither<ModcpWriteOutcome> deleteAnnouncements(AnnouncementList list, List<String> ids) => AsyncEither(() async {
+    if (list.v4) {
+      return _sendV4(
+        list.uid,
+        AnnouncementList.deleteUrl,
+        list.deleteBody(ids),
+        page: ModcpV4Page.announcement,
+        drawn: (json) => switch (announcementsFromApi(json, uid: list.uid)) {
+          null => const ModcpWriteUnknown(),
+          final now => _remaining(ids, now.items.map((e) => e.id)),
+        },
+      );
+    }
     final sent = await _send(list.uid, AnnouncementList.deleteUrl, list.deleteBody(ids));
     return sent.map(
       (written) => switch (written) {
@@ -576,6 +785,74 @@ final class ModcpRepository with LoggerMixin {
         return _writtenOf(value.data, uid: uid);
     }
   }
+
+  /// Post [body] to [url] with [tsdmAppV4Query] for account [uid] once, the panel's form of a page of plugin 4.0.0
+  /// ([page]), and tell what it answered (spec 4.0, section 8: never by `ok` alone):
+  ///
+  /// * the write result (`schema` 13) by [written] (the forum's language key), a refusal in its words otherwise;
+  /// * the page drawn again by [drawn] (its `result`, `updated`, the list it holds); the panel's login form there is
+  ///   [ModcpWriteSessionEnded], the forum's message a refusal in its words;
+  /// * anything else as the web page's answer is read ([_writtenOf]).
+  Future<Either<AppException, ModcpWriteOutcome>> _sendV4(
+    int uid,
+    String url,
+    Map<String, String> body, {
+    required ModcpV4Page page,
+    ModcpWriteOutcome Function(TsdmAppWriteResult result)? written,
+    ModcpWriteOutcome Function(Map<String, dynamic> json)? drawn,
+  }) async {
+    if (uid <= 0 || _currentUid() != uid) {
+      return left(IdentityChangedException());
+    }
+    final resp = await _post(withTsdmAppV4Write(url), body);
+    final Object? data;
+    switch (resp) {
+      case Left(:final value):
+        return left(value);
+      case Right(:final value) when value.statusCode != HttpStatus.ok:
+        return left(HttpRequestFailedException(value.statusCode));
+      case Right(:final value):
+        data = value.data;
+    }
+    if (_currentUid() != uid) {
+      return left(IdentityChangedException());
+    }
+    switch (tsdmAppV4WriteOutcomeOf(data, type: page.type, schema: page.schema)) {
+      case TsdmAppV4Written(:final result):
+        if (result.uid != uid) {
+          return left(IdentityChangedException());
+        }
+        if (result.kind == TsdmAppWriteKind.page) {
+          // The forum's page instead of a verdict (the panel failing on an expired session): read as before.
+          return _writtenOf(data, uid: uid).map(_messageOutcome);
+        }
+        if (result.login) {
+          return right(ModcpWriteRefused(result.reason));
+        }
+        return right(written?.call(result) ?? ModcpWriteRefused(result.reason));
+      case TsdmAppV4Redrawn(:final answer):
+        if (answer.uid != uid) {
+          return left(IdentityChangedException());
+        }
+        return right(switch (answer) {
+          TsdmAppV4Page(:final json) => drawn?.call(json) ?? const ModcpWriteUnknown(),
+          TsdmAppV4Refused(error: 'modcp_login') => const ModcpWriteSessionEnded(),
+          // The group lost the page meanwhile: not done.
+          TsdmAppV4Refused(error: 'modcp_noperm') => const ModcpWriteRefused(''),
+          TsdmAppV4Message(:final reason) => ModcpWriteRefused(reason),
+          TsdmAppV4Refused() => const ModcpWriteUnknown(),
+        });
+      case TsdmAppV4WriteUnknown():
+        return _writtenOf(data, uid: uid).map(_messageOutcome);
+    }
+  }
+
+  /// The outcome of a write result told by its language key: done with [key], a refusal in the forum's words
+  /// otherwise.
+  static ModcpWriteOutcome Function(TsdmAppWriteResult result) _keyOutcome(String key) =>
+      (result) => result.succeeded && result.messageKey == key
+      ? ModcpWriteDone(message: result.message)
+      : ModcpWriteRefused(result.reason);
 
   /// The answer [data] to a change sent by account [uid]: the forum's message, the panel's login form, or its page.
   static Either<AppException, _Written> _writtenOf(Object? data, {required int uid}) {

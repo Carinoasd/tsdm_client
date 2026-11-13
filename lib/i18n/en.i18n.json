@@ -2267,7 +2267,14 @@
     "newAnnouncement": "New announcement",
     "editAnnouncement": "Edit announcement",
     "required": "Required",
-    "invalidUid": "UID must be a number"
+    "invalidUid": "UID must be a number",
+    "validUntil": "until $date",
+    "memberNotFound": "No such member, or the account is frozen",
+    "memberIsStaff": "The moderator panel cannot manage this member",
+    "ipBanFormat": "Enter a valid IP address",
+    "ipBanCidr": "Only administrators can ban an IP range",
+    "ipBanExists": "This IP is banned already, or covers your own IP",
+    "rulesLocked": "Your user group may not change the forum rules"
   },
   "modcpPages": {
     "notes": "Moderator notes",

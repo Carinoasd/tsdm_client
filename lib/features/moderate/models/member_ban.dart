@@ -1,4 +1,5 @@
 import 'package:tsdm_client/constants/url.dart';
+import 'package:tsdm_client/features/tsdmapp/v4.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:universal_html/html.dart' as uh;
 
@@ -17,7 +18,17 @@ const memberBanServedFields = {'formhash', 'username', 'uid'};
 /// one the window offers. Banning from visiting (`bannew` 5) is never sent.
 final class MemberBanForm {
   /// Constructor.
-  const MemberBanForm({required this.memberUid, required this.uid, required this.fields, required this.banned});
+  const MemberBanForm({
+    required this.memberUid,
+    required this.uid,
+    required this.fields,
+    required this.banned,
+    this.v4 = false,
+  });
+
+  /// Read from the page of the forum's app API (plugin 4.0.0, `tsdmv=4`): a change is posted with [tsdmAppV4Query] too
+  /// and told by what that answer holds.
+  final bool v4;
 
   /// The member.
   final int memberUid;

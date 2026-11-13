@@ -391,7 +391,12 @@ final class ModerateQueueList {
     required this.uid,
     this.page = 1,
     this.hasNext = false,
+    this.v4 = false,
   });
+
+  /// Read from the page of the forum's app API (plugin 4.0.0, `tsdmv=4`): a change is posted with [tsdmAppV4Query] too
+  /// and told by what that answer holds.
+  final bool v4;
 
   /// The list.
   final ModerateQueueKind kind;

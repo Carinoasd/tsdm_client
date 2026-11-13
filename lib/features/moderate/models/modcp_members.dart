@@ -1,6 +1,7 @@
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/features/moderate/models/member_ban.dart';
 import 'package:tsdm_client/features/moderate/models/modcp_panel.dart';
+import 'package:tsdm_client/features/tsdmapp/v4.dart';
 import 'package:universal_html/html.dart' as uh;
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -300,7 +301,12 @@ final class MemberEditForm {
     required this.fields,
     required this.bio,
     required this.signature,
+    this.v4 = false,
   });
+
+  /// Read from the page of the forum's app API (plugin 4.0.0, `tsdmv=4`): a change is posted with [tsdmAppV4Query] too
+  /// and told by what that answer holds.
+  final bool v4;
 
   /// The member.
   final int memberUid;
@@ -414,7 +420,12 @@ final class IpBanList {
     required this.formHash,
     this.message = '',
     this.ipEcho = '',
+    this.v4 = false,
   });
+
+  /// Read from the page of the forum's app API (plugin 4.0.0, `tsdmv=4`): a change is posted with [tsdmAppV4Query] too
+  /// and told by what that answer holds.
+  final bool v4;
 
   /// The account the page was served to.
   final int uid;
@@ -549,7 +560,12 @@ final class MemberReviewList {
     required this.formHash,
     this.page = 1,
     this.hasNext = false,
+    this.v4 = false,
   });
+
+  /// Read from the page of the forum's app API (plugin 4.0.0, `tsdmv=4`): a change is posted with [tsdmAppV4Query] too
+  /// and told by what that answer holds.
+  final bool v4;
 
   /// The account the page was served to.
   final int uid;
@@ -652,7 +668,12 @@ final class ForumRules {
     this.note = '',
     this.message = '',
     this.formHash = '',
+    this.v4 = false,
   });
+
+  /// Read from the page of the forum's app API (plugin 4.0.0, `tsdmv=4`): a change is posted with [tsdmAppV4Query] too
+  /// and told by what that answer holds.
+  final bool v4;
 
   /// The account the page was served to.
   final int uid;
@@ -785,7 +806,12 @@ final class AnnouncementList {
     required this.formHash,
     this.blank,
     this.message = '',
+    this.v4 = false,
   });
+
+  /// Read from the page of the forum's app API (plugin 4.0.0, `tsdmv=4`): a change is posted with [tsdmAppV4Query] too
+  /// and told by what that answer holds.
+  final bool v4;
 
   /// The account the page was served to.
   final int uid;
@@ -831,7 +857,12 @@ final class AnnouncementForm {
     required this.message,
     this.displayOrder = '',
     this.notice = '',
+    this.v4 = false,
   });
+
+  /// Read from the page of the forum's app API (plugin 4.0.0, `tsdmv=4`): a change is posted with [tsdmAppV4Query] too
+  /// and told by what that answer holds.
+  final bool v4;
 
   /// The account the form was served to.
   final int uid;
