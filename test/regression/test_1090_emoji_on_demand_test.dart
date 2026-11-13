@@ -374,6 +374,25 @@ void main() {
       expect(forum.requests, hasLength(1));
     });
 
+    test('an image of another site with the same path is never kept as the emoji', () async {
+      final repo = newRepo();
+      await repo.loadEmojiFromCacheOrServer().run();
+      const other = 'https://evil.example/x/smiley/TSDM/9.jpg';
+      final posts = newCache();
+      expect((await posts.getOrMakeCache(const ImageCacheGeneralRequest(other))).toNullable(), _png);
+      expect(posts.hasEmojiCacheFile('12', '865'), isFalse);
+      expect(await storage.getImageCache(other), isNotNull, reason: 'an image like any other');
+    });
+
+    test('clearing the emoji cache forgets the list too', () async {
+      final repo = newRepo();
+      await repo.loadEmojiFromCacheOrServer().run();
+      await cache.clearEmojiCache();
+      await cache.getOrMakeCache(const ImageCacheGeneralRequest(postUrl));
+      expect(cache.hasEmojiCacheFile('12', '865'), isFalse);
+      expect(await storage.getImageCache(postUrl), isNotNull);
+    });
+
     test('without a saved list it is an image like any other', () async {
       final data = await cache.getOrMakeCache(const ImageCacheGeneralRequest(postUrl));
       expect(data.toNullable(), _png);
@@ -393,6 +412,11 @@ void main() {
         'LI/1 (15).gif',
       );
       expect(ImageCacheProvider.emojiImageKeyOf('https://img.example/a/b/9.jpg'), isNull);
+      expect(ImageCacheProvider.emojiImageKeyOf('https://evil.example/x/smiley/TSDM/9.jpg'), isNull);
+      expect(
+        ImageCacheProvider.emojiImageKeyOf('https://tsdm39.com.evil.example/static/image/smiley/TSDM/9.jpg'),
+        isNull,
+      );
       expect(ImageCacheProvider.emojiImageKeyOf('https://www.tsdm39.com/static/image/common/logo.png'), isNull);
     });
   });

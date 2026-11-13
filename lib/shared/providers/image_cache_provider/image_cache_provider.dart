@@ -14,6 +14,7 @@ import 'package:fpdart/fpdart.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:rxdart/rxdart.dart';
+import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/extensions/fp.dart';
 import 'package:tsdm_client/extensions/int.dart';
@@ -600,9 +601,7 @@ final class ImageCacheProvider with LoggerMixin {
       _avatarWithoutFile.clear();
     }
     if (clearInfo.clearEmoji) {
-      for (final f in _emojiCacheDirectory.listSync()) {
-        await f.delete(recursive: true);
-      }
+      await clearEmojiCache();
     }
   }
 
@@ -816,10 +815,18 @@ final class ImageCacheProvider with LoggerMixin {
   ///
   /// A post shows an emoji from the forum's own static directory (`static/image/smiley/MIKU/34.gif`) and the emoji
   /// list names it on the image host (`https://img.tsdm39.com/img02/smilies/MIKU/34.gif`): the same file.
+  ///
+  /// Only on the forum's own hosts (`www.tsdm39.com`, `img.tsdm39.com`…): an image of another site with such a path
+  /// must never be kept as one of the forum's emoji.
   @visibleForTesting
   static String? emojiImageKeyOf(String url) {
-    final segments = Uri.tryParse(url)?.pathSegments.where((e) => e.isNotEmpty).toList();
-    if (segments == null || segments.length < 3) {
+    final uri = Uri.tryParse(url);
+    final host = uri?.host.toLowerCase();
+    if (host == null || (host != baseHostAlt && !host.endsWith('.$baseHostAlt'))) {
+      return null;
+    }
+    final segments = uri!.pathSegments.where((e) => e.isNotEmpty).toList();
+    if (segments.length < 3) {
       return null;
     }
     final dir = segments[segments.length - 3];
@@ -960,19 +967,6 @@ final class ImageCacheProvider with LoggerMixin {
     return getEmojiCache(groupId, id);
   }
 
-  /// Try get the emoji cache from raw bbcode.
-  ///
-  /// Synchronously.
-  Uint8List? getEmojiCacheFromRawCodeSync(String code) {
-    if (!_emojiCodeRe.hasMatch(code)) {
-      return null;
-    }
-    final m = _emojiCodeRe.firstMatch(code)!;
-    final groupId = m.namedGroup('groupId')!;
-    final id = m.namedGroup('id')!;
-    return getEmojiCacheSync(groupId, id);
-  }
-
   /// Get the cached file of emoji with specified [groupId] and [id].
   Future<Uint8List?> getEmojiCache(String groupId, String id) async {
     final cachePath = _formatEmojiCachePath(groupId, id);
@@ -1003,10 +997,14 @@ final class ImageCacheProvider with LoggerMixin {
   }
 
   /// Clear all emoji cache files.
+  ///
+  /// The emoji list goes with them: until the panel loads it again, the forum's emoji are images like any other.
   Future<void> clearEmojiCache() async {
     for (final f in _emojiCacheDirectory.listSync()) {
       await f.delete(recursive: true);
     }
+    _emojiIndex = null;
+    _emojiIndexLoading = null;
   }
 
   /// Update emoji cache.
