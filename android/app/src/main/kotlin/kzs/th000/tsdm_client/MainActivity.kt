@@ -50,6 +50,8 @@ class MainActivityImpl: AudioServiceFragmentActivity() {
         const val SET_APP_ICON = "setAppIcon"
         const val IS_ACTIVE_NETWORK_METERED = "isActiveNetworkMetered"
         const val DEVICE_NAME = "deviceName"
+        /** The release and the API level of the system, for the environment line of a feedback reply. */
+        const val SYSTEM_VERSION = "systemVersion"
         const val OPEN_ATTACHMENT = "openAttachment"
         /**
          * Whether the system draws the biometric prompt (Android 9+). Before that androidx.biometric shows its own
@@ -586,6 +588,10 @@ class MainActivityImpl: AudioServiceFragmentActivity() {
                 val model = Build.MODEL.orEmpty().trim()
                 result.success(if (maker.isEmpty() || model.startsWith(maker, ignoreCase = true)) model else "$maker $model")
             }
+            // "14" and 34: never the build's display id, a vendor's string that often names the device model.
+            SYSTEM_VERSION -> result.success(
+                mapOf("release" to Build.VERSION.RELEASE.orEmpty().trim(), "sdk" to Build.VERSION.SDK_INT),
+            )
             HAS_SYSTEM_BIOMETRIC_PROMPT -> result.success(Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
             HAS_HARDWARE_KEYBOARD -> result.success(HardwareKeyboards.inUse(resources.configuration))
             SET_BACKGROUND_SYNC_GUARD -> {

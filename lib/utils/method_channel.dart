@@ -123,6 +123,26 @@ const _methodDeviceName = 'deviceName';
 /// in on.
 Future<String> androidDeviceName() async => await _mainChannel.invokeMethod<String>(_methodDeviceName) ?? '';
 
+const _methodSystemVersion = 'systemVersion';
+
+/// The version of Android this device runs: its release (`Build.VERSION.RELEASE`, "14") and its API level
+/// (`Build.VERSION.SDK_INT`, 34). Null when the activity does not answer (none attached, an older app on the other side).
+Future<({String release, int sdk})?> androidSystemVersion() async {
+  try {
+    final version = await _mainChannel.invokeMapMethod<String, Object?>(_methodSystemVersion);
+    final release = version?['release'];
+    final sdk = version?['sdk'];
+    if (release is! String || sdk is! int) {
+      return null;
+    }
+    return (release: release, sdk: sdk);
+  } on MissingPluginException {
+    return null;
+  } on PlatformException {
+    return null;
+  }
+}
+
 const _appIconChannel = MethodChannel('kzs.th000.tsdm_client/appIcon');
 
 /// Switch the launcher icon of the app to the icon called [name] (`default`, `dark`, `mono` or `pink`).
