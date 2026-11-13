@@ -3,15 +3,18 @@ import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/features/profile/models/user_group_progress.dart';
 import 'package:tsdm_client/features/tsdmapp/small_form.dart';
+import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
+import 'package:tsdm_client/features/tsdmapp/v4.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
 
 /// Reads how far the current account is from the next credit-based user group.
 ///
-/// The forum has no app API for it (the plugin answers the web page as it is), so the group comparison page
-/// `home.php?mod=spacecp&ac=usergroup` is parsed ([UserGroupPage]): without `gid` it is about the next group of the
-/// account (and says how many credits are missing), with `gid` about that group (and says where it starts). Every
-/// page names the account it was served to, which must be the one asked for ([IdentityChangedException] otherwise).
+/// Plugin 4.0.0 answers the group comparison page `home.php?mod=spacecp&ac=usergroup` as fields
+/// ([UserGroupPage.fromApi]); without it (an older plugin, or none) the web page is parsed ([UserGroupPage]). Without
+/// `gid` it is about the next group of the account (and says how many credits are missing), with `gid` about that
+/// group (and says where it starts). Every page names the account it was served to, which must be the one asked for
+/// ([IdentityChangedException] otherwise).
 final class UserGroupProgressRepository {
   /// Constructor; [currentUid] tells the account the progress is asked for (the logged in account by default).
   UserGroupProgressRepository({int Function()? currentUid}) : _currentUid = currentUid ?? currentLoginUid;
@@ -22,7 +25,27 @@ final class UserGroupProgressRepository {
 
   AsyncEither<UserGroupPage> _fetch({int? gid}) => AsyncEither(() async {
     final uid = _currentUid();
-    final response = await getIt.get<NetClientProvider>().get(gid == null ? _pageUrl : '$_pageUrl&gid=$gid').run();
+    final url = gid == null ? _pageUrl : '$_pageUrl&gid=$gid';
+    final client = getIt.get<NetClientProvider>();
+    // Plugin 4.0.0 answers the page as fields (`usergroup_info`, `schema` 54) when its `status` lists it; anything
+    // else of it reads the web page as before.
+    await TsdmAppApi.ensureStatus(client);
+    if (TsdmAppV4.has(TsdmAppV4Group.creditPages, 'usergroup_info')) {
+      switch (await fetchTsdmAppV4Page(client, url, type: 'usergroup_info', schema: 54, uid: uid).run()) {
+        case Left(:final value):
+          return left(value);
+        case Right(value: TsdmAppV4Page(:final json)):
+          if (uid <= 0 || _currentUid() != uid) {
+            return left(IdentityChangedException());
+          }
+          return right(UserGroupPage.fromApi(json));
+        case Right(value: TsdmAppV4Message(:final reason)) when reason.isNotEmpty:
+          return left(ServerRespondedErrorException(reason));
+        case Right():
+          break;
+      }
+    }
+    final response = await client.get(url).run();
     return response.flatMap((resp) {
       if (resp.statusCode != 200) {
         return left<AppException, UserGroupPage>(HttpRequestFailedException(resp.statusCode));

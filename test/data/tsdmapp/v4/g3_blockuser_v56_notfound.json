@@ -1,0 +1,54 @@
+{
+ "ok": 1,
+ "api": 1,
+ "time": 1794538534,
+ "uid": 31,
+ "formhash": "f1f2f3f4",
+ "checknewpm": "",
+ "timeoffset": 8,
+ "type": "blockuser",
+ "schema": 56,
+ "open": 1,
+ "count": 0,
+ "max": 10,
+ "full": 0,
+ "can_add": 1,
+ "msg": null,
+ "error": {
+  "code": "notfound",
+  "uid": 999999,
+  "username": ""
+ },
+ "input": "999999",
+ "confirm": null,
+ "page": 1,
+ "perpage": 50,
+ "pages": 1,
+ "list": [],
+ "query": {
+  "url": "home.php?mod=spacecp&ac=plugin&id=blockuser:spacecp",
+  "method": "GET",
+  "field": "bu_q"
+ },
+ "add": {
+  "url": "home.php?mod=spacecp&ac=plugin&id=blockuser:spacecp",
+  "method": "POST",
+  "enctype": "application/x-www-form-urlencoded",
+  "fields": {
+   "formhash": "f1f2f3f4",
+   "blockuseradd": "yes"
+  },
+  "uid_field": "buid"
+ },
+ "remove": {
+  "url": "home.php?mod=spacecp&ac=plugin&id=blockuser:spacecp",
+  "method": "POST",
+  "enctype": "application/x-www-form-urlencoded",
+  "fields": {
+   "formhash": "f1f2f3f4",
+   "blockuserdel": "yes"
+  },
+  "uid_field": "buid",
+  "page_field": "page"
+ }
+}

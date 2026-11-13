@@ -74,7 +74,7 @@ Future<void> showApproveFriendDialog(
       barrierDismissible: false,
       builder: (_) => ApproveFriendDialog(
         targetUid: targetUid,
-        load: () => repo.fetchForm(client, targetUid: targetUid),
+        load: () => repo.fetchForm(client, targetUid: targetUid, viewerUid: uid),
         submit: (form, gid) => repo.approve(client, form: form, gid: gid),
         isCurrentAccount: () => auth.currentUser?.uid == uid,
         accountChanges: auth.status,

@@ -1,0 +1,44 @@
+{
+ "ok": 1,
+ "api": 1,
+ "time": 1794538527,
+ "uid": 31,
+ "formhash": "f1f2f3f4",
+ "type": "form",
+ "schema": 17,
+ "form": "ignore",
+ "float": 1,
+ "ajax": 1,
+ "type_key": "system",
+ "id": 0,
+ "type_name": "系统",
+ "submit": {
+  "url": "home.php?mod=spacecp&ac=common&op=ignore&type=system&id=0",
+  "method": "POST",
+  "enctype": "application/x-www-form-urlencoded",
+  "fields": {
+   "handlekey": "noticeignore",
+   "ignoresubmit": "true",
+   "formhash": "f1f2f3f4",
+   "referer": "https://www.tsdm39.com/./",
+   "feedignoresubmit": "true"
+  }
+ },
+ "authorid": {
+  "name": "authorid",
+  "type": "radio",
+  "value": "0",
+  "choices": [
+   {
+    "value": "0",
+    "label": "仅屏蔽该好友的"
+   },
+   {
+    "value": "0",
+    "label": "屏蔽所有好友的"
+   }
+  ]
+ },
+ "hook_fields": [],
+ "unsupported": []
+}

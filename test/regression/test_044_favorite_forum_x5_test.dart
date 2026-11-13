@@ -45,6 +45,10 @@ final class _FakeAdapter implements HttpClientAdapter {
     Stream<Uint8List>? requestStream,
     Future<void>? cancelFuture,
   ) async {
+    if (options.uri.queryParameters['action'] == 'status') {
+      // The plugin's `status`, asked once by the readers of plugin 4.0.0 before anything is known: not answered here.
+      throw DioException.connectionError(requestOptions: options, reason: 'no status');
+    }
     var body = '';
     if (requestStream != null) {
       final bytes = await requestStream.fold<List<int>>([], (a, b) => a..addAll(b));

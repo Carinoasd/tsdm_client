@@ -1,0 +1,10 @@
+{
+ "ok": 0,
+ "error": "message",
+ "message": "",
+ "message_key": "login_before_enter_home",
+ "login": 1,
+ "uid": 0,
+ "form": "collection",
+ "url": "member.php?mod=logging&action=login&handlekey=k_collect&infloat=yes&inajax=yes&guestmessage=yes"
+}

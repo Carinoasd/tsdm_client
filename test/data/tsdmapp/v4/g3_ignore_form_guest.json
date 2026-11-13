@@ -1,0 +1,10 @@
+{
+ "ok": 0,
+ "error": "message",
+ "message": "",
+ "message_key": "to_login",
+ "login": 1,
+ "uid": 0,
+ "form": "ignore",
+ "url": "member.php?mod=logging&action=login&handlekey=noticeignore&infloat=yes&inajax=yes&guestmessage=yes"
+}

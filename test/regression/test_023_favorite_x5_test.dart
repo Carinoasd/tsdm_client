@@ -29,7 +29,15 @@ final class _FakeAdapter implements HttpClientAdapter {
   final answers = <bool Function(Uri uri, String method), String>{};
 
   @override
-  Future<ResponseBody> fetch(RequestOptions options, Stream<Uint8List>? requestStream, Future<void>? cancelFuture) async {
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    if (options.uri.queryParameters['action'] == 'status') {
+      // The plugin's `status`, asked once by the readers of plugin 4.0.0 before anything is known: not answered here.
+      throw DioException.connectionError(requestOptions: options, reason: 'no status');
+    }
     var body = '';
     if (requestStream != null) {
       final bytes = await requestStream.fold<List<int>>([], (a, b) => a..addAll(b));
@@ -104,12 +112,23 @@ void main() {
     test('add and delete dialogs carry formhash and referer', () {
       expect(parseFavoriteForm(_data('favorite_add_form_x5.xml')), (formHash: 'XXXXXXXX', referer: '$baseUrl/./'));
       expect(parseFavoriteForm(_data('favorite_delete_form_x5.xml')), (formHash: 'XXXXXXXX', referer: '$baseUrl/./'));
-      expect(parseFavoriteForm(_data('favorite_delete_missing_x5.xml')), isNull, reason: 'no form for a missing record');
-      expect(parseFavoriteForm(_data('favorite_add_dialog_repeat_x5.xml')), isNull, reason: 'no form when already favorited');
+      expect(
+        parseFavoriteForm(_data('favorite_delete_missing_x5.xml')),
+        isNull,
+        reason: 'no form for a missing record',
+      );
+      expect(
+        parseFavoriteForm(_data('favorite_add_dialog_repeat_x5.xml')),
+        isNull,
+        reason: 'no form when already favorited',
+      );
     });
 
     test('add answers', () {
-      expect(parseFavoriteAddResult(_data('favorite_add_success_x5.xml')), isA<FavoriteAdded>().having((e) => e.favid, 'favid', '500335'));
+      expect(
+        parseFavoriteAddResult(_data('favorite_add_success_x5.xml')),
+        isA<FavoriteAdded>().having((e) => e.favid, 'favid', '500335'),
+      );
       expect(parseFavoriteAddResult(_data('favorite_add_repeat_x5.xml')), isA<FavoriteAlreadyExists>());
       expect(parseFavoriteAddResult(_data('favorite_add_dialog_repeat_x5.xml')), isA<FavoriteAlreadyExists>());
       expect(
@@ -218,7 +237,8 @@ void main() {
     });
 
     test('an unexpected dialog is a failure, not a silent post', () async {
-      adapter.answers[(uri, method) => method == 'GET'] = '<html><body><div id="messagetext"><p>抱歉，您没有权限</p></div></body></html>';
+      adapter.answers[(uri, method) => method == 'GET'] =
+          '<html><body><div id="messagetext"><p>抱歉，您没有权限</p></div></body></html>';
       final added = await FavoriteRepository().addFavorite(tid: '1').run();
       expect(added.toNullable(), isA<FavoriteAddFailed>().having((e) => e.message, 'message', '抱歉，您没有权限'));
       final removed = await FavoriteRepository().removeFavorite(favid: '1').run();

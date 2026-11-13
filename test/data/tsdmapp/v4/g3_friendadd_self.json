@@ -1,0 +1,9 @@
+{
+ "ok": 0,
+ "error": "message",
+ "message": "抱歉，您不能加自己为好友",
+ "message_key": "friend_self_error",
+ "login": 0,
+ "uid": 31,
+ "form": "friendadd"
+}

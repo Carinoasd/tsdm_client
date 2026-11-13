@@ -43,6 +43,10 @@ final class _Forum implements HttpClientAdapter {
     Stream<Uint8List>? requestStream,
     Future<void>? cancelFuture,
   ) async {
+    if (options.uri.queryParameters['action'] == 'status') {
+      // The plugin's `status`, asked once by the readers of plugin 4.0.0 before anything is known: not answered here.
+      throw DioException.connectionError(requestOptions: options, reason: 'no status');
+    }
     requests.add(options);
     final gid = options.uri.queryParameters['gid'];
     return ResponseBody.fromString(

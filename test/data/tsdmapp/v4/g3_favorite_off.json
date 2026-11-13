@@ -1,0 +1,9 @@
+{
+ "ok": 0,
+ "error": "message",
+ "message": "抱歉，收藏功能尚未开启",
+ "message_key": "favorite_status_off",
+ "login": 0,
+ "uid": 31,
+ "form": "favorite"
+}
