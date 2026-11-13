@@ -22,6 +22,7 @@ import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/features/attachment_download/utils/attachment_protocol.dart';
 import 'package:tsdm_client/features/cache/models/models.dart';
 import 'package:tsdm_client/features/settings/models/models.dart';
+import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/providers/cookie_provider/cookie_provider.dart';
@@ -103,7 +104,12 @@ NetClientProvider? currentAccountImageClient(int uid) {
   if (kept != null && kept.uid == uid && identical(kept.cookie, cookie)) {
     return kept.client;
   }
-  final client = NetClientProvider.build(userLoginInfo: account);
+  // The dart:io client on every platform, as the attachment downloads use (`NetAttachmentFetcher`): it follows no
+  // redirect when asked not to, which the picture of an attachment costing credits relies on ([ImageCacheProvider]).
+  final client = NetClientProvider.build(
+    dio: getIt.get<SettingsRepository>().buildDefaultDio(nativeHttp: false),
+    userLoginInfo: account,
+  );
   _accountImageClient = (cookie: cookie, uid: uid, client: client);
   return client;
 }

@@ -241,7 +241,9 @@ final class NetClientProvider with LoggerMixin {
   /// downloads, for the progress of an image being loaded.
   ///
   /// With [followRedirects] false a redirect is not followed: its answer (a 3xx status, the `Location` header) is the
-  /// result, for the caller to decide where to go with which client.
+  /// result, for the caller to decide where to go with which client. The request is then also marked as a single
+  /// attempt ([singleAttemptHttpRequestKey]): the Kotlin client of Android reads that mark, not
+  /// [Options.followRedirects], to pick its client that never follows a redirect.
   AsyncEither<Response<dynamic>> getImage(
     String path, {
     Map<String, dynamic>? queryParameters,
@@ -262,6 +264,7 @@ final class NetClientProvider with LoggerMixin {
         },
         followRedirects: followRedirects,
         validateStatus: followRedirects ? null : (status) => status != null && status < HttpStatus.badRequest,
+        extra: followRedirects ? null : {singleAttemptHttpRequestKey: true},
       ),
     );
 

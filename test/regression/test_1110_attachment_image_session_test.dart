@@ -27,6 +27,7 @@ import 'package:tsdm_client/shared/providers/cookie_provider/cookie_provider.dar
 import 'package:tsdm_client/shared/providers/image_cache_provider/image_cache_provider.dart';
 import 'package:tsdm_client/shared/providers/image_cache_provider/models/models.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
+import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider_android.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_error_saver.dart';
 import 'package:tsdm_client/shared/providers/providers.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/models/database/database.dart';
@@ -60,6 +61,9 @@ final class _Host implements HttpClientAdapter {
 
   final requests = <String>[];
 
+  /// The options of every request.
+  final options = <RequestOptions>[];
+
   @override
   Future<ResponseBody> fetch(
     RequestOptions options,
@@ -67,6 +71,7 @@ final class _Host implements HttpClientAdapter {
     Future<void>? cancelFuture,
   ) async {
     requests.add('${options.uri}');
+    this.options.add(options);
     if (redirectTo case final location?) {
       return ResponseBody(
         Stream.value(Uint8List(0)),
@@ -211,6 +216,14 @@ void main() {
       expect(data.isNone(), isTrue);
       expect(session.requests, hasLength(1));
       expect(anonymous.requests, isEmpty);
+    });
+
+    test('asks every client not to follow a redirect of the session, the Kotlin client of Android too', () async {
+      await images.getOrMakeCache(ImageCacheGeneralRequest(_attachmentUrl(31)));
+      final sent = session.options.single;
+      expect(sent.followRedirects, isFalse);
+      // What the Kotlin client reads to pick its client that follows no redirect.
+      expect(sent.extra[singleAttemptHttpRequestKey], isTrue);
     });
 
     test('follows any other redirect without the session', () async {
