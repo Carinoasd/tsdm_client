@@ -62,15 +62,18 @@ class _ImageUploadButtonState extends State<ImageUploadButton> {
           child: Text(tr.editFirst),
         ),
       ],
-      // The tooltip only on hover: a long press is the editor's.
-      builder: (context, controller, _) => Tooltip(
-        message: tr.button,
-        triggerMode: TooltipTriggerMode.manual,
-        child: GestureDetector(
-          onLongPress: () => _open(edit: true),
-          child: IconButton(
-            icon: const Icon(Icons.add_photo_alternate_outlined),
-            onPressed: () => controller.isOpen ? controller.close() : _open(edit: widget.editsByDefault),
+      // The tooltip only on hover: a long press is the editor's. One node for a screen reader: the button named by
+      // the tooltip, with its tap and its long press.
+      builder: (context, controller, _) => MergeSemantics(
+        child: Tooltip(
+          message: tr.button,
+          triggerMode: TooltipTriggerMode.manual,
+          child: GestureDetector(
+            onLongPress: () => _open(edit: true),
+            child: IconButton(
+              icon: const Icon(Icons.add_photo_alternate_outlined),
+              onPressed: () => controller.isOpen ? controller.close() : _open(edit: widget.editsByDefault),
+            ),
           ),
         ),
       ),

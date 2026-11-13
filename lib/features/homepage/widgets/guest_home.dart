@@ -248,29 +248,32 @@ class _ForumEntry extends StatelessWidget {
       color: colorScheme.surfaceContainerHigh,
       borderRadius: BorderRadius.circular(12),
       clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () async => context.pushNamed(
-          ScreenPaths.forum,
-          pathParameters: {'fid': '${forum.forumID}'},
-          queryParameters: {'appBarTitle': forum.name},
-        ),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 40),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.forum_outlined, size: 18, color: colorScheme.primary),
-                sizedBoxW8H8,
-                Flexible(
-                  child: Text(forum.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: textTheme.labelLarge),
-                ),
-                if (today > 0) ...[
-                  sizedBoxW4H4,
-                  Text('+$today', style: textTheme.labelSmall?.copyWith(color: colorScheme.tertiary)),
+      child: Semantics(
+        button: true,
+        child: InkWell(
+          onTap: () async => context.pushNamed(
+            ScreenPaths.forum,
+            pathParameters: {'fid': '${forum.forumID}'},
+            queryParameters: {'appBarTitle': forum.name},
+          ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 40),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.forum_outlined, size: 18, color: colorScheme.primary),
+                  sizedBoxW8H8,
+                  Flexible(
+                    child: Text(forum.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: textTheme.labelLarge),
+                  ),
+                  if (today > 0) ...[
+                    sizedBoxW4H4,
+                    Text('+$today', style: textTheme.labelSmall?.copyWith(color: colorScheme.tertiary)),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),

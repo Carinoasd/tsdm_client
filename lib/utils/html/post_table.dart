@@ -1208,14 +1208,19 @@ class _PostTableScrollViewState extends State<PostTableScrollView> {
                   child: Material(
                     color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.85),
                     shape: const CircleBorder(),
-                    child: InkWell(
-                      customBorder: const CircleBorder(),
-                      onTap: _openFullscreen,
-                      child: Tooltip(
-                        message: context.t.html.table.fullscreen,
-                        child: SizedBox.square(
-                          dimension: PostTableScrollView.buttonSize,
-                          child: Icon(Icons.open_in_full, size: 16, color: colorScheme.onSurfaceVariant),
+                    // A node of its own, read as a button: without it its tap went into the text of the floor.
+                    child: Semantics(
+                      container: true,
+                      button: true,
+                      child: InkWell(
+                        customBorder: const CircleBorder(),
+                        onTap: _openFullscreen,
+                        child: Tooltip(
+                          message: context.t.html.table.fullscreen,
+                          child: SizedBox.square(
+                            dimension: PostTableScrollView.buttonSize,
+                            child: Icon(Icons.open_in_full, size: 16, color: colorScheme.onSurfaceVariant),
+                          ),
                         ),
                       ),
                     ),

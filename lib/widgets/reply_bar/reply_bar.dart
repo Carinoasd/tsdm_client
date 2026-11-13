@@ -1141,8 +1141,8 @@ final class _ReplyBarState extends State<_ReplyBar> with LoggerMixin {
   Widget _buildRichEditor(BuildContext context) {
     return EditorFrame(
       focusNode: focusNode,
-      // Room for the corner button that gives the editor the whole page.
-      padding: const EdgeInsets.fromLTRB(12, 8, 36, 8),
+      // Room for the 48 wide corner button that gives the editor the whole page: a tap there is the button's.
+      padding: const EdgeInsets.fromLTRB(12, 8, 48, 8),
       child: _wrapWithSendShortcuts(
         RichEditor(
           // Initial text is the text passed from outside.
@@ -1694,28 +1694,32 @@ final class _ReplyBarState extends State<_ReplyBar> with LoggerMixin {
             : null,
         // The whole page for a long reply, with what was written, the floor and its quote: a corner button of the
         // writing area, the button row is full on a phone.
-        child: Stack(
-          fit: _maximized ? StackFit.expand : StackFit.loose,
-          children: [
-            _buildRichEditor(context),
-            PositionedDirectional(
-              top: 0,
-              end: 0,
-              child: IconButton(
-                key: const ValueKey('reply-bar-maximize'),
-                visualDensity: VisualDensity.compact,
-                iconSize: 18,
-                color: Theme.of(context).colorScheme.outline,
-                icon: Icon(_maximized ? Icons.close_fullscreen_outlined : Icons.open_in_full_outlined),
-                tooltip: _maximized ? tr.restoreSizeTip : tr.maximizeTip,
-                onPressed: () => setState(() => _maximized = !_maximized),
+        // At least as tall as the 48 wide corner button: an empty editor is lower, and its corner cut the button.
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: kMinInteractiveDimension),
+          child: Stack(
+            fit: _maximized ? StackFit.expand : StackFit.loose,
+            children: [
+              _buildRichEditor(context),
+              PositionedDirectional(
+                top: 0,
+                end: 0,
+                child: IconButton(
+                  key: const ValueKey('reply-bar-maximize'),
+                  iconSize: 18,
+                  color: Theme.of(context).colorScheme.outline,
+                  icon: Icon(_maximized ? Icons.close_fullscreen_outlined : Icons.open_in_full_outlined),
+                  tooltip: _maximized ? tr.restoreSizeTip : tr.maximizeTip,
+                  onPressed: () => setState(() => _maximized = !_maximized),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
 
+    final sendTip = waiting > 0 ? tr.floodWait(seconds: waiting) : (issue ?? context.t.threadPage.sendReply);
     final Widget sendChild;
     if (isSendingReply) {
       sendChild = sizedCircularProgressIndicator;
@@ -1805,22 +1809,29 @@ final class _ReplyBarState extends State<_ReplyBar> with LoggerMixin {
               const Expanded(
                 child: Align(alignment: AlignmentDirectional.centerStart, child: _CurrentAccountLabel()),
               ),
+              // The tooltips of these two icon buttons are told on the buttons themselves (the icon's label): a
+              // tooltip around a button lands on a node of its own, the button read without a name.
               Tooltip(
                 // "Collapse": the draft is kept in the reply box below, and on this device.
                 message: MaterialLocalizations.of(context).expandedIconTapHint,
+                excludeFromSemantics: true,
                 child: FilledButton.tonal(
                   onPressed: widget.controller.closeEditor,
-                  child: const Icon(Icons.unfold_less),
+                  child: Icon(Icons.unfold_less, semanticLabel: MaterialLocalizations.of(context).expandedIconTapHint),
                 ),
               ),
               sizedBoxW8H8,
               // Send Button
               Tooltip(
-                message: waiting > 0 ? tr.floodWait(seconds: waiting) : (issue ?? context.t.threadPage.sendReply),
+                message: sendTip,
+                excludeFromSemantics: true,
                 child: FilledButton(
                   key: const ValueKey('reply-bar-send'),
                   onPressed: _sendEnabled && !_blocked ? () async => _sendMessage() : null,
-                  child: sendChild,
+                  child: Semantics(
+                    label: sendTip,
+                    child: ExcludeSemantics(child: sendChild),
+                  ),
                 ),
               ),
             ],

@@ -328,19 +328,24 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
                   spacing: 6,
                   crossAxisAlignment: WrapCrossAlignment.end,
                   children: [
+                    // The avatar before it opens the same card and is the 48 wide target; the name is read as a
+                    // link.
                     GestureDetector(
                       onTap: openBriefProfile,
-                      child: Hero(
-                        tag: nameHeroTag,
-                        flightShuttleBuilder: (_, _, _, _, toHeroContext) => DefaultTextStyle(
-                          style: DefaultTextStyle.of(toHeroContext).style,
-                          child: toHeroContext.widget,
-                        ),
-                        child: Text(
-                          widget.post.author.name,
-                          style: textTheme.titleSmall?.copyWith(
-                            color: colorScheme.primary,
-                            fontWeight: FontWeight.bold,
+                      child: Semantics(
+                        link: true,
+                        child: Hero(
+                          tag: nameHeroTag,
+                          flightShuttleBuilder: (_, _, _, _, toHeroContext) => DefaultTextStyle(
+                            style: DefaultTextStyle.of(toHeroContext).style,
+                            child: toHeroContext.widget,
+                          ),
+                          child: Text(
+                            widget.post.author.name,
+                            style: textTheme.titleSmall?.copyWith(
+                              color: colorScheme.primary,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ),

@@ -152,8 +152,12 @@ class AdaptiveInkResponse extends StatelessWidget {
   /// [GestureDetector.behavior].
   final HitTestBehavior? behavior;
 
+  // Read as a button when it takes a tap: the ink response alone gives the tap, not what it is.
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      Semantics(button: onTap != null && !excludeFromSemantics, child: _buildResponse(context));
+
+  Widget _buildResponse(BuildContext context) {
     if (isMobile) {
       return GestureDetector(
         behavior: behavior,

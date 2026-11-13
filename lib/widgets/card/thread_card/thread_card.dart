@@ -430,9 +430,12 @@ class _CardLayout extends StatelessWidget {
       name = SingleLineText(context.displayText('$forum'), style: nameStyle);
     }
     final meta = <Widget>[
-      if (publishTime != null) SingleLineText(publishTime!.yyyyMMDD(), style: timeStyle),
+      // The date breaks to a second line rather than being cut where the head is narrow (large text, the marks at the
+      // end).
+      if (publishTime != null) Text(publishTime!.yyyyMMDD(), style: timeStyle),
       // The forum is the title of the head already when there is no author.
-      if (author != null && forum != null) SingleLineText(context.displayText(forum!), style: forumNameStyle),
+      if (author != null && forum != null)
+        SingleLineText(context.displayText(forum!), style: forumNameStyle, overflow: TextOverflow.ellipsis),
     ];
 
     // The 48 wide avatar target keeps its circle where the 40 wide circle was: 4 less padding before and above it, 4

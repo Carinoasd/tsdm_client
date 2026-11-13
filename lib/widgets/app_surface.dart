@@ -83,7 +83,11 @@ class AppSurface extends StatelessWidget {
       color: color,
       child: onTap == null && onLongPress == null
           ? content
-          : InkWell(onTap: onTap, onLongPress: onLongPress, child: content),
+          // Read as a button: an ink well alone gives the surface its tap, not what it is.
+          : Semantics(
+              button: onTap != null,
+              child: InkWell(onTap: onTap, onLongPress: onLongPress, child: content),
+            ),
     );
   }
 }

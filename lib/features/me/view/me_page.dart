@@ -527,58 +527,64 @@ class _AccountCardState extends State<_AccountCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            InkWell(
-              key: const ValueKey('me-account-profile'),
-              onTap: () async => context.pushNamed(ScreenPaths.loggedUserProfile),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 8, 12),
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 64,
-                      height: 64,
-                      child: HeroUserAvatar(
-                        key: ValueKey(username),
-                        username: username,
-                        avatarUrl: avatarUrlOfUid(uid?.toString()),
-                        // A tab kept alive off screen: no hero flying in from it.
-                        disableHero: true,
+            Semantics(
+              button: true,
+              child: InkWell(
+                key: const ValueKey('me-account-profile'),
+                onTap: () async => context.pushNamed(ScreenPaths.loggedUserProfile),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 8, 12),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 64,
+                        height: 64,
+                        child: HeroUserAvatar(
+                          key: ValueKey(username),
+                          username: username,
+                          avatarUrl: avatarUrlOfUid(uid?.toString()),
+                          // A tab kept alive off screen: no hero flying in from it.
+                          disableHero: true,
+                        ),
                       ),
-                    ),
-                    sizedBoxW12H12,
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          SingleLineText(username, style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-                          sizedBoxW4H4,
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 4,
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            children: [
-                              if (uid != null)
-                                FutureBuilder<String?>(
-                                  future: _groupOf(uid),
-                                  builder: (context, snapshot) => snapshot.data == null
-                                      ? const SizedBox.shrink()
-                                      : _Pill(icon: Icons.verified_user_outlined, label: snapshot.data!),
-                                ),
-                              if (uid != null)
-                                Text(
-                                  tr.uid(uid: uid),
-                                  style: textTheme.labelMedium?.copyWith(color: colorScheme.onSurfaceVariant),
-                                ),
-                            ],
-                          ),
-                        ],
+                      sizedBoxW12H12,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            SingleLineText(
+                              username,
+                              style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                            ),
+                            sizedBoxW4H4,
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 4,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                if (uid != null)
+                                  FutureBuilder<String?>(
+                                    future: _groupOf(uid),
+                                    builder: (context, snapshot) => snapshot.data == null
+                                        ? const SizedBox.shrink()
+                                        : _Pill(icon: Icons.verified_user_outlined, label: snapshot.data!),
+                                  ),
+                                if (uid != null)
+                                  Text(
+                                    tr.uid(uid: uid),
+                                    style: textTheme.labelMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    Tooltip(
-                      message: context.t.profilePage.title,
-                      child: Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
-                    ),
-                  ],
+                      Tooltip(
+                        message: context.t.profilePage.title,
+                        child: Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -759,25 +765,28 @@ class _EntryTile extends StatelessWidget {
         color: colorScheme.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(appInnerRadius),
         clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: entry.onTap,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 76),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(entry.icon, color: colorScheme.primary),
-                  sizedBoxW4H4,
-                  Text(
-                    entry.label,
-                    maxLines: 2,
-                    textAlign: TextAlign.center,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.labelMedium,
-                  ),
-                ],
+        child: Semantics(
+          button: true,
+          child: InkWell(
+            onTap: entry.onTap,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 76),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(entry.icon, color: colorScheme.primary),
+                    sizedBoxW4H4,
+                    Text(
+                      entry.label,
+                      maxLines: 2,
+                      textAlign: TextAlign.center,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.labelMedium,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

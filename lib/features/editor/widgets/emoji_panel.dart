@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -33,6 +34,11 @@ Uint8List? _cachedEmoji(String code) {
   }
   return getIt.get<ImageCacheProvider>().getEmojiCacheSync(match.group(1)!, match.group(2)!);
 }
+
+/// How many emojis the panel puts on a row [width] wide: as many as with cells of at most 48 and gaps of 6 between
+/// them, the gaps now inside the cells so the whole cell takes the tap; one fewer where that would leave a cell under
+/// 48 wide.
+int emojiPanelColumns(double width) => max(1, min(((width - 6) / 54).ceil(), (width / 48).floor()));
 
 /// The emoji panel of the reply box: the emojis inserted lately first (kept on this device, [RecentEmojiStore]), the
 /// user's saved images (the editor's [CustomImageTab]), the user's custom emoji packs (with [sendCustomEmoji], those
@@ -170,28 +176,35 @@ class _EmojiPanelState extends State<EmojiPanel> with TickerProviderStateMixin {
       child: Material(
         type: MaterialType.transparency,
         child: Builder(
-          builder: (context) => InkWell(
-            key: ValueKey('emoji-panel-$code'),
-            borderRadius: BorderRadius.circular(appInnerRadius),
-            onTap: () => _pick(code),
-            onLongPress: recent ? () => unawaited(_offerRemoveRecent(context, code)) : null,
-            child: Padding(padding: const EdgeInsets.all(3), child: child),
+          builder: (context) => Semantics(
+            button: true,
+            child: InkWell(
+              key: ValueKey('emoji-panel-$code'),
+              borderRadius: BorderRadius.circular(appInnerRadius),
+              onTap: () => _pick(code),
+              onLongPress: recent ? () => unawaited(_offerRemoveRecent(context, code)) : null,
+              // The gap between the emojis is inside the cells (see [_grid]): the whole cell takes the tap.
+              child: Padding(padding: const EdgeInsets.all(6), child: child),
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _grid(List<String> codes, {bool recent = false}) => GridView.builder(
-    padding: edgeInsetsL12T8R12B8,
-    gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-      maxCrossAxisExtent: 48,
-      mainAxisSpacing: 6,
-      crossAxisSpacing: 6,
-      mainAxisExtent: 48,
-    ),
-    itemCount: codes.length,
-    itemBuilder: (context, index) => _emojiTile(codes[index], recent: recent),
+  Widget _grid(List<String> codes, {bool recent = false}) => LayoutBuilder(
+    builder: (context, constraints) {
+      const padding = EdgeInsets.symmetric(horizontal: 9, vertical: 5);
+      return GridView.builder(
+        padding: padding,
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: emojiPanelColumns(constraints.maxWidth - padding.horizontal),
+          mainAxisExtent: 54,
+        ),
+        itemCount: codes.length,
+        itemBuilder: (context, index) => _emojiTile(codes[index], recent: recent),
+      );
+    },
   );
 
   Widget _hint(BuildContext context, IconData icon, String message) => Center(
