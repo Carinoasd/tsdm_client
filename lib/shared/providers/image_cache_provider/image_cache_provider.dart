@@ -19,10 +19,12 @@ import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/extensions/fp.dart';
 import 'package:tsdm_client/extensions/int.dart';
 import 'package:tsdm_client/extensions/string.dart';
+import 'package:tsdm_client/features/attachment_download/utils/attachment_protocol.dart';
 import 'package:tsdm_client/features/cache/models/models.dart';
 import 'package:tsdm_client/features/settings/models/models.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
+import 'package:tsdm_client/shared/providers/cookie_provider/cookie_provider.dart';
 import 'package:tsdm_client/shared/providers/image_cache_provider/image_cache_trim.dart';
 import 'package:tsdm_client/shared/providers/image_cache_provider/models/image_cache_info.dart';
 import 'package:tsdm_client/shared/providers/image_cache_provider/models/models.dart';
@@ -83,18 +85,58 @@ Future<void> initCache() async {
   _emojiCacheReady = true;
 }
 
+/// The client of the session of account [uid] for the pictures served as attachments of the forum
+/// ([ImageCacheProvider]): one of the account in use ([CookieProvider.userLoginInfo]), bound to it as every client of
+/// an account is ([NetClientProvider.build]); null for another account, whose cookie is not sent for it.
+///
+/// Kept while the same account is in use: the client follows the sessions of the account by itself.
+NetClientProvider? currentAccountImageClient(int uid) {
+  if (!getIt.isRegistered<CookieProvider>()) {
+    return null;
+  }
+  final cookie = getIt.get<CookieProvider>();
+  final account = cookie.userLoginInfo;
+  if (account.uid != uid) {
+    return null;
+  }
+  final kept = _accountImageClient;
+  if (kept != null && kept.uid == uid && identical(kept.cookie, cookie)) {
+    return kept.client;
+  }
+  final client = NetClientProvider.build(userLoginInfo: account);
+  _accountImageClient = (cookie: cookie, uid: uid, client: client);
+  return client;
+}
+
+({CookieProvider cookie, int uid, NetClientProvider client})? _accountImageClient;
+
 /// Provider of cached images.
 final class ImageCacheProvider with LoggerMixin {
   // Can not be const.
   // ignore: prefer_const_constructor_declarations
   /// Constructor.
   ///
-  /// Images are fetched without the user's session on purpose: third-party hosts must not see the forum cookie, and
-  /// forum attachments do not need it because the `aid` token already carries the viewer's identity (verified live:
-  /// an attachment of a purchased thread loads for the buyer's token with and without the cookie).
-  ImageCacheProvider(this._netClientProvider);
+  /// Images are fetched without the user's session ([_netClientProvider]): other hosts must not see the forum cookie.
+  /// A picture served as an attachment of the forum (`forum.php?mod=attachment&aid=…`, the forum hiding the address
+  /// of its files) is fetched with the session of the account its token was made for, when [sessionClientOf] has a
+  /// client of it ([currentAccountImageClient] in the app): the token alone carries the account (an attachment of a
+  /// purchased thread loads for the buyer's token without the cookie), but a forum that limits who downloads
+  /// attachments (`getattachperm`) checks the groups of the session sending the request, and refused it without the
+  /// cookie (`抱歉，您没有权限下载本附件`) while the web page, which sends the cookie, shows the picture.
+  ImageCacheProvider(this._netClientProvider, {NetClientProvider? Function(int uid)? sessionClientOf})
+    : _sessionClientOf = sessionClientOf;
 
   final NetClientProvider _netClientProvider;
+
+  /// The client with the session of account `uid`, null when there is none (not the account in use).
+  final NetClientProvider? Function(int uid)? _sessionClientOf;
+
+  /// The client [imageUrl] is fetched with: the session of the account an attachment of the forum is for
+  /// ([uidOfAttachmentUrl]) when there is one, no session otherwise.
+  NetClientProvider _clientFor(String imageUrl) {
+    final uid = uidOfAttachmentUrl(imageUrl);
+    return (uid == null ? null : _sessionClientOf?.call(uid)) ?? _netClientProvider;
+  }
 
   /// Messages the server answered instead of image bytes, by image url (e.g. `附件所在主题需要付费，请您付费后下载`).
   final _htmlMessages = <String, String>{};
@@ -371,7 +413,7 @@ final class ImageCacheProvider with LoggerMixin {
     _tell(ImageCacheLoadingResponse(imageId, respType));
 
     try {
-      final respEither = await _netClientProvider
+      final respEither = await _clientFor(imageUrl)
           .getImage(
             imageUrl,
             // Only asked for when someone follows it: the Android client then reads the body in pieces.
