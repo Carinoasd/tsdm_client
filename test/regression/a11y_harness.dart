@@ -306,7 +306,8 @@ final class A11yContrast extends MinimumTextContrastGuideline {
   final List<Rect> exempt;
 
   /// The text nodes under an exempt rect, collected before the evaluation (the nodes it asks about carry no transform
-  /// to the root): their text and their own rect, so the same text elsewhere on the page is still checked.
+  /// to the root): their text and their own rect, so other text is still checked. The rect is the node's own, not
+  /// where it is on the page: the same text at the same place of another card (an author's name) is left out with it.
   final _covered = <String>{};
 
   static String _keyOf(SemanticsData data) => '${data.label.isEmpty ? data.value : data.label}@${data.rect}';

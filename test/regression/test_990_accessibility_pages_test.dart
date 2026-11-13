@@ -41,6 +41,16 @@ Translations get tr => LocaleSettings.instance.currentTranslations;
 void main() {
   final h = A11yHarness(fallback: a11yMoreForum)..install();
 
+  test('the emoji panel: cells of 48 at least, as many on a row as before where that holds', () {
+    for (var width = 48.0; width <= 1600; width += 0.5) {
+      final columns = emojiPanelColumns(width);
+      expect(width / columns, greaterThanOrEqualTo(48), reason: '$width wide');
+      // Before: cells of at most 48 with gaps of 6 between them.
+      final before = ((width - 6) / 54).ceil();
+      expect(columns, anyOf(before, before - 1), reason: '$width wide');
+    }
+  });
+
   /// The routes a page may open: stubs.
   final stubs = [
     for (final path in ['/stub'])
@@ -91,6 +101,25 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('reply-bar-emoji')));
       await a11ySettle(tester, rounds: 6);
       expect(find.byType(EmojiPanel), findsOneWidget, reason: 'the panel is open');
+      await h.audit(tester, tapTargetExempt: [floorAuthorName('Bob')], labelExempt: [packageToolbarButtons()]);
+      await h.finish(tester);
+    });
+
+    // 375 wide: where gaps between 48 wide cells left the emojis 43.7 wide, and where counting the columns as before
+    // with the gaps inside the cells would have given one more column under 48.
+    a11yTest('emoji panel on a 375 wide window, $mode', (tester) async {
+      EmojiPanel.debugGroups = a11yEmojiGroups;
+      addTearDown(() => EmojiPanel.debugGroups = null);
+      getIt.registerSingleton<RecentEmojiStore>(RecentEmojiStore.memory());
+      await h.pump(tester, thread, dark: dark, size: const Size(375, 812));
+      await a11ySettleUntil(tester, () => find.textContaining('floor 1 text').evaluate().isNotEmpty, 'the floors');
+      await tester.tap(find.byKey(const ValueKey('reply-bar-field')));
+      await a11ySettle(tester);
+      await tester.tap(find.byKey(const ValueKey('reply-bar-emoji')));
+      await a11ySettle(tester, rounds: 6);
+      final cell = tester.getSize(find.byKey(const ValueKey('emoji-panel-{:1_1:}')));
+      expect(cell.width, greaterThanOrEqualTo(48));
+      expect(cell.height, greaterThanOrEqualTo(48));
       await h.audit(tester, tapTargetExempt: [floorAuthorName('Bob')], labelExempt: [packageToolbarButtons()]);
       await h.finish(tester);
     });

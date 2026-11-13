@@ -1141,8 +1141,8 @@ final class _ReplyBarState extends State<_ReplyBar> with LoggerMixin {
   Widget _buildRichEditor(BuildContext context) {
     return EditorFrame(
       focusNode: focusNode,
-      // Room for the corner button that gives the editor the whole page.
-      padding: const EdgeInsets.fromLTRB(12, 8, 36, 8),
+      // Room for the 48 wide corner button that gives the editor the whole page: a tap there is the button's.
+      padding: const EdgeInsets.fromLTRB(12, 8, 48, 8),
       child: _wrapWithSendShortcuts(
         RichEditor(
           // Initial text is the text passed from outside.

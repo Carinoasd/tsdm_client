@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -33,6 +34,11 @@ Uint8List? _cachedEmoji(String code) {
   }
   return getIt.get<ImageCacheProvider>().getEmojiCacheSync(match.group(1)!, match.group(2)!);
 }
+
+/// How many emojis the panel puts on a row [width] wide: as many as with cells of at most 48 and gaps of 6 between
+/// them, the gaps now inside the cells so the whole cell takes the tap; one fewer where that would leave a cell under
+/// 48 wide.
+int emojiPanelColumns(double width) => max(1, min(((width - 6) / 54).ceil(), (width / 48).floor()));
 
 /// The emoji panel of the reply box: the emojis inserted lately first (kept on this device, [RecentEmojiStore]), the
 /// user's saved images (the editor's [CustomImageTab]), the user's custom emoji packs (with [sendCustomEmoji], those
@@ -186,13 +192,19 @@ class _EmojiPanelState extends State<EmojiPanel> with TickerProviderStateMixin {
     );
   }
 
-  Widget _grid(List<String> codes, {bool recent = false}) => GridView.builder(
-    // As many emojis on a row as with cells of 48 and gaps of 6 between them, the gaps inside the cells: each emoji
-    // takes taps on 48 and more instead of the 44 left between the gaps on a phone.
-    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-    gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(maxCrossAxisExtent: 54, mainAxisExtent: 54),
-    itemCount: codes.length,
-    itemBuilder: (context, index) => _emojiTile(codes[index], recent: recent),
+  Widget _grid(List<String> codes, {bool recent = false}) => LayoutBuilder(
+    builder: (context, constraints) {
+      const padding = EdgeInsets.symmetric(horizontal: 9, vertical: 5);
+      return GridView.builder(
+        padding: padding,
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: emojiPanelColumns(constraints.maxWidth - padding.horizontal),
+          mainAxisExtent: 54,
+        ),
+        itemCount: codes.length,
+        itemBuilder: (context, index) => _emojiTile(codes[index], recent: recent),
+      );
+    },
   );
 
   Widget _hint(BuildContext context, IconData icon, String message) => Center(
