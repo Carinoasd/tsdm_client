@@ -187,6 +187,10 @@ final class ImageCacheProvider with LoggerMixin {
   /// A load still running goes on to its end and answers its caller as usual, it only tells nobody on [response] any
   /// more ([_tell]).
   Future<void> dispose() async {
+    if (_controller.isClosed) {
+      // Disposed before: the notifier with it.
+      return;
+    }
     await _controller.close();
     _emojiListRevision.dispose();
   }
