@@ -989,7 +989,8 @@ final class ModerateRepository with LoggerMixin {
 
   /// The forum's verdict in answer [data] to the queue's operation of plugin 4.0.0 (posted with [tsdmAppV4Query]) sent
   /// by account [uid]: the write result told by its key (`modcp_mod_succeed`), the forum's message a refusal in its
-  /// words, the panel's login form drawn instead (its session ended) a refusal without words; anything else as
+  /// words, the panel's "no permission" (`modcp_noperm`) the app's own words ([modcpErrorText]), the panel's login form
+  /// drawn instead (its session ended) a refusal without words; anything else as
   /// [outcomeOf] reads it. An answer served to another account is an [IdentityChangedException].
   static Either<AppException, ModerateOutcome> queueV4OutcomeOf(Object? data, {required int uid}) {
     switch (tsdmAppV4WriteOutcomeOf(data, type: ModcpV4Page.moderate.type, schema: ModcpV4Page.moderate.schema)) {
@@ -1005,6 +1006,8 @@ final class ModerateRepository with LoggerMixin {
         return left(IdentityChangedException());
       case TsdmAppV4Redrawn(answer: TsdmAppV4Message(:final reason)):
         return right(ModerateRefused(reason));
+      case TsdmAppV4Redrawn(answer: TsdmAppV4Refused(:final error)) when modcpErrorText(error).isNotEmpty:
+        return right(ModerateRefused(modcpErrorText(error)));
       case TsdmAppV4Redrawn():
         // The panel's login form (its session ended) or another page: nothing was done that the app can tell.
         return right(const ModerateRefused(''));
@@ -1114,7 +1117,8 @@ final class ModerateRepository with LoggerMixin {
 
   /// The panel's verdict in answer [data] to a ban of plugin 4.0.0 (posted with [tsdmAppV4Query]) sent by account
   /// [uid]: the write result told by its key (`modcp_member_ban_succeed`, spec 4.2), the panel's login form drawn
-  /// instead; anything else as [memberBanOutcomeOf] reads it.
+  /// instead, the panel's "no permission" (`modcp_noperm`) in the app's own words ([modcpErrorText]); anything else as
+  /// [memberBanOutcomeOf] reads it.
   static Either<AppException, MemberBanOutcome> memberBanV4OutcomeOf(Object? data, {required int uid}) {
     switch (tsdmAppV4WriteOutcomeOf(data, type: ModcpV4Page.member.type, schema: ModcpV4Page.member.schema)) {
       case TsdmAppV4Written(:final result) when result.uid != uid:
@@ -1131,6 +1135,8 @@ final class ModerateRepository with LoggerMixin {
         return right(MemberBanSessionEnded(formHash: tsdmAppText(json['formhash'])));
       case TsdmAppV4Redrawn(answer: TsdmAppV4Message(:final reason)):
         return right(MemberBanRefused(reason));
+      case TsdmAppV4Redrawn(answer: TsdmAppV4Refused(:final error)) when modcpErrorText(error).isNotEmpty:
+        return right(MemberBanRefused(modcpErrorText(error)));
       default:
         return memberBanOutcomeOf(data, uid: uid);
     }

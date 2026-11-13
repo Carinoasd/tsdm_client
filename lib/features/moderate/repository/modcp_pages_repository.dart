@@ -6,6 +6,7 @@ import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/features/moderate/models/modcp_json_pages.dart';
 import 'package:tsdm_client/features/moderate/models/modcp_members.dart';
 import 'package:tsdm_client/features/moderate/models/modcp_panel.dart';
+import 'package:tsdm_client/features/moderate/models/modcp_v4.dart';
 import 'package:tsdm_client/features/moderate/models/moderate_posts.dart';
 import 'package:tsdm_client/features/moderate/repository/modcp_repository.dart';
 import 'package:tsdm_client/features/moderate/repository/moderate_repository.dart';
@@ -188,7 +189,7 @@ final class ModcpPagesRepository {
   ///   locked) is its refusal in its words;
   /// * the panel's login form (`error: modcp_login`) asks the password;
   /// * the panel's "no permission" (`error: modcp_noperm`: the forum's permissions need a group allowed to edit
-  ///   members) is its refusal, in the words of the page it attaches;
+  ///   members) is its refusal, in the words of the page it attaches, the app's own without one ([modcpErrorText]);
   /// * anything else (an older plugin's web page) is not read: the entries are offered on plugin 3.9.0 only.
   static Either<AppException, ModcpAnswer<T>> pageOf<T extends ModcpJsonPage>(
     Object? data, {
@@ -220,7 +221,8 @@ final class ModcpPagesRepository {
       if (json['error'] == 'modcp_login') {
         return right(ModcpNeedsLogin(formHash: moderatePanelLoginFormHash(doc) ?? tsdmAppText(json['formhash'])));
       }
-      return right(ModcpRefused(moderatePageMessage(doc)));
+      final message = moderatePageMessage(doc);
+      return right(ModcpRefused(message.isNotEmpty ? message : modcpErrorText(tsdmAppText(json['error']))));
     }
     return left(HttpRequestFailedException(HttpStatus.ok));
   }

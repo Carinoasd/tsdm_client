@@ -7,6 +7,7 @@ import 'package:tsdm_client/features/moderate/repository/moderate_repository.dar
 import 'package:tsdm_client/features/tsdmapp/small_form.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:tsdm_client/features/tsdmapp/v4.dart';
+import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
 import 'package:universal_html/parsing.dart';
@@ -160,6 +161,12 @@ final class FloorOpsRepository {
   ///
   /// The forum answers only how many it deleted ([deleteAttachmentOutcomeOf]): a refusal has no words. An answer the
   /// app can not read is an [HttpRequestFailedException]: the attachment may be gone.
+  ///
+  /// A form hash that is no longer the account's (logged in again, the edit page left open long) is stopped before the
+  /// deletion runs (`discuz_application::_xss_check`, `system_error('request_tainting')`) with HTTP 503 and no words
+  /// the client keeps: a 503 that is no site challenge is a refusal telling the page may have expired. Other errors of
+  /// the forum (`system_error` of a database failure, a busy server) are 503 as well and land here too; one of those
+  /// may come after the deletion ran, so the words ask to try again or open the edit page again, and claim nothing.
   AsyncEither<FloorOpOutcome> deleteAttachment({
     required String tid,
     required String pid,
@@ -179,6 +186,9 @@ final class FloorOpsRepository {
     }
     final resp = await _getOnce(TsdmAppV4.on ? withTsdmAppV4Write(url) : withTsdmAppJsonWrite(url));
     switch (resp) {
+      case Left(value: HttpHandshakeFailedException(statusCode: HttpStatus.serviceUnavailable, :final headers))
+          when headers?.value('cf-mitigated')?.toLowerCase() != 'challenge':
+        return right(FloorOpRefused(t.moderateFloorOps.formExpired));
       case Left(:final value):
         return left(value);
       case Right(:final value) when value.statusCode != HttpStatus.ok:

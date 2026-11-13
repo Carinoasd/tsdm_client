@@ -353,6 +353,13 @@ String ipBanErrorText(String key) => switch (key) {
   _ => '',
 };
 
+/// What to tell of the panel's refusal by the plugin's `error` [code] when it gives no words (`modcp_noperm`: the
+/// account's group may not use the page); empty for a code the app has no words for.
+String modcpErrorText(String code) => switch (code) {
+  'modcp_noperm' => t.modcp.noPermission,
+  _ => '',
+};
+
 // ---------------------------------------------------------------------------------------------------------------------
 // Recycle bins (45)
 // ---------------------------------------------------------------------------------------------------------------------
