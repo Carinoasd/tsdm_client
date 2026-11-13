@@ -912,7 +912,8 @@
         "always": "一律"
       },
       "inAppBrowserForForum": "論壇網頁用內建瀏覽器開啟",
-      "inAppBrowserForAll": "所有連結用內建瀏覽器開啟"
+      "inAppBrowserForAll": "所有連結用內建瀏覽器開啟",
+      "clipboardLinkPrompt": "提示開啟剛複製的論壇連結"
     }
   },
   "aboutPage": {
@@ -4655,5 +4656,14 @@
     "replyFeedbackThread": "到回饋帖回覆",
     "abnormalExit": "上次異常結束",
     "lastRunError": "上次執行時出現錯誤"
+  },
+  "linkToken": {
+    "clipboardThread": "開啟剛複製的帖子",
+    "clipboardPage": "開啟剛複製的論壇連結",
+    "open": "開啟",
+    "openThread": "開啟帖子",
+    "openPage": "開啟頁面",
+    "copyShareText": "複製分享文字",
+    "shareText": "【$site】$title $url"
   }
 }

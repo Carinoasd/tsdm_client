@@ -9,6 +9,7 @@ import 'package:tsdm_client/features/authentication/repository/authentication_re
 import 'package:tsdm_client/features/forum/utils/group.dart';
 import 'package:tsdm_client/features/homepage/utils/homepage_api.dart';
 import 'package:tsdm_client/features/jump_page/widgets/jump_page_dialog.dart';
+import 'package:tsdm_client/features/open_in_app/utils/forum_link_in_text.dart';
 import 'package:tsdm_client/features/open_in_app/view/open_in_app_page.dart';
 import 'package:tsdm_client/features/root/view/root_page.dart';
 import 'package:tsdm_client/features/search/bloc/search_bloc.dart';
@@ -107,6 +108,12 @@ class _SearchPageState extends State<SearchPage> with LoggerMixin {
   /// Run the search once the page is built, when opened with an author from a profile page.
   bool _searchOnBuild = false;
 
+  /// The keyword field's text and selection before its last change of the text, and its value now: what a change put
+  /// in ([forumLinkPasted]).
+  String _keywordBefore = '';
+  TextSelection? _keywordSelectionBefore;
+  TextEditingValue _keywordNow = TextEditingValue.empty;
+
   /// The author the page was opened with by name ([SearchPage.authorName]: a profile page, a "TA的主题" link naming
   /// the member): searched by name while the author field still holds it, also when the name is all digits, which
   /// the field otherwise takes as a uid.
@@ -124,6 +131,14 @@ class _SearchPageState extends State<SearchPage> with LoggerMixin {
       keywordController.text = keyword;
     }
     keywordFocus.addListener(() => setState(() {}));
+    _keywordNow = keywordController.value;
+    keywordController.addListener(() {
+      if (keywordController.text != _keywordNow.text) {
+        _keywordBefore = _keywordNow.text;
+        _keywordSelectionBefore = _keywordNow.selection;
+      }
+      _keywordNow = keywordController.value;
+    });
     _historyUid = context.readOrNull<AuthenticationRepository>()?.currentUser?.uid ?? 0;
     unawaited(_loadHistory());
     // The names of the forums the page was opened with; otherwise the index is asked when the picker opens.
@@ -197,6 +212,13 @@ class _SearchPageState extends State<SearchPage> with LoggerMixin {
   /// in result pages.
   /// Always validate search parameters.
   Future<void> _search(BuildContext context, [int page = 0]) async {
+    // A forum link in the keyword is opened, not searched.
+    if (formKey.currentState != null && page == 0) {
+      if (findForumLinkInText(keywordController.text) case final link?) {
+        _openLink(context, link);
+        return;
+      }
+    }
     if (formKey.currentState == null) {
       // Collapsed: the search shown is asked again with the parameters it was asked with (the page switches do not
       // come here, they go through the bloc, see _turnPage).
@@ -239,6 +261,47 @@ class _SearchPageState extends State<SearchPage> with LoggerMixin {
     lastAuthorName = authorName;
     lastFid = fid;
     lastFilter = filter;
+  }
+
+  /// Open the page of [link], a forum link in the keyword field.
+  void _openLink(BuildContext context, ForumLinkInText link) {
+    keywordFocus.unfocus();
+    unawaited(context.dispatchAsUrl(link.url));
+  }
+
+  /// The keyword field changed to [text]: a piece of text with a forum link pasted at once opens the link, and the
+  /// field gets back what it held before the paste (coming back to the page does not open it again). A link typed
+  /// character by character stays, offered in [_buildOpenLinkRow].
+  void _onKeywordChanged(BuildContext context, String text) {
+    final link = forumLinkPasted(_keywordBefore, text, selection: _keywordSelectionBefore);
+    if (link != null) {
+      final before = _keywordBefore;
+      keywordController.value = TextEditingValue(
+        text: before,
+        selection: TextSelection.collapsed(offset: before.length),
+      );
+      _openLink(context, link);
+    }
+    setState(() {});
+  }
+
+  /// The line opening the forum link in the keyword field, null when it holds none.
+  Widget? _buildOpenLinkRow(BuildContext context) {
+    final link = findForumLinkInText(keywordController.text);
+    if (link == null) {
+      return null;
+    }
+    final tr = context.t.linkToken;
+    return AppSurface(
+      key: const ValueKey('search-open-link'),
+      padding: EdgeInsets.zero,
+      child: ListTile(
+        leading: Icon(link.isThread ? Icons.article_outlined : Icons.open_in_new),
+        title: Text(link.isThread ? tr.openThread : tr.openPage),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => _openLink(context, link),
+      ),
+    );
   }
 
   Future<void> _loadHistory() async {
@@ -475,7 +538,7 @@ class _SearchPageState extends State<SearchPage> with LoggerMixin {
       controller: keywordController,
       focusNode: keywordFocus,
       textInputAction: TextInputAction.search,
-      onChanged: (_) => setState(() {}),
+      onChanged: (v) => _onKeywordChanged(context, v),
       onFieldSubmitted: (_) async => _search(context),
       decoration: InputDecoration(
         prefixIcon: const Icon(Icons.abc_outlined),
@@ -692,6 +755,7 @@ class _SearchPageState extends State<SearchPage> with LoggerMixin {
             ),
           );
         }
+        final openLinkRow = expandForm ? _buildOpenLinkRow(context) : null;
         return CustomScrollView(
           controller: scrollController,
           slivers: [
@@ -699,6 +763,11 @@ class _SearchPageState extends State<SearchPage> with LoggerMixin {
               SliverPadding(
                 padding: side.copyWith(top: 8),
                 sliver: SliverToBoxAdapter(child: _buildSearchForm(context, state)),
+              ),
+            if (openLinkRow != null)
+              SliverPadding(
+                padding: side.copyWith(top: 12),
+                sliver: SliverToBoxAdapter(child: openLinkRow),
               ),
             SliverPadding(
               padding: side.copyWith(top: 12, bottom: 8),

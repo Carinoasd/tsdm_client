@@ -1882,6 +1882,12 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
                 context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.inAppBrowserForAll, v)),
           ),
         ],
+        SectionSwitchListTile(
+          secondary: const Icon(Icons.content_paste_go_outlined),
+          title: Text(tr.clipboardLinkPrompt),
+          value: state.settingsMap.clipboardLinkPrompt,
+          onChanged: (v) => context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.clipboardLinkPrompt, v)),
+        ),
         SectionListTile(
           leading: const Icon(Icons.new_releases_outlined),
           title: Text(tr.update),

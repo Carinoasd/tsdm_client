@@ -104,6 +104,7 @@ const diagnosticSettingNames = <String>[
   'offlineThreads',
   'inAppBrowserForForum',
   'inAppBrowserForAll',
+  'clipboardLinkPrompt',
   'netClientUseProxy',
   'useDetectedProxyWhenStartup',
   'enableUpdateCheckOnStartup',

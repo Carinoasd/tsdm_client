@@ -912,7 +912,8 @@
         "always": "Always"
       },
       "inAppBrowserForForum": "Open forum pages in the in-app browser",
-      "inAppBrowserForAll": "Open all links in the in-app browser"
+      "inAppBrowserForAll": "Open all links in the in-app browser",
+      "clipboardLinkPrompt": "Offer to open forum links just copied"
     }
   },
   "aboutPage": {
@@ -4655,5 +4656,14 @@
     "replyFeedbackThread": "Reply in feedback thread",
     "abnormalExit": "The app ended abnormally last time",
     "lastRunError": "Something went wrong last time"
+  },
+  "linkToken": {
+    "clipboardThread": "Open the thread just copied",
+    "clipboardPage": "Open the forum link just copied",
+    "open": "Open",
+    "openThread": "Open thread",
+    "openPage": "Open page",
+    "copyShareText": "Copy share text",
+    "shareText": "[$site] $title $url"
   }
 }

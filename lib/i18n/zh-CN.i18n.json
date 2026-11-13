@@ -912,7 +912,8 @@
         "always": "一律"
       },
       "inAppBrowserForForum": "论坛网页用内置浏览器打开",
-      "inAppBrowserForAll": "所有链接用内置浏览器打开"
+      "inAppBrowserForAll": "所有链接用内置浏览器打开",
+      "clipboardLinkPrompt": "提示打开刚复制的论坛链接"
     }
   },
   "aboutPage": {
@@ -4655,5 +4656,14 @@
     "replyFeedbackThread": "到反馈帖回复",
     "abnormalExit": "上次异常结束",
     "lastRunError": "上次运行时出现错误"
+  },
+  "linkToken": {
+    "clipboardThread": "打开刚复制的帖子",
+    "clipboardPage": "打开刚复制的论坛链接",
+    "open": "打开",
+    "openThread": "打开帖子",
+    "openPage": "打开页面",
+    "copyShareText": "复制分享文字",
+    "shareText": "【$site】$title $url"
   }
 }
