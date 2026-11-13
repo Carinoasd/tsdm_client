@@ -35,7 +35,17 @@ import id.flutter.flutter_background_service.BackgroundService
  * the process outlived the service.
  *
  * Dart says when the service is wanted ([setWanted], from `BackgroundSyncController`): a switch turned off or an
- * interval set to "never" cancels the job and the notification.
+ * interval set to "never" cancels the job and the notification. Every path of the app that stops the service on purpose
+ * must tell this first, or the job would start it again.
+ *
+ * A service that stops itself (its isolate failed to start) is not the system's doing: started again by the job, it
+ * would go again at once. A restart that is gone again at the next check, without being seen running in between,
+ * waits twice as long before the next one (one period, two, four… up to [MAX_BACKOFF_STEPS] doublings); seen running,
+ * or told by Dart again, the count starts over. The activity coming to the front restarts it whatever the count, as
+ * the app itself does when it starts.
+ *
+ * A periodic job also follows the app standby buckets: about once a day in the `rare` bucket, hardly ever in the
+ * `restricted` one (Android 12+, an app not opened for long), besides waiting for the maintenance windows of Doze.
  */
 class BackgroundSyncGuard : JobService() {
     /** What [check] does for the service's state. */
@@ -57,6 +67,11 @@ class BackgroundSyncGuard : JobService() {
         private const val KEY_WANTED = "wanted"
         private const val KEY_NOTIFIED = "notified"
         private const val KEY_TITLE = "title"
+        private const val KEY_STREAK = "restart_streak"
+        private const val KEY_RESTARTED_AT = "restarted_at"
+
+        /** At most 2^5 periods (8 hours) between two restarts of a service that keeps going. */
+        const val MAX_BACKOFF_STEPS = 5
 
         /** Far from the ids JobScheduler users of the plugins hand out (WorkManager counts up from 0). */
         const val JOB_ID = 0x75D30001
@@ -82,6 +97,8 @@ class BackgroundSyncGuard : JobService() {
             val editor = prefs(context).edit()
                 .putBoolean(KEY_WANTED, wanted)
                 .putBoolean(KEY_NOTIFIED, false)
+                .remove(KEY_STREAK)
+                .remove(KEY_RESTARTED_AT)
             if (!title.isNullOrBlank()) editor.putString(KEY_TITLE, title)
             editor.apply()
             clearNotice(context)
@@ -108,6 +125,17 @@ class BackgroundSyncGuard : JobService() {
             else -> Step.RESTART
         }
 
+        /**
+         * Whether a restart is to wait: [streak] restarts in a row were not seen running afterwards, the last one at
+         * [restartedAt]. The wait doubles with each of them.
+         */
+        fun backingOff(streak: Int, restartedAt: Long, now: Long): Boolean {
+            if (streak <= 0) return false
+            val wait = PERIOD_MS shl (streak - 1).coerceAtMost(MAX_BACKOFF_STEPS)
+            // Less a minute: the job does not run on the very millisecond.
+            return now - restartedAt < wait - 60_000L
+        }
+
         /** Whether the plugin's service runs in this app (an app sees its own services). */
         fun serviceRunning(context: Context): Boolean {
             val manager = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager ?: return false
@@ -132,6 +160,7 @@ class BackgroundSyncGuard : JobService() {
             inFront: Boolean = false,
             running: (Context) -> Boolean = ::serviceRunning,
             start: (Context) -> Unit = ::startService,
+            now: () -> Long = System::currentTimeMillis,
         ): Step {
             val prefs = prefs(context)
             val step = decide(prefs.getBoolean(KEY_WANTED, false), running(context))
@@ -140,13 +169,23 @@ class BackgroundSyncGuard : JobService() {
                     (context.getSystemService(Context.JOB_SCHEDULER_SERVICE) as? JobScheduler)?.cancel(JOB_ID)
                     clearNotice(context)
                 }
-                Step.NOTHING -> if (prefs.getBoolean(KEY_NOTIFIED, false)) {
-                    prefs.edit().putBoolean(KEY_NOTIFIED, false).apply()
-                    clearNotice(context)
+                Step.NOTHING -> {
+                    if (prefs.contains(KEY_STREAK)) prefs.edit().remove(KEY_STREAK).remove(KEY_RESTARTED_AT).apply()
+                    if (prefs.getBoolean(KEY_NOTIFIED, false)) {
+                        prefs.edit().putBoolean(KEY_NOTIFIED, false).apply()
+                        clearNotice(context)
+                    }
                 }
                 Step.RESTART -> try {
+                    val streak = prefs.getInt(KEY_STREAK, 0)
+                    val at = now()
+                    if (!inFront && backingOff(streak, prefs.getLong(KEY_RESTARTED_AT, 0L), at)) {
+                        Log.i(TAG, "background service gone again after $streak restarts: waiting")
+                        return Step.RESTART
+                    }
                     start(context)
-                    Log.i(TAG, "background service restarted (in front: $inFront)")
+                    prefs.edit().putInt(KEY_STREAK, streak + 1).putLong(KEY_RESTARTED_AT, at).apply()
+                    Log.i(TAG, "background service restarted (in front: $inFront, streak: ${streak + 1})")
                     if (prefs.getBoolean(KEY_NOTIFIED, false)) {
                         prefs.edit().putBoolean(KEY_NOTIFIED, false).apply()
                         clearNotice(context)

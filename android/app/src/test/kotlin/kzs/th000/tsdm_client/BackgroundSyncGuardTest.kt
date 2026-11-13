@@ -122,4 +122,52 @@ class BackgroundSyncGuardTest {
         BackgroundSyncGuard.setWanted(context, false, null)
         assertNull(notifications.getNotification(BackgroundSyncGuard.NOTIFICATION_ID))
     }
+
+    @Test fun backingOffDoublesAndCaps() {
+        val p = BackgroundSyncGuard.PERIOD_MS
+        assertFalse(BackgroundSyncGuard.backingOff(0, 0L, 0L))
+        assertFalse(BackgroundSyncGuard.backingOff(1, 0L, p))
+        assertTrue(BackgroundSyncGuard.backingOff(2, 0L, p))
+        assertFalse(BackgroundSyncGuard.backingOff(2, 0L, 2 * p))
+        assertTrue(BackgroundSyncGuard.backingOff(3, 0L, 3 * p))
+        assertFalse(BackgroundSyncGuard.backingOff(3, 0L, 4 * p))
+        assertTrue(BackgroundSyncGuard.backingOff(50, 0L, 31 * p))
+        assertFalse(BackgroundSyncGuard.backingOff(50, 0L, 32 * p))
+    }
+
+    @Test fun serviceThatStopsItselfIsNotRestartedEveryPeriod() {
+        BackgroundSyncGuard.setWanted(context, true, "stopped")
+        val p = BackgroundSyncGuard.PERIOD_MS
+        var clock = 0L
+        fun tick() = BackgroundSyncGuard.check(context, running = { false }, start = started, now = { clock })
+        tick() // First restart.
+        clock += p
+        tick() // Gone again: second restart, one period later.
+        assertEquals(2, starts)
+        clock += p
+        tick() // Two periods to wait now.
+        assertEquals(2, starts)
+        clock += p
+        tick()
+        assertEquals(3, starts)
+        // The app in front restarts it whatever the count.
+        BackgroundSyncGuard.check(context, inFront = true, running = { false }, start = started, now = { clock })
+        assertEquals(4, starts)
+    }
+
+    @Test fun seenRunningOrToldAgainStartsTheCountOver() {
+        BackgroundSyncGuard.setWanted(context, true, "stopped")
+        val p = BackgroundSyncGuard.PERIOD_MS
+        var clock = 0L
+        fun tick(up: Boolean = false) =
+            BackgroundSyncGuard.check(context, running = { up }, start = started, now = { clock })
+        tick(); clock += p; tick(); clock += p
+        tick(up = true)
+        tick()
+        assertEquals(3, starts)
+        clock += p / 2
+        BackgroundSyncGuard.setWanted(context, true, "stopped")
+        tick()
+        assertEquals(4, starts)
+    }
 }

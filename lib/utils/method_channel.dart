@@ -1,6 +1,8 @@
 import 'package:flutter/services.dart';
 import 'package:tsdm_client/utils/platform.dart';
 
+// Its one Dart handler is `_handleMainChannelCall`: listen to a call from Android through `_listenOnMainChannel`, never
+// with another `setMethodCallHandler`, which would drop the listeners there.
 const _mainChannel = MethodChannel('kzs.th000.tsdm_client/mainChannel');
 
 const _methodExitApp = 'exitApp';
