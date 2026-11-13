@@ -281,7 +281,7 @@ void main() {
   });
 
   group('moderator panel', () {
-    testWidgets('lists the admin actions the account may read, and holds the session while open', (tester) async {
+    testWidgets('lists the admin actions the account may read; leaving it sends nothing', (tester) async {
       final forum = FakeAdminForum();
       final repo = forum.repository();
       await _pump(
@@ -295,10 +295,8 @@ void main() {
       expect(find.byKey(const ValueKey('modcp-admin-credit')), findsOneWidget);
       expect(find.byKey(const ValueKey('modcp-admin-group')), findsOneWidget);
       expect(find.byKey(const ValueKey('modcp-admin-ban')), findsOneWidget);
-      expect(forum.session.leases, 1);
       await tester.pumpWidget(const SizedBox());
-      expect(forum.session.leases, 0);
-      expect(forum.requests, isEmpty, reason: 'no token kept: nothing to log out');
+      expect(forum.requests, isEmpty, reason: 'the token is kept as long as the forum keeps it (test_965)');
     });
 
     testWidgets('lists none for a read-only admin, a refused account or no answer', (tester) async {
@@ -320,11 +318,9 @@ void main() {
         );
         expect(find.byKey(const ValueKey('modcp-admin-credit')), findsNothing);
         expect(find.byKey(const ValueKey('modcp-admin-ban')), findsNothing);
-        // A read-only admin of the reports gets the reports of the whole forum (tsdmapp 3.9.0 second round, test_896),
-        // and the panel holds the session for it.
+        // A read-only admin of the reports gets the reports of the whole forum (tsdmapp 3.9.0 second round, test_896).
         final reports = access?.canRead(AdminActions.report) ?? false;
         expect(find.byKey(const ValueKey('modcp-report')), reports ? findsOneWidget : findsNothing);
-        expect(forum.session.leases, reports ? 1 : 0);
       }
       expect(tester.takeException(), isNull);
     });

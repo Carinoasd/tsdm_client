@@ -9,6 +9,7 @@ import 'package:tsdm_client/features/admin_tools/repository/admin_repository.dar
 import 'package:tsdm_client/features/admin_tools/view/admin_ban_page.dart';
 import 'package:tsdm_client/features/admin_tools/view/admin_credit_page.dart';
 import 'package:tsdm_client/features/admin_tools/view/admin_group_page.dart';
+import 'package:tsdm_client/features/admin_tools/widgets/admin_widgets.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/background_grant/view/background_grant_page.dart';
 import 'package:tsdm_client/features/batch_rate/models/batch_rate.dart';
@@ -20,6 +21,7 @@ import 'package:tsdm_client/features/medal_title_tools/view/title_issue_page.dar
 import 'package:tsdm_client/features/moderate/models/modcp_json_pages.dart';
 import 'package:tsdm_client/features/moderate/models/modcp_members.dart';
 import 'package:tsdm_client/features/moderate/models/modcp_panel.dart';
+import 'package:tsdm_client/features/moderate/models/moderate_posts.dart';
 import 'package:tsdm_client/features/moderate/repository/modcp_pages_repository.dart';
 import 'package:tsdm_client/features/moderate/repository/modcp_repository.dart';
 import 'package:tsdm_client/features/moderate/repository/moderate_repository.dart';
@@ -145,9 +147,6 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
   /// The admin actions the account may use; null until asked or when it could not be.
   AdminAccess? _admin;
 
-  /// The panel holds the admin session while it lists admin actions: going between them asks the password once.
-  bool _adminLease = false;
-
   /// The batch rates the account may read; null until asked or when it may not.
   BatchRateInfo? _batchRate;
 
@@ -158,6 +157,10 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
 
   /// The panel's first page (what waits), null until read or when it could not be (the panel's password not given).
   ModcpHome? _home;
+
+  /// The form hash of the panel's login when the first page asked for it (the panel's password not given yet); null
+  /// otherwise.
+  String? _homeLogin;
 
   /// Asked as [_loadStaff] is; the first page read once the forum answers it.
   Future<void> _loadModcpPages() async {
@@ -192,6 +195,10 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
       setState(() {
         _home = switch (answer) {
           Right(value: ModcpReady(:final value)) => value,
+          _ => null,
+        };
+        _homeLogin = switch (answer) {
+          Right(value: ModcpNeedsLogin(:final formHash)) => formHash,
           _ => null,
         };
       });
@@ -230,14 +237,6 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
     }
   }
 
-  @override
-  void dispose() {
-    if (_adminLease) {
-      _adminRepository.session.release(_adminRepository.logout);
-    }
-    super.dispose();
-  }
-
   Future<void> _loadAdmin() async {
     final auth = context.readOrNull<AuthenticationRepository>();
     final uid = auth?.currentUser?.uid;
@@ -253,10 +252,6 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
     final access = await ask();
     if (!mounted || access == null || (access.memberActions.isEmpty && !access.canRead(AdminActions.report))) {
       return;
-    }
-    if (!_adminLease) {
-      _adminLease = true;
-      _adminRepository.session.acquire();
     }
     setState(() => _admin = access);
   }
@@ -501,7 +496,10 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
     ];
     final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: AppBar(title: Text(t.modcp.panel)),
+      appBar: AppBar(
+        title: Text(t.modcp.panel),
+        actions: [if (_admin != null) AdminLogoutButton(repository: _adminRepository)],
+      ),
       body: SafeArea(
         top: false,
         child: AppCenteredList(
@@ -525,6 +523,20 @@ class _ModeratorPanelPageState extends State<ModeratorPanelPage> {
                       ),
                     ),
                     onNotes: () => unawaited(_push(() => ModcpNotesPage(repository: _pages))),
+                  ),
+                )
+              else if (_homeLogin case final formHash?)
+                // Where the counts go: the panel's login, then the counts.
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: ModcpHomeLoginTile(
+                    onTap: () => unawaited(
+                      _push(
+                        () => ModcpPanelLoginPage(
+                          login: (password) => repository.loginPanel(formHash: formHash, password: password),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               // Each tile belongs to one group for good: the answers come in one after another, a tile shown never
@@ -716,6 +728,27 @@ class _ModcpForumChooserState extends State<ModcpForumChooser> {
       final answer => modcpErrorView(context, answer, onRetry: _load),
     };
   }
+}
+
+/// The panel's login asked alone ([ModeratePanelLoginView]): closed once logged in, the page that opened it reads
+/// what it needed again.
+class ModcpPanelLoginPage extends StatelessWidget {
+  /// Constructor.
+  const ModcpPanelLoginPage({required this.login, super.key});
+
+  /// Send the password.
+  final AsyncEither<ModeratePanelLogin> Function(String password) login;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: Text(context.t.moderate.panelLogin)),
+    body: ModeratePanelLoginView(
+      login: login,
+      onLoggedIn: () async {
+        if (context.mounted) Navigator.of(context).pop();
+      },
+    ),
+  );
 }
 
 /// The view of an answer that is not the page: the panel's refusal in its own words, or why it could not be had.

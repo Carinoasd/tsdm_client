@@ -18,7 +18,7 @@ import 'package:tsdm_client/widgets/app_surface.dart';
 /// forum says it stopped (`clear_pending`, `post_left`).
 class AdminBanPage extends StatefulWidget {
   /// Constructor.
-  const AdminBanPage({this.repository, this.initialMember, this.writable, super.key});
+  const AdminBanPage({this.repository, this.initialMember, this.writable, this.adminAccess, super.key});
 
   /// Injected for tests; the app's client otherwise.
   final AdminRepository? repository;
@@ -29,11 +29,14 @@ class AdminBanPage extends StatefulWidget {
   /// Whether the account may post it; asked of the kept access when null.
   final bool? writable;
 
+  /// What the account may use, asked when [writable] is null; the kept access ([AdminAccessCache]) when null.
+  final Future<AdminAccess?> Function()? adminAccess;
+
   @override
   State<AdminBanPage> createState() => _AdminBanPageState();
 }
 
-class _AdminBanPageState extends State<AdminBanPage> with AdminSessionLease {
+class _AdminBanPageState extends State<AdminBanPage> with AdminPageSession {
   @override
   late final AdminRepository adminRepository = widget.repository ?? AdminRepository.network();
 
@@ -44,8 +47,6 @@ class _AdminBanPageState extends State<AdminBanPage> with AdminSessionLease {
   bool _loading = false;
   bool _sending = false;
 
-  /// Known writable (`write` 1): the submit button is shown only then.
-  bool _writable = false;
   String _ban = 'post';
   int _days = 0;
   final _clear = <String>{'post'};
@@ -74,18 +75,15 @@ class _AdminBanPageState extends State<AdminBanPage> with AdminSessionLease {
     super.dispose();
   }
 
-  Future<void> _loadWritable() async {
-    if (widget.writable case final w?) {
-      _writable = w;
+  Future<void> _loadWritable() => loadAdminWritable(AdminActions.ban, given: widget.writable, ask: widget.adminAccess);
+
+  /// Read the member named; [afterClear] ends the clearing shown with what is read.
+  Future<void> _load({bool afterClear = false}) async {
+    final target = _target.text.trim();
+    if (target.isEmpty) {
+      if (afterClear && mounted) setState(() => _clearing = false);
       return;
     }
-    final access = await AdminAccessCache.check(adminRepository.currentUid, repository: adminRepository);
-    if (mounted && access != null) setState(() => _writable = access.canWrite(AdminActions.ban));
-  }
-
-  Future<void> _load() async {
-    final target = _target.text.trim();
-    if (target.isEmpty) return;
     setState(() {
       _loading = true;
       _failure = null;
@@ -95,6 +93,7 @@ class _AdminBanPageState extends State<AdminBanPage> with AdminSessionLease {
     final info = AdminBanInfo.fromJson(reply.json);
     setState(() {
       _loading = false;
+      if (afterClear) _clearing = false;
       _opId = null;
       _info = info;
       _failure = info == null ? reply : null;
@@ -181,14 +180,18 @@ class _AdminBanPageState extends State<AdminBanPage> with AdminSessionLease {
       return;
     }
     _opId = null;
-    showSnackBar(context: context, message: tr.done);
     if (result.clearPosts case final cp? when cp.pending) {
+      // Done is told once the posts are cleared too, not while the clearing has yet to start.
       final total = info.member.postRows > cp.remaining ? info.member.postRows : cp.remaining;
       await _runClear(member.uid, cp.cursor, total, cp.remaining);
+      return;
     }
-    if (mounted) await _load();
+    showSnackBar(context: context, message: tr.done);
+    await _load();
   }
 
+  /// Clear [target]'s posts from [cursor], then read the member again. The progress stays on screen until the member
+  /// read anew replaces it: the member read before the clearing would show it unfinished meanwhile.
   Future<void> _runClear(int target, String cursor, int total, int remaining) async {
     setState(() {
       _clearing = true;
@@ -208,7 +211,6 @@ class _AdminBanPageState extends State<AdminBanPage> with AdminSessionLease {
       },
     );
     if (!mounted) return;
-    setState(() => _clearing = false);
     if (outcome.done) {
       showSnackBar(context: context, message: context.t.adminTools.clearDone);
     } else if (outcome.reply case final reply?) {
@@ -217,6 +219,7 @@ class _AdminBanPageState extends State<AdminBanPage> with AdminSessionLease {
       if (reply.error == 'clear_start') setState(() => _clear.add('post'));
       showSnackBar(context: context, message: adminErrorText(context, reply));
     }
+    await _load(afterClear: true);
   }
 
   Widget _progress(int total, int remaining) {
@@ -255,11 +258,10 @@ class _AdminBanPageState extends State<AdminBanPage> with AdminSessionLease {
             alignment: AlignmentDirectional.centerEnd,
             child: FilledButton.tonal(
               key: const ValueKey('admin-ban-resume'),
-              onPressed: _writable && !_sending && !_loading
-                  ? () async {
-                      await _runClear(member.member.uid, kept?.cursor ?? adminClearStart, total, remaining);
-                      if (mounted) await _load();
-                    }
+              onPressed: adminWritable && !_sending && !_loading
+                  ? () => unawaited(
+                      _runClear(member.member.uid, kept?.cursor ?? adminClearStart, total, remaining),
+                    )
                   : null,
               child: Text(tr.clearResume),
             ),
@@ -271,7 +273,7 @@ class _AdminBanPageState extends State<AdminBanPage> with AdminSessionLease {
 
   Widget _form(AdminBanInfo info) {
     final tr = context.t.adminTools;
-    final enabled = !_sending && !_clearing && !_loading && _writable;
+    final enabled = !_sending && !_clearing && !_loading && adminWritable;
     return AppSurface(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -339,7 +341,7 @@ class _AdminBanPageState extends State<AdminBanPage> with AdminSessionLease {
                     })
                   : null,
             ),
-          if (_writable)
+          if (adminWritable)
             Align(
               alignment: AlignmentDirectional.centerEnd,
               child: FilledButton(
@@ -363,83 +365,88 @@ class _AdminBanPageState extends State<AdminBanPage> with AdminSessionLease {
     final info = _info;
     final textTheme = Theme.of(context).textTheme;
     return Scaffold(
-      appBar: AppBar(title: Text(tr.ban)),
-      body: ToolsBody(
-        children: [
-          AppSurface(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+      appBar: AppBar(
+        title: Text(tr.ban),
+        actions: [AdminLogoutButton(repository: adminRepository)],
+      ),
+      body: adminAccessFailed
+          ? adminAccessFailure(context, () => unawaited(_loadWritable()))
+          : ToolsBody(
               children: [
-                AdminTargetField(
-                  controller: _target,
-                  label: tr.member,
-                  enabled: !_sending && !_loading && !_clearing,
-                  onLookup: () => unawaited(_load()),
-                ),
-                if (_loading) const LinearProgressIndicator(),
-                if (info != null)
-                  AdminMemberTile(
-                    member: info.member.member,
-                    extra: [
-                      [
-                        _banLabel(info.member.banned),
-                        if (info.member.banned.isNotEmpty && info.member.banExpiry > 0)
-                          tr.until(date: toolsDate(info.member.banExpiry)),
-                      ].join(' · '),
-                      tr.postCounts(posts: info.member.posts, threads: info.member.threads),
-                    ].join('\n'),
+                AppSurface(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      AdminTargetField(
+                        controller: _target,
+                        label: tr.member,
+                        enabled: !_sending && !_loading && !_clearing,
+                        onLookup: () => unawaited(_load()),
+                      ),
+                      if (_loading) const LinearProgressIndicator(),
+                      if (info != null)
+                        AdminMemberTile(
+                          member: info.member.member,
+                          extra: [
+                            [
+                              _banLabel(info.member.banned),
+                              if (info.member.banned.isNotEmpty && info.member.banExpiry > 0)
+                                tr.until(date: toolsDate(info.member.banExpiry)),
+                            ].join(' · '),
+                            tr.postCounts(posts: info.member.posts, threads: info.member.threads),
+                          ].join('\n'),
+                        ),
+                    ],
                   ),
+                ),
+                sizedBoxW12H12,
+                if (_failure case final failure?)
+                  AppStateView(
+                    icon: Icons.error_outline,
+                    error: true,
+                    scrollable: false,
+                    message: adminErrorText(context, failure),
+                  )
+                else if (info != null) ...[
+                  if (!info.can)
+                    AppStateView(
+                      key: const ValueKey('admin-ban-cannot'),
+                      icon: Icons.block_outlined,
+                      scrollable: false,
+                      message: adminWhyText(context, info.why),
+                    )
+                  else ...[
+                    _clearCard(info),
+                    sizedBoxW12H12,
+                    _form(info),
+                  ],
+                  if (info.crimes.isNotEmpty) ...[
+                    sizedBoxW16H16,
+                    Text(tr.crimes, style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                    sizedBoxW8H8,
+                    AppSurface(
+                      padding: EdgeInsets.zero,
+                      child: Column(
+                        children: [
+                          for (final c in info.crimes)
+                            ListTile(
+                              dense: true,
+                              title: Text(context.displayText(c.text.isEmpty ? c.action : c.text)),
+                              subtitle: Text(
+                                [
+                                  if (tsdmAppWallClockTime(c.dateline, info.timeOffset) case final t?) _clock(t),
+                                  if (c.operator.isNotEmpty) c.operator,
+                                  if (c.reason.isNotEmpty) context.displayText(c.reason),
+                                ].join(' · '),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
               ],
             ),
-          ),
-          sizedBoxW12H12,
-          if (_failure case final failure?)
-            AppStateView(
-              icon: Icons.error_outline,
-              error: true,
-              scrollable: false,
-              message: adminErrorText(context, failure),
-            )
-          else if (info != null) ...[
-            if (!info.can)
-              AppStateView(
-                key: const ValueKey('admin-ban-cannot'),
-                icon: Icons.block_outlined,
-                scrollable: false,
-                message: adminWhyText(context, info.why),
-              )
-            else ...[
-              _clearCard(info),
-              sizedBoxW12H12,
-              _form(info),
-            ],
-            if (info.crimes.isNotEmpty) ...[
-              sizedBoxW16H16,
-              Text(tr.crimes, style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-              sizedBoxW8H8,
-              AppSurface(
-                padding: EdgeInsets.zero,
-                child: Column(
-                  children: [
-                    for (final c in info.crimes)
-                      ListTile(
-                        dense: true,
-                        title: Text(context.displayText(c.text.isEmpty ? c.action : c.text)),
-                        subtitle: Text(
-                          [
-                            if (tsdmAppWallClockTime(c.dateline, info.timeOffset) case final t?) _clock(t),
-                            if (c.operator.isNotEmpty) c.operator,
-                            if (c.reason.isNotEmpty) context.displayText(c.reason),
-                          ].join(' · '),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ],
-          ],
-        ],
-      ),
     );
   }
 }

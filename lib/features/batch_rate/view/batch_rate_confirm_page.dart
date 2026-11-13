@@ -187,11 +187,17 @@ class _BatchRateConfirmPageState extends State<BatchRateConfirmPage> {
       _settings = settings;
       _stale = false;
       _texts = _fieldTexts();
+      _switches = _switchesOf(settings);
     });
   }
 
   /// What the fields held when the plugin last computed the confirmation, see [_changed].
   String? _texts;
+
+  /// The switches when the plugin last computed the confirmation, see [_changed].
+  (bool, bool, bool)? _switches;
+
+  static (bool, bool, bool) _switchesOf(BatchRateSettings s) => (s.notify, s.rated, s.same);
 
   /// Every field's text, in a fixed order.
   String _fieldTexts() => [
@@ -202,13 +208,16 @@ class _BatchRateConfirmPageState extends State<BatchRateConfirmPage> {
     _floors.text,
   ].join('\u0000');
 
-  /// A field changed: asks for the plugin to compute again only when some text did (not a tap moving the cursor).
+  /// A field changed: asks for the plugin to compute again while some setting differs from what it computed with (not
+  /// for a tap moving the cursor); a setting changed back to that value asks no more.
   void _changed() {
-    if (_confirm == null || _fieldTexts() == _texts) {
+    final settings = _settings;
+    if (_confirm == null || settings == null || !_sync()) {
       return;
     }
-    if (_sync()) {
-      setState(() => _stale = true);
+    final stale = _fieldTexts() != _texts || _switchesOf(settings) != _switches;
+    if (stale != _stale) {
+      setState(() => _stale = stale);
     }
   }
 
@@ -289,8 +298,8 @@ class _BatchRateConfirmPageState extends State<BatchRateConfirmPage> {
     if (settings == null) {
       return;
     }
-    change(settings);
-    setState(() => _stale = true);
+    setState(() => change(settings));
+    _changed();
   }
 
   /// The sentences of the plugin's checks matching [test], one a line (shown in the script of the app); null when none,

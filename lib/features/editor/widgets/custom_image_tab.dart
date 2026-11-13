@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:tsdm_client/constants/layout.dart';
+import 'package:tsdm_client/features/editor/repository/recent_emoji_store.dart';
 import 'package:tsdm_client/features/editor/utils/custom_image_input.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
@@ -170,6 +171,8 @@ class CustomImageTab extends StatelessWidget {
                           );
                           if (confirmed ?? false) {
                             await storage.deleteCustomImage(image.id);
+                            // Gone from the recent ones too (a URL is saved once).
+                            await RecentEmojiStore.app?.remove(bbcode);
                           }
                         },
                         child: ClipRRect(

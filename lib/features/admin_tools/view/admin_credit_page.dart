@@ -16,7 +16,7 @@ import 'package:tsdm_client/widgets/app_surface.dart';
 /// looked up first; each credit's change, a reason and whether to notify; the result per member.
 class AdminCreditPage extends StatefulWidget {
   /// Constructor.
-  const AdminCreditPage({this.repository, this.initialMembers, this.writable, super.key});
+  const AdminCreditPage({this.repository, this.initialMembers, this.writable, this.adminAccess, super.key});
 
   /// Injected for tests; the app's client otherwise.
   final AdminRepository? repository;
@@ -27,11 +27,14 @@ class AdminCreditPage extends StatefulWidget {
   /// Whether the account may post it; asked of the kept access when null.
   final bool? writable;
 
+  /// What the account may use, asked when [writable] is null; the kept access ([AdminAccessCache]) when null.
+  final Future<AdminAccess?> Function()? adminAccess;
+
   @override
   State<AdminCreditPage> createState() => _AdminCreditPageState();
 }
 
-class _AdminCreditPageState extends State<AdminCreditPage> with AdminSessionLease {
+class _AdminCreditPageState extends State<AdminCreditPage> with AdminPageSession {
   @override
   late final AdminRepository adminRepository = widget.repository ?? AdminRepository.network();
 
@@ -43,9 +46,6 @@ class _AdminCreditPageState extends State<AdminCreditPage> with AdminSessionLeas
   AdminReply? _failure;
   bool _loading = true;
   bool _sending = false;
-
-  /// Known writable (`write` 1): the submit button is shown only then.
-  bool _writable = false;
 
   /// The members text of the last lookup that answered; submitting needs the text as looked up.
   String? _lookedUp;
@@ -81,14 +81,8 @@ class _AdminCreditPageState extends State<AdminCreditPage> with AdminSessionLeas
     return '${t.uids.join(',')}\n${t.usernames.join('\n')}';
   }
 
-  Future<void> _loadWritable() async {
-    if (widget.writable case final w?) {
-      _writable = w;
-      return;
-    }
-    final access = await AdminAccessCache.check(adminRepository.currentUid, repository: adminRepository);
-    if (mounted && access != null) setState(() => _writable = access.canWrite(AdminActions.credit));
-  }
+  Future<void> _loadWritable() =>
+      loadAdminWritable(AdminActions.credit, given: widget.writable, ask: widget.adminAccess);
 
   Future<void> _load() async {
     final text = _targets.text;
@@ -250,8 +244,13 @@ class _AdminCreditPageState extends State<AdminCreditPage> with AdminSessionLeas
     final info = _info;
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: Text(tr.credit)),
-      body: info == null
+      appBar: AppBar(
+        title: Text(tr.credit),
+        actions: [AdminLogoutButton(repository: adminRepository)],
+      ),
+      body: adminAccessFailed
+          ? adminAccessFailure(context, () => unawaited(_loadWritable()))
+          : info == null
           ? (_loading
                 ? const Center(child: CircularProgressIndicator())
                 : AppStateView(
@@ -335,7 +334,7 @@ class _AdminCreditPageState extends State<AdminCreditPage> with AdminSessionLeas
                                 _opId = null;
                               }),
                       ),
-                      if (_writable)
+                      if (adminWritable)
                         Align(
                           alignment: AlignmentDirectional.centerEnd,
                           child: FilledButton(

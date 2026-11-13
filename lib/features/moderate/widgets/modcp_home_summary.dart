@@ -68,3 +68,42 @@ class ModcpHomeSummary extends StatelessWidget {
     );
   }
 }
+
+/// In the place of [ModcpHomeSummary] while the panel asks for its password: opens the panel's login ([onTap]), the
+/// counts come once logged in.
+class ModcpHomeLoginTile extends StatelessWidget {
+  /// Constructor.
+  const ModcpHomeLoginTile({required this.onTap, super.key});
+
+  /// Open the panel's login.
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      key: const ValueKey('modcp-home-login'),
+      color: theme.colorScheme.surfaceContainerHigh,
+      borderRadius: BorderRadius.circular(appInnerRadius),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+          child: Column(
+            children: [
+              Icon(Icons.lock_open_outlined, color: theme.colorScheme.primary),
+              const SizedBox(height: 2),
+              Text(
+                context.t.modcpPages.unlock,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

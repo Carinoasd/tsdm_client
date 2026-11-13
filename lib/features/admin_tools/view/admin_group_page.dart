@@ -18,7 +18,7 @@ import 'package:tsdm_client/widgets/app_surface.dart';
 /// confirmation lists what was changed.
 class AdminGroupPage extends StatefulWidget {
   /// Constructor.
-  const AdminGroupPage({this.repository, this.initialMember, this.writable, super.key});
+  const AdminGroupPage({this.repository, this.initialMember, this.writable, this.adminAccess, super.key});
 
   /// Injected for tests; the app's client otherwise.
   final AdminRepository? repository;
@@ -29,11 +29,14 @@ class AdminGroupPage extends StatefulWidget {
   /// Whether the account may post it; asked of the kept access when null.
   final bool? writable;
 
+  /// What the account may use, asked when [writable] is null; the kept access ([AdminAccessCache]) when null.
+  final Future<AdminAccess?> Function()? adminAccess;
+
   @override
   State<AdminGroupPage> createState() => _AdminGroupPageState();
 }
 
-class _AdminGroupPageState extends State<AdminGroupPage> with AdminSessionLease {
+class _AdminGroupPageState extends State<AdminGroupPage> with AdminPageSession {
   @override
   late final AdminRepository adminRepository = widget.repository ?? AdminRepository.network();
 
@@ -47,8 +50,6 @@ class _AdminGroupPageState extends State<AdminGroupPage> with AdminSessionLease 
   bool _loading = false;
   bool _sending = false;
 
-  /// Known writable (`write` 1): the submit button is shown only then.
-  bool _writable = false;
   String? _opId;
 
   /// Answers read: the form is built anew for each, so no field keeps the member read before.
@@ -70,14 +71,8 @@ class _AdminGroupPageState extends State<AdminGroupPage> with AdminSessionLease 
     super.dispose();
   }
 
-  Future<void> _loadWritable() async {
-    if (widget.writable case final w?) {
-      _writable = w;
-      return;
-    }
-    final access = await AdminAccessCache.check(adminRepository.currentUid, repository: adminRepository);
-    if (mounted && access != null) setState(() => _writable = access.canWrite(AdminActions.group));
-  }
+  Future<void> _loadWritable() =>
+      loadAdminWritable(AdminActions.group, given: widget.writable, ask: widget.adminAccess);
 
   Future<void> _load() async {
     final target = _target.text.trim();
@@ -233,7 +228,7 @@ class _AdminGroupPageState extends State<AdminGroupPage> with AdminSessionLease 
 
   Widget _form(AdminGroupInfo info, AdminGroupDraft initial, AdminGroupDraft draft) {
     final tr = context.t.adminTools;
-    final enabled = !_sending && _writable;
+    final enabled = !_sending && adminWritable;
     final selected = info.groupOf(draft.groupId);
     final expType = info.groupOf(draft.expGroupId)?.type;
     final reasonGiven = _reason.text.trim().isNotEmpty;
@@ -406,7 +401,7 @@ class _AdminGroupPageState extends State<AdminGroupPage> with AdminSessionLease 
                   })
                 : null,
           ),
-          if (_writable)
+          if (adminWritable)
             Align(
               alignment: AlignmentDirectional.centerEnd,
               child: FilledButton(
@@ -427,50 +422,55 @@ class _AdminGroupPageState extends State<AdminGroupPage> with AdminSessionLease 
     final initial = _initial;
     final draft = _draft;
     return Scaffold(
-      appBar: AppBar(title: Text(tr.group)),
-      body: ToolsBody(
-        children: [
-          AppSurface(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+      appBar: AppBar(
+        title: Text(tr.group),
+        actions: [AdminLogoutButton(repository: adminRepository)],
+      ),
+      body: adminAccessFailed
+          ? adminAccessFailure(context, () => unawaited(_loadWritable()))
+          : ToolsBody(
               children: [
-                AdminTargetField(
-                  controller: _target,
-                  label: tr.member,
-                  enabled: !_sending && !_loading,
-                  onLookup: () => unawaited(_load()),
-                ),
-                if (_loading) const LinearProgressIndicator(),
-                if (info != null)
-                  AdminMemberTile(
-                    member: info.member.member,
-                    extra: [
-                      tr.credits(n: info.member.credits),
-                      if (info.member.expiryTime > 0) tr.until(date: adminPadDate(info.member.expiryDate)),
-                    ].join(' · '),
+                AppSurface(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      AdminTargetField(
+                        controller: _target,
+                        label: tr.member,
+                        enabled: !_sending && !_loading,
+                        onLookup: () => unawaited(_load()),
+                      ),
+                      if (_loading) const LinearProgressIndicator(),
+                      if (info != null)
+                        AdminMemberTile(
+                          member: info.member.member,
+                          extra: [
+                            tr.credits(n: info.member.credits),
+                            if (info.member.expiryTime > 0) tr.until(date: adminPadDate(info.member.expiryDate)),
+                          ].join(' · '),
+                        ),
+                    ],
                   ),
+                ),
+                sizedBoxW12H12,
+                if (_failure case final failure?)
+                  AppStateView(
+                    icon: Icons.error_outline,
+                    error: true,
+                    scrollable: false,
+                    message: adminErrorText(context, failure),
+                  )
+                else if (info != null && !info.can)
+                  AppStateView(
+                    key: const ValueKey('admin-group-cannot'),
+                    icon: Icons.block_outlined,
+                    scrollable: false,
+                    message: adminWhyText(context, info.why),
+                  )
+                else if (info != null && initial != null && draft != null)
+                  KeyedSubtree(key: ValueKey('admin-group-form-$_loads'), child: _form(info, initial, draft)),
               ],
             ),
-          ),
-          sizedBoxW12H12,
-          if (_failure case final failure?)
-            AppStateView(
-              icon: Icons.error_outline,
-              error: true,
-              scrollable: false,
-              message: adminErrorText(context, failure),
-            )
-          else if (info != null && !info.can)
-            AppStateView(
-              key: const ValueKey('admin-group-cannot'),
-              icon: Icons.block_outlined,
-              scrollable: false,
-              message: adminWhyText(context, info.why),
-            )
-          else if (info != null && initial != null && draft != null)
-            KeyedSubtree(key: ValueKey('admin-group-form-$_loads'), child: _form(info, initial, draft)),
-        ],
-      ),
     );
   }
 }

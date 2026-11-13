@@ -1395,8 +1395,8 @@
     "clearAll": "清除全部",
     "type": {
       "notice": "提醒",
-      "bm": "私人訊息",
-      "pm": "公用訊息"
+      "bm": "公用訊息",
+      "pm": "私人訊息"
     }
   },
   "searchPage": {
@@ -2273,6 +2273,7 @@
     "pending": "待審核",
     "notesCount": "留言",
     "forumsCount": "版塊",
+    "unlock": "輸入面板密碼",
     "toSupermod": "超級版主",
     "toModerator": "版主",
     "days": "有效天數",
@@ -2444,7 +2445,8 @@
       "downloading": "正在下載表情（大約10MB內容），這可能需要一些時間。。",
       "loadingAssets": "正在載入已打包的表情…",
       "recent": "最近使用",
-      "noRecent": "用過的表情會出現在這裡"
+      "noRecent": "用過的表情會出現在這裡",
+      "removeRecent": "從最近使用中移除"
     },
     "url": {
       "title": "插入連結",
@@ -4448,6 +4450,7 @@
     "question": "安全提問",
     "answer": "答案",
     "verify": "驗證",
+    "logout": "結束管理驗證",
     "wrongPassword": "密碼錯誤，還可以試 ${n} 次",
     "needQuestion": "請回答安全提問",
     "lockedFor": "錯誤次數太多，請 ${time} 後再試",

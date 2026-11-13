@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:tsdm_client/features/admin_tools/models/admin_models.dart';
 import 'package:tsdm_client/features/tsdmapp/small_form.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
@@ -51,63 +51,91 @@ final class AdminReply {
   int get retryAfter => tsdmAppInt(json?['retry_after']);
 }
 
-/// The admin token of the account that logged in last, kept in memory only (never stored, never logged), and the
-/// pages using it.
+/// The admin token of the account that logged in last, kept in memory only (never stored, never logged).
 ///
-/// One token per account at a time: a second login voids the first (on every device). The forum ends it after its
-/// idle time or two hours; the app drops it when the account in use is another one, when the app lock locks and when
-/// the last admin page is left (with `op=logout`, [release]).
-final class AdminSession {
+/// One token per account at a time: a second login voids the first (on every device). The forum ends it after its idle
+/// time (`session.ttl`, 15 minutes by default) or two hours (`session.max`); the app keeps it as long as the forum's
+/// last answer said ([noteAnswer]), so going from one admin page to another, or between the profile and the panel,
+/// asks the password once. It is ended earlier ([AdminRepository.logout], with `op=logout`) when the account in use
+/// changes, the app lock locks, the app stays in the background too long ([AdminSessionGuard]) or the user logs out
+/// of it by hand.
+final class AdminSession extends ChangeNotifier {
+  /// Constructor; [clock] tells the time (tests).
+  AdminSession({DateTime Function()? clock}) : _clock = clock ?? DateTime.now;
+
   /// The app's session.
   static final instance = AdminSession();
 
+  /// Ended this much before the forum's expiry: the forum notes the activity at most every 30 seconds.
+  static const expiryMargin = Duration(seconds: 30);
+
+  final DateTime Function() _clock;
+
   ({int uid, String token})? _held;
-  int _leases = 0;
+
+  /// When the token held is void on the forum's side; null while unknown (an answer without `session`).
+  DateTime? _expires;
 
   /// Clearings of members' posts left unfinished, by the account and the member: the cursor to go on from.
   final _clearCursors = <(int, int), AdminClearAt>{};
 
+  bool get _expired => _expires != null && !_clock().isBefore(_expires!);
+
   /// The token of account [uid]; null when none is kept for it. Not only a read: a token (and the clearings) kept for
-  /// another account are dropped here, as the account in use changed; every request asks it.
+  /// another account are dropped here, as the account in use changed, and so is a token the forum has let expire;
+  /// every request asks it.
   String? tokenFor(int uid) {
     if (_held case final held? when held.uid != uid) {
-      _held = null;
       _clearCursors.removeWhere((key, _) => key.$1 != uid);
+      drop();
+    } else if (_held != null && _expired) {
+      drop();
     }
     return _held?.token;
   }
 
-  /// Whether a token is kept for [uid].
-  bool holds(int uid) => _held?.uid == uid;
+  /// Whether a token is kept for [uid] (and has not expired).
+  bool holds(int uid) => _held?.uid == uid && !_expired;
 
   /// Keep [token] for account [uid].
-  void keep(int uid, String token) => _held = (uid: uid, token: token);
+  void keep(int uid, String token) {
+    _held = (uid: uid, token: token);
+    _expires = null;
+    notifyListeners();
+  }
 
   /// Forget the token.
-  void drop() => _held = null;
+  void drop() {
+    final had = _held != null;
+    _held = null;
+    _expires = null;
+    if (had) notifyListeners();
+  }
 
   /// Forget the token when it is still [token] (a newer login keeps its own).
   void dropToken(String token) {
-    if (_held?.token == token) _held = null;
+    if (_held?.token == token) drop();
   }
 
-  /// An admin page (or the panel listing them) opened.
-  void acquire() => _leases++;
-
-  /// An admin page closed; when it was the last, the token is ended with [logout] (only while one is kept).
-  void release(Future<void> Function() logout) {
-    _leases = _leases > 0 ? _leases - 1 : 0;
-    if (_leases == 0 && _held != null) {
-      unawaited(logout());
+  /// Note what the forum said of [token] in [json]: while its `session` is `active`, the token is kept until the
+  /// `expires` told (as of the answer's `time`, less [expiryMargin]). An inactive one is left to the forum's
+  /// `admin_login`, which asks the password again.
+  void noteAnswer(String token, Map<String, dynamic>? json) {
+    if (_held?.token != token || json?['session'] is! Map) {
+      return;
+    }
+    final session = json!['session'] as Map;
+    if (session['active'] != 1) {
+      return;
+    }
+    final expires = tsdmAppInt(session['expires']);
+    final now = tsdmAppInt(json['time']);
+    final ttl = tsdmAppInt(session['ttl']);
+    final left = expires > 0 && now > 0 ? expires - now : ttl;
+    if (left > 0) {
+      _expires = _clock().add(Duration(seconds: left) - expiryMargin);
     }
   }
-
-  /// Pages holding the session (for tests).
-  @visibleForTesting
-  int get leases => _leases;
-
-  /// Drop the token whenever [locked] says the app lock locked the app.
-  StreamSubscription<bool> dropOnLock(Stream<bool> locked) => locked.where((l) => l).listen((_) => drop());
 
   /// The unfinished clearing of member [target]'s posts by account [uid].
   AdminClearAt? clearCursor(int uid, int target) => _clearCursors[(uid, target)];
@@ -125,8 +153,63 @@ final class AdminSession {
   @visibleForTesting
   void reset() {
     _held = null;
-    _leases = 0;
+    _expires = null;
     _clearCursors.clear();
+  }
+}
+
+/// Ends the admin token ([AdminSession]) when the app lock locks or the app comes back after [background] or more in
+/// the background (the forum would end it after its idle time anyway; this does not wait for it).
+final class AdminSessionGuard {
+  /// Constructor: [logout] ends the token of the account in use ([AdminRepository.logout]).
+  AdminSessionGuard({
+    required Future<void> Function() logout,
+    DateTime Function()? clock,
+    this.background = const Duration(minutes: 5),
+  }) : _logout = logout,
+       _clock = clock ?? DateTime.now;
+
+  final Future<void> Function() _logout;
+  final DateTime Function() _clock;
+
+  /// How long in the background ends the token.
+  final Duration background;
+
+  DateTime? _away;
+  StreamSubscription<bool>? _lock;
+  AppLifecycleListener? _lifecycle;
+
+  /// Watch [locked] (the app lock) and the app's lifecycle.
+  void start(Stream<bool> locked) {
+    watchLock(locked);
+    _lifecycle = AppLifecycleListener(onStateChange: onLifecycle);
+  }
+
+  /// End the token whenever [locked] says the app lock locked the app.
+  @visibleForTesting
+  void watchLock(Stream<bool> locked) => _lock = locked.where((l) => l).listen((_) => unawaited(_logout()));
+
+  /// The app's lifecycle changed to [state].
+  @visibleForTesting
+  void onLifecycle(AppLifecycleState state) {
+    switch (state) {
+      case AppLifecycleState.hidden || AppLifecycleState.paused:
+        _away ??= _clock();
+      case AppLifecycleState.resumed:
+        final away = _away;
+        _away = null;
+        if (away != null && _clock().difference(away) >= background) {
+          unawaited(_logout());
+        }
+      case AppLifecycleState.inactive || AppLifecycleState.detached:
+        break;
+    }
+  }
+
+  /// Stop watching.
+  Future<void> dispose() async {
+    _lifecycle?.dispose();
+    await _lock?.cancel();
   }
 }
 
@@ -183,8 +266,14 @@ final class AdminRepository {
     null => const {},
   };
 
-  /// Send once for the account in use, with its token when one is kept.
-  Future<AdminReply> _send(String action, {Map<String, String>? query, Map<String, String>? form}) async {
+  /// Send once for the account in use, with its token when one is kept ([token] instead: a logout, the token already
+  /// dropped here).
+  Future<AdminReply> _send(
+    String action, {
+    Map<String, String>? query,
+    Map<String, String>? form,
+    String? token,
+  }) async {
     final uid = _currentUid();
     if (uid <= 0) {
       return AdminReply.changed;
@@ -196,7 +285,7 @@ final class AdminRepository {
       _noteFormHash(entry, uid);
       if (_formHash.isEmpty) return AdminReply(entry);
     }
-    final headers = _headers(uid);
+    final headers = token != null ? {adminTokenHeader: token} : _headers(uid);
     final sent = headers[adminTokenHeader];
     final json = form != null
         ? await _post(action, {...form, 'formhash': _formHash}, headers)
@@ -213,6 +302,7 @@ final class AdminRepository {
       return AdminReply.changed;
     }
     _noteFormHash(json, uid);
+    if (sent != null) _session.noteAnswer(sent, json);
     final reply = AdminReply(json);
     switch (reply.error) {
       case 'admin_login':
@@ -291,7 +381,9 @@ final class AdminRepository {
     final json = reply.json;
     final token = tsdmAppText(json?['token']);
     if (reply.ok && token.isNotEmpty && _currentUid() == uid) {
-      _session.keep(uid, token);
+      _session
+        ..keep(uid, token)
+        ..noteAnswer(token, json);
     }
     // The token stays in the session only: the answer handed on goes without it.
     return json == null || !json.containsKey('token')
@@ -300,7 +392,9 @@ final class AdminRepository {
   }
 
   /// End the token (`op=logout`, sent with it) and forget it; nothing is sent when none is kept for the account in use.
-  /// The forum answers `admin_login` when the token was void already (and changes nothing): logged out all the same.
+  /// It is forgotten here before the logout is sent, so a page cannot use it meanwhile and a failed logout leaves
+  /// none. The forum answers `admin_login` when the token was void already (and changes nothing): logged out all the
+  /// same. `busy` (the login and the logout share the forum's interval) is waited for once.
   Future<void> logout() async {
     final uid = _currentUid();
     final token = uid > 0 ? _session.tokenFor(uid) : null;
@@ -308,13 +402,41 @@ final class AdminRepository {
       _session.drop();
       return;
     }
+    // A page opened meanwhile may log in again: only the token logged out is forgotten.
+    _session.dropToken(token);
     try {
-      await _send('admin', form: const {'op': 'logout'});
+      final reply = await _send('admin', form: const {'op': 'logout'}, token: token);
+      if (reply.error == 'busy' && reply.retryAfter <= 10 && _currentUid() == uid) {
+        await _wait(Duration(milliseconds: (reply.retryAfter > 0 ? reply.retryAfter : 1) * 1000 + 300));
+        if (_currentUid() == uid) await _send('admin', form: const {'op': 'logout'}, token: token);
+      }
     } on Exception catch (e) {
       talker.debug('admin logout failed: $e');
-    } finally {
-      // A page opened meanwhile may have logged in again: only the token logged out is forgotten.
-      _session.dropToken(token);
+    }
+  }
+
+  /// Log out of the token of the account in use when one is kept ([logout]), before the account in use changes (a
+  /// switch, a login, a logout, a removal): the forum ends a token only for the account it belongs to, so it cannot be
+  /// ended once the cookie is another account's. Waits [limit] at most; the token is dropped here all the same. Only
+  /// dropped when not [canSend] (the forum's session is gone: a logout would be refused).
+  static Future<void> logoutBeforeIdentityChange({
+    bool canSend = true,
+    AdminRepository? repository,
+    Duration limit = const Duration(seconds: 4),
+  }) async {
+    final repo = repository ?? AdminRepository.network();
+    if (!canSend) {
+      repo.session.drop();
+      return;
+    }
+    final uid = repo.currentUid;
+    if (uid <= 0 || !repo.session.holds(uid)) {
+      return;
+    }
+    try {
+      await repo.logout().timeout(limit);
+    } on TimeoutException {
+      talker.debug('admin logout before the account changed: no answer in time');
     }
   }
 }

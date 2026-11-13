@@ -158,6 +158,7 @@ class _BackgroundGrantPageState extends State<BackgroundGrantPage> {
     final tools = context.t.medalTitleTools;
     final changed = context.t.general.accountChangedRetry;
     String message;
+    var success = false;
     try {
       final result = await _repo.submit(
         info,
@@ -166,6 +167,7 @@ class _BackgroundGrantPageState extends State<BackgroundGrantPage> {
         expiry: expiry,
         notify: _notify,
       );
+      success = result.success;
       message = result.message.isEmpty ? tools.unconfirmed : result.message;
     } on IdentityChangedException {
       message = changed;
@@ -173,7 +175,12 @@ class _BackgroundGrantPageState extends State<BackgroundGrantPage> {
       message = tools.unconfirmed;
     }
     if (!mounted) return;
-    setState(() => _busy = false);
+    setState(() {
+      _busy = false;
+      // Sent: the members go, so a second tap does not send them the same again; the background and the expiry stay
+      // for the next members.
+      if (success) _members.clear();
+    });
     showSnackBar(context: context, message: context.displayText(message), showCloseIcon: true);
   }
 
