@@ -106,6 +106,8 @@ void main() {
       expect(find.text('管理团队 · 2026-9-12 04:42'), findsOneWidget);
       expect(find.text('notify 警告理由（warn_1789171425534）'), findsOneWidget);
       expect(find.textContaining('已被累计警告 2 次'), findsOneWidget);
+      // The staff are not linked: nothing to open.
+      expect(tester.widget<ListTile>(find.byKey(const ValueKey('warning-record-0'))).onTap, isNull);
     });
 
     testWidgets("the forum's refusal in its words", (tester) async {
@@ -129,6 +131,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(asked, hasLength(2));
       expect(find.text('ag_mid · 2026-9-12 04:42'), findsOneWidget);
+      // A moderator linked opens the profile.
+      expect(tester.widget<ListTile>(find.byKey(const ValueKey('warning-record-0'))).onTap, isNotNull);
     });
 
     testWidgets('an anonymous floor or a floor outside a thread: the mark alone', (tester) async {

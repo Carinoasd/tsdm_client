@@ -30,14 +30,18 @@ class WarnedFloorMark extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final icon = Icon(Icons.report_outlined, size: 20, color: Theme.of(context).colorScheme.error);
-    final mark = Tooltip(message: context.t.moderate.warned, child: icon);
+    // A larger target than the icon alone, kept by the mark that opens nothing too so that every floor's mark sits
+    // the same; none above it, so that it stays level with the marks beside it (the row aligns them at the top).
+    final mark = Padding(
+      padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+      child: Tooltip(message: context.t.moderate.warned, child: icon),
+    );
     if ((tid, authorUid) case (final tid?, final uid?) when tid > 0 && uid > 0) {
       return InkResponse(
         key: const ValueKey('floor-warned-mark'),
         radius: 18,
         onTap: () => unawaited(showWarningLog(context, tid: tid, uid: uid, repository: repository)),
-        // A larger target than the icon alone.
-        child: Padding(padding: const EdgeInsets.all(4), child: mark),
+        child: mark,
       );
     }
     return mark;

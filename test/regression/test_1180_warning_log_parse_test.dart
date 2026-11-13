@@ -45,6 +45,13 @@ void main() {
       expect(log.summary, startsWith('ag_low 已被累计警告 2 次'));
     });
 
+    test("the line under the list is the window's own, not another on the page", () {
+      final raw = _raw('staff').replaceFirst('<div class="f_c">', '<div class="o">其他</div>\n<div class="f_c">');
+      expect(_shown(raw).summary, startsWith('ag_low 已被累计警告 2 次'));
+      final none = _raw('staff').replaceFirst(RegExp('<div class="o pns">.*?</div>', dotAll: true), '');
+      expect(_shown(none).summary, isEmpty);
+    });
+
     test('an empty reason stays empty', () {
       final raw = _raw('staff').replaceFirst('<td>BU區警告46626</td>', '<td></td>');
       expect(_shown(raw).records.first.reason, '');
