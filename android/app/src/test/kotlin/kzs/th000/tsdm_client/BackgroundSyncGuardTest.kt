@@ -21,7 +21,8 @@ import org.robolectric.annotation.Config
 class BackgroundSyncGuardTest {
     private val context: Context get() = RuntimeEnvironment.getApplication()
     private val scheduler get() = context.getSystemService(Context.JOB_SCHEDULER_SERVICE) as JobScheduler
-    private val notifications get() = shadowOf(context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
+    private val notificationManager get() = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    private val notifications get() = shadowOf(notificationManager)
     private var starts = 0
 
     private val refused: (Context) -> Unit = {
@@ -92,7 +93,7 @@ class BackgroundSyncGuardTest {
         assertEquals("后台消息接收已被系统停止", posted.extras.getCharSequence("android.title").toString())
         assertNotNull(posted.contentIntent)
         // Dismissed by the user: not posted again for the same stop, every quarter of an hour.
-        notifications.cancelAll()
+        notificationManager.cancelAll()
         BackgroundSyncGuard.check(context, running = { false }, start = refused)
         assertEquals(2, starts)
         assertTrue(notifications.allNotifications.isEmpty())
