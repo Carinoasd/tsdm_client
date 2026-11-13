@@ -10,29 +10,91 @@ import 'package:tsdm_client/features/space/models/space_models.dart';
 import 'package:tsdm_client/features/space/repository/space_account_repository.dart';
 import 'package:tsdm_client/features/space/repository/space_write_repository.dart';
 import 'package:tsdm_client/features/space/utils/parse_space.dart';
+import 'package:tsdm_client/features/space/utils/space_v4.dart';
+import 'package:tsdm_client/features/tsdmapp/small_form.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
+import 'package:tsdm_client/features/tsdmapp/v4.dart';
+import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
 
 /// Reads the records and their replies.
 ///
-/// The pages are the website's: the forum's app API (plugin 3.8.0) leaves them alone and answers the web page, which
-/// is parsed; the replies of a record are the fragment the website loads under it.
+/// The forum's app API answers them as fields since plugin 4.0.0 (`status` lists `doing` and `docomment` in
+/// `space_pages`): the list is `type: space_doing` (`schema` 57), the replies of a record `space_docomment` (58). Without
+/// it (an older plugin, the flag off, an answer that is not the page) the pages are the website's, which the plugin
+/// leaves alone and which are parsed; the replies of a record are then the fragment the website loads under it.
 final class DoingRepository {
-  /// Constructor; [get] replaces the request of the shared client.
-  const DoingRepository({Future<SyncEither<Response<dynamic>>> Function(String url)? get}) : _get = get;
+  /// Constructor; [get] replaces the request of the shared client, [currentUid] the account in use.
+  const DoingRepository({Future<SyncEither<Response<dynamic>>> Function(String url)? get, int Function()? currentUid})
+    : _get = get,
+      _currentUid = currentUid;
 
   final Future<SyncEither<Response<dynamic>>> Function(String url)? _get;
+
+  final int Function()? _currentUid;
+
+  AsyncEither<TsdmAppV4Answer?> _v4(String url, {required String name, required String type, required int schema}) =>
+      fetchSpaceV4Page(
+        url,
+        name: name,
+        type: type,
+        schema: schema,
+        get: _get,
+        currentUid: _currentUid ?? currentLoginUid,
+      );
 
   AsyncEither<Response<dynamic>> _run(String url) =>
       AsyncEither(() => _get == null ? getIt.get<NetClientProvider>().get(url).run() : _get(url));
 
   /// A page of records ([doingListUrl], or the next page of one).
-  AsyncEither<SpaceListPage<Doing>> fetchList(String url) => _run(withTsdmAppJson(url)).mapHttpPage(parseDoingListPage);
+  AsyncEither<SpaceListPage<Doing>> fetchList(String url) => AsyncEither(() async {
+    switch (await _v4(url, name: 'doing', type: 'space_doing', schema: 57).run()) {
+      case Left(:final value):
+        return left(value);
+      case Right(:final value):
+        if (spaceV4ListPageOf(value, (json) => doingListPageFromApi(json, url)) case final page?) {
+          return right(page);
+        }
+    }
+    return _run(withTsdmAppJson(url)).mapHttpPage(parseDoingListPage).run();
+  });
 
-  /// The page [page] of the replies of the record [doid]. The forum shows them to members only: a guest is answered
-  /// the way to the login page (the app API: a `redirect` result with `login`), told as the page's message.
+  /// The page [page] of the replies of the record [doid]: the answer of plugin 4.0.0 ([doingCommentsFromApi]) when
+  /// `status` lists `docomment`, else the fragment the website loads. The forum shows them to members only: a guest is
+  /// answered the login prompt (4.0.0: the forum's message with `login`; before: the way to the login page, a
+  /// `redirect` result with `login`), told as the page's message.
   AsyncEither<DoingCommentPage> fetchComments(int doid, {int page = 1}) => AsyncEither(() async {
+    final v4 = await _v4(
+      '$baseUrl/home.php?mod=spacecp&ac=doing&op=getcomment&doid=$doid&page_c=$page',
+      name: 'docomment',
+      type: 'space_docomment',
+      schema: 58,
+    ).run();
+    switch (v4) {
+      case Left(:final value):
+        return left(value);
+      case Right(value: TsdmAppV4Page(:final json)):
+        return right(doingCommentsFromApi(json, doid: doid, page: page));
+      case Right(value: TsdmAppV4Message(:final message, :final login)) when login || message.trim().isNotEmpty:
+        // The forum's words instead (the module switched off, the login asked for), as the fragment's message.
+        return right(
+          DoingCommentPage(
+            comments: const [],
+            page: page,
+            hasMore: false,
+            message: message.trim().isEmpty ? t.general.needLogin : message.trim(),
+          ),
+        );
+      case Right(value: TsdmAppV4Refused(error: 'privacy', :final json)):
+        // Not answered for the replies by the forum today (they are not a page of the space), told as the other pages
+        // tell it all the same.
+        return right(
+          DoingCommentPage(comments: const [], page: page, hasMore: false, message: spaceV4PrivacyMessage(json)),
+        );
+      case Right():
+        break;
+    }
     final Response<dynamic> response;
     switch (await _run(withTsdmAppJsonWrite(doingCommentsUrl(doid, page: page))).run()) {
       case Left(:final value):

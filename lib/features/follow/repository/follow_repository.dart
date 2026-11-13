@@ -10,19 +10,39 @@ import 'package:tsdm_client/features/space/models/space_models.dart';
 import 'package:tsdm_client/features/space/repository/space_account_repository.dart';
 import 'package:tsdm_client/features/space/repository/space_write_repository.dart';
 import 'package:tsdm_client/features/space/utils/parse_space.dart';
+import 'package:tsdm_client/features/space/utils/space_v4.dart';
+import 'package:tsdm_client/features/tsdmapp/small_form.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
+import 'package:tsdm_client/features/tsdmapp/v4.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
 
 /// Reads the lists of the followed and of the followers, and the broadcasts.
 ///
-/// The pages are the website's: the forum's app API (plugin 3.8.0) leaves them alone and answers the web page, which
-/// is parsed. More broadcasts are loaded as the website loads them, a fragment at a time.
+/// The forum's app API answers them as fields since plugin 4.0.0 (`status` lists `follow` and `feed` in
+/// `space_pages`): the lists are `type: space_follow` (`schema` 60), the broadcasts `space_feed` (59), their further
+/// parts the forum's own `next` until it is empty. Without it (an older plugin, the flag off, an answer that is not
+/// the page) the pages are the website's, which the plugin leaves alone and which are parsed; more broadcasts are
+/// then loaded as the website loads them, a fragment at a time.
 final class FollowRepository {
-  /// Constructor; [get] replaces the request of the shared client.
-  const FollowRepository({Future<SyncEither<Response<dynamic>>> Function(String url)? get}) : _get = get;
+  /// Constructor; [get] replaces the request of the shared client, [currentUid] the account in use.
+  const FollowRepository({Future<SyncEither<Response<dynamic>>> Function(String url)? get, int Function()? currentUid})
+    : _get = get,
+      _currentUid = currentUid;
 
   final Future<SyncEither<Response<dynamic>>> Function(String url)? _get;
+
+  final int Function()? _currentUid;
+
+  AsyncEither<TsdmAppV4Answer?> _v4(String url, {required String name, required String type, required int schema}) =>
+      fetchSpaceV4Page(
+        url,
+        name: name,
+        type: type,
+        schema: schema,
+        get: _get,
+        currentUid: _currentUid ?? currentLoginUid,
+      );
 
   /// How many pages without a broadcast to show are skipped in one go.
   static const _maxEmptyPages = 3;
@@ -31,14 +51,63 @@ final class FollowRepository {
       AsyncEither(() => _get == null ? getIt.get<NetClientProvider>().get(url).run() : _get(url));
 
   /// A page of a list of members ([followListUrl], or the next page of one).
-  AsyncEither<SpaceListPage<FollowUser>> fetchList(String url) =>
-      _run(withTsdmAppJson(url)).mapHttpPage(parseFollowListPage);
+  AsyncEither<SpaceListPage<FollowUser>> fetchList(String url) => AsyncEither(() async {
+    switch (await _v4(url, name: 'follow', type: 'space_follow', schema: 60).run()) {
+      case Left(:final value):
+        return left(value);
+      case Right(:final value):
+        if (spaceV4ListPageOf(value, (json) => followListPageFromApi(json, url)) case final page?) {
+          return right(page);
+        }
+    }
+    return _run(withTsdmAppJson(url)).mapHttpPage(parseFollowListPage).run();
+  });
+
+  /// A page of broadcasts of the forum's app API (plugin 4.0.0): the first page ([followFeedPageFromApi]), or a further
+  /// part from [url] on, the parts without a broadcast to show skipped (no more than [_maxEmptyPages] in one go) as
+  /// the website's are; null to read the website's.
+  Future<Either<AppException, SpaceListPage<FollowFeed>?>> _feedV4(String url) async {
+    if (!isFollowMoreFeedUrl(url)) {
+      return switch (await _v4(url, name: 'feed', type: 'space_feed', schema: 59).run()) {
+        Left(:final value) => left(value),
+        Right(:final value) => right(spaceV4ListPageOf(value, followFeedPageFromApi)),
+      };
+    }
+    var at = url;
+    for (var empty = 0; ; empty++) {
+      switch (await _v4(at, name: 'feed', type: 'space_feed', schema: 59).run()) {
+        case Left(:final value):
+          return left(value);
+        case Right(value: TsdmAppV4Page(:final json)):
+          final feeds = followFeedsFromApi(json);
+          final next = followNextFeedUrlFromApi(json);
+          if (feeds.isNotEmpty || next == null || empty >= _maxEmptyPages) {
+            return right(SpaceListPage(items: feeds, nextPageUrl: next, session: spaceV4Session(json)));
+          }
+          at = next;
+        case Right(:final value):
+          // The forum's words (a module switched off meanwhile), or the website's fragment to read.
+          return right(spaceV4ListPageOf(value, followFeedPageFromApi));
+      }
+    }
+  }
 
   /// A page of broadcasts: the first one ([followFeedUrl]), or a further one ([followMoreFeedUrl]).
   ///
   /// Once the recent broadcasts end (the forum answers `false`) the ones it filed away follow from their first page;
   /// a page whose broadcasts are all gone is skipped. The list ends with the filed ones.
-  AsyncEither<SpaceListPage<FollowFeed>> fetchFeed(String url) {
+  AsyncEither<SpaceListPage<FollowFeed>> fetchFeed(String url) => AsyncEither(() async {
+    switch (await _feedV4(url)) {
+      case Left(:final value):
+        return left(value);
+      case Right(value: final page?):
+        return right(page);
+      case Right():
+        return _fetchFeedWeb(url).run();
+    }
+  });
+
+  AsyncEither<SpaceListPage<FollowFeed>> _fetchFeedWeb(String url) {
     if (!isFollowMoreFeedUrl(url)) {
       return _run(withTsdmAppJson(url)).mapHttpPage((document) => parseFollowFeedPage(document, url));
     }

@@ -4352,6 +4352,19 @@
       "deleteDoing": "刪除記錄",
       "deleteReply": "刪除回覆",
       "deleted": "已刪除"
+    },
+    "forumWords": {
+      "privacy": "抱歉！由於 $name 的隱私設定，您不能存取目前內容",
+      "hiddenBlogs": "本頁有 $n 篇日誌因作者的隱私設定或未通過審核而隱藏",
+      "blogFriends": "僅好友可見",
+      "blogChosen": "指定好友可見",
+      "blogSelf": "僅自己可見",
+      "blogPassword": "憑密碼可見",
+      "threadRestricted": "沒有權限看這個主題",
+      "pokeSaid": "$action, 說: $note",
+      "threadDeleted": "該主題已被刪除",
+      "postedBy": "$name 發表於 $time",
+      "defaultAlbum": "預設相簿"
     }
   },
   "postComment": {

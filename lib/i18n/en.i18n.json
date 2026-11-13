@@ -4352,6 +4352,19 @@
       "deleteDoing": "Delete record",
       "deleteReply": "Delete reply",
       "deleted": "Deleted"
+    },
+    "forumWords": {
+      "privacy": "$name's privacy settings keep you from this page",
+      "hiddenBlogs": "$n blogs on this page are hidden by their authors' privacy settings or awaiting approval",
+      "blogFriends": "Friends only",
+      "blogChosen": "Chosen friends",
+      "blogSelf": "Only me",
+      "blogPassword": "With password",
+      "threadRestricted": "You don't have permission to view this thread",
+      "pokeSaid": "$action: $note",
+      "threadDeleted": "This thread has been deleted",
+      "postedBy": "$name posted at $time",
+      "defaultAlbum": "Default album"
     }
   },
   "postComment": {

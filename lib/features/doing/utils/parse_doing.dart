@@ -2,6 +2,9 @@ import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/features/doing/models/doing_models.dart';
 import 'package:tsdm_client/features/space/models/space_models.dart';
 import 'package:tsdm_client/features/space/utils/parse_space.dart';
+import 'package:tsdm_client/features/space/utils/space_v4.dart';
+import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
+import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:universal_html/html.dart' as uh;
 import 'package:universal_html/parsing.dart';
 
@@ -173,4 +176,96 @@ DoingCommentPage parseDoingComments(String html, {required int doid, required in
     (a) => (int.tryParse(_digitsRe.firstMatch(a.attributes['data-page'] ?? '')?.group(0) ?? '') ?? 0) > page,
   );
   return DoingCommentPage(comments: comments, page: page, hasMore: hasMore);
+}
+
+/// A page of records of the forum's app API (plugin 4.0.0: `type: space_doing`, `schema` 57), asked as [url]: the
+/// same records as the web page ([parseDoingListPage]), the times on the member's wall clock (`Y-m-d H:i`).
+///
+/// The content is the record's `message_html` and the html of what it shares (`card.html`) for the app's renderer,
+/// the pictures of the card left out as the web parser leaves them; the pictures of the record are `images[].url`.
+/// The post box is the page's `post` form (the member's own lists, as the web page prints it).
+SpaceListPage<Doing> doingListPageFromApi(Map<String, dynamic> json, String url) {
+  final items = <Doing>[];
+  for (final row in tsdmAppList(json['doings'])) {
+    final doid = tsdmAppInt(row['doid']);
+    final uid = tsdmAppInt(row['uid']);
+    if (doid <= 0 || uid <= 0) {
+      continue;
+    }
+    final content = uh.DivElement()
+      ..classes.add('item_content')
+      ..append(spaceV4Html(tsdmAppText(row['message_html']))..classes.add('mbm'));
+    final card = tsdmAppText(tsdmAppMap(row['card'])['html']);
+    if (card.trim().isNotEmpty) {
+      final box = spaceV4Html(card)..classes.add('share_card_box');
+      for (final e in box.querySelectorAll('.share_card_img')) {
+        e.remove();
+      }
+      content.append(box);
+    }
+    final username = tsdmAppText(row['username']);
+    items.add(
+      Doing(
+        doid: doid,
+        uid: uid,
+        username: username.isEmpty ? '$uid' : username,
+        avatarUrl: spaceV4Url(row['avatar']),
+        time: spaceV4Time(row['dateline'], json),
+        content: content,
+        imageUrls: [
+          for (final image in tsdmAppList(row['images'])) ?spaceV4Url(image['url']),
+        ],
+        replyCount: tsdmAppInt(row['replynum']),
+        canDelete: row['can_delete'] == 1,
+      ),
+    );
+  }
+  return SpaceListPage(
+    items: items,
+    nextPageUrl: spaceV4NextPageUrl(url, json),
+    session: spaceV4Session(json),
+    canPost: json['post'] is Map,
+  );
+}
+
+/// The page [page] of the replies of the record [doid] of the forum's app API (plugin 4.0.0: `type: space_docomment`,
+/// `schema` 58): the same replies as the fragment ([parseDoingComments]), each top reply followed by its own (the
+/// folded ones too), the rows the forum left of a deleted reply left out. A reply to a reply begins with whom it
+/// answers, as the web page prints it.
+DoingCommentPage doingCommentsFromApi(Map<String, dynamic> json, {required int doid, required int page}) {
+  final comments = <DoingComment>[];
+  for (final row in tsdmAppList(json['comments'])) {
+    final id = tsdmAppInt(row['id']);
+    final uid = tsdmAppInt(row['uid']);
+    final username = tsdmAppText(row['username']);
+    if (id <= 0 || uid <= 0 || username.isEmpty || row['deleted'] == 1) {
+      continue;
+    }
+    final message = uh.DivElement()..classes.add('item_content_box');
+    final replyTo = tsdmAppText(tsdmAppMap(row['reply_to'])['username']);
+    if (replyTo.isNotEmpty) {
+      message.append(uh.SpanElement()..text = '${t.spacePage.doing.replyTo(name: replyTo)}: ');
+    }
+    spaceV4Html(tsdmAppText(row['message_html']), into: message);
+    comments.add(
+      DoingComment(
+        id: id,
+        doid: doid,
+        uid: uid,
+        username: username,
+        avatarUrl: spaceV4Url(row['avatar']),
+        time: spaceV4Time(row['dateline'], json),
+        message: message,
+        nested: tsdmAppInt(row['layer']) > 0,
+        canReply: row['reply'] is Map,
+        canDelete: row['can_delete'] == 1,
+      ),
+    );
+  }
+  final current = tsdmAppInt(json['page']);
+  return DoingCommentPage(
+    comments: comments,
+    page: page,
+    hasMore: (current > 0 ? current : page) < tsdmAppInt(json['pages']),
+  );
 }
