@@ -213,11 +213,11 @@ void main() {
       expect(apply(_result('')), TaskActionOutcome.unconfirmed);
       // A task completing on applying is sent on to its own claim (task_gift): applied; to another task's: not.
       expect(
-        apply({..._result(''), 'ok': 0, 'kind': 'redirect', 'url': 'home.php?mod=task&do=draw&id=2'}),
+        apply({..._result(''), 'kind': 'redirect', 'url': 'home.php?mod=task&do=draw&id=2'}),
         TaskActionOutcome.applied,
       );
       expect(
-        apply({..._result(''), 'ok': 0, 'kind': 'redirect', 'url': 'home.php?mod=task&do=draw&id=3'}),
+        apply({..._result(''), 'kind': 'redirect', 'url': 'home.php?mod=task&do=draw&id=3'}),
         TaskActionOutcome.unconfirmed,
       );
       expect(draw(_result('task_reward_credit')), TaskActionOutcome.rewarded);

@@ -106,7 +106,7 @@ AchievementPageData achievementPageFromApi(Map<String, dynamic> json) {
         name,
         if (description.isNotEmpty) description,
         // As the plugin's page prints it (the plugin stores the progress, it does not compute it yet).
-        if (requirements > 0 && row['progress'] is num)
+        if (requirements > 0 && (row['progress'] is num || int.tryParse('${row['progress']}') != null))
           '${tsdmAppInt(row['progress'])} / $requirements (${tsdmAppInt(row['percent'])}%)',
         if (rewardText.isNotEmpty) rewardText,
       ].join('\n'),
