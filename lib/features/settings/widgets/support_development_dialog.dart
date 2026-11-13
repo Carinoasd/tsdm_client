@@ -12,6 +12,7 @@ import 'package:tsdm_client/features/authentication/repository/authentication_re
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/utils/browser_launcher.dart';
+import 'package:tsdm_client/utils/clipboard.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/platform.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
@@ -140,7 +141,7 @@ class _SupportDevelopmentDialogState extends State<SupportDevelopmentDialog> wit
   }
 
   Future<void> _copyUsername(String username) async {
-    await Clipboard.setData(ClipboardData(text: username));
+    await setClipboardText(username);
     if (mounted) {
       showSnackBar(context: context, message: context.t.aboutPage.forumReward.usernameCopied);
     }

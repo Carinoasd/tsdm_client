@@ -13,6 +13,7 @@ import 'package:tsdm_client/utils/clipboard.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/platform.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
+import 'package:tsdm_client/widgets/two_pane.dart';
 
 /// Name of the settings row holding the forum link last offered from the clipboard (or copied in the app). Kept on
 /// this device only: never synced, never in a diagnostics bundle.
@@ -128,15 +129,20 @@ Future<bool> showClipboardLinkSnackBar(ForumLinkInText link) async {
     clearPrevious: true,
     action: SnackBarAction(
       label: tr.open,
-      onPressed: () {
-        final current = rootNavigatorContext();
-        if (current != null && current.mounted) {
-          unawaited(current.dispatchAsUrl(link.url));
-        }
-      },
+      onPressed: () => openClipboardLink(link),
     ),
   );
   return true;
+}
+
+/// Open [link] as a link tapped on the page in view opens: on a list page showing two panes, a thread goes to its
+/// detail pane ([twoPaneListContextInView]); anything else, and on any other page, opens as a page of its own, from
+/// [elsewhere] (the root navigator by default).
+void openClipboardLink(ForumLinkInText link, {BuildContext? Function() elsewhere = rootNavigatorContext}) {
+  final context = twoPaneListContextInView() ?? elsewhere();
+  if (context != null && context.mounted) {
+    unawaited(context.dispatchAsUrl(link.url));
+  }
 }
 
 /// Runs [ClipboardLinkPrompter.check] when the app comes to the front: once after a cold start, once each time it is

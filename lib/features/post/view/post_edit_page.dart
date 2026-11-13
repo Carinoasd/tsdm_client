@@ -74,6 +74,7 @@ import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
 import 'package:tsdm_client/utils/bbcode/spoiler_normalizer.dart';
 import 'package:tsdm_client/utils/browser_launcher.dart';
+import 'package:tsdm_client/utils/clipboard.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/platform.dart';
 import 'package:tsdm_client/utils/retry_button.dart';
@@ -2493,7 +2494,7 @@ class _TransferredContent extends StatelessWidget {
                 icon: const Icon(Icons.copy_outlined),
                 label: Text(tr.copyTransferred),
                 onPressed: () async {
-                  await Clipboard.setData(ClipboardData(text: text));
+                  await setClipboardText(text);
                   if (context.mounted) showSnackBar(context: context, message: context.t.general.copiedToClipboard);
                 },
               ),

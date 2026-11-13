@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/constants/layout.dart';
@@ -17,6 +16,7 @@ import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
+import 'package:tsdm_client/utils/clipboard.dart';
 import 'package:tsdm_client/utils/show_dialog.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
@@ -175,7 +175,7 @@ class _LocalDraftPageState extends State<LocalDraftPage> {
 
   Future<void> _copy(BuildContext context, LocalDraft draft) async {
     final subject = draft.subject?.trim() ?? '';
-    await Clipboard.setData(ClipboardData(text: [if (subject.isNotEmpty) subject, draft.body].join('\n\n')));
+    await setClipboardText([if (subject.isNotEmpty) subject, draft.body].join('\n\n'));
     if (context.mounted) {
       showSnackBar(context: context, message: context.t.general.copiedToClipboard);
     }
