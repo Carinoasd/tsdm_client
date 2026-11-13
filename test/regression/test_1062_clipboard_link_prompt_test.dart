@@ -273,6 +273,15 @@ void main() {
         ),
       );
 
+      // What the page it is copied from adds to its address stays out of what is shared.
+      expect(shortThreadUrl('$_url&extra=page%3D1&ordertype=2&page=3'), _url);
+      expect(shortThreadUrl('$_url&authorid=5'), _url);
+      expect(shortThreadUrl(_url), _url);
+      const findPost = 'https://www.tsdm39.com/forum.php?mod=redirect&goto=findpost&pid=9';
+      expect(shortThreadUrl(findPost), findPost);
+      expect(shortThreadUrl('https://www.tsdm39.com/forum.php?mod=forumdisplay&fid=8&tid=1'), isNot(_url));
+      expect(shortThreadUrl('not a url'), 'not a url');
+
       final share = threadShareText(context, title: ' 某某标题 ', url: _url);
       expect(share, '【天使动漫】某某标题 $_url');
       expect(findForumLinkInText(share)!.url, _url);

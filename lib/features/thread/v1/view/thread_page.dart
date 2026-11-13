@@ -2784,7 +2784,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
                       context.read<ThreadBloc>().add(ThreadJumpPageRequested(pageNumber));
                     },
                     onRefresh: () => context.read<ThreadBloc>().add(_refreshEvent()),
-                    onCopyUrl: () async => copyToClipboard(context, threadUrl!),
+                    onCopyUrl: () async => copyToClipboard(context, shortThreadUrl(threadUrl!)),
                     onOpenInBrowser: () async => context.dispatchAsUrl(threadUrl!, external: true),
                     onBackToTop: () async => _backToTop(context),
                     onReverseOrder: () => context.readOrNull<ThreadBloc>()?.add(const ThreadChangeViewOrderRequested()),
@@ -2871,7 +2871,11 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
                           description: context.t.linkToken.copyShareText,
                           onSelected: () async => copyToClipboard(
                             context,
-                            threadShareText(context, title: state.title ?? widget.title ?? '', url: threadUrl!),
+                            threadShareText(
+                              context,
+                              title: state.title ?? widget.title ?? '',
+                              url: shortThreadUrl(threadUrl!),
+                            ),
                           ),
                         ),
                         // Put aside on this device for the account in use: offline floors can be too.
@@ -2978,7 +2982,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
               onReply: _replyToThread,
               onScrollToStart: () => unawaited(_backToTop(context)),
               onScrollToEnd: () => unawaited(_scrollToBottom(context)),
-              onCopyLink: () => unawaited(copyToClipboard(context, threadUrl!)),
+              onCopyLink: () => unawaited(copyToClipboard(context, shortThreadUrl(threadUrl!))),
               child: MentionSuggestionsScope(
                 suggestions: mentionSuggestions,
                 child: BackButtonListener(
