@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 
@@ -24,6 +23,7 @@ import 'package:tsdm_client/features/authentication/repository/authentication_re
 import 'package:tsdm_client/features/authentication/repository/models/models.dart';
 import 'package:tsdm_client/features/background_sync/background_sync_controller.dart';
 import 'package:tsdm_client/features/checkin/models/models.dart';
+import 'package:tsdm_client/features/diagnostics/diagnostics_export.dart';
 import 'package:tsdm_client/features/in_app_browser/utils/link_routing.dart';
 import 'package:tsdm_client/features/local_notice/notification_permission_prompt.dart';
 import 'package:tsdm_client/features/local_notice/opt_in_notifications.dart';
@@ -84,7 +84,6 @@ import 'package:tsdm_client/utils/chinese_display/chinese_converter.dart';
 import 'package:tsdm_client/utils/clipboard.dart';
 import 'package:tsdm_client/utils/desktop_tray_policy.dart';
 import 'package:tsdm_client/utils/html/post_typography.dart';
-import 'package:tsdm_client/utils/log_redaction.dart';
 import 'package:tsdm_client/utils/platform.dart';
 import 'package:tsdm_client/utils/show_bottom_sheet.dart';
 import 'package:tsdm_client/utils/show_dialog.dart';
@@ -130,7 +129,6 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
   final scrollController = ScrollController();
 
   final _permissionCubit = AndroidPermissionCubit();
-  String? _logExportPath;
 
   /// A login or logout while the page shows: the devices row follows the account in use.
   StreamSubscription<AuthStatus>? _authSub;
@@ -1697,22 +1695,19 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
               trailing: const Icon(Icons.chevron_right),
               onTap: () async => context.pushNamed(ScreenPaths.debugLog),
             ),
-            SectionListTile(
-              leading: const Icon(Icons.file_download_outlined),
-              title: Text(tr.exportLog.title),
-              subtitle: _logExportPath == null ? null : Text(tr.exportLog.detail(path: _logExportPath!)),
-              onTap: () async {
-                final logData = talker.history.map((e) => redactLogText(e.generateTextMessage())).join('\n');
-                final outputFile = await FilePicker.platform.saveFile(
-                  fileName: 'log_${DateTime.now().millisecondsSinceEpoch}.txt',
-                  bytes: utf8.encode(logData),
-                );
-                if (outputFile == null) {
-                  setState(() => _logExportPath = null);
-                } else {
-                  setState(() => _logExportPath = outputFile);
-                }
-              },
+            Builder(
+              builder: (context) => SectionListTile(
+                leading: const Icon(Icons.medical_information_outlined),
+                title: Text(context.t.diagnostics.export),
+                onTap: () async => exportDiagnostics(context, shareOrigin: shareOriginOf(context)),
+              ),
+            ),
+            Builder(
+              builder: (context) => SectionListTile(
+                leading: const Icon(Icons.file_download_outlined),
+                title: Text(tr.exportLog.title),
+                onTap: () async => exportCurrentLog(context, shareOrigin: shareOriginOf(context)),
+              ),
             ),
             SectionListTile(
               leading: const Icon(Icons.history_outlined),

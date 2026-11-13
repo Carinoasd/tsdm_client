@@ -874,8 +874,7 @@
         "detail": "顯示僅用來偵錯的操作選項"
       },
       "exportLog": {
-        "title": "匯出日誌",
-        "detail": "日誌已匯出到 ${path: String}"
+        "title": "匯出日誌"
       },
       "viewLog": {
         "title": "查看日誌"
@@ -4537,5 +4536,11 @@
     "errorClearStart": "這個會員沒有進行中的清理，請重新送出禁止並勾選清理帖子",
     "errorClearStuck": "清理沒有進展，已停止",
     "creditOverflow": "加減後會超出積分能存的範圍：${list}"
+  },
+  "diagnostics": {
+    "errorBlock": "這裡出了點問題",
+    "export": "匯出診斷",
+    "saved": "已儲存至 ${path: String}",
+    "failed": "匯出失敗"
   }
 }
