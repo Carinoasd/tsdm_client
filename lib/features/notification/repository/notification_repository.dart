@@ -507,12 +507,15 @@ final class NotificationRepository with LoggerMixin {
   /// #156: `notify` lists the newest 50 alone, the 51st and later were marked read unseen).
   ///
   /// * An answer of plugin 4.0.0 asked with `limit` tells `has_more` and the cursor of the next page (`next`): the
-  ///   pages are asked with `before` until `has_more` is 0, each waiting for the plugin's interval
+  ///   pages are asked with `before` until `has_more` is 0, or until a page lists an unread notice older than [since]
+  ///   (every one left is older still: outside the window, marked read by `seen` as before 4.0.0, [_reachesBefore]),
+  ///   each waiting for the plugin's interval
   ///   ([TsdmAppApi.askWaiting]: a page right after another is answered "too soon"). A page that fails (no answer,
   ///   another account, `error: before`), a cursor that does not move and [notifyMaxPages] end the reading: the notices
   ///   read so far are given, not `complete`.
   /// * An answer without `has_more` (asked without `limit`: an older plugin, or the flags of 4.0.0 not known when it
-  ///   was asked) is complete when it lists every unread notice (`counts.notice`), or comes from a plugin older than
+  ///   was asked) is complete when it lists every unread notice (`counts.notice`) or one older than [since], or comes
+  ///   from a plugin older than
   ///   [notifyPagingVersion] (as before). Otherwise `status` is asked ([TsdmAppApi.ensureStatus]) and, when `notify`
   ///   reads page by page, the first page is asked again with `limit`; when `status` tells nothing (no answer, too
   ///   soon) the answer is not complete; when it says `notify` does not read page by page, it is (as before).
@@ -528,6 +531,7 @@ final class NotificationRepository with LoggerMixin {
     if (first['has_more'] is! int) {
       final info = TsdmAppApi.pluginInfo.value;
       if (!_listsMoreUnreadThanItShows(first) ||
+          _reachesBefore(first, since) ||
           info == null ||
           compareTsdmAppVersions(info.version, notifyPagingVersion) < 0) {
         return (json: first, complete: true);
@@ -556,7 +560,7 @@ final class NotificationRepository with LoggerMixin {
     var hasMore = page['has_more'] == 1;
     var cursor = tsdmAppText(page['next']);
     var read = 1;
-    while (hasMore) {
+    while (hasMore && !_reachesBefore(page, since)) {
       if (cursor.isEmpty || read >= notifyMaxPages) {
         warning('stopped reading the unread notices after $read pages (cursor "$cursor"), not marking them seen');
         return (json: {...page, 'notices': notices}, complete: false);
@@ -570,6 +574,7 @@ final class NotificationRepository with LoggerMixin {
       }
       read++;
       notices.addAll(tsdmAppList(next['notices']).where((n) => ids.add(n['id'])));
+      page = {...page, 'notices': notices};
       hasMore = next['has_more'] == 1;
       final moved = tsdmAppText(next['next']);
       if (hasMore && moved == cursor) {
@@ -581,8 +586,15 @@ final class NotificationRepository with LoggerMixin {
     if (read > 1) {
       debug('read ${notices.length} notices in $read pages of notify');
     }
-    return (json: read > 1 ? {...page, 'notices': notices} : page, complete: true);
+    return (json: page, complete: true);
   }
+
+  /// Whether the answer [json] lists an unread notice older than [since] (seconds): `notify` lists them newest first,
+  /// so every unread notice not listed is older still. Those are outside the window and kept by no fetch, and `seen`
+  /// marked such notices read before plugin 4.0.0 as well: reading their pages changes nothing but the time it takes.
+  static bool _reachesBefore(Map<String, dynamic> json, int since) => tsdmAppList(
+    json['notices'],
+  ).any((n) => n['new'] == 1 && tsdmAppInt(n['dateline']) > 0 && tsdmAppInt(n['dateline']) < since);
 
   /// Whether a `notify` answer [json] asked without `limit` counts more unread notices (`counts.notice`) than it lists.
   static bool _listsMoreUnreadThanItShows(Map<String, dynamic> json) {
@@ -695,6 +707,9 @@ final class NotificationRepository with LoggerMixin {
     final serverTime = earliestOf([
       DateTime.fromMillisecondsSinceEpoch((notify['time'] as int) * 1000, isUtc: true),
       ...pageTimes,
+      // Not every unread notice was read: the next fetch keeps this window, or those not read (all older than the
+      // ones read) fall before its bound and are never shown, once a later fetch marks them seen.
+      if (!allNotices) DateTime.fromMillisecondsSinceEpoch(since * 1000, isUtc: true),
     ]);
     debug(
       'fetched notification by the app api since $since${bypassGate ? ' (gate bypassed, every conversation)' : ''}: '

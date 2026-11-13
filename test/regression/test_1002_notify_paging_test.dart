@@ -250,27 +250,60 @@ void main() {
       expect(_asked(forum, 'seen'), isEmpty);
     });
 
-    test('a poll with nothing new: every page read before the unread notices are marked seen', () async {
-      // Everything unread is older than the window: nothing to show, but seen marks it all.
+    test('a page reaching before the window ends the reading: the rest is older, seen as before 4.0.0', () async {
+      // 450 unread, a minute apart; the window starts 300 minutes ago: page 2 reaches before it.
+      final forum = _forum(_Notify(_unread(450)));
+      final fetched = await _fetch(forum, timestamp: _now - 300 * 60);
+      expect(_asked(forum, 'notify'), hasLength(2));
+      expect(fetched.info.noticeList, hasLength(300));
+      expect(await _seenNotice(forum), isNotNull);
+    });
+
+    test('a poll with nothing new: the first page reaches before the window, seen at once', () async {
+      // Everything unread is older than the window: nothing to show, and seen marks it all as it always did.
       final old = [
         for (final n in _unread(450)) {...n, 'dateline': _since - 600 - (100000 - (n['id']! as int))},
       ];
       final forum = _forum(_Notify(old));
       final fetched = await _fetch(forum, timestamp: _since);
       expect(fetched.info.noticeList, isEmpty);
-      expect(_asked(forum, 'notify'), hasLength(3));
+      expect(_asked(forum, 'notify'), hasLength(1));
       expect(await _seenNotice(forum), isNotNull);
+    });
 
-      TsdmAppApi.reset();
-      knowV4Status();
-      final failing = _forum(_Notify(old)..override[3] = v4Offline);
-      await _fetch(failing, timestamp: _since);
-      expect(_asked(failing, 'seen'), isEmpty);
+    test('not every page read: the next fetch keeps the window, and the second fetch shows the rest', () async {
+      final notify = _Notify(_unread(450))..override[2] = v4Offline;
+      final forum = _forum(notify);
+      final first = await _fetch(forum, timestamp: _since);
+      expect(first.info.noticeList, hasLength(200));
+      expect(first.serverTime!.millisecondsSinceEpoch ~/ 1000, lessThanOrEqualTo(_since));
+      // The bound the caller stores from it (nextFetchBound: the minute before).
+      final bound = first.serverTime!.millisecondsSinceEpoch ~/ 1000 ~/ 60 * 60 - 60;
+      notify.override.clear();
+      final second = await _fetch(forum, timestamp: bound);
+      expect(second.info.noticeList, hasLength(450));
+      expect(_asked(forum, 'seen'), hasLength(1));
     });
 
     test('the two recorded pages of the test forum read as one list', () async {
-      final p1 = v4Json('notify_paged_p1.json');
-      final p2 = v4Json('notify_paged_p2.json');
+      // The recorded times moved to now, so the notices stay inside the window whatever day the test runs.
+      final recorded = v4Json('notify_paged_p1.json');
+      final shift = _now - (recorded['time'] as int);
+      Map<String, dynamic> moved(Map<String, dynamic> page) {
+        final next = '${page['next']}'.split('_');
+        return {
+          ...page,
+          'time': (page['time'] as int) + shift,
+          'notices': [
+            for (final n in (page['notices'] as List).cast<Map<String, dynamic>>())
+              {...n, 'dateline': (n['dateline'] as int) + shift},
+          ],
+          'next': next.length == 2 ? '${int.parse(next[0]) + shift}_${next[1]}' : '',
+        };
+      }
+
+      final p1 = moved(recorded);
+      final p2 = moved(v4Json('notify_paged_p2.json'));
       final forum = V4Forum((o) {
         final q = o.uri.queryParameters;
         return switch (q['action']) {
