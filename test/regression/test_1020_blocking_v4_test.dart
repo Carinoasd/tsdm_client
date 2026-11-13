@@ -458,6 +458,13 @@ void main() {
       final elsewhere = list();
       (elsewhere['remove'] as Map)['url'] = 'home.php?mod=spacecp&ac=plugin&id=other:spacecp';
       expect(websiteBlocklistDocumentFromApi(elsewhere, expectedUid: _uid).list.rows.single.removable, isFalse);
+      final more = list();
+      ((more['remove'] as Map)['fields'] as Map)['handlekey'] = 'bu';
+      expect(
+        websiteBlocklistDocumentFromApi(more, expectedUid: _uid).removePayload(35),
+        {'formhash': 'f1f2f3f4', 'blockuserdel': 'yes', 'handlekey': 'bu', 'buid': '35'},
+        reason: 'a field a later plugin adds goes back as served',
+      );
     });
 
     test('the lookup errors: self and not a uid, not found, listed already, full', () {

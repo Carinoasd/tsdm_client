@@ -384,6 +384,7 @@ FavoriteAddResult favoriteAddResultFromApi(Object? data, {required int uid}) {
   return switch (result?.messageKey) {
     'favorite_do_success' => FavoriteAdded(result!.values['favid']),
     'favorite_repeat' => const FavoriteAlreadyExists(),
-    _ => FavoriteAddFailed(result?.reason ?? ''),
+    // No verdict by its key: the favorite may have been added; say so rather than an empty reason.
+    _ => FavoriteAddFailed(result?.reason.isNotEmpty ?? false ? result!.reason : t.moderate.batch.unknown),
   };
 }

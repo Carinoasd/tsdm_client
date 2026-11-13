@@ -532,8 +532,9 @@ WebsiteBlocklistDocument _parsePage(String raw, {required int expectedUid, int? 
 }
 
 /// The plugin POST form of a structured blacklist page [form] (`add` or `remove` of plugin 4.0.0) for user [target]:
-/// the same three fields the web forms carry (`formhash`, the flag of [kind], `buid`), every value as served but the
-/// uid, and the same checks ([websiteBlocklistActionOf], nothing blank, the uid field named `buid`).
+/// its fields as served (the web forms carry `formhash` and the flag of [kind]) and the uid as `buid`, with the same
+/// checks ([websiteBlocklistActionOf], `formhash` and the flag not blank, never the other form's flag, the uid field
+/// named `buid`).
 _PluginForm _apiPluginForm(Map<String, dynamic> form, _FormKind kind, int target) {
   if (tsdmAppText(form['method']).toUpperCase() != 'POST') {
     _unsupported('structured form is not post');
@@ -545,13 +546,15 @@ _PluginForm _apiPluginForm(Map<String, dynamic> form, _FormKind kind, int target
   if (tsdmAppText(form['uid_field']) != 'buid') {
     _unsupported('structured form uid field');
   }
-  final served = tsdmAppMap(form['fields']);
+  // Every field as served (a field a later plugin adds goes back too), then the uid; the two the plugin checks
+  // must be there and not blank.
   final fields = <String, String>{
-    for (final name in ['formhash', kind.flag])
-      if (served[name] case final String value) name: value,
+    for (final MapEntry(:key, :value) in tsdmAppMap(form['fields']).entries)
+      if (value is String) key: value else if (value is num) key: '$value',
     'buid': '$target',
   };
-  if (served.length != 2 || fields.length != 3 || fields.values.any((e) => e.isEmpty)) {
+  if (!['formhash', kind.flag].every((name) => (fields[name] ?? '').isNotEmpty) ||
+      fields.containsKey(kind == _FormKind.add ? _FormKind.remove.flag : _FormKind.add.flag)) {
     _unsupported('structured form fields');
   }
   return _PluginForm(action: action, fields: Map.unmodifiable(fields), target: target);

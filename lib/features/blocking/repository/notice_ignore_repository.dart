@@ -787,6 +787,7 @@ class NoticeIgnoreRepository with LoggerMixin {
     required int uid,
     required NoticeIgnoreTarget target,
   }) async {
+    // `status` was made sure of by the privacy page read just before ([addRule]).
     if (!TsdmAppV4.has(TsdmAppV4Group.forms, SmallFormKind.ignore.name)) {
       return right(null);
     }

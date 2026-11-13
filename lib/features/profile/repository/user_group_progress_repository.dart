@@ -11,9 +11,10 @@ import 'package:tsdm_client/shared/providers/net_client_provider/net_client_prov
 /// Reads how far the current account is from the next credit-based user group.
 ///
 /// Plugin 4.0.0 answers the group comparison page `home.php?mod=spacecp&ac=usergroup` as fields
-/// ([UserGroupPage.fromApi]); without it (an older plugin, or none) the web page is parsed ([UserGroupPage]): without `gid` it is about the next group of the
-/// account (and says how many credits are missing), with `gid` about that group (and says where it starts). Every
-/// page names the account it was served to, which must be the one asked for ([IdentityChangedException] otherwise).
+/// ([UserGroupPage.fromApi]); without it (an older plugin, or none) the web page is parsed ([UserGroupPage]). Without
+/// `gid` it is about the next group of the account (and says how many credits are missing), with `gid` about that
+/// group (and says where it starts). Every page names the account it was served to, which must be the one asked for
+/// ([IdentityChangedException] otherwise).
 final class UserGroupProgressRepository {
   /// Constructor; [currentUid] tells the account the progress is asked for (the logged in account by default).
   UserGroupProgressRepository({int Function()? currentUid}) : _currentUid = currentUid ?? currentLoginUid;

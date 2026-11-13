@@ -242,6 +242,10 @@ void main() {
       expect(body, containsPair('gid', '4'));
       expect(approveFriendResultFromApi(_result(uid: _admin, message: '完成'), targetUid: 35).isLeft(), isTrue);
       expect(
+        approveFriendResultFromApi(_result(messageKey: 'friends_add'), targetUid: 35, viewerUid: _admin),
+        const Left<ApproveFriendFailure, AddFriendResult>(ApproveFriendFailure.accountMismatch),
+      );
+      expect(
         approveFriendResultFromApi(
           _result(uid: _admin, messageKey: 'friends_add', values: {'uid': '36'}),
           targetUid: 35,
@@ -333,7 +337,11 @@ void main() {
         const Right<FavoriteAddResult, Object?>(null),
         reason: 'a form of another target is read as before',
       );
-      expect(favoriteAddResultFromApi(_result(message: '完成'), uid: _uid), isA<FavoriteAddFailed>());
+      expect(
+        favoriteAddResultFromApi(_result(), uid: _uid),
+        isA<FavoriteAddFailed>().having((e) => e.message, 'message', isNotEmpty),
+        reason: 'no verdict: never an empty reason',
+      );
       expect(
         favoriteAddResultFromApi(_result(messageKey: 'favorite_do_success', uid: 35), uid: _uid),
         isA<FavoriteAddFailed>(),

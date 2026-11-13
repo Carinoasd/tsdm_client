@@ -159,7 +159,7 @@ AddFriendFormResult? addFriendFormFromApi(Object? data, {required String uid, re
       final gid = tsdmAppMap(json['gid']);
       final groups = [
         for (final c in tsdmAppList(gid['choices']))
-          if (tsdmAppText(c['value']) case final String value when value.isNotEmpty)
+          if (tsdmAppText(c['value']) case final String value when RegExp(r'^\d{1,3}$').hasMatch(value))
             FriendGroup(gid: value, name: tsdmAppText(c['label']).trim()),
       ];
       if (json['mode'] != 'add' ||

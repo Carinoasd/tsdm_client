@@ -36,8 +36,8 @@ class ApproveFriendRepository with LoggerMixin {
   /// Read with the write result of the forum's app API (plugin 2.6.0, [tsdmAppWriteResultOf]): a `page` with the
   /// form, or the refusal as a `handle`; an older plugin answers the AJAX fragment, parsed as before.
   ///
-  /// Plugin 4.0.0 answers the window as a small form (`friendadd`, `mode: approve`, [approveFriendFormFromApi]) when its
-  /// `status` lists it; anything else of it reads the window as above. [viewerUid] is the account of [client]: an
+  /// Plugin 4.0.0 answers the window as a small form (`friendadd`, `mode: approve`, [approveFriendFormFromApi]) when
+  /// its `status` lists it; anything else of it reads the window as above. [viewerUid] is the account of [client]: an
   /// answer served to another one is never used.
   Future<Either<ApproveFriendFailure, ApproveFriendFormResult>> fetchForm(
     NetClientProvider client, {
@@ -123,7 +123,7 @@ class ApproveFriendRepository with LoggerMixin {
             when headers?.value('cf-mitigated')?.toLowerCase() == 'challenge' =>
           left(ApproveFriendFailure.challenge),
         Left() => left(ApproveFriendFailure.unknownAfterSubmit),
-        Right(:final value) => approveFriendResultFromApi(value, targetUid: form.targetUid),
+        Right(:final value) => approveFriendResultFromApi(value, targetUid: form.targetUid, viewerUid: form.viewerUid),
       };
     }
     final Object? raw;
@@ -202,6 +202,7 @@ ApproveFriendFormResult? approveFriendFormFromApi(Object? data, {required int ta
         selectedGid: groups.any((g) => g.gid == selected) ? selected : groups.first.gid,
         fields: [for (final MapEntry(:key, :value) in fields.entries) (key, value)],
         fromApi: true,
+        viewerUid: viewerUid,
       );
   }
 }
@@ -209,7 +210,13 @@ ApproveFriendFormResult? approveFriendFormFromApi(Object? data, {required int ta
 /// The answer [data] to an approval of plugin 4.0.0 for [targetUid]: approved when the forum said `friends_add` (its
 /// `uid`, when it names one, being [targetUid]); the forum's refusal with its message otherwise. The login prompt and
 /// an answer that tells nothing are failures: the approval may or may not have been applied.
-Either<ApproveFriendFailure, AddFriendResult> approveFriendResultFromApi(Object? data, {required int targetUid}) {
+///
+/// A result served to another account than [viewerUid] (and not the login prompt) is never an approval.
+Either<ApproveFriendFailure, AddFriendResult> approveFriendResultFromApi(
+  Object? data, {
+  required int targetUid,
+  int? viewerUid,
+}) {
   final result = switch (tsdmAppV4WriteOutcomeOf(data)) {
     TsdmAppV4Written(:final result) => result,
     _ => null,
@@ -219,6 +226,9 @@ Either<ApproveFriendFailure, AddFriendResult> approveFriendResultFromApi(Object?
   }
   if (result.login) {
     return left(ApproveFriendFailure.notLoggedIn);
+  }
+  if (viewerUid != null && result.uid != viewerUid) {
+    return left(ApproveFriendFailure.accountMismatch);
   }
   if (result.messageKey == 'friends_add') {
     final uid = result.values['uid'];

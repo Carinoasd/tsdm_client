@@ -39,6 +39,7 @@ final class ApproveFriendForm extends ApproveFriendFormResult {
     required this.selectedGid,
     required this.fields,
     this.fromApi = false,
+    this.viewerUid,
   });
 
   /// Uid of the member whose request is approved.
@@ -60,6 +61,9 @@ final class ApproveFriendForm extends ApproveFriendFormResult {
   /// Read from the small form `friendadd` of plugin 4.0.0 (`mode: approve`): posted back with its result parameters,
   /// the result read by `message_key` (`friends_add`).
   final bool fromApi;
+
+  /// The account the small form of plugin 4.0.0 was served to; null for the web window.
+  final int? viewerUid;
 
   /// The served value of the hidden field [name], null when the form has none.
   String? field(String name) {
