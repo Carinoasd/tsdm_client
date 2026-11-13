@@ -2272,6 +2272,7 @@
     "invalidUid": "UID 須為數字",
     "validUntil": "有效期至 $date",
     "memberNotFound": "該用戶不存在或被凍結，請重新輸入",
+    "noPermission": "沒有權限",
     "memberIsStaff": "管理面板無權操作該用戶",
     "ipBanFormat": "請輸入標準 IP 位址",
     "ipBanCidr": "只有管理員可以禁止 IP 段",
@@ -2443,6 +2444,7 @@
     "removeRate": "撤銷評分",
     "attachments": "附件",
     "deleteAttachment": "刪除附件",
+    "formExpired": "頁面已過期，請重新打開編輯",
     "viewIp": "查看 IP"
   },
   "bbcodeEditor": {

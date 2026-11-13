@@ -2272,6 +2272,7 @@
     "invalidUid": "UID must be a number",
     "validUntil": "until $date",
     "memberNotFound": "No such member, or the account is frozen",
+    "noPermission": "No permission",
     "memberIsStaff": "The moderator panel cannot manage this member",
     "ipBanFormat": "Enter a valid IP address",
     "ipBanCidr": "Only administrators can ban an IP range",
@@ -2443,6 +2444,7 @@
     "removeRate": "Remove ratings",
     "attachments": "Attachments",
     "deleteAttachment": "Delete attachment",
+    "formExpired": "The page has expired. Open the edit page again",
     "viewIp": "View IP"
   },
   "bbcodeEditor": {

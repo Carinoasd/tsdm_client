@@ -349,7 +349,7 @@ void main() {
         (listed([], error: 'cidr'), 'refused(${t.modcp.ipBanCidr})'),
         (listed([], error: 'exists'), 'refused(${t.modcp.ipBanExists})'),
         ({'ok': 0, 'error': 'modcp_login', 'uid': _admin, 'formhash': 'f1f2f3f4'}, 'sessionEnded'),
-        ({'ok': 0, 'error': 'modcp_noperm', 'uid': _admin, 'formhash': 'f1f2f3f4'}, 'refused()'),
+        ({'ok': 0, 'error': 'modcp_noperm', 'uid': _admin, 'formhash': 'f1f2f3f4'}, 'refused(${t.modcp.noPermission})'),
         // No result, but the list holds the new ban: done; no result and nothing new: not known.
         (
           _changed('ipban', (json) {
@@ -741,7 +741,7 @@ void main() {
         (_result('modcp_noaction', ok: 0, message: '请选择操作'), 'refused(请选择操作)'),
         (_result(''), 'refused()'),
         ({'ok': 0, 'error': 'modcp_login', 'uid': _admin, 'formhash': 'f1f2f3f4'}, 'refused()'),
-        ({'ok': 0, 'error': 'modcp_noperm', 'uid': _admin, 'formhash': 'f1f2f3f4'}, 'refused()'),
+        ({'ok': 0, 'error': 'modcp_noperm', 'uid': _admin, 'formhash': 'f1f2f3f4'}, 'refused(${t.modcp.noPermission})'),
       ]) {
         final sent = await _moderate(
           _Log(),
