@@ -16,15 +16,16 @@
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/Carinoasd/tsdm_client" alt="license"/></a>
 </p>
 
-## 最新更新：1.57.0（2026-11-14）
+## 最新更新：1.57.1（2026-11-14）
 
 - 搜尋框貼上論壇連結或一整段分享文字直接打開帖子；帖子選單「複製分享文字」；可選的剪貼簿連結提示（預設關閉）。
 - 「設定 → 其他 → 反饋問題」：分享診斷包或到反饋帖回覆；上次異常結束後首頁提示匯出診斷。
 - 任務詳情頁（申請、領獎、放棄）與道具記錄（論壇接口插件 4.0.0 起）；跨裝置同步新增「我的圖片」。
 - 安裝包不再內建表情圖，減小約 12 MB：表情按組下載，已下載的留在本機。
-- Android 構建編號為 172，可直接覆蓋之前的正式版與測試版。
+- 1.57.1：帖子的「複製連結」與「複製分享文字」只保留到帖子編號。
+- Android 構建編號為 173，可直接覆蓋之前的正式版與測試版。
 
-[下載 1.57.0](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.57.0) · [完整更新日誌](./CHANGELOG.md)
+[下載 1.57.1](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.57.1) · [完整更新日誌](./CHANGELOG.md)
 
 ## 這是什麼
 

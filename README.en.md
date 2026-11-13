@@ -16,15 +16,16 @@
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/Carinoasd/tsdm_client" alt="license"/></a>
 </p>
 
-## Latest update: 1.57.0 (2026-11-14)
+## Latest update: 1.57.1 (2026-11-14)
 
 - Pasting a forum link, or a whole piece of share text, into the search box opens the thread directly; "Copy share text" in the thread menu; optional clipboard link prompt (off by default).
 - "Settings → Other → Report a problem": share a diagnostics bundle or reply in the feedback thread; a prompt to export diagnostics after an abnormal exit.
 - Task detail page (apply, claim reward, give up) and item log (forum API plugin 4.0.0 and later); "My images" added to cross-device sync.
 - Smilies are no longer bundled, making the installer about 12 MB smaller: each group downloads when first shown and stays on the device.
-- The Android build number is 172 and installs over earlier releases and test builds.
+- 1.57.1: "Copy link" and "Copy share text" of a thread keep only the thread id.
+- The Android build number is 173 and installs over earlier releases and test builds.
 
-[Download 1.57.0](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.57.0) · [Full changelog](./CHANGELOG.md)
+[Download 1.57.1](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.57.1) · [Full changelog](./CHANGELOG.md)
 
 ## What it is
 
