@@ -405,6 +405,9 @@ final _mountedLayouts = <_TwoPaneLayoutState>[];
 /// A link opened from it ([DispatchUrl.dispatchAsUrl]) goes where a link tapped in that list goes: a thread to the
 /// detail pane while the panes show, a page of its own otherwise. For what is opened from outside the pages (a snack
 /// bar of the root messenger).
+///
+/// Every list page is a page of the root navigator, as dialogs and sheets are: one above the list page makes it no
+/// longer current. A list page put in a branch of the home shell would need another check for a dialog above it.
 BuildContext? twoPaneListContextInView() {
   for (final layout in _mountedLayouts.reversed) {
     if (!layout.mounted) {
