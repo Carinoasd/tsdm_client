@@ -95,6 +95,10 @@ const syncCustomImagesMax = 100;
 /// device.
 const int syncCustomImagesMaxBytes = 14 * 1024;
 
+/// Room the saved images past `custom_images` leave free in a document ([syncDocumentMaxBytes] less this at most): a
+/// version that does not read them, writing a little more, then fits without dropping what it reads (the visits).
+const int syncCustomImagesMoreRoom = 2 * 1024;
+
 /// Most bytes of the saved images in `custom_images` itself, the part a version before `custom_images_more` reads (its
 /// whole budget then): the latest within it, the others in `custom_images_more`, so such a version finds the section
 /// as it would write it and leaves the document as it is.
@@ -179,9 +183,9 @@ const int syncCustomImagesFirstMaxBytes = 6 * 1024;
 /// them. The name has a time of its own (`named`, left out when it is `updated`): `updated` is when the image was
 /// saved, saved again or renamed, `named` when it was given its name, so an image saved again on one device keeps a
 /// name given later on another ([mergeCustomImage]). The latest within [syncCustomImagesFirstMaxBytes] are in
-/// `custom_images`, the others in `custom_images_more` ([customImageItems] reads them as one). The settings of `settings` grow the same way: a setting added to it later
-/// (`syncedSettingsAddedLater`) takes, on a device that synced settings before, the forum's value where the device
-/// has the default.
+/// `custom_images`, the others in `custom_images_more` ([customImageItems] reads them as one). The settings of
+/// `settings` grow the same way: a setting added to it later (`syncedSettingsAddedLater`) takes, on a device that
+/// synced settings before, the forum's value where the device has the default.
 ///
 /// Every item carries `updated`, the device clock (milliseconds since the epoch) of its last change; a deletion is an
 /// item with `deleted: true` and the time of the deletion, so a thread visit removed or a user unblocked on one device

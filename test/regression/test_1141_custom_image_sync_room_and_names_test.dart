@@ -221,7 +221,7 @@ void main() {
       final doc = SyncDocument.parse(forum.data);
       // ignore: avoid_print, the size is part of the report of the change.
       print('a full document: ${doc.encodedLength} bytes, ${doc.customImageItems().length} images');
-      expect(doc.encodedLength, lessThanOrEqualTo(syncDocumentMaxBytes));
+      expect(doc.encodedLength, lessThanOrEqualTo(syncDocumentMaxBytes - syncCustomImagesMoreRoom));
       expect(doc.items('visits'), hasLength(syncVisitsMax), reason: 'no visit dropped for the images');
       final first = doc.items(customImagesSection);
       expect(first, _fitAsBefore({...first, ...doc.items(customImagesMoreSection)}), reason: 'the first section kept');

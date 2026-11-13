@@ -1133,10 +1133,13 @@ final class SyncRepository with LoggerMixin {
         )
         .withItems(customImagesSection, itemsOf(firstImages.live, firstImages.gone))
         .withItems(customImagesMoreSection, itemsOf(moreImages.live, moreImages.gone));
-    // Size: the saved images past the first section go first (they take only the room the others leave), then the
-    // oldest visits, then the oldest deletion records, then the drafts, then the bookmarks.
-    while (fitted.encodedLength > _documentMaxBytes) {
-      if (moreImages.live.isNotEmpty || moreImages.gone.isNotEmpty) {
+    // Size: the saved images past the first section go first (they take only the room the others leave, less
+    // [syncCustomImagesMoreRoom]), then the oldest visits, then the oldest deletion records, then the drafts, then the
+    // bookmarks.
+    bool hasMoreImages() => moreImages.live.isNotEmpty || moreImages.gone.isNotEmpty;
+    while (fitted.encodedLength > _documentMaxBytes ||
+        (hasMoreImages() && fitted.encodedLength > _documentMaxBytes - syncCustomImagesMoreRoom)) {
+      if (hasMoreImages()) {
         final (live: imageLive, gone: imageGone) = moreImages;
         if (imageGone.isEmpty ||
             (imageLive.isNotEmpty &&
