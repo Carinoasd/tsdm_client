@@ -14,9 +14,10 @@ import 'package:tsdm_client/features/keyboard/widgets/keyboard_shortcuts_host.da
 /// Only the page in view answers: a page behind another keeps the focus out of its subtree. Where the page is a tab
 /// kept alive off screen, [active] tells whether the tab is the one shown.
 ///
-/// On iOS the page neither takes the focus nor answers a key until a hardware keyboard is seen
-/// ([HardwareKeyboardPresence]): a tap on an iPhone page never moves the focus away from its text field. When the
-/// keyboard turns up the page keeps its state (its child is kept by a global key) and takes the focus.
+/// On iOS and Android the page neither takes the focus nor answers a key until a hardware keyboard is in use
+/// ([HardwareKeyboardPresence]): a tap on a phone's page never moves the focus away from its text field. When the
+/// keyboard turns up the page keeps its state (its child is kept by a global key) and takes the focus; when it goes
+/// (Android tells it) the page is as before, its state kept too.
 class KeyboardPageActions extends StatefulWidget {
   /// Constructor.
   const KeyboardPageActions({
@@ -94,12 +95,16 @@ class _KeyboardPageActionsState extends State<KeyboardPageActions> {
     _takeFocusWhenFree();
   }
 
+  /// The keyboard came (the actions go around the page, which takes the focus) or went (Android: they go away again,
+  /// the page keeps its state either way).
   void _onKeyboardSeen() {
-    if (!mounted || !HardwareKeyboardPresence.seen.value) {
+    if (!mounted) {
       return;
     }
     setState(() {});
-    _takeFocusWhenFree();
+    if (HardwareKeyboardPresence.seen.value) {
+      _takeFocusWhenFree();
+    }
   }
 
   @override
