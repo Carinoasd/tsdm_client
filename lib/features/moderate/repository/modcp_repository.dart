@@ -690,17 +690,15 @@ final class ModcpRepository with LoggerMixin {
         drawn: (json) {
           final key = form.id > 0 ? 'edited' : 'added';
           final result = json['result'];
-          if (result is Map<String, dynamic> && tsdmAppInt(result[key]) == 1) {
-            return const ModcpWriteDone();
+          // The forum's own word decides; the list drawn again only when it gave none.
+          if (result is Map<String, dynamic> && result.containsKey(key)) {
+            return tsdmAppInt(result[key]) == 1 ? const ModcpWriteDone() : const ModcpWriteRefused('');
           }
           if (form.id <= 0 &&
               (announcementsFromApi(json, uid: form.uid)?.items.any((e) => !known.contains(e.id)) ?? false)) {
             return const ModcpWriteDone();
           }
-          // The forum said it did not (its `result` 0), or said nothing: never told done (sent once, not again).
-          return result is Map<String, dynamic> && result[key] is num
-              ? const ModcpWriteRefused('')
-              : const ModcpWriteUnknown();
+          return const ModcpWriteUnknown();
         },
       );
     }

@@ -515,6 +515,16 @@ void main() {
         (_json('ann'), 'refused()'),
         // The page drawn again without a word of the result: not known, never told refused (no second post).
         (_changed('ann', (json) => json.remove('result')), 'unknown'),
+        // The forum's word decides even when the list holds an announcement not known before.
+        (_changed('ann', (json) => json['list'] = [item]), 'refused()'),
+        // No word: the new announcement in the list drawn again tells it.
+        (
+          _changed('ann', (json) {
+            json.remove('result');
+            json['list'] = [item];
+          }),
+          'done(1)',
+        ),
       ]) {
         final log = _Log();
         final outcome = await _repo(log, posted: posted)
@@ -525,6 +535,7 @@ void main() {
               start: '2026-11-13',
               end: '',
               message: 'm',
+              known: {for (final e in list.items) e.id},
             )
             .run();
         expect(_outcome(outcome), expected);
@@ -730,6 +741,7 @@ void main() {
         (_result('modcp_noaction', ok: 0, message: '请选择操作'), 'refused(请选择操作)'),
         (_result(''), 'refused()'),
         ({'ok': 0, 'error': 'modcp_login', 'uid': _admin, 'formhash': 'f1f2f3f4'}, 'refused()'),
+        ({'ok': 0, 'error': 'modcp_noperm', 'uid': _admin, 'formhash': 'f1f2f3f4'}, 'refused()'),
       ]) {
         final sent = await _moderate(
           _Log(),
