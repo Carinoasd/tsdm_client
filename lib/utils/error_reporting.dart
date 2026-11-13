@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/widgets.dart';
+import 'package:tsdm_client/features/diagnostics/abnormal_exit.dart';
 import 'package:tsdm_client/features/diagnostics/widgets/error_block.dart';
 import 'package:tsdm_client/instance.dart';
 
@@ -15,14 +16,21 @@ import 'package:tsdm_client/instance.dart';
 ///   grey box of Flutter; a [debug] build keeps the red error screen of Flutter.
 ///
 /// Errors of the guarded zone itself stay with the zone handler of `main`.
+///
+/// Each of them also leaves the error mark of the run ([recordAbnormalError]), but a failed image (the forum's images
+/// fail to load every day) and an error reported as silent: the next start asks about it.
 void installErrorReporting({required bool debug}) {
   final presentError = FlutterError.onError;
   FlutterError.onError = (details) {
     logFlutterError(details);
+    if (countsAsAbnormal(details)) {
+      recordAbnormalError(details.exception);
+    }
     presentError?.call(details);
   };
   PlatformDispatcher.instance.onError = (error, stack) {
     talker.handle(error, stack, 'uncaught platform error');
+    recordAbnormalError(error);
     return true;
   };
   if (!debug) {
@@ -40,3 +48,7 @@ void logFlutterError(FlutterErrorDetails details) {
     'FlutterError in ${details.library ?? 'widgets'}${where == null ? '' : ': $where'}',
   );
 }
+
+/// Whether the framework error [details] counts as an abnormal end of the run ([recordAbnormalError]): not one marked
+/// silent, nor an image that failed (a broken or missing image of a post, the network).
+bool countsAsAbnormal(FlutterErrorDetails details) => !details.silent && details.library != 'image resource service';

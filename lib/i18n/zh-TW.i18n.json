@@ -4649,6 +4649,11 @@
     "errorBlock": "這裡出了點問題",
     "export": "匯出診斷",
     "saved": "已儲存至 ${path: String}",
-    "failed": "匯出失敗"
+    "failed": "匯出失敗",
+    "feedback": "回饋問題",
+    "shareBundle": "分享診斷包",
+    "replyFeedbackThread": "到回饋帖回覆",
+    "abnormalExit": "上次異常結束",
+    "lastRunError": "上次執行時出現錯誤"
   }
 }

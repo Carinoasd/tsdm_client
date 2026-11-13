@@ -4649,6 +4649,11 @@
     "errorBlock": "这里出了点问题",
     "export": "导出诊断",
     "saved": "已保存到 ${path: String}",
-    "failed": "导出失败"
+    "failed": "导出失败",
+    "feedback": "反馈问题",
+    "shareBundle": "分享诊断包",
+    "replyFeedbackThread": "到反馈帖回复",
+    "abnormalExit": "上次异常结束",
+    "lastRunError": "上次运行时出现错误"
   }
 }

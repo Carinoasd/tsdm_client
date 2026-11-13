@@ -1850,6 +1850,13 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
           trailing: const Icon(Icons.chevron_right),
           onTap: () async => context.pushNamed(ScreenPaths.about),
         ),
+        SectionListTile(
+          key: const ValueKey('settings-feedback'),
+          leading: const Icon(Icons.feedback_outlined),
+          title: Text(context.t.diagnostics.feedback),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () async => context.pushNamed(ScreenPaths.feedback),
+        ),
         SectionSwitchListTile(
           secondary: const Icon(Icons.cloud_done_outlined),
           title: Text(tr.updateCheckOnStartup),
