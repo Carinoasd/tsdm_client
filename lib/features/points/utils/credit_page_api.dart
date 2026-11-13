@@ -131,10 +131,17 @@ PointsStatistics pointsStatisticsFromApi(Map<String, dynamic> json) {
     points: {
       for (final credit in tsdmAppList(json['credits']))
         if (tsdmAppText(credit['title']).trim() case final String title when title.isNotEmpty)
-          title: '${tsdmAppText(credit['value'])} ${tsdmAppText(credit['unit'])}'.trim(),
-      if (total.isNotEmpty) credits: tsdmAppText(total['value']),
-      if (upgroup.isNotEmpty) '${tsdmAppText(upgroup['name']).trim()}$credits': tsdmAppText(upgroup['value']),
+          title: '${_number(credit['value'])} ${tsdmAppText(credit['unit'])}'.trim(),
+      if (total.isNotEmpty) credits: _number(total['value']),
+      if (upgroup.isNotEmpty) '${tsdmAppText(upgroup['name']).trim()}$credits': _number(upgroup['value']),
     },
     changes: tsdmAppList(json['logs']).map((e) => PointsChange.fromApi(e, timeOffset: timeOffset)).nonNulls.toList(),
   );
 }
+
+/// A number of the answer as the page prints it.
+String _number(Object? value) => switch (value) {
+  final num n => '${n.toInt()}',
+  final String s => s.trim(),
+  _ => '',
+};

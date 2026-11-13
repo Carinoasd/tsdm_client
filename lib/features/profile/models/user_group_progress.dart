@@ -62,7 +62,8 @@ final class UserGroupPage {
       viewedGid: menu('upgrade').where((g) => g['active'] == 1).map((g) => tsdmAppInt(g['gid'])).firstOrNull,
       viewedThreshold: viewed.isEmpty || threshold is! num ? null : threshold.toInt(),
       memberGroups: groups('upgrade'),
-      extraGroups: groups('my'),
+      // The first of `my` is the main group, which the web page links without its `gid` (left out there).
+      extraGroups: groups('my').skip(1).toList(),
     );
   }
 

@@ -14,8 +14,11 @@ import 'package:tsdm_client/shared/providers/net_client_provider/net_client_prov
 
 /// Repository of friends lists.
 final class FriendRepository {
-  /// Constructor.
-  const FriendRepository();
+  /// Constructor; [currentUid] tells the account the windows are asked for (the logged in account by default).
+  const FriendRepository({this.currentUid});
+
+  /// The account the windows are asked for, the one logged in when null (tests inject their own).
+  final int Function()? currentUid;
 
   /// First page of the friends list of a user, located by [uid] (preferred) or [username].
   static String listUrl({String? uid, String? username}) {
@@ -84,7 +87,7 @@ final class FriendRepository {
         case Left(:final value):
           return left(value);
         case Right(:final value) when value.statusCode == 200:
-          if (addFriendFormFromApi(value.data, uid: uid, viewer: currentLoginUid()) case final form?) {
+          if (addFriendFormFromApi(value.data, uid: uid, viewer: (currentUid ?? currentLoginUid)()) case final form?) {
             return right(form);
           }
         case Right():

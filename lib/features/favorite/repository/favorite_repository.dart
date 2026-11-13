@@ -26,8 +26,11 @@ import 'package:tsdm_client/utils/logger.dart';
 ///
 /// **Need to call dispose.**
 final class FavoriteRepository with LoggerMixin {
-  /// Constructor.
-  FavoriteRepository();
+  /// Constructor; [currentUid] tells the account the dialogs are asked for (the logged in account by default).
+  FavoriteRepository({this.currentUid});
+
+  /// The account the dialogs are asked for, the one logged in when null (tests inject their own).
+  final int Function()? currentUid;
 
   /// First page of the thread favorites list.
   static const listUrl = '$baseUrl/home.php?mod=space&do=favorite&type=thread';
@@ -204,7 +207,7 @@ final class FavoriteRepository with LoggerMixin {
         case Left(:final value):
           return left(value);
         case Right(:final value) when value.statusCode == 200:
-          switch (favoriteFormFromApi(value.data, type: type, id: id, viewer: currentLoginUid())) {
+          switch (favoriteFormFromApi(value.data, type: type, id: id, viewer: (currentUid ?? currentLoginUid)())) {
             case Left(value: final result):
               debug('add favorite ${type.name}=$id answered in the dialog: $result');
               return right(result);

@@ -112,6 +112,7 @@ final class _Approvals extends ApproveFriendRepository {
   Future<Either<ApproveFriendFailure, ApproveFriendFormResult>> fetchForm(
     NetClientProvider client, {
     required int targetUid,
+    int? viewerUid,
   }) {
     final c = Completer<Either<ApproveFriendFailure, ApproveFriendFormResult>>();
     loads.add((targetUid, c));
@@ -142,6 +143,10 @@ final class _Forum implements HttpClientAdapter {
     Stream<Uint8List>? requestStream,
     Future<void>? cancelFuture,
   ) async {
+    if (options.uri.queryParameters['action'] == 'status') {
+      // The plugin's `status`, asked once by the readers of plugin 4.0.0 before anything is known: not answered here.
+      throw DioException.connectionError(requestOptions: options, reason: 'no status');
+    }
     requests.add(options);
     final name = options.method == 'GET' ? 'friend_accept_form_x5.xml' : 'friend_accept_result_x5.xml';
     return ResponseBody.fromString(
