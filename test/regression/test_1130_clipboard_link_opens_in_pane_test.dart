@@ -2,6 +2,9 @@
 // (a wide window) a thread goes to the detail pane, no page pushed; on a narrow window, with another page above the
 // list page, on a page that is no list page, or with the list page in a branch out of view, it opens as a page of its
 // own, as before.
+@Timeout(Duration(minutes: 2))
+library;
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -73,7 +76,8 @@ final class _Harness {
     await tester.pumpWidget(TranslationProvider(child: MaterialApp.router(routerConfig: router)));
     await tester.pumpAndSettle();
     if (listPage) {
-      await router.push('/list');
+      // The future of a push completes when the page is popped.
+      unawaited(router.push('/list'));
       await tester.pumpAndSettle();
     }
   }
