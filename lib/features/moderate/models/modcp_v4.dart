@@ -136,7 +136,11 @@ ModerateQueueList? moderateQueueFromApi(
   required int uid,
   int page = 1,
 }) {
-  if (json['op'] != kind.name || tsdmAppInt(json['fid']) != fid) {
+  // The forum asked is taken only when the panel lists it (its name given): another is answered with every forum's
+  // items, as the web page selects none.
+  if (json['op'] != kind.name ||
+      tsdmAppInt(json['fid']) != fid ||
+      (fid > 0 && (_text(json['forum']).isEmpty || !modcpForumsFromApi(json).any((e) => e.fid == fid)))) {
     return null;
   }
   final offset = _offset(json);

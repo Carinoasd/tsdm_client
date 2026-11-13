@@ -527,6 +527,131 @@ void main() {
     });
   });
 
+  group('every page: flag off, another account, a stale flag', () {
+    final members = _changed('q_threads_2', (json) {
+      json['op'] = 'members';
+      json['fid'] = 0;
+      json['members'] = <Object?>[];
+    });
+    final editing = _changed('ann', (json) {
+      json['op'] = 'edit';
+      json['list'] = null;
+      (json['form'] as Map<String, dynamic>)['id'] = 3;
+    });
+    final pages =
+        <(String, Map<String, dynamic>, String, Future<Either<AppException, Object?>> Function(_Log, Object?, int))>[
+          (
+            'recycle bin',
+            _json('rb_2'),
+            RecycleBinList.url(RecycleBinKind.threads, fid: 2),
+            (log, api, uid) =>
+                _repo(log, api: api, web: '', uid: uid).fetchRecycleBin(RecycleBinKind.threads, fid: 2).run(),
+          ),
+          (
+            'recycle bin of replies',
+            _json('rbp_2'),
+            RecycleBinList.url(RecycleBinKind.posts, fid: 2),
+            (log, api, uid) =>
+                _repo(log, api: api, web: '', uid: uid).fetchRecycleBin(RecycleBinKind.posts, fid: 2).run(),
+          ),
+          (
+            'ban',
+            _json('ban_77'),
+            const ModcpMemberQuery.uid(77).url('ban'),
+            (log, api, uid) =>
+                _repo(log, api: api, web: '', uid: uid).lookupMember(const ModcpMemberQuery.uid(77)).run(),
+          ),
+          (
+            'edit',
+            _json('edit_77'),
+            const ModcpMemberQuery.uid(77).url('edit'),
+            (log, api, uid) =>
+                _repo(log, api: api, web: '', uid: uid).lookupMember(const ModcpMemberQuery.uid(77), edit: true).run(),
+          ),
+          (
+            'IP bans',
+            _json('ipban'),
+            IpBanList.url,
+            (log, api, uid) => _repo(log, api: api, web: '', uid: uid).fetchIpBans().run(),
+          ),
+          (
+            'new members',
+            members,
+            MemberReviewList.url(),
+            (log, api, uid) => _repo(log, api: api, web: '', uid: uid).fetchMemberReview().run(),
+          ),
+          (
+            'rules',
+            _json('rules_2'),
+            ForumRules.url(fid: 2),
+            (log, api, uid) => _repo(log, api: api, web: '', uid: uid).fetchForumRules(fid: 2).run(),
+          ),
+          (
+            'announcements',
+            _json('ann'),
+            AnnouncementList.url,
+            (log, api, uid) => _repo(log, api: api, web: '', uid: uid).fetchAnnouncements().run(),
+          ),
+          (
+            'an announcement',
+            editing,
+            AnnouncementForm.url(3),
+            (log, api, uid) => _repo(log, api: api, web: '', uid: uid).fetchAnnouncement(3).run(),
+          ),
+          (
+            'the queue of threads',
+            _json('q_threads_2'),
+            ModerateQueueList.url(ModerateQueueKind.threads, fid: 2),
+            (log, api, uid) =>
+                _moderate(log, api: api, web: '', uid: uid).fetchQueue(ModerateQueueKind.threads, fid: 2).run(),
+          ),
+          (
+            'the queue of replies',
+            _json('q_replies_2'),
+            ModerateQueueList.url(ModerateQueueKind.replies, fid: 2),
+            (log, api, uid) =>
+                _moderate(log, api: api, web: '', uid: uid).fetchQueue(ModerateQueueKind.replies, fid: 2).run(),
+          ),
+          (
+            'the forums of the queue',
+            _json('q_threads_2'),
+            ModerateQueueList.url(ModerateQueueKind.threads, fid: 0),
+            (log, api, uid) => _repo(log, api: api, web: '', uid: uid).fetchQueueForums().run(),
+          ),
+          (
+            "a floor author's ban",
+            _json('ban_77'),
+            MemberBanForm.windowUrl(77),
+            (log, api, uid) => _moderate(log, api: api, web: '', uid: uid).fetchMemberBanWindow(77).run(),
+          ),
+        ];
+    for (final (label, api, url, call) in pages) {
+      test('$label: read from the API; flag off as before; another account refused; a stale flag forgotten', () async {
+        knowV4Status();
+        final read = _Log();
+        expect((await call(read, api, _admin)).isRight(), isTrue);
+        expect(read.gets.map(_asksV4), [true], reason: label);
+
+        TsdmAppApi.reset();
+        final before = _Log();
+        await call(before, api, _admin);
+        expect(before.gets, [url], reason: label);
+
+        knowV4Status();
+        final other = _Log();
+        final refused = await call(other, <String, dynamic>{...api, 'uid': _mod}, _admin);
+        expect(refused.getLeft().toNullable(), isA<IdentityChangedException>(), reason: label);
+        expect(other.gets, hasLength(1));
+
+        final stale = _Log();
+        await call(stale, {'ok': 1, 'type': 'modcp_home', 'schema': 39, 'uid': _admin}, _admin);
+        expect(stale.gets, hasLength(2), reason: label);
+        expect(stale.gets.last, url, reason: label);
+        expect(TsdmAppApi.pluginInfo.value?.v4, isNull, reason: label);
+      });
+    }
+  });
+
   group('the moderation queue (42)', () {
     for (final (name, kind) in [
       ('q_threads_2', ModerateQueueKind.threads),
