@@ -16,17 +16,15 @@
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/Carinoasd/tsdm_client" alt="license"/></a>
 </p>
 
-## Latest update: 1.56.0 (2026-11-14)
+## Latest update: 1.57.0 (2026-11-14)
 
-- What's new page (a banner on the home page after an update, with every version's changes); an error screen and "Export diagnostics".
-- Cross-device sync now covers image upload settings, reply templates, read later and followed threads; "My images" can be managed from the reply bar.
-- Notifications are grouped per account and "Reply" no longer needs expanding; Android tells you when the system stops background message receiving; Bluetooth no longer wakes the app at boot.
-- iOS home screen quick actions; keyboard shortcuts on iPad and Android tablets; system notifications on iOS, macOS and Linux and close-to-tray on Windows (switches in settings, off by default).
-- Public messages, moderator and admin pages, blocking, credits, space, tasks and items now read the forum API (forum API plugin 4.0.0 or later); notices beyond 50 are no longer missed.
-- Regrouped entries, tablet layouts, accessibility, Chinese variant display and English wording; Windows and Linux packages are about 16 MB smaller.
-- Android build number 171, installs over earlier releases and test builds.
+- Pasting a forum link, or a whole piece of share text, into the search box opens the thread directly; "Copy share text" in the thread menu; optional clipboard link prompt (off by default).
+- "Settings → Other → Report a problem": share a diagnostics bundle or reply in the feedback thread; a prompt to export diagnostics after an abnormal exit.
+- Task detail page (apply, claim reward, give up) and item log (forum API plugin 4.0.0 and later); "My images" added to cross-device sync.
+- Smilies are no longer bundled, making the installer about 12 MB smaller: each group downloads when first shown and stays on the device.
+- The Android build number is 172 and installs over earlier releases and test builds.
 
-[Download 1.56.0](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.56.0) · [Full changelog](./CHANGELOG.md)
+[Download 1.57.0](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.57.0) · [Full changelog](./CHANGELOG.md)
 
 ## What it is
 
