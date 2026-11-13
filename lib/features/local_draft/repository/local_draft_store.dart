@@ -97,6 +97,20 @@ final class LocalDraftStore with LoggerMixin {
   /// The account whose drafts changed, after every write.
   Stream<int> get changes => _changes.stream;
 
+  final _arrived = StreamController<({int uid, LocalDraftKey key})>.broadcast();
+
+  /// A draft kept by no editor arrived ([announceArrived]): an editor open on its target offers it.
+  Stream<({int uid, LocalDraftKey key})> get arrived => _arrived.stream;
+
+  /// Tell the editors that the draft of [uid] under [key] was just written by no editor (the text of a reply typed in
+  /// a notification that was not sent): one open on its target offers it as it offers a draft found when it opened,
+  /// never in place of what it holds. Call once the draft is written.
+  void announceArrived(int uid, LocalDraftKey key) {
+    if (!_arrived.isClosed) {
+      _arrived.add((uid: uid, key: key));
+    }
+  }
+
   /// Completes once every read and write asked so far is done.
   @visibleForTesting
   Future<void> get pendingWrites => _queue ?? Future<void>.value();
@@ -344,6 +358,7 @@ final class LocalDraftStore with LoggerMixin {
     _flushers.clear();
     await _queue;
     await _changes.close();
+    await _arrived.close();
   }
 }
 

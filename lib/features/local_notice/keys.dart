@@ -65,6 +65,10 @@ class LocalNoticeKeys {
         final String event when event.isNotEmpty => event,
         _ => null,
       },
+      title: switch (query['tt']) {
+        final String title when title.trim().isNotEmpty => LocalNoticeTarget.clipTitle(title),
+        _ => null,
+      },
     );
     return target.isEmpty ? null : target;
   }
@@ -119,7 +123,14 @@ final class LocalNoticeTarget {
     this.draft,
     this.maybeSent = false,
     this.draftEvent,
+    this.title,
   });
+
+  /// Longest [title] carried, in characters: a thread title of the forum is shorter; anything longer is cut.
+  static const titleLength = 100;
+
+  /// [title] cut to [titleLength].
+  static String clipTitle(String title) => title.length <= titleLength ? title : title.substring(0, titleLength);
 
   /// Notice to mark as read.
   final int? nid;
@@ -154,6 +165,11 @@ final class LocalNoticeTarget {
   /// that failure into the drafts.
   final String? draftEvent;
 
+  /// A name of the target, for the local draft kept from a reply typed in the notification that was not sent: the
+  /// title of the thread of the floor, the name of the peer of the conversation; null when the notification named none.
+  /// The account of the notification may never have opened the thread, so the app may know no title of its own.
+  final String? title;
+
   /// Nothing to open.
   bool get isEmpty => tid == null && pid == null && peerUid == null && fid == null && !watchAlerts;
 
@@ -169,6 +185,7 @@ final class LocalNoticeTarget {
     if (draft case final draft?) 'draft=${Uri.encodeQueryComponent(draft)}',
     if (maybeSent) 'ms=1',
     if (draftEvent case final event?) 'fe=${Uri.encodeQueryComponent(event)}',
+    if (title case final title? when title.trim().isNotEmpty) 'tt=${Uri.encodeQueryComponent(clipTitle(title))}',
   ].join('&');
 
   @override
@@ -183,10 +200,12 @@ final class LocalNoticeTarget {
       other.watchAlerts == watchAlerts &&
       other.draft == draft &&
       other.maybeSent == maybeSent &&
-      other.draftEvent == draftEvent;
+      other.draftEvent == draftEvent &&
+      other.title == title;
 
   @override
-  int get hashCode => Object.hash(nid, tid, pid, peerUid, lastPost, fid, watchAlerts, draft, maybeSent, draftEvent);
+  int get hashCode =>
+      Object.hash(nid, tid, pid, peerUid, lastPost, fid, watchAlerts, draft, maybeSent, draftEvent, title);
 
   @override
   String toString() => 'LocalNoticeTarget(${LocalNoticeKeys.loggable(toQuery())})';
