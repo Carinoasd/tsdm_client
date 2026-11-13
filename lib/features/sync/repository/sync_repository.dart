@@ -4,6 +4,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:tsdm_client/features/blocking/models/thread_filter.dart';
+import 'package:tsdm_client/features/editor/utils/custom_image_sync.dart';
 import 'package:tsdm_client/features/floor_bookmark/models/floor_bookmark.dart';
 import 'package:tsdm_client/features/forum/utils/frequent_forums.dart';
 import 'package:tsdm_client/features/forum_watch/models/forum_watch_config.dart';
@@ -77,11 +78,15 @@ enum SyncCategory {
 
   /// The threads the account follows (`follows`).
   followedThreads,
+
+  /// The saved images of the emoji pickers, "my images" (`custom_images`).
+  customImages,
 }
 
 /// Keeps the reading progress, the quick phrases, the block list, the fast rate templates, the reading settings, the
 /// local drafts, the floor bookmarks, the pinned forums, the forums and keywords watched for new threads, the fast
-/// reply templates, the read later list and the followed threads of an account the same on every device it logs in on,
+/// reply templates, the read later list, the followed threads and the saved images of an account the same on every
+/// device it logs in on,
 /// through the forum's `sync` action (plugin 3.4.0, one document per account, see [SyncDocument]).
 ///
 /// [pull] reads the forum's document, merges it with this device's ([SyncDocument.merge]: per item, the later change
@@ -895,6 +900,15 @@ final class SyncRepository with LoggerMixin {
         );
       }
     }
+
+    // The saved images: the ones saved here and the records of the ones deleted here, over the forum's.
+    if (_on(SyncCategory.customImages)) {
+      final (:entries, :removed) = await _store.customImages();
+      doc = doc.withItems(
+        customImagesSection,
+        _heldOver(base.items(customImagesSection), customImageSyncItems(entries, removed)),
+      );
+    }
     return _fit(doc);
   }
 
@@ -1072,6 +1086,15 @@ final class SyncRepository with LoggerMixin {
             liveMax: syncFollowedThreadsMax,
             goneMax: syncRemovalsMax,
             maxBytes: syncFollowedThreadsMaxBytes,
+          ),
+        )
+        .withItems(
+          customImagesSection,
+          listed(
+            customImagesSection,
+            liveMax: syncCustomImagesMax,
+            goneMax: syncRemovalsMax,
+            maxBytes: syncCustomImagesMaxBytes,
           ),
         );
     // Size: the oldest visits go first, then the oldest deletion records, then the drafts, then the bookmarks.
@@ -1311,6 +1334,15 @@ final class SyncRepository with LoggerMixin {
       final items = merged.items(followedThreadsSection);
       if (items.isNotEmpty) {
         await _store.applyFollowedThreads(uid, items);
+      }
+    }
+
+    // The saved images address by address, each where the merge is later than this device's; an image not in the
+    // document stays.
+    if (_on(SyncCategory.customImages)) {
+      final items = merged.items(customImagesSection);
+      if (items.isNotEmpty) {
+        await _store.applyCustomImages(items);
       }
     }
 

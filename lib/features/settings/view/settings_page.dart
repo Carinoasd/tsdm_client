@@ -287,6 +287,12 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
               tr.crossDeviceSync.followedThreads,
               state.settingsMap.crossDeviceSyncFollowedThreads,
             ),
+            (
+              SettingsKeys.crossDeviceSyncCustomImages,
+              Icons.collections_outlined,
+              tr.crossDeviceSync.customImages,
+              state.settingsMap.crossDeviceSyncCustomImages,
+            ),
           ])
             SectionSwitchListTile(
               key: ValueKey('settings-${key.name}'),

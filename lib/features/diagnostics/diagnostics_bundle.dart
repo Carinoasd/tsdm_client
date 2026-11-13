@@ -125,6 +125,7 @@ const diagnosticSettingNames = <String>[
   'crossDeviceSyncReplyTemplates',
   'crossDeviceSyncReadLater',
   'crossDeviceSyncFollowedThreads',
+  'crossDeviceSyncCustomImages',
   'desktopTrayIcon',
   'closeToTray',
   'appIcon',
