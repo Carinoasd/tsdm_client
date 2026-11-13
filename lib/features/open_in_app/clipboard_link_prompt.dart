@@ -57,8 +57,8 @@ final class ClipboardLinkPrompter with LoggerMixin {
   /// Remember a url as offered.
   final Future<void> Function(String url) savePrompted;
 
-  /// Offer to open a link.
-  final Future<void> Function(ForumLinkInText link) prompt;
+  /// Offer to open a link; false when it could not be shown.
+  final Future<bool> Function(ForumLinkInText link) prompt;
 
   /// Read the clipboard and offer the forum link in it, if any and new.
   Future<void> check() async {
@@ -80,15 +80,15 @@ final class ClipboardLinkPrompter with LoggerMixin {
     if (await loadPrompted() == link.url) {
       return;
     }
-    await savePrompted(link.url);
-    await prompt(link);
+    // Remembered once shown, opened or not; one that could not be shown is offered the next time.
+    if (await prompt(link)) {
+      await savePrompted(link.url);
+    }
   }
 
-  /// [text] was copied in the app: its forum link is not offered when the app comes back.
+  /// [text] was copied in the app: its forum link is not offered when the app comes back, also when the switch is
+  /// turned on later. Nothing is read.
   Future<void> remember(String text) async {
-    if (!enabled()) {
-      return;
-    }
     final link = findForumLinkInText(text);
     if (link != null) {
       await savePrompted(link.url);
@@ -103,6 +103,9 @@ bool _appEnabled() =>
 
 /// [text] was copied in the running app (see [ClipboardLinkPrompter.remember]).
 Future<void> rememberCopiedInApp(String text) async {
+  if (!getIt.isRegistered<StorageProvider>()) {
+    return;
+  }
   try {
     await ClipboardLinkPrompter.app().remember(text);
   } on Object catch (e, st) {
@@ -113,10 +116,10 @@ Future<void> rememberCopiedInApp(String text) async {
 /// The snack bar offering [link]: a thread or another page of the forum, opened only when tapped.
 ///
 /// At a cold start it waits for the app to be built.
-Future<void> showClipboardLinkSnackBar(ForumLinkInText link) async {
+Future<bool> showClipboardLinkSnackBar(ForumLinkInText link) async {
   final context = await waitForRootNavigatorContext();
   if (context == null || !context.mounted) {
-    return;
+    return false;
   }
   final tr = context.t.linkToken;
   showSnackBar(
@@ -133,6 +136,7 @@ Future<void> showClipboardLinkSnackBar(ForumLinkInText link) async {
       },
     ),
   );
+  return true;
 }
 
 /// Runs [ClipboardLinkPrompter.check] when the app comes to the front: once after a cold start, once each time it is

@@ -108,9 +108,11 @@ class _SearchPageState extends State<SearchPage> with LoggerMixin {
   /// Run the search once the page is built, when opened with an author from a profile page.
   bool _searchOnBuild = false;
 
-  /// The keyword field's text before its last change, and now: what a change put in ([forumLinkPasted]).
+  /// The keyword field's text and selection before its last change of the text, and its value now: what a change put
+  /// in ([forumLinkPasted]).
   String _keywordBefore = '';
-  String _keywordNow = '';
+  TextSelection? _keywordSelectionBefore;
+  TextEditingValue _keywordNow = TextEditingValue.empty;
 
   /// The author the page was opened with by name ([SearchPage.authorName]: a profile page, a "TA的主题" link naming
   /// the member): searched by name while the author field still holds it, also when the name is all digits, which
@@ -129,12 +131,13 @@ class _SearchPageState extends State<SearchPage> with LoggerMixin {
       keywordController.text = keyword;
     }
     keywordFocus.addListener(() => setState(() {}));
-    _keywordNow = keywordController.text;
+    _keywordNow = keywordController.value;
     keywordController.addListener(() {
-      if (keywordController.text != _keywordNow) {
-        _keywordBefore = _keywordNow;
-        _keywordNow = keywordController.text;
+      if (keywordController.text != _keywordNow.text) {
+        _keywordBefore = _keywordNow.text;
+        _keywordSelectionBefore = _keywordNow.selection;
       }
+      _keywordNow = keywordController.value;
     });
     _historyUid = context.readOrNull<AuthenticationRepository>()?.currentUser?.uid ?? 0;
     unawaited(_loadHistory());
@@ -270,7 +273,7 @@ class _SearchPageState extends State<SearchPage> with LoggerMixin {
   /// field gets back what it held before the paste (coming back to the page does not open it again). A link typed
   /// character by character stays, offered in [_buildOpenLinkRow].
   void _onKeywordChanged(BuildContext context, String text) {
-    final link = forumLinkPasted(_keywordBefore, text);
+    final link = forumLinkPasted(_keywordBefore, text, selection: _keywordSelectionBefore);
     if (link != null) {
       final before = _keywordBefore;
       keywordController.value = TextEditingValue(

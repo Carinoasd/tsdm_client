@@ -1,5 +1,6 @@
 // The forum link in a piece of text (a link token: "【天使动漫】<title> <link> 点击链接直接打开"), and what a change of
 // a text field pasted.
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tsdm_client/features/open_in_app/utils/forum_link_in_text.dart';
 import 'package:tsdm_client/features/quick_open/models/quick_open_candidate.dart';
@@ -46,6 +47,13 @@ void main() {
       expect(findForumLinkInText('http://www.tsdm39.net/thread-5-1-1.html')!.url, contains('tid=5'));
     });
 
+    test('user info and port are dropped: the canonical host only', () {
+      expect(
+        findForumLinkInText('http://x@www.tsdm39.com:8080/plugin.php?id=a#top')!.url,
+        'https://www.tsdm39.com/plugin.php?id=a#top',
+      );
+    });
+
     test('a forum link the app has no page for is still found, without a route', () {
       final link = findForumLinkInText('看 https://www.tsdm39.com/plugin.php?id=xyz 吧')!;
       expect(link.route, isNull);
@@ -71,6 +79,9 @@ void main() {
         'tsdm39.com.cn/forum.php?mod=viewthread&tid=1',
         'www.tsdm39.company/forum.php?mod=viewthread&tid=1',
         'javascript:alert(1)',
+        'tsdm39.com 打不开',
+        '去 www.tsdm39.com 看看',
+        'www.tsdm39.com',
         '某某标题 点击链接直接打开',
         '123',
         '',
@@ -81,6 +92,22 @@ void main() {
   });
 
   group('forumLinkPasted', () {
+    test('a paste over the selected text: all of it, or a link replaced by a longer one', () {
+      const one = 'https://www.tsdm39.com/forum.php?mod=viewthread&tid=1';
+      const longer = 'https://www.tsdm39.com/forum.php?mod=viewthread&tid=12345';
+      const all = TextSelection(baseOffset: 0, extentOffset: one.length);
+      expect(forumLinkPasted(one, longer, selection: all)!.url, longer);
+      const longText = '很长很长的一段关键字 $one';
+      expect(
+        forumLinkPasted(longText, one, selection: const TextSelection(baseOffset: 0, extentOffset: longText.length)),
+        isNotNull,
+      );
+      // Without the selection the change looks like typing "2345".
+      expect(forumLinkPasted(one, longer), isNull);
+      // A character typed over a selection is a key press.
+      expect(forumLinkPasted(one, '$one!'.substring(0, 1), selection: all), isNull);
+    });
+
     test('a token or a link pasted at once, into an empty or a filled field', () {
       expect(forumLinkPasted('', _token)!.url, contains('tid=123'));
       expect(forumLinkPasted('abc', 'abc$_token')!.url, contains('tid=123'));

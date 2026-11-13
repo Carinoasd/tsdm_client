@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/extensions/uri.dart';
@@ -35,9 +36,10 @@ final class ForumLinkInText {
 const _urlChars = r"[A-Za-z0-9\-._~:/?#\[\]@!$&'()*+,;=%]";
 
 /// A web link with its scheme, or a link of the forum written without one (`www.tsdm39.com/…`, `tsdm39.com/…`) that
-/// does not go on from a longer host or path.
+/// does not go on from a longer host or path. Without a scheme a path or a query must follow: the bare name of the
+/// site in a sentence ("tsdm39.com 打不开") is no link.
 final _linkRe = RegExp(
-  '(?:https?://$_urlChars+)|(?:(?<![A-Za-z0-9.\\-/@:%])(?:www\\.)?tsdm39\\.com(?![A-Za-z0-9\\-]|\\.[A-Za-z0-9])(?:[/?#]$_urlChars*)?)',
+  '(?:https?://$_urlChars+)|(?:(?<![A-Za-z0-9.\\-/@:%])(?:www\\.)?tsdm39\\.com(?![A-Za-z0-9\\-]|\\.[A-Za-z0-9])[/?#]$_urlChars*)',
   caseSensitive: false,
 );
 
@@ -62,8 +64,14 @@ ForumLinkInText? findForumLinkInText(String text) {
     if (uri == null || !uri.isForumHost) {
       continue;
     }
-    // Always the canonical https host of the forum, whatever the text said.
-    final url = uri.replace(scheme: 'https', host: baseHost).toString();
+    // Always the canonical https host of the forum, whatever the text said: no user info, no port.
+    final url = Uri(
+      scheme: 'https',
+      host: baseHost,
+      path: uri.path,
+      query: uri.hasQuery ? uri.query : null,
+      fragment: uri.hasFragment ? uri.fragment : null,
+    ).toString();
     return ForumLinkInText(url: url, route: url.parseUrlToRoute());
   }
   return null;
@@ -89,7 +97,18 @@ String _trimLink(String link) {
 /// The link of the forum a change of a text field from [before] to [after] put in at once: a paste (or a drop) of a
 /// piece of text with a forum link in it. Null when the change put no such link in, also when it is the last
 /// character of a link typed one by one: only what was inserted by the change is looked at.
-ForumLinkInText? forumLinkPasted(String before, String after) {
+///
+/// [selection] is the selection of the field before the change: a paste replacing the selected text (all of it, or a
+/// link selected and pasted over with another) inserted what is now between the text before and after the selection.
+ForumLinkInText? forumLinkPasted(String before, String after, {TextSelection? selection}) {
+  if (selection != null && selection.isValid && !selection.isCollapsed && selection.end <= before.length) {
+    final head = before.substring(0, selection.start);
+    final tail = before.substring(selection.end);
+    if (after.length >= head.length + tail.length && after.startsWith(head) && after.endsWith(tail)) {
+      final inserted = after.substring(head.length, after.length - tail.length);
+      return inserted.length < 2 ? null : findForumLinkInText(inserted);
+    }
+  }
   if (after.length <= before.length) {
     return null;
   }

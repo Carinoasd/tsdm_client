@@ -44,6 +44,7 @@ final class _Harness {
   Exception? readError;
   int reads = 0;
   String? prompted;
+  bool shown = true;
   final offered = <ForumLinkInText>[];
 
   late final prompter = ClipboardLinkPrompter(
@@ -57,7 +58,13 @@ final class _Harness {
     },
     loadPrompted: () async => prompted,
     savePrompted: (url) async => prompted = url,
-    prompt: (link) async => offered.add(link),
+    prompt: (link) async {
+      if (!shown) {
+        return false;
+      }
+      offered.add(link);
+      return true;
+    },
   );
 }
 
@@ -68,10 +75,16 @@ void main() {
     test('off: the clipboard is never read', () async {
       final h = _Harness()..enabled = false;
       await h.prompter.check();
-      await h.prompter.remember(_token);
       expect(h.reads, 0);
       expect(h.offered, isEmpty);
       expect(h.prompted, isNull);
+      // A link copied in the app is remembered (nothing is read): switched on later, it is not offered.
+      await h.prompter.remember(_token);
+      expect(h.reads, 0);
+      expect(h.prompted, _url);
+      h.enabled = true;
+      await h.prompter.check();
+      expect(h.offered, isEmpty);
     });
 
     test('a token copied is offered once; another link is offered again', () async {
@@ -103,6 +116,15 @@ void main() {
       await h.prompter.check();
       expect(h.offered, isEmpty);
       expect(h.prompted, isNull);
+    });
+
+    test('a link that could not be shown is offered the next time', () async {
+      final h = _Harness()..shown = false;
+      await h.prompter.check();
+      expect(h.prompted, isNull);
+      h.shown = true;
+      await h.prompter.check();
+      expect(h.offered.map((e) => e.url), [_url]);
     });
 
     test('a link copied in the app is not offered', () async {
@@ -228,7 +250,7 @@ void main() {
       expect(diagnosticSettingNames, isNot(contains(clipboardLinkPromptedKey)));
     });
 
-    testWidgets('"copy link" and "copy share text" are remembered while the switch is on', (tester) async {
+    testWidgets('"copy link" and "copy share text" are remembered, the switch on or off', (tester) async {
       final copied = <String>[];
       tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
         if (call.method == 'Clipboard.setData') {
@@ -257,11 +279,9 @@ void main() {
 
       await tester.runAsync(() => copyToClipboard(context, share, showSnackBar: false));
       expect(copied, [share]);
-      expect(await tester.runAsync(() => storage.getString(clipboardLinkPromptedKey)), isNull, reason: 'switch off');
+      expect(await tester.runAsync(() => storage.getString(clipboardLinkPromptedKey)), _url, reason: 'switch off');
 
       await tester.runAsync(() => settings.setValue(SettingsKeys.clipboardLinkPrompt, true));
-      await tester.runAsync(() => copyToClipboard(context, share, showSnackBar: false));
-      expect(await tester.runAsync(() => storage.getString(clipboardLinkPromptedKey)), _url);
       await tester.runAsync(() => copyToClipboard(context, _other, showSnackBar: false));
       expect(await tester.runAsync(() => storage.getString(clipboardLinkPromptedKey)), _other);
     });

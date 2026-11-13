@@ -214,6 +214,34 @@ void main() {
     expect(forum.requests.first.queryParameters['srchtxt'], _foreign);
   });
 
+  testWidgets('the name of the site in words is no link: searched as typed', (tester) async {
+    await pumpPage(tester);
+    await tester.enterText(keywordField(), 'tsdm39.com 打不开');
+    await tester.pumpAndSettle();
+    expect(opened, isEmpty);
+    expect(find.byKey(const ValueKey('search-open-link')), findsNothing);
+    await tester.testTextInput.receiveAction(TextInputAction.search);
+    await tester.pumpAndSettle();
+    expect(opened, isEmpty);
+    expect(forum.requests.first.queryParameters['srchtxt'], 'tsdm39.com 打不开');
+  });
+
+  testWidgets('a link pasted over the whole selected text opens, also over a shorter link', (tester) async {
+    await pumpPage(tester);
+    const one = 'https://www.tsdm39.com/forum.php?mod=viewthread&tid=4';
+    await type(tester, '', one);
+    tester.widget<TextFormField>(keywordField()).controller!.selection = const TextSelection(
+      baseOffset: 0,
+      extentOffset: one.length,
+    );
+    await tester.pump();
+    await tester.enterText(keywordField(), '${one}56');
+    await tester.pumpAndSettle();
+    expect(opened, ['${ScreenPaths.threadV1} {tid: 456}']);
+    await goBack(tester);
+    expect(keyword(tester), one);
+  });
+
   testWidgets('a link typed by hand does not open by itself: the line above the results opens it', (tester) async {
     await pumpPage(tester);
     await type(tester, '', _link);
