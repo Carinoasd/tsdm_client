@@ -11,7 +11,9 @@ import 'package:tsdm_client/features/offline_thread/utils/thread_refusal.dart';
 import 'package:tsdm_client/features/thread/v1/models/models.dart';
 import 'package:tsdm_client/features/thread/v1/utils/parse_thread_document.dart';
 import 'package:tsdm_client/features/thread/v1/utils/thread_page_api.dart';
+import 'package:tsdm_client/features/tsdmapp/small_form.dart' show currentLoginUid;
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
+import 'package:tsdm_client/features/tsdmapp/v4.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_error_saver.dart';
@@ -438,7 +440,43 @@ class ThreadRepository {
   });
 
   /// Fetch the operation log for thread [tid].
-  AsyncEither<List<OperationLogItem>> fetchOperationLog(String tid) =>
+  ///
+  /// Read from the forum's app API when it answers the page as fields (plugin 4.0.0: `thread_lists` names
+  /// `thread_mod`, `type: thread_mod`, `schema` 50, [OperationLogItem.listFromApi]) for the account logged in now:
+  /// the same rows as the window. The forum's message instead of the log is an empty log when it says there is none
+  /// (`threadmod_nonexistence`, as the window's notice is read), its refusal in its words otherwise. Any other answer
+  /// reads the window (the AJAX fragment) as before.
+  ///
+  /// [uid] is the account asking (the account logged in now by default).
+  AsyncEither<List<OperationLogItem>> fetchOperationLog(String tid, {int? uid}) => AsyncEither(() async {
+    if (TsdmAppV4.has(TsdmAppV4Group.threadLists, 'thread_mod')) {
+      final answer = await fetchTsdmAppV4Page(
+        getIt.get<NetClientProvider>(),
+        '$baseUrl/forum.php?mod=misc&action=viewthreadmod&tid=$tid',
+        type: 'thread_mod',
+        schema: 50,
+        uid: uid ?? currentLoginUid(),
+      ).run();
+      switch (answer) {
+        case Left(:final value):
+          return left(value);
+        case Right(value: TsdmAppV4Page(:final json)):
+          return right(OperationLogItem.listFromApi(json));
+        case Right(value: TsdmAppV4Message(messageKey: 'threadmod_nonexistence')):
+          return right(const []);
+        case Right(value: TsdmAppV4Message(:final reason)):
+          return left(ServerRespondedErrorException(reason));
+        case Right(value: TsdmAppV4Refused(:final error)):
+          return left(ServerRespondedErrorException(error));
+        case Right(value: null):
+          break;
+      }
+    }
+    return _fetchOperationLogWindow(tid).run();
+  });
+
+  /// The operation log for thread [tid] read from the forum's floating window, as before plugin 4.0.0.
+  AsyncEither<List<OperationLogItem>> _fetchOperationLogWindow(String tid) =>
       getIt.get<NetClientProvider>().get(_buildOperationUrl(tid)).mapHttp((resp) {
         final htmlData = parseXmlDocument(resp.data as String).documentElement?.nodes.firstOrNull?.text;
         if (htmlData == null) {

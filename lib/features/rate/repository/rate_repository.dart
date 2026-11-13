@@ -10,6 +10,7 @@ import 'package:tsdm_client/extensions/universal_html.dart';
 import 'package:tsdm_client/features/rate/models/models.dart';
 import 'package:tsdm_client/features/tsdmapp/small_form.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
+import 'package:tsdm_client/features/tsdmapp/v4.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
@@ -228,11 +229,45 @@ final class RateRepository with LoggerMixin {
   }
 
   /// Fetch all rate log for post specified by [pid] and [tid].
-  AsyncEither<List<RateLogItem>> fetchRateLog({required String tid, required String pid}) => getIt
-      .get<NetClientProvider>()
-      .get(_buildRateLogTarget(tid: tid, pid: pid))
-      .mapHttp((v) => v.data as String)
-      .map((e) => parseXmlDocument(e).documentElement?.nodes.first.text ?? '')
-      .map(parseHtmlDocument)
-      .map(_buildRateLogItemListFromDocument);
+  ///
+  /// Read from the forum's app API when it answers the page as fields (plugin 4.0.0: `thread_lists` names `ratings`,
+  /// `type: ratings`, `schema` 48, [RateLogItem.listFromApi]) for the account that asks (`currentUid` of the
+  /// constructor): the same rows as the window, the times to the second. The forum's message instead of the list is
+  /// its refusal in its words ([ServerRespondedErrorException]), but "no rate on this floor"
+  /// (`thread_rate_log_nonexistence`), which the window shows as an empty list too. Any other answer reads the window
+  /// (the AJAX fragment) as before.
+  AsyncEither<List<RateLogItem>> fetchRateLog({required String tid, required String pid}) => AsyncEither(() async {
+    final client = getIt.get<NetClientProvider>();
+    if (TsdmAppV4.has(TsdmAppV4Group.threadLists, 'ratings')) {
+      final answer = await fetchTsdmAppV4Page(
+        client,
+        '$baseUrl/forum.php?mod=misc&action=viewratings&tid=$tid&pid=$pid',
+        type: 'ratings',
+        schema: 48,
+        uid: _currentUid(),
+      ).run();
+      switch (answer) {
+        case Left(:final value):
+          return left(value);
+        case Right(value: TsdmAppV4Page(:final json)):
+          debug('got rate log of the app api');
+          return right(RateLogItem.listFromApi(json));
+        case Right(value: TsdmAppV4Message(messageKey: 'thread_rate_log_nonexistence')):
+          return right(const []);
+        case Right(value: TsdmAppV4Message(:final reason)):
+          return left(ServerRespondedErrorException(reason));
+        case Right(value: TsdmAppV4Refused(:final error)):
+          return left(ServerRespondedErrorException(error));
+        case Right(value: null):
+          break;
+      }
+    }
+    return client
+        .get(_buildRateLogTarget(tid: tid, pid: pid))
+        .mapHttp((v) => v.data as String)
+        .map((e) => parseXmlDocument(e).documentElement?.nodes.first.text ?? '')
+        .map(parseHtmlDocument)
+        .map(_buildRateLogItemListFromDocument)
+        .run();
+  });
 }

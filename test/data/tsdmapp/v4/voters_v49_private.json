@@ -1,0 +1,8 @@
+{
+ "ok": 0,
+ "error": "message",
+ "message": "抱歉，您无权查看本帖投票人",
+ "login": 0,
+ "uid": 31,
+ "message_key": "thread_poll_nopermission"
+}

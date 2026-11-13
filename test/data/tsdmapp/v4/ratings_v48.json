@@ -1,0 +1,124 @@
+{
+ "ok": 1,
+ "api": 1,
+ "time": 1794534197,
+ "uid": 31,
+ "formhash": "f1f2f3f4",
+ "checknewpm": "",
+ "timeoffset": 8,
+ "type": "ratings",
+ "schema": 48,
+ "tid": 9199193,
+ "subject": "ATP 僅樓主可見 30072",
+ "pid": 3400,
+ "count": 5,
+ "logs": [
+  {
+   "uid": 32,
+   "username": "ag_admin",
+   "credit": {
+    "id": 5,
+    "title": "天然",
+    "unit": ""
+   },
+   "score": -500,
+   "reason": "批量評分組合實測 六項含負分（威望-50 天 ...",
+   "dateline": 1791601006,
+   "digest": 0
+  },
+  {
+   "uid": 32,
+   "username": "ag_admin",
+   "credit": {
+    "id": 4,
+    "title": "腹黑",
+    "unit": ""
+   },
+   "score": -500,
+   "reason": "批量評分組合實測 六項含負分（威望-50 天 ...",
+   "dateline": 1791601006,
+   "digest": 0
+  },
+  {
+   "uid": 32,
+   "username": "ag_admin",
+   "credit": {
+    "id": 3,
+    "title": "宣传",
+    "unit": ""
+   },
+   "score": -10,
+   "reason": "批量評分組合實測 六項含負分（威望-50 天 ...",
+   "dateline": 1791601006,
+   "digest": 0
+  },
+  {
+   "uid": 32,
+   "username": "ag_admin",
+   "credit": {
+    "id": 2,
+    "title": "天使币",
+    "unit": ""
+   },
+   "score": -9000,
+   "reason": "批量評分組合實測 六項含負分（威望-50 天 ...",
+   "dateline": 1791601006,
+   "digest": 0
+  },
+  {
+   "uid": 32,
+   "username": "ag_admin",
+   "credit": {
+    "id": 1,
+    "title": "威望",
+    "unit": ""
+   },
+   "score": -50,
+   "reason": "批量評分組合實測 六項含負分（威望-50 天 ...",
+   "dateline": 1791601006,
+   "digest": 0
+  }
+ ],
+ "totals": [
+  {
+   "credit": {
+    "id": 5,
+    "title": "天然",
+    "unit": ""
+   },
+   "score": -500
+  },
+  {
+   "credit": {
+    "id": 4,
+    "title": "腹黑",
+    "unit": ""
+   },
+   "score": -500
+  },
+  {
+   "credit": {
+    "id": 3,
+    "title": "宣传",
+    "unit": ""
+   },
+   "score": -10
+  },
+  {
+   "credit": {
+    "id": 2,
+    "title": "天使币",
+    "unit": ""
+   },
+   "score": -9000
+  },
+  {
+   "credit": {
+    "id": 1,
+    "title": "威望",
+    "unit": ""
+   },
+   "score": -50
+  }
+ ]
+}

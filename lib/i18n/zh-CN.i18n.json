@@ -1188,7 +1188,8 @@
     "replyInBrowser": "在浏览器中回复",
     "draft": "草稿",
     "operationLog": {
-      "title": "操作记录"
+      "title": "操作记录",
+      "permanent": "永久"
     },
     "softCloseHint": "帖子已关闭，回复前请注意",
     "offlineBanner": "离线内容（${time: String} 保存）",

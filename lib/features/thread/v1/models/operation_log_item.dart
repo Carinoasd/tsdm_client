@@ -28,6 +28,37 @@ final class OperationLogItem with OperationLogItemMappable {
     return OperationLogItem(username: username, time: time, action: action, duration: duration);
   }
 
+  /// The rows of the thread's moderation log of the forum's app API (plugin 4.0.0: `type: thread_mod`, `schema` 50),
+  /// in its order (the window's, newest first), as the window shows them: the moderator, the time (the member's wall
+  /// clock, `timeoffset`, to the second), the action with the item used for it, and its end (the time it expires, or
+  /// "permanent" where the window prints it), else the reason the window prints in that place (a recommendation's).
+  ///
+  /// Only the rows a member did (`operator.kind` `user`): the window prints no link for the cron and
+  /// for the "moderation team" (a forum hiding the moderators), and its parser leaves those rows out, as here.
+  static List<OperationLogItem> listFromApi(Map<String, dynamic> json) {
+    final offset = tsdmAppTimeOffset(json);
+    final items = <OperationLogItem>[];
+    for (final row in tsdmAppList(json['logs'])) {
+      final operator = tsdmAppMap(row['operator']);
+      final username = tsdmAppText(operator['username']);
+      final time = tsdmAppWallClockTime(row['dateline'], offset);
+      if (operator['kind'] != 'user' || username.isEmpty || time == null) {
+        continue;
+      }
+      final magic = tsdmAppText(row['magic']);
+      final action = '${tsdmAppText(row['action_text'])}${magic.isEmpty ? '' : '($magic)'}';
+      final expiration = tsdmAppWallClockTime(row['expiration'], offset);
+      final reason = tsdmAppText(row['reason']).trim();
+      final duration = expiration != null
+          ? expiration.yyyyMMDDHHMM()
+          : (tsdmAppInt(row['unlimited']) == 1
+                ? t.threadPage.operationLog.permanent
+                : (reason.isEmpty ? null : reason));
+      items.add(OperationLogItem(username: username, action: action, time: time, duration: duration));
+    }
+    return items;
+  }
+
   /// User launched the action.
   final String username;
 

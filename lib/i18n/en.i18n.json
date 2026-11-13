@@ -1188,7 +1188,8 @@
     "replyInBrowser": "Reply in browser",
     "draft": "Draft",
     "operationLog": {
-      "title": "Operation log"
+      "title": "Operation log",
+      "permanent": "Permanent"
     },
     "softCloseHint": "This thread is closed. Take care before replying",
     "offlineBanner": "Offline copy (saved ${time: String})",

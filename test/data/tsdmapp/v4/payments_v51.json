@@ -1,0 +1,63 @@
+{
+ "ok": 1,
+ "api": 1,
+ "time": 1794534197,
+ "uid": 31,
+ "formhash": "f1f2f3f4",
+ "checknewpm": "",
+ "timeoffset": 8,
+ "type": "payments",
+ "schema": 51,
+ "tid": 9202665,
+ "subject": "CB共同买家测试 ag_mod 售卖帖",
+ "credit": {
+  "id": 2,
+  "title": "天使币",
+  "unit": ""
+ },
+ "count": 7,
+ "logs": [
+  {
+   "uid": 35,
+   "username": "ag_low2",
+   "dateline": 1793102024,
+   "amount": 5
+  },
+  {
+   "uid": 44,
+   "username": "ag_t08",
+   "dateline": 1793102029,
+   "amount": 5
+  },
+  {
+   "uid": 41,
+   "username": "ag_t05",
+   "dateline": 1793102034,
+   "amount": 5
+  },
+  {
+   "uid": 86,
+   "username": "cb_ipbuy",
+   "dateline": 1793107952,
+   "amount": 5
+  },
+  {
+   "uid": 45,
+   "username": "ag_t09",
+   "dateline": 1793109102,
+   "amount": 5
+  },
+  {
+   "uid": 46,
+   "username": "ag_t10",
+   "dateline": 1793109244,
+   "amount": 5
+  },
+  {
+   "uid": 47,
+   "username": "ag_t11",
+   "dateline": 1793109702,
+   "amount": 5
+  }
+ ]
+}

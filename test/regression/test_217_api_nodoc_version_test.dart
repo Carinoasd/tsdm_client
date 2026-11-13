@@ -40,6 +40,7 @@ import 'package:tsdm_client/features/settings/view/settings_page.dart';
 import 'package:tsdm_client/features/theme/cubit/theme_cubit.dart';
 import 'package:tsdm_client/features/thread/v1/repository/thread_repository.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
+import 'package:tsdm_client/features/tsdmapp/v4.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/cookie_provider/cookie_provider.dart';
@@ -432,7 +433,7 @@ void main() {
 
   group('I. the plugin version', () {
     test('expected version, and the order of versions', () {
-      expect(expectedTsdmAppVersion, '3.9.0');
+      expect(expectedTsdmAppVersion, '4.0.0');
       expect(compareTsdmAppVersions('2.2.0', '2.3.0'), lessThan(0));
       expect(compareTsdmAppVersions('2.3.0', '2.3.0'), 0);
       expect(compareTsdmAppVersions('2.3', '2.3.0'), 0);
@@ -470,7 +471,12 @@ void main() {
         isTrue,
         reason: 'no admin actions',
       );
-      expect(TsdmAppPluginInfo.fromAnswer(_status('3.9.0', nodoc: true))!.olderThanExpected, isFalse);
+      expect(
+        TsdmAppPluginInfo.fromAnswer(_status('3.9.0', nodoc: true))!.olderThanExpected,
+        isTrue,
+        reason: 'no tsdmv=4',
+      );
+      expect(TsdmAppPluginInfo.fromAnswer(_status('4.0.0', nodoc: true))!.olderThanExpected, isFalse);
       final older = TsdmAppPluginInfo.fromAnswer(_status('2.2.0'))!;
       expect(older.nodoc, isFalse);
       expect(older.olderThanExpected, isTrue);
@@ -531,7 +537,7 @@ void main() {
       expect(await TsdmAppApi.ask(client, 'notify', {'since': '0'}), isNotNull);
       expect(
         TsdmAppApi.pluginInfo.value,
-        const TsdmAppPluginInfo(version: '3.5.0', api: 1, nodoc: true, preview: false),
+        const TsdmAppPluginInfo(version: '3.5.0', api: 1, nodoc: true, preview: false, v4: TsdmAppV4Flags.none),
       );
       // Another version: what it leaves out is not known of it.
       answers['notify'] = {'ok': 1, 'version': '3.6.0', 'time': 1792000000, 'uid': 35, 'notices': <Object?>[]};
@@ -541,7 +547,7 @@ void main() {
       expect(await TsdmAppApi.ask(client, 'status'), isNotNull);
       expect(
         TsdmAppApi.pluginInfo.value,
-        const TsdmAppPluginInfo(version: '3.6.0', api: 2, nodoc: true, preview: false),
+        const TsdmAppPluginInfo(version: '3.6.0', api: 2, nodoc: true, preview: false, v4: TsdmAppV4Flags.none),
       );
     });
 
@@ -566,7 +572,7 @@ void main() {
         expect(await TsdmAppApi.ask(client, 'status'), isNotNull);
         expect(
           TsdmAppApi.pluginInfo.value,
-          const TsdmAppPluginInfo(version: '3.5.0', api: 1, nodoc: false, preview: false),
+          const TsdmAppPluginInfo(version: '3.5.0', api: 1, nodoc: false, preview: false, v4: TsdmAppV4Flags.none),
         );
         expect(TsdmAppApi.pluginInfo.value!.olderThanExpected, isTrue);
 
@@ -582,7 +588,7 @@ void main() {
         expect(await TsdmAppApi.ask(client, 'status'), isNotNull);
         expect(
           TsdmAppApi.pluginInfo.value,
-          const TsdmAppPluginInfo(version: '3.8.0', api: 1, nodoc: true, preview: false),
+          const TsdmAppPluginInfo(version: '3.8.0', api: 1, nodoc: true, preview: false, v4: TsdmAppV4Flags.none),
         );
         expect(TsdmAppApi.pluginInfo.value!.olderThanExpected, isTrue, reason: 'no admin actions before 3.9.0');
 
@@ -590,7 +596,7 @@ void main() {
         expect(await TsdmAppApi.ask(client, 'notify', {'since': '0'}), isNotNull);
         expect(
           TsdmAppApi.pluginInfo.value,
-          const TsdmAppPluginInfo(version: '3.8.0', api: 1, nodoc: true, preview: false),
+          const TsdmAppPluginInfo(version: '3.8.0', api: 1, nodoc: true, preview: false, v4: TsdmAppV4Flags.none),
         );
         expect(seen, hasLength(3));
 
@@ -599,7 +605,7 @@ void main() {
         expect(await TsdmAppApi.ask(client, 'notify', {'since': '0'}), isNotNull);
         expect(
           TsdmAppApi.pluginInfo.value,
-          const TsdmAppPluginInfo(version: '3.8.0', api: 1, nodoc: true, preview: false),
+          const TsdmAppPluginInfo(version: '3.8.0', api: 1, nodoc: true, preview: false, v4: TsdmAppV4Flags.none),
         );
 
         // The one action that writes names it as well; another version, so nodoc is not carried over.
@@ -687,12 +693,12 @@ void main() {
       expect(tester.widget<ListTile>(row).isThreeLine, isTrue);
 
       // The expected plugin: no note.
-      TsdmAppApi.pluginInfo.value = const TsdmAppPluginInfo(version: '3.9.0', api: 1, nodoc: true);
+      TsdmAppApi.pluginInfo.value = const TsdmAppPluginInfo(version: '4.0.0', api: 1, nodoc: true);
       await tester.pumpAndSettle();
       expect(
         find.descendant(
           of: row,
-          matching: find.text(t.detected(seen: '3.9.0', expected: expectedTsdmAppVersion)),
+          matching: find.text(t.detected(seen: '4.0.0', expected: expectedTsdmAppVersion)),
         ),
         findsOneWidget,
       );
@@ -700,12 +706,12 @@ void main() {
       expect(tester.widget<ListTile>(row).isThreeLine, isFalse);
 
       // A newer plugin: no note either.
-      TsdmAppApi.pluginInfo.value = const TsdmAppPluginInfo(version: '3.10.0', api: 1, nodoc: true);
+      TsdmAppApi.pluginInfo.value = const TsdmAppPluginInfo(version: '4.10.0', api: 1, nodoc: true);
       await tester.pumpAndSettle();
       expect(
         find.descendant(
           of: row,
-          matching: find.text(t.detected(seen: '3.10.0', expected: expectedTsdmAppVersion)),
+          matching: find.text(t.detected(seen: '4.10.0', expected: expectedTsdmAppVersion)),
         ),
         findsOneWidget,
       );

@@ -1,0 +1,400 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root><![CDATA[
+<div class="f_c">
+<h3 class="flb">
+<em id="return_viewthreadmod">主题操作记录</em>
+<span>
+<a href="javascript:;" class="flbc" onclick="hideWindow('viewthreadmod')" title="关闭">关闭</a></span>
+</h3>
+<div class="c floatwrap">
+<table class="list" cellspacing="0" cellpadding="0">
+<thead>
+<tr>
+<td>操作者</td>
+<td>时间</td>
+<td>操作</td>
+<td>有效期</td>
+</tr>
+</thead><tr>
+<td><a href="home.php?mod=space&amp;uid=32" target="_blank">ag_admin</a></td>
+<td>2026-10-15 17:24</td>
+<td >解除精华</td>
+<td ></td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=32" target="_blank">ag_admin</a></td>
+<td>2026-10-15 17:24</td>
+<td style="text-decoration: line-through" disabled>加入精华</td>
+<td style="text-decoration: line-through" disabled>永 久</td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=32" target="_blank">ag_admin</a></td>
+<td>2026-10-15 17:24</td>
+<td >解除精华</td>
+<td ></td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=32" target="_blank">ag_admin</a></td>
+<td>2026-10-15 17:23</td>
+<td >撤销图章</td>
+<td ></td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=32" target="_blank">ag_admin</a></td>
+<td>2026-10-15 17:23</td>
+<td >解除精华</td>
+<td ></td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=32" target="_blank">ag_admin</a></td>
+<td>2026-10-15 17:23</td>
+<td >添加图章 精华</td>
+<td ></td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=32" target="_blank">ag_admin</a></td>
+<td>2026-10-15 17:23</td>
+<td style="text-decoration: line-through" disabled>加入精华</td>
+<td style="text-decoration: line-through" disabled>永 久</td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=32" target="_blank">ag_admin</a></td>
+<td>2026-10-15 17:22</td>
+<td >解除精华</td>
+<td ></td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=32" target="_blank">ag_admin</a></td>
+<td>2026-10-15 17:22</td>
+<td >解除精华</td>
+<td ></td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=32" target="_blank">ag_admin</a></td>
+<td>2026-10-15 17:22</td>
+<td style="text-decoration: line-through" disabled>加入精华</td>
+<td style="text-decoration: line-through" disabled>永 久</td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=32" target="_blank">ag_admin</a></td>
+<td>2026-10-15 17:22</td>
+<td >解除精华</td>
+<td ></td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=32" target="_blank">ag_admin</a></td>
+<td>2026-10-15 17:05</td>
+<td >撤销图章</td>
+<td ></td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=32" target="_blank">ag_admin</a></td>
+<td>2026-10-15 17:05</td>
+<td >解除精华</td>
+<td ></td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=32" target="_blank">ag_admin</a></td>
+<td>2026-10-15 17:04</td>
+<td >添加图章 精华</td>
+<td ></td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=32" target="_blank">ag_admin</a></td>
+<td>2026-10-15 17:04</td>
+<td style="text-decoration: line-through" disabled>加入精华</td>
+<td style="text-decoration: line-through" disabled>永 久</td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=32" target="_blank">ag_admin</a></td>
+<td>2026-10-15 17:04</td>
+<td >解除精华</td>
+<td ></td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=32" target="_blank">ag_admin</a></td>
+<td>2026-10-15 17:02</td>
+<td >撤销图章</td>
+<td ></td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=32" target="_blank">ag_admin</a></td>
+<td>2026-10-15 17:02</td>
+<td >解除精华</td>
+<td ></td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=32" target="_blank">ag_admin</a></td>
+<td>2026-10-15 17:02</td>
+<td >添加图章 精华</td>
+<td ></td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=32" target="_blank">ag_admin</a></td>
+<td>2026-10-15 17:02</td>
+<td style="text-decoration: line-through" disabled>加入精华</td>
+<td style="text-decoration: line-through" disabled>永 久</td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=32" target="_blank">ag_admin</a></td>
+<td>2026-10-15 17:02</td>
+<td >撤销图章</td>
+<td ></td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=32" target="_blank">ag_admin</a></td>
+<td>2026-10-15 17:02</td>
+<td >添加图章 精华</td>
+<td ></td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=32" target="_blank">ag_admin</a></td>
+<td>2026-10-15 17:02</td>
+<td >解除精华</td>
+<td ></td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=32" target="_blank">ag_admin</a></td>
+<td>2026-10-15 17:01</td>
+<td >撤销图章</td>
+<td ></td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=32" target="_blank">ag_admin</a></td>
+<td>2026-10-15 17:01</td>
+<td >解除精华</td>
+<td ></td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=32" target="_blank">ag_admin</a></td>
+<td>2026-10-15 17:00</td>
+<td >添加图章 精华</td>
+<td ></td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=32" target="_blank">ag_admin</a></td>
+<td>2026-10-15 17:00</td>
+<td style="text-decoration: line-through" disabled>加入精华</td>
+<td style="text-decoration: line-through" disabled>永 久</td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=32" target="_blank">ag_admin</a></td>
+<td>2026-10-15 17:00</td>
+<td >撤销图章</td>
+<td ></td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=32" target="_blank">ag_admin</a></td>
+<td>2026-10-15 17:00</td>
+<td >添加图章 精华</td>
+<td ></td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=32" target="_blank">ag_admin</a></td>
+<td>2026-10-15 17:00</td>
+<td >解除精华</td>
+<td ></td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=32" target="_blank">ag_admin</a></td>
+<td>2026-10-15 16:59</td>
+<td >撤销图章</td>
+<td ></td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=32" target="_blank">ag_admin</a></td>
+<td>2026-10-15 16:59</td>
+<td >解除精华</td>
+<td ></td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=32" target="_blank">ag_admin</a></td>
+<td>2026-10-15 16:59</td>
+<td >添加图章 精华</td>
+<td ></td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=32" target="_blank">ag_admin</a></td>
+<td>2026-10-15 16:59</td>
+<td style="text-decoration: line-through" disabled>加入精华</td>
+<td style="text-decoration: line-through" disabled>永 久</td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=32" target="_blank">ag_admin</a></td>
+<td>2026-10-15 16:59</td>
+<td >撤销图章</td>
+<td ></td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=32" target="_blank">ag_admin</a></td>
+<td>2026-10-15 16:59</td>
+<td >解除精华</td>
+<td ></td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=32" target="_blank">ag_admin</a></td>
+<td>2026-10-15 16:58</td>
+<td >添加图章 精华</td>
+<td ></td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=32" target="_blank">ag_admin</a></td>
+<td>2026-10-15 16:58</td>
+<td style="text-decoration: line-through" disabled>加入精华</td>
+<td style="text-decoration: line-through" disabled>永 久</td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=32" target="_blank">ag_admin</a></td>
+<td>2026-10-15 16:57</td>
+<td >撤销图章</td>
+<td ></td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=32" target="_blank">ag_admin</a></td>
+<td>2026-10-15 16:57</td>
+<td >解除精华</td>
+<td ></td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=32" target="_blank">ag_admin</a></td>
+<td>2026-10-15 16:56</td>
+<td >添加图章 精华</td>
+<td ></td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=32" target="_blank">ag_admin</a></td>
+<td>2026-10-15 16:56</td>
+<td style="text-decoration: line-through" disabled>加入精华</td>
+<td style="text-decoration: line-through" disabled>永 久</td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=32" target="_blank">ag_admin</a></td>
+<td>2026-10-15 16:56</td>
+<td >撤销图章</td>
+<td ></td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=32" target="_blank">ag_admin</a></td>
+<td>2026-10-15 16:56</td>
+<td >解除精华</td>
+<td ></td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=32" target="_blank">ag_admin</a></td>
+<td>2026-10-15 16:55</td>
+<td >添加图章 精华</td>
+<td ></td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=32" target="_blank">ag_admin</a></td>
+<td>2026-10-15 16:55</td>
+<td style="text-decoration: line-through" disabled>加入精华</td>
+<td style="text-decoration: line-through" disabled>永 久</td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=32" target="_blank">ag_admin</a></td>
+<td>2026-10-15 16:55</td>
+<td >解除精华</td>
+<td ></td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=32" target="_blank">ag_admin</a></td>
+<td>2026-10-15 16:40</td>
+<td >解除精华</td>
+<td ></td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=32" target="_blank">ag_admin</a></td>
+<td>2026-10-15 16:39</td>
+<td style="text-decoration: line-through" disabled>加入精华</td>
+<td style="text-decoration: line-through" disabled>永 久</td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=32" target="_blank">ag_admin</a></td>
+<td>2026-10-15 16:39</td>
+<td >解除精华</td>
+<td ></td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=32" target="_blank">ag_admin</a></td>
+<td>2026-10-15 16:38</td>
+<td style="text-decoration: line-through" disabled>加入精华</td>
+<td style="text-decoration: line-through" disabled>永 久</td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=32" target="_blank">ag_admin</a></td>
+<td>2026-10-15 16:38</td>
+<td >解除精华</td>
+<td ></td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=32" target="_blank">ag_admin</a></td>
+<td>2026-10-15 16:37</td>
+<td style="text-decoration: line-through" disabled>加入精华</td>
+<td style="text-decoration: line-through" disabled>永 久</td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=32" target="_blank">ag_admin</a></td>
+<td>2026-10-15 16:37</td>
+<td >解除精华</td>
+<td ></td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=32" target="_blank">ag_admin</a></td>
+<td>2026-10-15 16:34</td>
+<td style="text-decoration: line-through" disabled>加入精华</td>
+<td style="text-decoration: line-through" disabled>永 久</td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=32" target="_blank">ag_admin</a></td>
+<td>2026-10-15 16:33</td>
+<td >解除精华</td>
+<td ></td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=32" target="_blank">ag_admin</a></td>
+<td>2026-10-15 16:33</td>
+<td style="text-decoration: line-through" disabled>加入精华</td>
+<td style="text-decoration: line-through" disabled>永 久</td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=32" target="_blank">ag_admin</a></td>
+<td>2026-10-15 16:32</td>
+<td >解除精华</td>
+<td ></td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=32" target="_blank">ag_admin</a></td>
+<td>2026-10-15 16:31</td>
+<td style="text-decoration: line-through" disabled>加入精华</td>
+<td style="text-decoration: line-through" disabled>永 久</td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=33" target="_blank">ag_mid</a></td>
+<td>2026-10-15 14:49</td>
+<td >打开</td>
+<td >永 久</td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=33" target="_blank">ag_mid</a></td>
+<td>2026-10-15 14:49</td>
+<td style="text-decoration: line-through" disabled>关闭</td>
+<td style="text-decoration: line-through" disabled>永 久</td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=33" target="_blank">ag_mid</a></td>
+<td>2026-10-15 12:15</td>
+<td style="text-decoration: line-through" disabled>打开</td>
+<td style="text-decoration: line-through" disabled>永 久</td>
+</tr>
+<tr>
+<td><a href="home.php?mod=space&amp;uid=33" target="_blank">ag_mid</a></td>
+<td>2026-10-15 12:15</td>
+<td style="text-decoration: line-through" disabled>关闭</td>
+<td style="text-decoration: line-through" disabled>永 久</td>
+</tr>
+</table>
+</div>
+</div>
+
+]]></root>

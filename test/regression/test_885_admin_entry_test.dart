@@ -54,7 +54,7 @@ void main() {
       expect(TsdmAppApi.knowsAdmin, isNull);
       TsdmAppApi.pluginInfo.value = const TsdmAppPluginInfo(version: '3.9.0', api: 1, nodoc: true, admin: true);
       expect(TsdmAppApi.knowsAdmin, isTrue);
-      expect(expectedTsdmAppVersion, '3.9.0');
+      expect(compareTsdmAppVersions(expectedTsdmAppVersion, '3.9.0'), greaterThanOrEqualTo(0));
     });
   });
 

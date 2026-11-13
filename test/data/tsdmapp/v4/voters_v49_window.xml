@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root><![CDATA[<h3 class="flb">
+<em id="return_">参与投票的会员</em>
+<span><a href="javascript:;" class="flbc" onclick="hideWindow('')" title="关闭">关闭</a></span></h3>
+<div class="c voterlist">
+<p>
+<select class="ps" onchange="showWindow('viewvote', 'forum.php?mod=misc&action=viewvote&tid=1019&polloptionid=' + this.value)"><option value="3" selected="selected">壬氏@藥師少女的獨語 第2期</option>
+<option value="4">梓川咲太@青春豬頭少年</option>
+<option value="5">坂田銀八@3年Z班銀八老師</option>
+<option value="6">傑諾斯@一拳超人 第3期</option>
+<option value="7">明浦路司@金牌得主</option>
+<option value="8">坂本太郎@坂本日常</option>
+<option value="9">千歲朔@千歲同學</option>
+<option value="10">鷹原羽依里@Summer Pockets</option>
+<option value="11">夏爾@黑執事 綠之魔女篇</option>
+<option value="12">達米安@間諜過家家 S3</option>
+</select>
+</p>
+<ul class="ml mtm cl voterl">
+<li><p><a href="home.php?mod=space&amp;uid=6" target="_blank">gl_carol</a></p></li>
+<li><p><a href="home.php?mod=space&amp;uid=7" target="_blank">gl_dave</a></p></li>
+<li><p><a href="home.php?mod=space&amp;uid=9" target="_blank">ps_v1</a></p></li>
+<li><p><a href="home.php?mod=space&amp;uid=11" target="_blank">ps_v3</a></p></li>
+</ul>
+</div>
+<div class="c cl mbn"></div>
+]]></root>

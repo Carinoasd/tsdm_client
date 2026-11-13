@@ -1,4 +1,5 @@
 import 'package:tsdm_client/constants/url.dart';
+import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:universal_html/parsing.dart';
 
 /// One voter listed by the forum's voters page.
@@ -58,6 +59,36 @@ String? pollVotersPageUrl(String votersUrl, String optionId, int page) {
         },
       )
       .toString();
+}
+
+/// The url of [page] of the voters of option [optionId] of the poll whose voters page is [votersUrl], as the forum's
+/// app API answers it (plugin 4.0.0, `poll_voters`): the whole page, without the window's `inajax` (`tsdmapp`, `tsdmv`
+/// and `nodoc` are added by `withTsdmAppV4Page`). Null when [votersUrl] is not a voters page.
+String? pollVotersApiPageUrl(String votersUrl, String optionId, int page) {
+  final url = pollVotersPageUrl(votersUrl, optionId, page);
+  if (url == null) {
+    return null;
+  }
+  final uri = Uri.parse(url);
+  return uri.replace(queryParameters: {...uri.queryParameters}..remove('inajax')).toString();
+}
+
+/// The page of voters in the answer [json] of the forum's app API (plugin 4.0.0: `type: poll_voters`, `schema` 49) for
+/// option [optionId]: the voters in its order, a next page while `page` is below `pages`. Null when the answer is
+/// about another option than the one asked for.
+PollVotersPage? pollVotersPageFromApi(Map<String, dynamic> json, {required String optionId}) {
+  if ('${tsdmAppInt(json['polloptionid'])}' != optionId) {
+    return null;
+  }
+  final voters = <PollVoter>[
+    for (final row in tsdmAppList(json['voters']))
+      if (tsdmAppInt(row['uid']) > 0 && tsdmAppText(row['username']).trim().isNotEmpty)
+        PollVoter(uid: tsdmAppInt(row['uid']), name: tsdmAppText(row['username']).trim()),
+  ];
+  return PollVotersPage(
+    voters: List.unmodifiable(voters),
+    hasNext: tsdmAppInt(json['page']) < tsdmAppInt(json['pages']),
+  );
 }
 
 final _cdata = RegExp(r'<!\[CDATA\[(.*?)\]\]>', dotAll: true);

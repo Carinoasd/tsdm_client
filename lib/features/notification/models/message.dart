@@ -346,6 +346,30 @@ final class BroadcastMessage with BroadcastMessageMappable {
     );
   }
 
+  /// The broadcast messages of the answer [json] of `pmlist&filter=announce` (plugin 4.0.0), the read ones too, as
+  /// the broadcast message page lists them (its first page: 20, newest first; the whole text, the page prints the
+  /// first 100 characters), with the times read as the page path reads them ([toV2FromApi], the answer's
+  /// `timeoffset`). The forum with private messages switched off (`closed` 1) lists none, as its page shows none.
+  ///
+  /// Null when the answer is not that list (no answer, an older plugin's `pmlist` without `filter`, the login prompt),
+  /// or was served to another account than [uid] (the account `notify` was served to; null: not checked): the page is
+  /// read instead.
+  static List<BroadcastMessageV2>? listFromApi(Map<String, dynamic>? json, {required int? uid}) {
+    if (json == null ||
+        json['ok'] != 1 ||
+        json['filter'] != 'announce' ||
+        json['announces'] is! List ||
+        (uid != null && json['uid'] != uid)) {
+      return null;
+    }
+    final timeOffset = tsdmAppTimeOffset(json);
+    return (json['announces'] as List)
+        .whereType<Map<String, dynamic>>()
+        .map((e) => toV2FromApi(e, timeOffset: timeOffset))
+        .whereType<BroadcastMessageV2>()
+        .toList();
+  }
+
   /// Build a [BroadcastMessage] instance from dl node [element].
   ///
   /// Node MUST have id in format "gpmlist_${ID}".

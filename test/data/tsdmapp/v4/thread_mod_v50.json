@@ -1,0 +1,1025 @@
+{
+ "ok": 1,
+ "api": 1,
+ "time": 1794534197,
+ "uid": 31,
+ "formhash": "f1f2f3f4",
+ "checknewpm": "",
+ "timeoffset": 8,
+ "type": "thread_mod",
+ "schema": 50,
+ "tid": 9199453,
+ "subject": "權限橋接測試506559",
+ "reasons_public": 0,
+ "count": 63,
+ "logs": [
+  {
+   "operator": {
+    "uid": 32,
+    "username": "ag_admin",
+    "label": "ag_admin",
+    "kind": "user"
+   },
+   "dateline": 1792056295,
+   "action": "UDG",
+   "action_text": "解除精华",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 0,
+   "active": 1,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 32,
+    "username": "ag_admin",
+    "label": "ag_admin",
+    "kind": "user"
+   },
+   "dateline": 1792056270,
+   "action": "DIG",
+   "action_text": "加入精华",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 1,
+   "active": 0,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 32,
+    "username": "ag_admin",
+    "label": "ag_admin",
+    "kind": "user"
+   },
+   "dateline": 1792056252,
+   "action": "UDG",
+   "action_text": "解除精华",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 0,
+   "active": 1,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 32,
+    "username": "ag_admin",
+    "label": "ag_admin",
+    "kind": "user"
+   },
+   "dateline": 1792056218,
+   "action": "SPD",
+   "action_text": "撤销图章",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 0,
+   "active": 1,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 32,
+    "username": "ag_admin",
+    "label": "ag_admin",
+    "kind": "user"
+   },
+   "dateline": 1792056218,
+   "action": "UDG",
+   "action_text": "解除精华",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 0,
+   "active": 1,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 32,
+    "username": "ag_admin",
+    "label": "ag_admin",
+    "kind": "user"
+   },
+   "dateline": 1792056189,
+   "action": "SPA0",
+   "action_text": "添加图章 精华",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 0,
+   "active": 1,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 32,
+    "username": "ag_admin",
+    "label": "ag_admin",
+    "kind": "user"
+   },
+   "dateline": 1792056189,
+   "action": "DIG",
+   "action_text": "加入精华",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 1,
+   "active": 0,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 32,
+    "username": "ag_admin",
+    "label": "ag_admin",
+    "kind": "user"
+   },
+   "dateline": 1792056175,
+   "action": "UDG",
+   "action_text": "解除精华",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 0,
+   "active": 1,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 32,
+    "username": "ag_admin",
+    "label": "ag_admin",
+    "kind": "user"
+   },
+   "dateline": 1792056170,
+   "action": "UDG",
+   "action_text": "解除精华",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 0,
+   "active": 1,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 32,
+    "username": "ag_admin",
+    "label": "ag_admin",
+    "kind": "user"
+   },
+   "dateline": 1792056144,
+   "action": "DIG",
+   "action_text": "加入精华",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 1,
+   "active": 0,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 32,
+    "username": "ag_admin",
+    "label": "ag_admin",
+    "kind": "user"
+   },
+   "dateline": 1792056127,
+   "action": "UDG",
+   "action_text": "解除精华",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 0,
+   "active": 1,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 32,
+    "username": "ag_admin",
+    "label": "ag_admin",
+    "kind": "user"
+   },
+   "dateline": 1792055122,
+   "action": "SPD",
+   "action_text": "撤销图章",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 0,
+   "active": 1,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 32,
+    "username": "ag_admin",
+    "label": "ag_admin",
+    "kind": "user"
+   },
+   "dateline": 1792055122,
+   "action": "UDG",
+   "action_text": "解除精华",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 0,
+   "active": 1,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 32,
+    "username": "ag_admin",
+    "label": "ag_admin",
+    "kind": "user"
+   },
+   "dateline": 1792055091,
+   "action": "SPA0",
+   "action_text": "添加图章 精华",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 0,
+   "active": 1,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 32,
+    "username": "ag_admin",
+    "label": "ag_admin",
+    "kind": "user"
+   },
+   "dateline": 1792055091,
+   "action": "DIG",
+   "action_text": "加入精华",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 1,
+   "active": 0,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 32,
+    "username": "ag_admin",
+    "label": "ag_admin",
+    "kind": "user"
+   },
+   "dateline": 1792055077,
+   "action": "UDG",
+   "action_text": "解除精华",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 0,
+   "active": 1,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 32,
+    "username": "ag_admin",
+    "label": "ag_admin",
+    "kind": "user"
+   },
+   "dateline": 1792054970,
+   "action": "SPD",
+   "action_text": "撤销图章",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 0,
+   "active": 1,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 32,
+    "username": "ag_admin",
+    "label": "ag_admin",
+    "kind": "user"
+   },
+   "dateline": 1792054970,
+   "action": "UDG",
+   "action_text": "解除精华",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 0,
+   "active": 1,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 32,
+    "username": "ag_admin",
+    "label": "ag_admin",
+    "kind": "user"
+   },
+   "dateline": 1792054938,
+   "action": "SPA0",
+   "action_text": "添加图章 精华",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 0,
+   "active": 1,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 32,
+    "username": "ag_admin",
+    "label": "ag_admin",
+    "kind": "user"
+   },
+   "dateline": 1792054938,
+   "action": "DIG",
+   "action_text": "加入精华",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 1,
+   "active": 0,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 32,
+    "username": "ag_admin",
+    "label": "ag_admin",
+    "kind": "user"
+   },
+   "dateline": 1792054924,
+   "action": "SPD",
+   "action_text": "撤销图章",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 0,
+   "active": 1,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 32,
+    "username": "ag_admin",
+    "label": "ag_admin",
+    "kind": "user"
+   },
+   "dateline": 1792054924,
+   "action": "SPA0",
+   "action_text": "添加图章 精华",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 0,
+   "active": 1,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 32,
+    "username": "ag_admin",
+    "label": "ag_admin",
+    "kind": "user"
+   },
+   "dateline": 1792054924,
+   "action": "UDG",
+   "action_text": "解除精华",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 0,
+   "active": 1,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 32,
+    "username": "ag_admin",
+    "label": "ag_admin",
+    "kind": "user"
+   },
+   "dateline": 1792054875,
+   "action": "SPD",
+   "action_text": "撤销图章",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 0,
+   "active": 1,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 32,
+    "username": "ag_admin",
+    "label": "ag_admin",
+    "kind": "user"
+   },
+   "dateline": 1792054875,
+   "action": "UDG",
+   "action_text": "解除精华",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 0,
+   "active": 1,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 32,
+    "username": "ag_admin",
+    "label": "ag_admin",
+    "kind": "user"
+   },
+   "dateline": 1792054845,
+   "action": "SPA0",
+   "action_text": "添加图章 精华",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 0,
+   "active": 1,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 32,
+    "username": "ag_admin",
+    "label": "ag_admin",
+    "kind": "user"
+   },
+   "dateline": 1792054845,
+   "action": "DIG",
+   "action_text": "加入精华",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 1,
+   "active": 0,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 32,
+    "username": "ag_admin",
+    "label": "ag_admin",
+    "kind": "user"
+   },
+   "dateline": 1792054831,
+   "action": "SPD",
+   "action_text": "撤销图章",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 0,
+   "active": 1,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 32,
+    "username": "ag_admin",
+    "label": "ag_admin",
+    "kind": "user"
+   },
+   "dateline": 1792054831,
+   "action": "SPA0",
+   "action_text": "添加图章 精华",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 0,
+   "active": 1,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 32,
+    "username": "ag_admin",
+    "label": "ag_admin",
+    "kind": "user"
+   },
+   "dateline": 1792054831,
+   "action": "UDG",
+   "action_text": "解除精华",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 0,
+   "active": 1,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 32,
+    "username": "ag_admin",
+    "label": "ag_admin",
+    "kind": "user"
+   },
+   "dateline": 1792054792,
+   "action": "SPD",
+   "action_text": "撤销图章",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 0,
+   "active": 1,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 32,
+    "username": "ag_admin",
+    "label": "ag_admin",
+    "kind": "user"
+   },
+   "dateline": 1792054792,
+   "action": "UDG",
+   "action_text": "解除精华",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 0,
+   "active": 1,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 32,
+    "username": "ag_admin",
+    "label": "ag_admin",
+    "kind": "user"
+   },
+   "dateline": 1792054760,
+   "action": "SPA0",
+   "action_text": "添加图章 精华",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 0,
+   "active": 1,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 32,
+    "username": "ag_admin",
+    "label": "ag_admin",
+    "kind": "user"
+   },
+   "dateline": 1792054760,
+   "action": "DIG",
+   "action_text": "加入精华",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 1,
+   "active": 0,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 32,
+    "username": "ag_admin",
+    "label": "ag_admin",
+    "kind": "user"
+   },
+   "dateline": 1792054746,
+   "action": "SPD",
+   "action_text": "撤销图章",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 0,
+   "active": 1,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 32,
+    "username": "ag_admin",
+    "label": "ag_admin",
+    "kind": "user"
+   },
+   "dateline": 1792054746,
+   "action": "UDG",
+   "action_text": "解除精华",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 0,
+   "active": 1,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 32,
+    "username": "ag_admin",
+    "label": "ag_admin",
+    "kind": "user"
+   },
+   "dateline": 1792054687,
+   "action": "SPA0",
+   "action_text": "添加图章 精华",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 0,
+   "active": 1,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 32,
+    "username": "ag_admin",
+    "label": "ag_admin",
+    "kind": "user"
+   },
+   "dateline": 1792054687,
+   "action": "DIG",
+   "action_text": "加入精华",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 1,
+   "active": 0,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 32,
+    "username": "ag_admin",
+    "label": "ag_admin",
+    "kind": "user"
+   },
+   "dateline": 1792054673,
+   "action": "SPD",
+   "action_text": "撤销图章",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 0,
+   "active": 1,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 32,
+    "username": "ag_admin",
+    "label": "ag_admin",
+    "kind": "user"
+   },
+   "dateline": 1792054673,
+   "action": "UDG",
+   "action_text": "解除精华",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 0,
+   "active": 1,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 32,
+    "username": "ag_admin",
+    "label": "ag_admin",
+    "kind": "user"
+   },
+   "dateline": 1792054606,
+   "action": "SPA0",
+   "action_text": "添加图章 精华",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 0,
+   "active": 1,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 32,
+    "username": "ag_admin",
+    "label": "ag_admin",
+    "kind": "user"
+   },
+   "dateline": 1792054606,
+   "action": "DIG",
+   "action_text": "加入精华",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 1,
+   "active": 0,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 32,
+    "username": "ag_admin",
+    "label": "ag_admin",
+    "kind": "user"
+   },
+   "dateline": 1792054592,
+   "action": "SPD",
+   "action_text": "撤销图章",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 0,
+   "active": 1,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 32,
+    "username": "ag_admin",
+    "label": "ag_admin",
+    "kind": "user"
+   },
+   "dateline": 1792054592,
+   "action": "UDG",
+   "action_text": "解除精华",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 0,
+   "active": 1,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 32,
+    "username": "ag_admin",
+    "label": "ag_admin",
+    "kind": "user"
+   },
+   "dateline": 1792054557,
+   "action": "SPA0",
+   "action_text": "添加图章 精华",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 0,
+   "active": 1,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 32,
+    "username": "ag_admin",
+    "label": "ag_admin",
+    "kind": "user"
+   },
+   "dateline": 1792054557,
+   "action": "DIG",
+   "action_text": "加入精华",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 1,
+   "active": 0,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 32,
+    "username": "ag_admin",
+    "label": "ag_admin",
+    "kind": "user"
+   },
+   "dateline": 1792054543,
+   "action": "UDG",
+   "action_text": "解除精华",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 0,
+   "active": 1,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 32,
+    "username": "ag_admin",
+    "label": "ag_admin",
+    "kind": "user"
+   },
+   "dateline": 1792053614,
+   "action": "UDG",
+   "action_text": "解除精华",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 0,
+   "active": 1,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 32,
+    "username": "ag_admin",
+    "label": "ag_admin",
+    "kind": "user"
+   },
+   "dateline": 1792053587,
+   "action": "DIG",
+   "action_text": "加入精华",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 1,
+   "active": 0,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 32,
+    "username": "ag_admin",
+    "label": "ag_admin",
+    "kind": "user"
+   },
+   "dateline": 1792053569,
+   "action": "UDG",
+   "action_text": "解除精华",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 0,
+   "active": 1,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 32,
+    "username": "ag_admin",
+    "label": "ag_admin",
+    "kind": "user"
+   },
+   "dateline": 1792053512,
+   "action": "DIG",
+   "action_text": "加入精华",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 1,
+   "active": 0,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 32,
+    "username": "ag_admin",
+    "label": "ag_admin",
+    "kind": "user"
+   },
+   "dateline": 1792053495,
+   "action": "UDG",
+   "action_text": "解除精华",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 0,
+   "active": 1,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 32,
+    "username": "ag_admin",
+    "label": "ag_admin",
+    "kind": "user"
+   },
+   "dateline": 1792053462,
+   "action": "DIG",
+   "action_text": "加入精华",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 1,
+   "active": 0,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 32,
+    "username": "ag_admin",
+    "label": "ag_admin",
+    "kind": "user"
+   },
+   "dateline": 1792053444,
+   "action": "UDG",
+   "action_text": "解除精华",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 0,
+   "active": 1,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 32,
+    "username": "ag_admin",
+    "label": "ag_admin",
+    "kind": "user"
+   },
+   "dateline": 1792053287,
+   "action": "DIG",
+   "action_text": "加入精华",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 1,
+   "active": 0,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 32,
+    "username": "ag_admin",
+    "label": "ag_admin",
+    "kind": "user"
+   },
+   "dateline": 1792053227,
+   "action": "UDG",
+   "action_text": "解除精华",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 0,
+   "active": 1,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 32,
+    "username": "ag_admin",
+    "label": "ag_admin",
+    "kind": "user"
+   },
+   "dateline": 1792053203,
+   "action": "DIG",
+   "action_text": "加入精华",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 1,
+   "active": 0,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 32,
+    "username": "ag_admin",
+    "label": "ag_admin",
+    "kind": "user"
+   },
+   "dateline": 1792053134,
+   "action": "UDG",
+   "action_text": "解除精华",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 0,
+   "active": 1,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 32,
+    "username": "ag_admin",
+    "label": "ag_admin",
+    "kind": "user"
+   },
+   "dateline": 1792053113,
+   "action": "DIG",
+   "action_text": "加入精华",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 1,
+   "active": 0,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 33,
+    "username": "ag_mid",
+    "label": "ag_mid",
+    "kind": "user"
+   },
+   "dateline": 1792046989,
+   "action": "OPN",
+   "action_text": "打开",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 1,
+   "active": 1,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 33,
+    "username": "ag_mid",
+    "label": "ag_mid",
+    "kind": "user"
+   },
+   "dateline": 1792046986,
+   "action": "CLS",
+   "action_text": "关闭",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 1,
+   "active": 0,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 33,
+    "username": "ag_mid",
+    "label": "ag_mid",
+    "kind": "user"
+   },
+   "dateline": 1792037728,
+   "action": "OPN",
+   "action_text": "打开",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 1,
+   "active": 0,
+   "reason": ""
+  },
+  {
+   "operator": {
+    "uid": 33,
+    "username": "ag_mid",
+    "label": "ag_mid",
+    "kind": "user"
+   },
+   "dateline": 1792037725,
+   "action": "CLS",
+   "action_text": "关闭",
+   "magic": "",
+   "expiration": 0,
+   "unlimited": 1,
+   "active": 0,
+   "reason": ""
+  }
+ ]
+}

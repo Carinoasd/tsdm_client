@@ -1,0 +1,64 @@
+{
+ "ok": 1,
+ "api": 1,
+ "version": "4.0.0",
+ "time": 1794534229,
+ "uid": 34,
+ "formhash": "f1f2f3f4",
+ "timeoffset": 8,
+ "counts": {
+  "notice": 221,
+  "pm": 0,
+  "announce": 0
+ },
+ "pm_last": 0,
+ "notices": [
+  {
+   "id": 26771,
+   "new": 1,
+   "type": "system",
+   "category": 3,
+   "authorid": 0,
+   "author": "",
+   "note": "待評分：ag_mod 在您管轄的版塊發了新主題「回收站測試主題 3」<a href=\"forum.php?mod=viewthread&tid=9202823\">查看</a>　<a href=\"forum.php?mod=modcp&action=plugin&op=base&id=selfrate%3Amodcp_base&fid=15\">去評分</a>",
+   "text": "待評分：ag_mod 在您管轄的版塊發了新主題「回收站測試主題 3」查看 去評分",
+   "dateline": 1794278273,
+   "from_id": 9202823,
+   "from_idtype": "selfrate",
+   "from_num": 1
+  },
+  {
+   "id": 26769,
+   "new": 1,
+   "type": "system",
+   "category": 3,
+   "authorid": 0,
+   "author": "",
+   "note": "待評分：ag_mod 在您管轄的版塊發了新主題「回收站測試主題 2」<a href=\"forum.php?mod=viewthread&tid=9202822\">查看</a>　<a href=\"forum.php?mod=modcp&action=plugin&op=base&id=selfrate%3Amodcp_base&fid=15\">去評分</a>",
+   "text": "待評分：ag_mod 在您管轄的版塊發了新主題「回收站測試主題 2」查看 去評分",
+   "dateline": 1794278273,
+   "from_id": 9202822,
+   "from_idtype": "selfrate",
+   "from_num": 1
+  },
+  {
+   "id": 26767,
+   "new": 1,
+   "type": "system",
+   "category": 3,
+   "authorid": 0,
+   "author": "",
+   "note": "待評分：ag_mod 在您管轄的版塊發了新主題「回收站測試主題 1」<a href=\"forum.php?mod=viewthread&tid=9202821\">查看</a>　<a href=\"forum.php?mod=modcp&action=plugin&op=base&id=selfrate%3Amodcp_base&fid=15\">去評分</a>",
+   "text": "待評分：ag_mod 在您管轄的版塊發了新主題「回收站測試主題 1」查看 去評分",
+   "dateline": 1794278273,
+   "from_id": 9202821,
+   "from_idtype": "selfrate",
+   "from_num": 1
+  }
+ ],
+ "pms": [],
+ "announces": [],
+ "limit": 3,
+ "has_more": 1,
+ "next": "1794278273_26767"
+}

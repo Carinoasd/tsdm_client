@@ -1,0 +1,90 @@
+{
+ "ok": 1,
+ "api": 1,
+ "time": 1794534197,
+ "uid": 31,
+ "formhash": "f1f2f3f4",
+ "checknewpm": "",
+ "timeoffset": 8,
+ "type": "poll_voters",
+ "schema": 49,
+ "tid": 1019,
+ "subject": "【pollshare 測試】最喜歡的角色票選",
+ "overt": 1,
+ "polloptionid": 3,
+ "options": [
+  {
+   "id": 3,
+   "text": "壬氏@藥師少女的獨語 第2期",
+   "selected": 1
+  },
+  {
+   "id": 4,
+   "text": "梓川咲太@青春豬頭少年",
+   "selected": 0
+  },
+  {
+   "id": 5,
+   "text": "坂田銀八@3年Z班銀八老師",
+   "selected": 0
+  },
+  {
+   "id": 6,
+   "text": "傑諾斯@一拳超人 第3期",
+   "selected": 0
+  },
+  {
+   "id": 7,
+   "text": "明浦路司@金牌得主",
+   "selected": 0
+  },
+  {
+   "id": 8,
+   "text": "坂本太郎@坂本日常",
+   "selected": 0
+  },
+  {
+   "id": 9,
+   "text": "千歲朔@千歲同學",
+   "selected": 0
+  },
+  {
+   "id": 10,
+   "text": "鷹原羽依里@Summer Pockets",
+   "selected": 0
+  },
+  {
+   "id": 11,
+   "text": "夏爾@黑執事 綠之魔女篇",
+   "selected": 0
+  },
+  {
+   "id": 12,
+   "text": "達米安@間諜過家家 S3",
+   "selected": 0
+  }
+ ],
+ "page": 1,
+ "perpage": 100,
+ "count": 4,
+ "pages": 1,
+ "voters": [
+  {
+   "uid": 6,
+   "username": "gl_carol"
+  },
+  {
+   "uid": 7,
+   "username": "gl_dave"
+  },
+  {
+   "uid": 9,
+   "username": "ps_v1"
+  },
+  {
+   "uid": 11,
+   "username": "ps_v3"
+  }
+ ],
+ "url": "forum.php?mod=misc&action=viewvote&tid=1019"
+}

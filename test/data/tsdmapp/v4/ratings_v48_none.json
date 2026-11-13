@@ -1,0 +1,8 @@
+{
+ "ok": 0,
+ "error": "message",
+ "message": "抱歉，指定帖子在近一年内没有评分记录",
+ "login": 0,
+ "uid": 31,
+ "message_key": "thread_rate_log_nonexistence"
+}

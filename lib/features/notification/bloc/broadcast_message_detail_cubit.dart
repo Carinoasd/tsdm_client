@@ -1,5 +1,6 @@
 import 'package:bloc/bloc.dart';
 import 'package:dart_mappable/dart_mappable.dart';
+import 'package:fpdart/fpdart.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/extensions/universal_html.dart';
 import 'package:tsdm_client/features/notification/repository/notification_repository.dart';
@@ -17,8 +18,36 @@ final class BroadcastMessageDetailCubit extends Cubit<BroadcastMessageDetailStat
   final NotificationRepository _notificationRepository;
 
   /// Fetch detail status from [pmid].
+  ///
+  /// Read from the forum's app API when it answers the detail as fields (plugin 4.0.0, `announcepm`, `schema` 40,
+  /// [NotificationRepository.fetchAnnounceDetail]): the message as the forum stored it (`message_html`, shown by the
+  /// same renderer as before) and its time. Opening it marks it read, as the web page does: it is only asked when the
+  /// user opens it. Any other answer reads the web page as before; the forum's message (private messages switched
+  /// off, the login prompt) or a message that is not the account's (`announce: null`) is a failure.
   Future<void> fetchDetail(String pmid) async {
     emit(state.copyWith(status: BroadcastMessageDetailStatus.loading));
+    switch (await _notificationRepository.fetchAnnounceDetail(pmid).run()) {
+      case Left(:final value):
+        handle(value);
+        error('failed to fetch broadcast message detail: $value');
+        emit(state.copyWith(status: BroadcastMessageDetailStatus.failed));
+        return;
+      case Right(value: final AnnounceDetail detail):
+        emit(
+          state.copyWith(
+            status: BroadcastMessageDetailStatus.success,
+            dateTime: detail.dateTime,
+            messageNode: detail.messageNode,
+          ),
+        );
+        return;
+      case Right(value: AnnounceDetailRefused(:final reason)):
+        error('broadcast message detail refused by the forum: $reason');
+        emit(state.copyWith(status: BroadcastMessageDetailStatus.failed));
+        return;
+      case Right(value: null):
+        break;
+    }
     await _notificationRepository
         .fetchDocument('$broadcastMessageDetailUrl$pmid')
         .match(
