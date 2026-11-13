@@ -1,0 +1,18 @@
+{
+ "ok": 1,
+ "api": 1,
+ "time": 1794538525,
+ "uid": 31,
+ "formhash": "f1f2f3f4",
+ "type": "result",
+ "schema": 13,
+ "kind": "page",
+ "message": "",
+ "message_key": "",
+ "url": "",
+ "handlekey": "",
+ "values": {},
+ "login": 0,
+ "alert": "",
+ "document": "\r\n<h3 class=\"flb\">\r\n<em id=\"return_noticeignore\">屏蔽通知</em>\r\n<span><a href=\"javascript:;\" onclick=\"hideWindow('noticeignore');\" class=\"flbc\" title=\"关闭\">关闭</a></span></h3>\r\n<form method=\"post\" autocomplete=\"off\" id=\"ignoreform_Ki7rz723\" name=\"ignoreform_Ki7rz723\" action=\"home.php?mod=spacecp&amp;ac=common&amp;op=ignore&amp;type=post&amp;id=0\" onsubmit=\"ajaxpost(this.id, 'return_noticeignore');\">\r\n<input type=\"hidden\" name=\"handlekey\" value=\"noticeignore\" /><input type=\"hidden\" name=\"ignoresubmit\" value=\"true\" />\r\n<input type=\"hidden\" name=\"formhash\" value=\"f1f2f3f4\" />\r\n<input type=\"hidden\" name=\"referer\" value=\"https://www.tsdm39.com/./\">\r\n<div class=\"c altw\">\r\n<p>在下次浏览时不再显示此类通知</p>\r\n<p class=\"ptn\"><label><input type=\"radio\" name=\"authorid\" id=\"authorid1\" value=\"35\" checked=\"checked\" />仅屏蔽该好友的</label></p>\r\n<p class=\"ptn\"><label><input type=\"radio\" name=\"authorid\" id=\"authorid0\" value=\"0\" />屏蔽所有好友的</label></p>\r\n</div>\r\n<p class=\"o pns\">\r\n<button type=\"submit\" name=\"feedignoresubmit\" value=\"true\" class=\"pn pnc\"><strong>确定</strong></button>\r\n</p>\r\n</form>\r\n\r\n"
+}

@@ -1,3 +1,4 @@
+import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:universal_html/html.dart' as uh;
 import 'package:universal_html/parsing.dart';
 
@@ -33,6 +34,38 @@ final class UserGroupPage {
     required this.memberGroups,
     required this.extraGroups,
   });
+
+  /// Read the page of plugin 4.0.0 [json] (`type: usergroup_info`, `schema` 54) as [parse] reads the web page: the main
+  /// group (`main`), the group the table is about (`viewed`, null when the page has none) with the credits it starts
+  /// at (`threshold`), and the menus of the credit-based groups (`upgrade`, the one viewed marked `active`) and of the
+  /// member's own groups (`my`).
+  factory UserGroupPage.fromApi(Map<String, dynamic> json) {
+    final main = tsdmAppMap(json['main']);
+    final viewed = tsdmAppMap(json['viewed']);
+    final menus = tsdmAppList(json['menus']);
+    List<Map<String, dynamic>> menu(String key) => [
+      for (final m in menus)
+        if (m['key'] == key) ...tsdmAppList(m['groups']),
+    ];
+    List<({int gid, String name})> groups(String key) => [
+      for (final g in menu(key))
+        if (tsdmAppInt(g['gid']) case final gid when gid > 0 && tsdmAppText(g['title']).trim().isNotEmpty)
+          (gid: gid, name: tsdmAppText(g['title']).trim()),
+    ];
+    final viewedName = tsdmAppText(viewed['title']).trim();
+    final threshold = viewed['threshold'];
+    return UserGroupPage._(
+      uid: tsdmAppInt(json['uid']),
+      mainGroupName: tsdmAppText(main['title']).trim(),
+      credits: tsdmAppInt(main['credits']),
+      viewedGroupName: viewedName.isEmpty ? null : viewedName,
+      viewedGid: menu('upgrade').where((g) => g['active'] == 1).map((g) => tsdmAppInt(g['gid'])).firstOrNull,
+      viewedThreshold: viewed.isEmpty || threshold is! num ? null : threshold.toInt(),
+      memberGroups: groups('upgrade'),
+      // `my` lists the main group too, which the web page links without its `gid` (left out there).
+      extraGroups: groups('my').where((g) => g.gid != tsdmAppInt(main['gid'])).toList(),
+    );
+  }
 
   /// Uid of the account the forum served the page to (`discuz_uid`), 0 for a guest; null when the page has none.
   final int? uid;

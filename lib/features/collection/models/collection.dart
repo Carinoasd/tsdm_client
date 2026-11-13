@@ -356,10 +356,19 @@ final class CollectThreadForm {
     required this.remainingCreate,
     required this.formHash,
     required this.viewerUid,
+    this.submitUrl,
+    this.submitFields,
   });
 
   /// The thread.
   final int tid;
+
+  /// Where the form posts (absolute), for the small form `collection` of plugin 4.0.0; null for the web window.
+  final String? submitUrl;
+
+  /// The fields of the form as the plugin served them (`submit.fields` and `submit.lists`, the lists numbered), sent
+  /// back as they are with the chosen collections and the reason; null for the web window.
+  final Map<String, String>? submitFields;
 
   /// The account's collections (its own and the ones it maintains) that do not hold the thread yet.
   final List<CollectionChoice> choices;
