@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:tsdm_client/features/attachment_download/utils/attachment_protocol.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/cookie_provider/cookie_provider.dart';
@@ -49,15 +50,18 @@ final class NetAttachmentFetcher implements AttachmentFetcher {
   /// Constructor.
   const NetAttachmentFetcher();
 
-  NetClientProvider _client(int uid) {
+  /// The client for [url]: with the session of account [uid] on the canonical forum host only
+  /// ([isCanonicalForumUrl]), without any cookie anywhere else (a storage host the forum redirected to).
+  NetClientProvider _client(int uid, String url) {
     final account = getIt.get<CookieProvider>().userLoginInfo;
     if ((account.uid ?? 0) != uid) {
       throw const AttachmentFetchException('account changed');
     }
-    return NetClientProvider.build(
-      dio: getIt.get<SettingsRepository>().buildDefaultDio(nativeHttp: false),
-      userLoginInfo: account,
-    );
+    final dio = getIt.get<SettingsRepository>().buildDefaultDio(nativeHttp: false);
+    if (!isCanonicalForumUrl(url)) {
+      return NetClientProvider.buildNoCookie(dio: dio);
+    }
+    return NetClientProvider.build(dio: dio, userLoginInfo: account);
   }
 
   static bool _accepted(int? status) => status != null && status < HttpStatus.badRequest;
@@ -70,7 +74,7 @@ final class NetAttachmentFetcher implements AttachmentFetcher {
     required CancelToken cancelToken,
     void Function(int received, int? total)? onProgress,
   }) async {
-    final result = await _client(uid)
+    final result = await _client(uid, url)
         .download(
           url,
           savePath,
@@ -100,7 +104,7 @@ final class NetAttachmentFetcher implements AttachmentFetcher {
 
   @override
   Future<String> fetchPage(String url, {required int uid}) async {
-    final result = await _client(uid)
+    final result = await _client(uid, url)
         .get(
           url,
           singleAttempt: true,

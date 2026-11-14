@@ -6,6 +6,7 @@ import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
 import 'package:dio_brotli_transformer/dio_brotli_transformer.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:fpdart/fpdart.dart';
 import 'package:tsdm_client/constants/constants.dart';
 import 'package:tsdm_client/constants/url.dart';
@@ -153,8 +154,10 @@ final class NetClientProvider with LoggerMixin {
       d.interceptors.add(_PointsChangesChecker());
       d.interceptors.add(_GzipEncodingChecker());
       d.interceptors.add(AntitheftInterceptor(d));
-      // decode br content-type.
-      d.transformer = DioBrotliTransformer();
+      d
+        ..httpClientAdapter = PlainTransportGuard(d.httpClientAdapter)
+        // decode br content-type.
+        ..transformer = DioBrotliTransformer();
     }
 
     return NetClientProvider._(d, session);
@@ -182,8 +185,10 @@ final class NetClientProvider with LoggerMixin {
       d.interceptors.add(_ForceDesktopLayoutInterceptor());
     }
     d.interceptors.add(AntitheftInterceptor(d));
-    // decode br content-type.
-    d.transformer = DioBrotliTransformer();
+    d
+      ..httpClientAdapter = PlainTransportGuard(d.httpClientAdapter)
+      // decode br content-type.
+      ..transformer = DioBrotliTransformer();
     return NetClientProvider._(d);
   }
 
@@ -653,6 +658,57 @@ final class _IdentityGuard extends Interceptor with LoggerMixin {
       return;
     }
     handler.next(err);
+  }
+}
+
+/// The transport of every client, around the platform's ([HttpClientAdapter]): what leaves after every interceptor
+/// (the cookie of `CookieManager`, the device id of `_ErrorHandler`, the antitheft resend) is looked at once more, so a
+/// request over plain `http` never carries the account.
+///
+/// * To the forum's host ([baseHost], [baseHostAlt]) it goes over https instead, on the same host, when the forum is
+///   served over https ([baseUrl]; a build pointed at a test forum over http keeps http). The host is kept: the cookie
+///   was read for it.
+/// * To any other host it goes without `Cookie` and without the app's `X-Tsdmapp-*` headers.
+///
+/// The entries that fetch with the session (attachments, images, audio) already ask for the canonical https url; this
+/// catches whatever still names `http`. An adapter, not one more interceptor: each interceptor is one more turn of the
+/// event loop for every request.
+final class PlainTransportGuard implements HttpClientAdapter {
+  /// Constructor.
+  PlainTransportGuard(this._inner);
+
+  final HttpClientAdapter _inner;
+
+  @override
+  Future<ResponseBody> fetch(RequestOptions options, Stream<Uint8List>? requestStream, Future<void>? cancelFuture) {
+    guard(options);
+    return _inner.fetch(options, requestStream, cancelFuture);
+  }
+
+  @override
+  void close({bool force = false}) => _inner.close(force: force);
+
+  /// Apply the rules to [options] in place.
+  @visibleForTesting
+  static void guard(RequestOptions options) {
+    final uri = options.uri;
+    if (uri.scheme == 'https') {
+      return;
+    }
+    final host = uri.host.toLowerCase();
+    if (host == baseHost || host == baseHostAlt) {
+      if (Uri.parse(baseUrl).scheme == 'https') {
+        // The query is in the url already (the antitheft sign too): not added a second time.
+        options
+          ..path = '${uri.replace(scheme: 'https')}'
+          ..queryParameters = <String, dynamic>{};
+      }
+      return;
+    }
+    options.headers.removeWhere((key, _) {
+      final k = key.toLowerCase();
+      return k == 'cookie' || k.startsWith('x-tsdmapp-');
+    });
   }
 }
 

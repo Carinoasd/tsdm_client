@@ -7,6 +7,7 @@ import kotlinx.coroutines.runBlocking
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
 import mockwebserver3.SocketEffect
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -176,5 +177,67 @@ class HttpClientTest {
             assertEquals("/result", result.target)
             assertEquals(2, server.requestCount)
         }
+    }
+
+    private val sessionHeaders = hashMapOf(
+        "Cookie" to "s_auth=synthetic",
+        "X-Tsdmapp-Device" to "synthetic-device",
+        "X-Tsdmapp-Other" to "synthetic",
+        "Accept" to "text/html",
+    )
+
+    @Test fun aRedirectOnTheSameHostKeepsTheSessionHeaders() = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(MockResponse.Builder().code(302).addHeader("Location", "/next").build())
+            server.enqueue(MockResponse.Builder().addHeader("Set-Cookie", "s_last=1").body("page").build())
+            server.start()
+            HttpClient.get("http://localhost:${server.port}/forum.php", sessionHeaders).use {
+                assertEquals(200, it.code)
+                assertEquals("s_last=1", it.headers["Set-Cookie"])
+            }
+            server.takeRequest(1, TimeUnit.SECONDS)
+            val next = requireNotNull(server.takeRequest(1, TimeUnit.SECONDS))
+            assertEquals("/next", next.target)
+            assertEquals("s_auth=synthetic", next.headers["Cookie"])
+            assertEquals("synthetic-device", next.headers["X-Tsdmapp-Device"])
+        }
+    }
+
+    @Test fun aRedirectToAnotherHostDropsTheSessionHeadersAndItsCookies() = runBlocking {
+        MockWebServer().use { other ->
+            other.enqueue(MockResponse.Builder().addHeader("Set-Cookie", "s_auth=foreign").body("file").build())
+            other.start()
+            MockWebServer().use { forum ->
+                // Another host name for the same machine: `localhost` asked for, `127.0.0.1` redirected to.
+                forum.enqueue(
+                    MockResponse.Builder().code(302).addHeader("Location", "http://127.0.0.1:${other.port}/file").build(),
+                )
+                forum.start()
+                HttpClient.get("http://localhost:${forum.port}/forum.php?mod=attachment", sessionHeaders).use {
+                    assertEquals(200, it.code)
+                    assertEquals("127.0.0.1", it.request.url.host)
+                    assertNull("a cookie of another host is not handed back", it.headers["Set-Cookie"])
+                }
+                val first = requireNotNull(forum.takeRequest(1, TimeUnit.SECONDS))
+                assertEquals("s_auth=synthetic", first.headers["Cookie"])
+            }
+            val hop = requireNotNull(other.takeRequest(1, TimeUnit.SECONDS))
+            assertNull(hop.headers["Cookie"])
+            assertTrue(hop.headers.names().none { it.startsWith("X-Tsdmapp-", ignoreCase = true) })
+            assertEquals("text/html", hop.headers["Accept"])
+        }
+    }
+
+    @Test fun theSessionStaysOnTheHostAndNeverLeavesHttpsForHttp() {
+        fun keeps(origin: String, hop: String) =
+            HttpClient.keepsSession(origin.toHttpUrl(), hop.toHttpUrl())
+
+        assertTrue(keeps("https://www.forum.test/forum.php", "https://www.forum.test/next"))
+        assertTrue(keeps("http://127.0.0.1/forum.php", "http://127.0.0.1/next"))
+        assertTrue(keeps("http://www.forum.test/forum.php", "https://www.forum.test/forum.php"))
+        assertFalse(keeps("https://www.forum.test/forum.php", "http://www.forum.test/forum.php"))
+        assertFalse(keeps("https://www.forum.test/forum.php", "https://forum.test/forum.php"))
+        assertFalse(keeps("https://www.forum.test/forum.php", "https://www.forum.test.example/forum.php"))
+        assertFalse(keeps("https://www.forum.test/forum.php", "https://cdn.example/file"))
     }
 }

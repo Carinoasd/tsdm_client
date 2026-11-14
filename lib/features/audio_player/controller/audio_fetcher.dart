@@ -3,13 +3,18 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
+import 'package:fpdart/fpdart.dart' show Either;
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
+import 'package:tsdm_client/exceptions/exceptions.dart';
+import 'package:tsdm_client/features/attachment_download/utils/attachment_protocol.dart';
 import 'package:tsdm_client/features/audio_player/models/audio_track.dart';
 import 'package:tsdm_client/features/audio_player/utils/audio_attachment.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/cookie_provider/cookie_provider.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
+import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider_android.dart';
 import 'package:tsdm_client/shared/providers/providers.dart';
 import 'package:tsdm_client/utils/logger.dart';
 
@@ -68,6 +73,29 @@ bool looksLikeAudio(Uint8List head) {
   // An MPEG audio frame or an ADTS header: 11 bits of sync.
   return head.length >= 2 && head[0] == 0xFF && (head[1] & 0xE0) == 0xE0;
 }
+
+/// The most redirects of an audio attachment followed.
+const maxAudioAttachmentHops = 5;
+
+/// Where a request of an audio attachment to [url] answered with [status] and [location] goes next: the redirect
+/// target on the canonical forum host when it is the forum's ([canonicalAttachmentUrl]), as named otherwise; null when
+/// the answer is no redirect.
+@visibleForTesting
+String? nextAudioAttachmentHop(String url, int status, String? location) {
+  if (status < 300 || status >= 400 || location == null || location.isEmpty) {
+    return null;
+  }
+  return canonicalAttachmentUrl('${Uri.parse(url).resolve(location)}');
+}
+
+/// The options of one request of an audio attachment: no redirect followed, on every platform (the Kotlin client of
+/// Android reads [singleAttemptHttpRequestKey], not [Options.followRedirects]), a redirect answered as it is.
+@visibleForTesting
+Options audioAttachmentRequestOptions() => Options(
+  followRedirects: false,
+  validateStatus: (s) => s != null && s < HttpStatus.badRequest,
+  extra: {singleAttemptHttpRequestKey: true},
+);
 
 /// [AudioFetcher] through the app's net client: the attachments with the account's cookie, as a download is (the
 /// forum takes the credits and counts the download of an attachment for each request, and does not serve a range of
@@ -133,18 +161,35 @@ final class NetAudioFetcher with LoggerMixin implements AudioFetcher {
   ) async {
     // One part file per request: a cancelled one still finishing does not write into the next.
     final part = File('${file.path}.${cancelToken.hashCode}.part');
-    final client = switch (track.source) {
-      AudioTrackSource.attachment => getIt.get<NetClientProvider>(),
-      AudioTrackSource.netease => getIt.get<NetClientProvider>(instanceName: ServiceKeys.noCookie),
-    };
-    final result = await client
-        .download(
-          track.url,
-          part.path,
-          cancelToken: cancelToken,
-          onReceiveProgress: (received, total) => onProgress?.call(total > 0 ? received / total : null),
-        )
-        .run();
+    // An attachment goes with the account's session to the canonical https host only ([canonicalAttachmentUrl]): a
+    // track kept in the queue by an earlier version may name `http` or the host without www. Its redirects are
+    // followed here, one by one ([nextAudioAttachmentHop]): a hop anywhere else goes without the session.
+    final attachment = track.source == AudioTrackSource.attachment;
+    var url = attachment ? canonicalAttachmentUrl(track.url) : track.url;
+    void progress(int received, int total) => onProgress?.call(total > 0 ? received / total : null);
+    late Either<AppException, Response<dynamic>> result;
+    for (var hop = 0; hop < maxAudioAttachmentHops; hop++) {
+      final client = attachment && isCanonicalForumUrl(url)
+          ? getIt.get<NetClientProvider>()
+          : getIt.get<NetClientProvider>(instanceName: ServiceKeys.noCookie);
+      result = await client
+          .download(
+            url,
+            part.path,
+            cancelToken: cancelToken,
+            onReceiveProgress: progress,
+            options: attachment ? audioAttachmentRequestOptions() : null,
+          )
+          .run();
+      final resp = result.toNullable();
+      final next = resp == null || !attachment
+          ? null
+          : nextAudioAttachmentHop(url, resp.statusCode ?? 0, resp.headers.value(HttpHeaders.locationHeader));
+      if (next == null) {
+        break;
+      }
+      url = next;
+    }
     if (result.isLeft()) {
       if (part.existsSync()) {
         await part.delete();
@@ -156,6 +201,12 @@ final class NetAudioFetcher with LoggerMixin implements AudioFetcher {
         );
       }
       result.mapLeft((e) => error('failed to fetch ${track.id}: $e'));
+      throw const AudioFetchException(AudioFetchFailure.network);
+    }
+    final status = result.toNullable()?.statusCode ?? 0;
+    if (status >= 300 && status < 400) {
+      // Redirected more than [maxAudioAttachmentHops] times, or nowhere.
+      await part.delete();
       throw const AudioFetchException(AudioFetchFailure.network);
     }
     final head = await _head(part);

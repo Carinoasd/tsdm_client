@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
-import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/features/attachment_download/models/attachment_download.dart';
 import 'package:tsdm_client/features/attachment_download/repository/attachment_download_manager.dart';
 import 'package:tsdm_client/features/attachment_download/utils/attachment_protocol.dart';
@@ -47,7 +46,7 @@ Future<bool> attachmentDownloadNeedsConfirm(int? size) async {
 /// Without a manager (tests of other pages) the link opens as before.
 Future<void> downloadAttachment(BuildContext context, String url, {String? filename, String? sizeText}) async {
   final manager = AttachmentDownloadManager.app;
-  final absolute = url.prependHost();
+  final absolute = canonicalAttachmentUrl(url);
   if (manager == null) {
     await context.dispatchAsUrl(absolute);
     return;

@@ -429,6 +429,62 @@ void main() {
       expect(launched, ['mailto:a@b.c']);
     });
 
+    testWidgets('links of other apps are classed external, but only the allowed schemes are launched', (tester) async {
+      // `intent:` and app schemes (`weixin://`) were launched as they came; now only web pages, mail and the schemes
+      // the forum takes in `[url]` (downloads, calls) go to another app.
+      for (final url in ['intent://x#Intent;end', 'weixin://dl/x', 'tel:123', 'magnet:?xt=urn:btih:0123']) {
+        await open(tester, url);
+      }
+      expect(pushed, isEmpty);
+      expect(launched, ['tel:123', 'magnet:?xt=urn:btih:0123']);
+    });
+
+    testWidgets('local files, scripts and the handlers of the system are never launched', (tester) async {
+      for (final url in [
+        'file:///C:/Windows/System32/notepad.exe',
+        'FILE:///etc/hosts',
+        'File://server/share/a.exe',
+        'intent://x#Intent;scheme=weixin;end',
+        'javascript:alert(1)',
+        'JavaScript:alert(1)',
+        'vbscript:msgbox(1)',
+        'data:text/html,x',
+        'content://x/y',
+        'smb://server/share',
+        'ms-msdt:/id',
+        'ms-settings:privacy',
+        'search-ms:query=x',
+        'about:blank',
+        ' file:///etc/hosts',
+        'file:///etc/hosts ',
+        '\tfile:///etc/hosts',
+        '\u0000file:///etc/hosts',
+        'fi\tle:///etc/hosts',
+        'java\nscript:alert(1)',
+      ]) {
+        await open(tester, url);
+        await open(tester, url, external: true);
+      }
+      expect(launched, isEmpty);
+    });
+
+    testWidgets('web pages, mail and downloads still launch', (tester) async {
+      for (final url in [
+        'https://example.com/a',
+        'mailto:a@b.c',
+        'magnet:?xt=urn:btih:0123',
+        'ftp://example.com/a.zip',
+      ]) {
+        await open(tester, url, external: true);
+      }
+      expect(launched, [
+        'https://example.com/a',
+        'mailto:a@b.c',
+        'magnet:?xt=urn:btih:0123',
+        'ftp://example.com/a.zip',
+      ]);
+    });
+
     testWidgets('forum switch off: the "Open in app" page, "open in browser" the external browser', (tester) async {
       await settings.setValue(SettingsKeys.inAppBrowserForForum, false);
       await open(tester, loan);

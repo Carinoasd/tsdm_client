@@ -137,11 +137,14 @@ final class AttachmentDownloadManager extends ChangeNotifier with LoggerMixin {
     String? tid,
     String? threadTitle,
   }) async {
+    // Kept and requested on the canonical https host only ([canonicalAttachmentUrl]).
+    final target = canonicalAttachmentUrl(url);
     await load(uid);
     // Forgotten while read: a list of its own again.
     final items = _items[uid] ??= [];
-    final aid = aidOfAttachmentUrl(url);
-    bool same(AttachmentDownload e) => e.url == url || (aid != null && aidOfAttachmentUrl(e.url) == aid);
+    final aid = aidOfAttachmentUrl(target);
+    bool same(AttachmentDownload e) =>
+        canonicalAttachmentUrl(e.url) == target || (aid != null && aidOfAttachmentUrl(e.url) == aid);
     bool kept(AttachmentDownload e) =>
         e.status.active ||
         (e.status == AttachmentDownloadStatus.completed && e.path != null && File(e.path!).existsSync());
@@ -151,7 +154,7 @@ final class AttachmentDownloadManager extends ChangeNotifier with LoggerMixin {
     final stopped = items.where(same).firstOrNull;
     if (stopped != null) {
       final again = stopped.copyWith(
-        url: url,
+        url: target,
         status: AttachmentDownloadStatus.queued,
         received: 0,
         clearTotal: true,
@@ -172,11 +175,11 @@ final class AttachmentDownloadManager extends ChangeNotifier with LoggerMixin {
     final item = AttachmentDownload(
       id: '${now.microsecondsSinceEpoch}-${_seq++}',
       uid: uid,
-      url: url,
+      url: target,
       filename: filename,
       createdAt: now,
       size: size,
-      tid: tid ?? tidOfAttachmentUrl(url),
+      tid: tid ?? tidOfAttachmentUrl(target),
       threadTitle: threadTitle,
     );
     items.insert(0, item);
@@ -450,7 +453,9 @@ final class AttachmentDownloadManager extends ChangeNotifier with LoggerMixin {
         item.resolvedUrl != null &&
         item.resolvedAt != null &&
         _now().difference(item.resolvedAt!) < attachmentResolvedUrlValidFor;
-    var url = paid ? item.resolvedUrl! : item.url;
+    // Every hop on the canonical https host when it is the forum's ([canonicalAttachmentUrl]): a download kept by an
+    // earlier version, a redirect or the link of the page taking the credits may name `http` or the host without www.
+    var url = canonicalAttachmentUrl(paid ? item.resolvedUrl! : item.url);
     var lastTold = DateTime.fromMillisecondsSinceEpoch(0);
     for (var hop = 0; hop < _maxHops; hop++) {
       final answer = await _fetcher.fetch(
@@ -481,7 +486,7 @@ final class AttachmentDownloadManager extends ChangeNotifier with LoggerMixin {
         if (location == null || location.isEmpty) {
           return item.copyWith(status: AttachmentDownloadStatus.failed);
         }
-        final next = '${base.resolve(location)}';
+        final next = canonicalAttachmentUrl('${base.resolve(location)}');
         if (isAttachPayUrl(next)) {
           return item.copyWith(status: AttachmentDownloadStatus.failed, purchaseUrl: next);
         }
@@ -498,7 +503,7 @@ final class AttachmentDownloadManager extends ChangeNotifier with LoggerMixin {
           _replace(item);
           await _save(item.uid);
           notifyListeners();
-          url = link;
+          url = canonicalAttachmentUrl(link);
           continue;
         }
         url = next;

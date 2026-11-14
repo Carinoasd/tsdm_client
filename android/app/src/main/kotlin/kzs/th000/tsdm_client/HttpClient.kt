@@ -4,6 +4,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.FormBody
 import okhttp3.Headers
+import okhttp3.HttpUrl
+import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
@@ -24,8 +26,36 @@ import java.util.concurrent.TimeUnit
 
 object HttpClient {
     // The forum answers quickly, so its requests keep the OkHttp defaults (10s): a page under a weak network must fail
-    // as fast as it always did.
-    private val client by lazy { OkHttpClient.Builder().proxySelector(ProxySelector.getDefault()).build() }
+    // as fast as it always did. Every client below is built from this one and keeps its network interceptor.
+    private val client by lazy {
+        OkHttpClient.Builder()
+            .proxySelector(ProxySelector.getDefault())
+            .addNetworkInterceptor(sessionScope)
+            .build()
+    }
+
+    // The Dart side puts the forum's cookie and the app's `X-Tsdmapp-*` headers in the request as plain headers, and
+    // reads the `Set-Cookie` of the answer as one of the url it asked for. OkHttp follows a redirect with every header
+    // but `Authorization`: these would go on to whatever host the redirect names. They only go to the host of the url
+    // asked for, and not over http when that url was https ([keepsSession]); a hop anywhere else goes without them, and
+    // its `Set-Cookie` is not handed back. No host is named here: a build pointed at a test forum works the same.
+    private val sessionScope = Interceptor { chain ->
+        val request = chain.request()
+        if (keepsSession(chain.call().request().url, request.url)) {
+            return@Interceptor chain.proceed(request)
+        }
+        val stripped = request.newBuilder().apply {
+            request.headers.names()
+                .filter { it.equals("Cookie", ignoreCase = true) || it.startsWith("X-Tsdmapp-", ignoreCase = true) }
+                .forEach { removeHeader(it) }
+        }.build()
+        chain.proceed(stripped).newBuilder().removeHeader("Set-Cookie").build()
+    }
+
+    // Whether a hop to [hop] of a call asked for [origin] may carry the session headers the caller set: the same host,
+    // and not https turned into http.
+    internal fun keepsSession(origin: HttpUrl, hop: HttpUrl): Boolean =
+        origin.host.equals(hop.host, ignoreCase = true) && (hop.isHttps || !origin.isHttps)
 
     // The plugin api and the image cdn answer slowly under load (the 10s defaults timed out the pokemon heal and the
     // sprite downloads on slower devices), so the requests that go there get more time.

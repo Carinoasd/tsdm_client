@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/utils/method_channel.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -10,6 +11,11 @@ import 'package:url_launcher/url_launcher.dart';
 ///
 /// Returns whether a browser was started; platform errors are thrown to the caller.
 Future<bool> openInExternalBrowser(Uri uri) async {
+  // A browser opens web pages only.
+  if (uri.scheme != 'https' && uri.scheme != 'http') {
+    talker.warning('not opening a link of scheme "${uri.scheme}" in the browser');
+    return false;
+  }
   if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
     return androidOpenInBrowser(uri);
   }

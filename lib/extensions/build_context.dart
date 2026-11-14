@@ -9,8 +9,8 @@ import 'package:tsdm_client/features/friend/widgets/approve_friend_dialog.dart';
 import 'package:tsdm_client/features/in_app_browser/utils/link_routing.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/utils/external_launch.dart';
 import 'package:tsdm_client/widgets/two_pane.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 /// Extension on [BuildContext] that provides ability to dispatch a [String]
 /// as an url.
@@ -19,7 +19,8 @@ extension DispatchUrl<T> on BuildContext {
   /// * Try parse route and push route to the corresponding page.
   /// * If is an unrecognized forum (or relative) url, push the "Open in app" page with the url filled in; the browser
   ///   is only started from there, by the user.
-  /// * If is a foreign url, launch url in external browser.
+  /// * If is a foreign url, launch url in external browser; a scheme other than those of web pages, mail and the
+  ///   forum's downloads ([externalLaunchSchemes]: not `file:`, `intent:`, `javascript:`, `ms-*`…) is not launched.
   ///
   /// With [external] the url is launched in external browser directly.
   ///
@@ -52,7 +53,7 @@ extension DispatchUrl<T> on BuildContext {
       if (await resolveLinkTarget(u, explicitBrowser: true) == LinkTarget.inAppBrowser) {
         return mounted ? _pushInAppBrowser(u) : null;
       }
-      await launchUrl(u, mode: LaunchMode.externalApplication);
+      await launchExternalUrl(absoluteForumUri(u));
       return null;
     }
     // The "批准申请" link of a friend request notice: approve inside the app instead of the browser.
@@ -94,8 +95,9 @@ extension DispatchUrl<T> on BuildContext {
       final absolute = u.hasScheme ? u : Uri.parse('$baseUrl/').resolveUri(u);
       return router.pushNamed<T>(ScreenPaths.openInApp, queryParameters: {'url': '$absolute', 'autoOpen': 'false'});
     }
-    // Launch in external browser if is a foreign url.
-    await launchUrl(u, mode: LaunchMode.externalApplication);
+    // Launch in external browser if is a foreign url; only the schemes of web pages, mail and the forum's downloads go
+    // to another app ([mayLaunchExternally]).
+    await launchExternalUrl(absoluteForumUri(u));
     return null;
   }
 
