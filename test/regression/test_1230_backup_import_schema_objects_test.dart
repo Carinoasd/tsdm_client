@@ -224,6 +224,7 @@ void main() {
     final live = await makeDatabase('${dir.path}/live.db', username: 'Alice');
     edit(live, leakTrigger);
     edit(live, 'CREATE VIEW extra AS SELECT cookie FROM cookie');
+    expect(String.fromCharCodes(live.readAsBytesSync()), contains('Alice-token'));
     final bytes = await repository.exportSanitized(live);
     final file = File('${dir.path}/exported.db')..writeAsBytesSync(bytes);
     expect(String.fromCharCodes(bytes), isNot(contains('Alice-token')));
