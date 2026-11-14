@@ -13,6 +13,7 @@ library;
 
 import 'dart:convert';
 
+import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/extensions/uri.dart';
 import 'package:universal_html/html.dart' as uh;
@@ -29,8 +30,34 @@ bool isAttachmentDownloadUrl(String url) {
   if (query['mod'] != 'attachment' || (query['aid'] ?? '').isEmpty || query.containsKey('findpost')) {
     return false;
   }
+  // The forum's own script only: `forum.php` relative, `/forum.php` on the host, or the host itself.
   final path = uri.path.toLowerCase();
-  return path.isEmpty || path.endsWith('forum.php');
+  return path.isEmpty || path == '/forum.php' || (!uri.hasAuthority && path == 'forum.php');
+}
+
+/// [url] as it is requested: a relative address or one on the forum's host (`http`, without `www`, any case) on the
+/// canonical forum base url ([baseUrl]), so the account's cookie only goes to that host over https; any other address
+/// trimmed, unchanged otherwise.
+String canonicalAttachmentUrl(String url) {
+  final s = url.trim();
+  final Uri uri;
+  try {
+    uri = Uri.parse(s);
+  } on FormatException {
+    return s;
+  }
+  if (!uri.hasScheme && !uri.hasAuthority) {
+    return '${Uri.parse('$baseUrl/').resolveUri(uri)}';
+  }
+  return uri.isForumHost ? '${uri.toCanonicalForumUri()}' : s;
+}
+
+/// Whether [url] is on the canonical forum base url ([baseUrl]): its scheme and host. Only such a request of a download
+/// carries the account's session; a redirect to anywhere else (a storage host) goes without it.
+bool isCanonicalForumUrl(String url) {
+  final uri = Uri.tryParse(url.trim());
+  final base = Uri.parse(baseUrl);
+  return uri != null && uri.scheme == base.scheme && uri.host.toLowerCase() == base.host;
 }
 
 /// Whether [url] is the page that takes the credits of a download (`mod=misc&action=attachcredit`).

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:tsdm_client/extensions/string.dart';
+import 'package:tsdm_client/features/attachment_download/utils/attachment_protocol.dart';
 import 'package:tsdm_client/features/audio_player/models/audio_track.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:universal_html/html.dart' as uh;
@@ -100,7 +101,7 @@ final class PostAudioAttachment {
     return PostAudioAttachment(
       aid: aid,
       filename: filename,
-      url: href.prependHost(),
+      url: canonicalAttachmentUrl(href),
       sizeText: size,
       description: description == null || description.isEmpty ? null : description,
     );
@@ -143,10 +144,9 @@ final class PostAudioAttachment {
 
   static final _sizeRe = RegExp(r'\d+(\.\d+)?\s?[KMG]?B\b');
 
-  static bool _isAttachmentUrl(String href) {
-    final query = href.tryParseAsUri()?.queryParameters;
-    return query != null && query['mod'] == 'attachment' && (query['aid']?.isNotEmpty ?? false);
-  }
+  /// A download address of this forum's attachment ([isAttachmentDownloadUrl]): the request carries the account's
+  /// session.
+  static bool _isAttachmentUrl(String href) => isAttachmentDownloadUrl(href);
 
   static int? _aidOfId(String id, String prefix) {
     if (!id.startsWith(prefix)) {

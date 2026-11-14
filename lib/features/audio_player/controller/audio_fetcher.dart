@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
+import 'package:tsdm_client/features/attachment_download/utils/attachment_protocol.dart';
 import 'package:tsdm_client/features/audio_player/models/audio_track.dart';
 import 'package:tsdm_client/features/audio_player/utils/audio_attachment.dart';
 import 'package:tsdm_client/instance.dart';
@@ -133,13 +134,15 @@ final class NetAudioFetcher with LoggerMixin implements AudioFetcher {
   ) async {
     // One part file per request: a cancelled one still finishing does not write into the next.
     final part = File('${file.path}.${cancelToken.hashCode}.part');
-    final client = switch (track.source) {
-      AudioTrackSource.attachment => getIt.get<NetClientProvider>(),
-      AudioTrackSource.netease => getIt.get<NetClientProvider>(instanceName: ServiceKeys.noCookie),
-    };
+    // An attachment goes with the account's session to the canonical https host only ([canonicalAttachmentUrl]): a
+    // track kept in the queue by an earlier version may name `http` or the host without www.
+    final url = track.source == AudioTrackSource.attachment ? canonicalAttachmentUrl(track.url) : track.url;
+    final client = track.source == AudioTrackSource.attachment && isCanonicalForumUrl(url)
+        ? getIt.get<NetClientProvider>()
+        : getIt.get<NetClientProvider>(instanceName: ServiceKeys.noCookie);
     final result = await client
         .download(
-          track.url,
+          url,
           part.path,
           cancelToken: cancelToken,
           onReceiveProgress: (received, total) => onProgress?.call(total > 0 ? received / total : null),
