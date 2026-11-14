@@ -53,7 +53,7 @@ extension DispatchUrl<T> on BuildContext {
       if (await resolveLinkTarget(u, explicitBrowser: true) == LinkTarget.inAppBrowser) {
         return mounted ? _pushInAppBrowser(u) : null;
       }
-      await launchExternalUrl(absoluteForumUri(u));
+      await launchExternalUrl(absoluteForumUri(u), original: url);
       return null;
     }
     // The "批准申请" link of a friend request notice: approve inside the app instead of the browser.
@@ -97,7 +97,7 @@ extension DispatchUrl<T> on BuildContext {
     }
     // Launch in external browser if is a foreign url; only the schemes of web pages, mail and the forum's downloads go
     // to another app ([mayLaunchExternally]).
-    await launchExternalUrl(absoluteForumUri(u));
+    await launchExternalUrl(absoluteForumUri(u), original: url);
     return null;
   }
 

@@ -1,5 +1,6 @@
 import 'package:tsdm_client/instance.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:url_launcher/url_launcher_string.dart';
 
 /// Schemes a link may be handed to another app with: web pages and mail, and the ones the forum itself takes in
 /// `[url]` (the downloads and calls of a resource forum: `magnet:`, `ed2k://`, `thunder://`, `ftp://`…, see
@@ -59,12 +60,34 @@ bool mayLaunchExternally(Uri uri, {bool appSchemes = false}) {
   return appSchemes && !_neverLaunchedSchemes.contains(scheme) && !scheme.startsWith('ms-');
 }
 
+/// The link handed to another app for [uri], the parsed form of [original] (the link as written, when known).
+///
+/// A [Uri] lower-cases its host and percent-encodes what a host may not hold: `thunder://QUFodHRw…` (base64, its case
+/// matters) became `thunder://qufodhrw…` and `ed2k://|file|Name.mkv|…|/` became `ed2k://%7Cfile%7Cname.mkv…`, which the
+/// download apps cannot open. A link of another scheme than the web's is therefore handed over as written: [original]
+/// trimmed, when it has the scheme of [uri] and no control character. A web page (`http`, `https`) is handed over as
+/// [uri] says, as before.
+String externalLaunchTarget(Uri uri, String? original) {
+  final scheme = uri.scheme.toLowerCase();
+  final s = original?.trim();
+  if (s == null || scheme == 'http' || scheme == 'https' || s.codeUnits.any((c) => c < 0x20 || c == 0x7f)) {
+    return '$uri';
+  }
+  final colon = s.indexOf(':');
+  return colon > 0 && s.substring(0, colon).toLowerCase() == scheme ? s : '$uri';
+}
+
 /// Hand [uri] to the app that opens it ([LaunchMode.externalApplication]) when [mayLaunchExternally]; otherwise do
-/// nothing (logged) and return false.
-Future<bool> launchExternalUrl(Uri uri, {bool appSchemes = false}) async {
+/// nothing (logged) and return false. [original] is the link as written, handed over instead of [uri] where the parsing
+/// changed it ([externalLaunchTarget]).
+Future<bool> launchExternalUrl(Uri uri, {bool appSchemes = false, String? original}) async {
   if (!mayLaunchExternally(uri, appSchemes: appSchemes)) {
     talker.warning('not launching a link of scheme "${uri.scheme}"');
     return false;
   }
-  return launchUrl(uri, mode: LaunchMode.externalApplication);
+  final target = externalLaunchTarget(uri, original);
+  if (target == '$uri') {
+    return launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+  return launchUrlString(target, mode: LaunchMode.externalApplication);
 }
