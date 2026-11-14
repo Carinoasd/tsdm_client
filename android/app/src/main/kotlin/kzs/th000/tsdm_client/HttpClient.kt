@@ -15,8 +15,11 @@ import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
+import okhttp3.ResponseBody
 import okio.BufferedSink
+import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.IOException
 import java.net.ConnectException
 import java.net.NoRouteToHostException
 import java.net.ProxySelector
@@ -95,11 +98,43 @@ object HttpClient {
         return wantsImage || headers.keys.any { it.equals("X-Pm-Formhash", ignoreCase = true) }
     }
 
+    // A body larger than the caller takes (an image over its limit, `maxBytes` of the Dart side): given up, the rest of
+    // it not read. Reported to Dart as "KT_HTTP_TOO_LARGE" ([errorCode]).
+    class ResponseTooLargeException(val maxBytes: Long) : IOException("response larger than $maxBytes bytes")
+
+    // The bytes of [body], closed after. With [maxBytes] a body saying it is larger (Content-Length) is not read, and one
+    // telling no size is read until it goes over, then given up: [ResponseTooLargeException] either way. [onChunk] is
+    // told how much arrived after each piece, with the size told (-1 when none).
+    fun readBody(body: ResponseBody, maxBytes: Long? = null, onChunk: ((received: Long, total: Long) -> Unit)? = null): ByteArray =
+        body.use {
+            val total = body.contentLength()
+            if (maxBytes != null && total > maxBytes) throw ResponseTooLargeException(maxBytes)
+            if (maxBytes == null && onChunk == null) return@use body.bytes()
+            val out = ByteArrayOutputStream(if (total in 1..PREALLOCATED_BODY_MAX) total.toInt() else 256 * 1024)
+            val buffer = ByteArray(16 * 1024)
+            var received = 0L
+            body.byteStream().use { input ->
+                while (true) {
+                    val count = input.read(buffer)
+                    if (count < 0) break
+                    received += count
+                    if (maxBytes != null && received > maxBytes) throw ResponseTooLargeException(maxBytes)
+                    out.write(buffer, 0, count)
+                    onChunk?.invoke(received, total)
+                }
+            }
+            out.toByteArray()
+        }
+
+    // Largest buffer allocated up front for a body read in pieces; a larger body grows it as it comes.
+    private const val PREALLOCATED_BODY_MAX = 8L * 1024 * 1024
+
     // Error code of a failed request for the Dart side: "KT_HTTP_UNREACHABLE" when the host was not reached at all (no
     // network, the name not resolved, the connection refused or timed out while connecting), so the app can read a
     // saved copy of a thread page instead; "KT_HTTP_ERROR" for every other failure, a socket that fails after the
     // connect included (the forum was reached).
     fun errorCode(e: Exception): String {
+        if (e is ResponseTooLargeException) return "KT_HTTP_TOO_LARGE"
         val unreachable = e is UnknownHostException ||
             e is ConnectException ||
             e is NoRouteToHostException ||

@@ -22,6 +22,7 @@ import 'package:tsdm_client/shared/providers/cookie_provider/cookie_provider.dar
 import 'package:tsdm_client/shared/providers/net_client_provider/antitheft_interceptor.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider_android.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_error_saver.dart';
+import 'package:tsdm_client/shared/providers/net_client_provider/response_size_limit.dart';
 import 'package:tsdm_client/shared/providers/providers.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/platform.dart';
@@ -249,12 +250,16 @@ final class NetClientProvider with LoggerMixin {
   /// result, for the caller to decide where to go with which client. The request is then also marked as a single
   /// attempt ([singleAttemptHttpRequestKey]): the Kotlin client of Android reads that mark, not
   /// [Options.followRedirects], to pick its client that never follows a redirect.
+  ///
+  /// [maxBytes]: the most bytes the image may have; a larger one fails with [ResponseTooLargeException], not read
+  /// whole ([responseMaxBytesKey]).
   AsyncEither<Response<dynamic>> getImage(
     String path, {
     Map<String, dynamic>? queryParameters,
     Map<String, String>? headers,
     ProgressCallback? onReceiveProgress,
     bool followRedirects = true,
+    int? maxBytes,
   }) => AsyncEither.tryCatch(() async {
     final resp = await _dio.get<dynamic>(
       path,
@@ -269,7 +274,10 @@ final class NetClientProvider with LoggerMixin {
         },
         followRedirects: followRedirects,
         validateStatus: followRedirects ? null : (status) => status != null && status < HttpStatus.badRequest,
-        extra: followRedirects ? null : {singleAttemptHttpRequestKey: true},
+        extra: {
+          if (!followRedirects) singleAttemptHttpRequestKey: true,
+          responseMaxBytesKey: ?maxBytes,
+        },
       ),
     );
 
@@ -279,6 +287,10 @@ final class NetClientProvider with LoggerMixin {
     }
     if (status != HttpStatus.ok) {
       throw HttpRequestFailedException(status);
+    }
+    // A body the transformer made larger than it arrived (brotli): not kept either.
+    if (maxBytes != null && resp.data is Uint8List && (resp.data as Uint8List).length > maxBytes) {
+      throw ResponseTooLargeException(maxBytes);
     }
     _ensureImageBody(resp);
     return resp;
@@ -671,7 +683,7 @@ final class _IdentityGuard extends Interceptor with LoggerMixin {
 /// * To any other host it goes without `Cookie` and without the app's `X-Tsdmapp-*` headers.
 ///
 /// The entries that fetch with the session (attachments, images, audio) already ask for the canonical https url; this
-/// catches whatever still names `http`. An adapter, not one more interceptor: each interceptor is one more turn of the
+/// catches whatever still names `http`. The answer is held to the size the request takes, when it says one ([responseMaxBytesKey]). An adapter, not one more interceptor: each interceptor is one more turn of the
 /// event loop for every request.
 final class PlainTransportGuard implements HttpClientAdapter {
   /// Constructor.
@@ -680,9 +692,14 @@ final class PlainTransportGuard implements HttpClientAdapter {
   final HttpClientAdapter _inner;
 
   @override
-  Future<ResponseBody> fetch(RequestOptions options, Stream<Uint8List>? requestStream, Future<void>? cancelFuture) {
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
     guard(options);
-    return _inner.fetch(options, requestStream, cancelFuture);
+    // Held to the size the request takes (an image), on every platform.
+    return limitResponseBody(options, await _inner.fetch(options, requestStream, cancelFuture));
   }
 
   @override

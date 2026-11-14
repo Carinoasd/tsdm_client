@@ -109,6 +109,17 @@ final class ImageResponseNotImageException extends AppException with ImageRespon
   final String? contentType;
 }
 
+/// An answer larger than the app takes for it (an image over its limit, `responseMaxBytesKey`): given up before it was
+/// read whole.
+@MappableClass()
+final class ResponseTooLargeException extends AppException with ResponseTooLargeExceptionMappable {
+  /// Constructor.
+  ResponseTooLargeException(this.maxBytes) : super(message: 'answer larger than $maxBytes bytes');
+
+  /// The most bytes the answer could have.
+  final int maxBytes;
+}
+
 /// Exception represents that the SSL handshake process is terminated
 /// abnormally.
 ///

@@ -6,7 +6,9 @@ import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter/services.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:http/http.dart' as http;
+import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/instance.dart';
+import 'package:tsdm_client/shared/providers/net_client_provider/response_size_limit.dart';
 
 /// Internal Dio metadata; never transmitted in an HTTP header or form body.
 const singleAttemptHttpRequestKey = 'tsdm_single_attempt';
@@ -66,6 +68,9 @@ abstract class _AndroidHttpMethodChannel {
   /// Error code of every other failed request (see `HttpClient.errorCode` in `HttpClient.kt`): its details carry the
   /// message of the exception, "timeout" or "Read timed out" for a read or write timeout.
   static const _error = 'KT_HTTP_ERROR';
+
+  /// Error code of a GET whose body was larger than the `maxBytes` it was sent with: given up, not read whole.
+  static const _tooLarge = 'KT_HTTP_TOO_LARGE';
 
   static final _timeoutRe = RegExp(r'\btime(d)? ?out\b', caseSensitive: false);
 
@@ -135,6 +140,7 @@ abstract class _AndroidHttpMethodChannel {
     required Map<String, String> headers,
     bool singleAttempt = false,
     ProgressCallback? onProgress,
+    int? maxBytes,
   }) async {
     int? progressId;
     if (onProgress != null) {
@@ -148,12 +154,17 @@ abstract class _AndroidHttpMethodChannel {
         'headers': headers,
         'singleAttempt': singleAttempt,
         'progressId': ?progressId,
+        // Kotlin stops reading the body past it (KT_HTTP_TOO_LARGE).
+        'maxBytes': ?maxBytes,
       });
       if (resp == null) {
         return null;
       }
       return _KotlinHttpResponse._fromRawResp(resp);
     } on PlatformException catch (e, st) {
+      if (e.code == _tooLarge && maxBytes != null) {
+        throw ResponseTooLargeException(maxBytes);
+      }
       talker.handle(e, st, '[KtHttp] GET failed on $url');
       if (_failureOf(e) case final failure?) {
         // Its own exception, as dio's connection error and connection timeout are on the other platforms, so a thread
@@ -311,6 +322,7 @@ final class KotlinHttpClient {
     Map<String, String>? headers,
     bool singleAttempt = false,
     ProgressCallback? onProgress,
+    int? maxBytes,
   }) async {
     if (!_android) {
       throw http.ClientException('Only available on Android');
@@ -320,6 +332,7 @@ final class KotlinHttpClient {
       headers: headers ?? {},
       singleAttempt: singleAttempt,
       onProgress: onProgress,
+      maxBytes: maxBytes,
     );
     if (rawResp == null) {
       throw http.ClientException('null raw response');
@@ -404,6 +417,7 @@ class KotlinHttpClientAdapter implements HttpClientAdapter {
         singleAttempt: options.extra[singleAttemptHttpRequestKey] == true,
         // The body arrives here at once, dio would only tell its progress at the end: Kotlin tells it while it loads.
         onProgress: options.onReceiveProgress,
+        maxBytes: responseMaxBytesOf(options),
       ),
       'POST' => _client._post(
         options.uri,

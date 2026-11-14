@@ -12,6 +12,7 @@ import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/providers/image_cache_provider/image_cache_provider.dart';
+import 'package:tsdm_client/shared/providers/image_cache_provider/image_limits.dart';
 import 'package:tsdm_client/shared/providers/image_cache_provider/models/models.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
@@ -105,13 +106,14 @@ class _ImageDialogState extends State<_ImageDialog> with LoggerMixin, SingleTick
       if (imageData.isEmpty) {
         return;
       }
-      final uiImage = await decodeImageFromList(imageData);
-      if (!mounted) {
+      // Read from its header, not decoded whole.
+      final size = await encodedImageSize(imageData);
+      if (size == null || !mounted) {
         return;
       }
       setState(() {
-        widthController.text = '${uiImage.width}';
-        heightController.text = '${uiImage.height}';
+        widthController.text = '${size.width}';
+        heightController.text = '${size.height}';
       });
       // Intend to catch all exceptions only be aware of a manual required
       // state.
