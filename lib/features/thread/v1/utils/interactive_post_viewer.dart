@@ -3,7 +3,9 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:tsdm_client/constants/url.dart';
+import 'package:tsdm_client/features/app_lock/cubit/app_lock_cubit.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/utils/browser_launcher.dart';
 
 const _channel = MethodChannel('kzs.th000.tsdm_client/interactiveHtmlChannel');
@@ -54,6 +56,18 @@ Map<String, String> interactivePostViewerLabels() {
   };
 }
 
+/// Time away after which the app lock locks, in milliseconds; null while the lock is off.
+///
+/// The native viewer is an activity of its own above the Flutter pages, out of reach of the lock screen: it closes
+/// itself where the app would lock, so the lock screen shows instead.
+int? interactivePostAppLockDelayMs() {
+  if (!getIt.isRegistered<AppLockCubit>()) {
+    return null;
+  }
+  final config = getIt.get<AppLockCubit>().state.config;
+  return config.enabled ? config.timing.delay.inMilliseconds : null;
+}
+
 /// Open already-fetched authored HTML only after the reader asks to interact with it.
 ///
 /// [currentUid] identifies the currently logged-in reader for isolated local storage. It must never be the author
@@ -69,6 +83,7 @@ Future<InteractivePostOpenResult> openInteractivePost({
     return InteractivePostOpenResult.failed;
   }
   if (supportsInteractivePostViewer && html.isNotEmpty && utf8.encode(html).length <= interactivePostMaxBytes) {
+    final appLockDelayMs = interactivePostAppLockDelayMs();
     try {
       final opened = await _channel.invokeMethod<bool>('openHtml', {
         'html': html,
@@ -79,6 +94,7 @@ Future<InteractivePostOpenResult> openInteractivePost({
         'locale': LocaleSettings.currentLocale.languageTag,
         // Translated here so the native viewer does not keep its own copy of these texts.
         'labels': interactivePostViewerLabels(),
+        'appLockDelayMs': ?appLockDelayMs,
       });
       if (opened ?? false) {
         return InteractivePostOpenResult.viewer;
