@@ -5,6 +5,7 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/features/in_app_browser/utils/forum_cookies.dart';
 import 'package:tsdm_client/features/in_app_browser/utils/link_routing.dart';
+import 'package:tsdm_client/features/in_app_browser/widgets/browser_host_title.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/cookie_provider/cookie_provider.dart';
@@ -41,8 +42,6 @@ class _InAppBrowserPageState extends State<InAppBrowserPage> {
 
   /// The page in view.
   late Uri _url = widget.url ?? Uri();
-
-  String? _title;
 
   /// Loading progress, 0 to 100.
   int _progress = 0;
@@ -123,7 +122,7 @@ class _InAppBrowserPageState extends State<InAppBrowserPage> {
           linkActivated: action.navigationType == NavigationType.LINK_ACTIVATED,
         );
         if (byUser) {
-          unawaited(_launchOtherApp(controller, uri));
+          unawaited(_launchOtherApp(controller, uri, original: url.rawValue));
         }
         return NavigationActionPolicy.CANCEL;
     }
@@ -150,14 +149,15 @@ class _InAppBrowserPageState extends State<InAppBrowserPage> {
     });
   }
 
-  /// Open [uri], a link of another app ([externalLaunchOf]).
-  Future<void> _launchOtherApp(InAppWebViewController controller, Uri uri) async {
+  /// Open [uri], a link of another app ([externalLaunchOf]), handed over as the page wrote it ([original], see
+  /// `externalLaunchTarget`).
+  Future<void> _launchOtherApp(InAppWebViewController controller, Uri uri, {String? original}) async {
     switch (externalLaunchOf(uri)) {
       case ExternalLaunchApp(:final uri):
         try {
           // The link of an app on a phone (`weixin://`, `market://`); on a desktop only the schemes of web pages, mail
           // and the forum's downloads: a Windows handler (`ms-*`) or a file is never started from a web page.
-          await launchExternalUrl(uri, appSchemes: isAndroid || isIOS);
+          await launchExternalUrl(uri, appSchemes: isAndroid || isIOS, original: original);
         } on Object catch (e, st) {
           talker.handle(e, st, 'failed to launch a link of another app (scheme=${uri.scheme})');
         }
@@ -204,7 +204,8 @@ class _InAppBrowserPageState extends State<InAppBrowserPage> {
         appBar: AppBar(
           // Closes the page at once; the back key and gesture go back in the web view first.
           leading: CloseButton(onPressed: () => Navigator.of(context).pop()),
-          title: Text(_title?.isNotEmpty ?? false ? _title! : _url.host, maxLines: 1, overflow: TextOverflow.ellipsis),
+          // The host of the page, never its title ([browserTitleOf]).
+          title: BrowserHostTitle(browserTitleOf(_url)),
           actions: [
             if (valid) ...[
               IconButton(
@@ -255,7 +256,6 @@ class _InAppBrowserPageState extends State<InAppBrowserPage> {
                   initialSettings: InAppWebViewSettings(useShouldOverrideUrlLoading: true),
                   onWebViewCreated: _onCreated,
                   shouldOverrideUrlLoading: _onNavigation,
-                  onTitleChanged: (_, title) => _update(() => _title = title),
                   onProgressChanged: (_, progress) => _update(() => _progress = progress),
                   onLoadStop: (controller, url) async {
                     _initialPending = false;

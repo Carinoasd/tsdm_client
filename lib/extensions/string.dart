@@ -6,6 +6,7 @@ import 'package:tsdm_client/extensions/uri.dart';
 import 'package:tsdm_client/features/member_thread/utils/member_thread_url.dart';
 import 'package:tsdm_client/features/post/models/models.dart';
 import 'package:tsdm_client/instance.dart';
+import 'package:tsdm_client/routes/route_ids.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:uuid/uuid.dart';
 
@@ -38,7 +39,20 @@ extension ParseUrl on String {
 
   /// Try parse string to [RecognizedRoute] with arguments.
   /// Return null if string is unsupported route.
+  ///
+  /// A route whose id parameters ([routeIdParameters]: `tid`, `fid`, `uid`, `pid`…) are not all integers is none either:
+  /// the link is then an unsupported one, opened as such (the "Open in app" page), and nothing it carries is put into
+  /// the urls of a page.
   RecognizedRoute? parseUrlToRoute() {
+    final route = _parseUrlToRoute();
+    if (route == null || (routeIdsValid(route.pathParameters) && routeIdsValid(route.queryParameters))) {
+      return route;
+    }
+    talker.warning('not routing a link whose ids are not numbers');
+    return null;
+  }
+
+  RecognizedRoute? _parseUrlToRoute() {
     final uri = tryParseAsUri();
     // Urls come from page contents; only the forum's own (or relative) urls become in-app routes. A foreign url with
     // forum-looking query parameters, a `javascript:` url or a `user@host` trick is never routed.
@@ -254,7 +268,7 @@ extension ParseUrl on String {
     // Following: home.php?mod=follow&do=following|follower[&uid=N] are the members a member follows and their
     // followers; home.php?mod=follow[&view=…] the broadcasts of the account in use, with `uid` those of a member. Of
     // `home.php` only: a plugin's page may name a `mod` of its own so.
-    if (mod == 'follow' && uri.path.endsWith('home.php')) {
+    if (mod == 'follow' && uri.isForumScript('home.php')) {
       final uid = int.tryParse(queryParameters['uid'] ?? '');
       final member = {if (uid != null && uid > 0) 'uid': '$uid'};
       return switch (queryParameters['do']) {
@@ -281,7 +295,7 @@ extension ParseUrl on String {
     if (mod == 'post' &&
         queryParameters['action'] == 'edit' &&
         queryParameters['fid'] != null &&
-        queryParameters['pid'] != null &&
+        queryParameters['tid'] != null &&
         queryParameters['pid'] != null) {
       return RecognizedRoute(
         ScreenPaths.editPost,
@@ -326,7 +340,7 @@ extension ParseUrl on String {
     }
 
     // The forum's statistics: misc.php?mod=stat[&op=...], shown in the app's read only page of them.
-    if (mod == 'stat' && uri.path.endsWith('misc.php')) {
+    if (mod == 'stat' && uri.isForumScript('misc.php')) {
       return RecognizedRoute(
         ScreenPaths.siteStats,
         queryParameters: {'url': Uri.parse('$baseUrl/misc.php').replace(queryParameters: queryParameters).toString()},

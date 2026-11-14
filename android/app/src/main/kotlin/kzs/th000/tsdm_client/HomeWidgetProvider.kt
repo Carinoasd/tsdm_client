@@ -136,6 +136,8 @@ class HomeWidgetProvider : AppWidgetProvider() {
             val intent = Intent(Intent.ACTION_MAIN)
                 .setClass(context, MainActivityImpl::class.java)
                 .setData(Uri.parse(data))
+                // The app's own shortcut: not a link another app sent ([ShortcutKey]).
+                .putExtra(ShortcutKey.EXTRA, ShortcutKey.of(context))
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             return PendingIntent.getActivity(
                 context,

@@ -34,6 +34,14 @@ extension UriOriginExt on Uri {
   /// Only such urls may be turned into in-app routes; anything else is foreign and stays outside the app.
   bool get isForumOrRelative => (!hasScheme && !hasAuthority) || isForumHost;
 
+  /// Whether the path of this url is the forum's script [script] (`forum.php`, `home.php`…) at the root of the forum:
+  /// `/forum.php` (on a host or relative) or `forum.php` (relative), in any case. A path that only ends with the name
+  /// (`/xforum.php`, `/attachment/forum.php`) is another one.
+  bool isForumScript(String script) {
+    final p = path.toLowerCase();
+    return p == '/$script' || (!hasAuthority && p == script);
+  }
+
   /// This url rebased on the canonical forum base url (`https://www.tsdm39.com`), keeping path and query.
   ///
   /// Use it before fetching a url taken from page contents so that an `http://` or `tsdm39.com` link never leaves the

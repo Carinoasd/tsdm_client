@@ -101,7 +101,7 @@ class MainActivityImpl: AudioServiceFragmentActivity() {
     private var initialDeepLink: String? = null
 
     /** The launcher shortcuts of the app icon, see [ShortcutsHandler]. */
-    private val shortcuts = ShortcutsHandler()
+    private val shortcuts = ShortcutsHandler { ShortcutKey.of(this) }
 
     /** The home screen widget's state, told by Dart, see [HomeWidgetChannel]. */
     private val homeWidget = HomeWidgetChannel()

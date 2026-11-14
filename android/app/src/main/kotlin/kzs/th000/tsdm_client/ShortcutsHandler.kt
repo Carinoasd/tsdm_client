@@ -6,8 +6,10 @@ import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.MethodChannel
 
 /**
- * The launcher shortcuts of the app icon (`res/xml/shortcuts.xml`): each starts [MainActivityImpl] with
- * `tsdm://shortcut/<id>` as data, and the id is handed to Dart, which navigates.
+ * The launcher shortcuts of the app icon (`res/xml/shortcuts.xml`): each starts [ShortcutActivity], which starts
+ * [MainActivityImpl] with `tsdm://shortcut/<id>` as data and [ShortcutKey]; the id is handed to Dart, which navigates.
+ * The same intent without the key (another app starting the exported activity) is handed over as the link: Dart then
+ * only opens the page ([shortcutIdOf]).
  *
  * A cold start keeps the id until Dart asks for it ([GET_INITIAL_SHORTCUT]); an activity already running gets the
  * intent through `onNewIntent` and the id is pushed to Dart ([ON_SHORTCUT]), once Dart has asked for the initial one
@@ -15,7 +17,7 @@ import io.flutter.plugin.common.MethodChannel
  * system (restored state, brought back from the recent apps) ignores the shortcut it was started with, so the
  * shortcut runs once.
  */
-class ShortcutsHandler {
+class ShortcutsHandler(private val keyOf: () -> String? = { null }) {
     companion object {
         const val CHANNEL = "kzs.th000.tsdm_client/shortcuts"
         const val GET_INITIAL_SHORTCUT = "getInitialShortcut"
@@ -24,13 +26,27 @@ class ShortcutsHandler {
         private const val SCHEME = "tsdm"
         private const val HOST = "shortcut"
 
-        /** The shortcut id of [intent], null when it is not a shortcut intent or a relaunch from the recent apps. */
-        fun shortcutIdOf(intent: Intent?): String? {
+        /**
+         * The shortcut id of the `ACTION_MAIN` [intent] with `tsdm://shortcut/<id>` as data, null for any other intent
+         * and for a relaunch from the recent apps.
+         */
+        fun idOfData(intent: Intent?): String? {
             if (intent == null || intent.action != Intent.ACTION_MAIN) return null
             if (intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY != 0) return null
             val data = intent.data ?: return null
             if (data.scheme != SCHEME || data.host != HOST) return null
             return data.lastPathSegment?.takeIf { it.isNotEmpty() }
+        }
+
+        /**
+         * What [intent] hands to Dart: the shortcut's id when the app's own shortcut sent it (it carries [key], see
+         * [ShortcutKey]: a launcher shortcut through [ShortcutActivity], a tap on the widget), its `tsdm://shortcut/<id>`
+         * link when another app did (Dart then only opens the page, `decideAppShortcut`), null when it is no shortcut.
+         */
+        fun shortcutIdOf(intent: Intent?, key: String?): String? {
+            val id = idOfData(intent) ?: return null
+            val sent = intent?.getStringExtra(ShortcutKey.EXTRA)
+            return if (key != null && key.isNotEmpty() && sent == key) id else "$SCHEME://$HOST/$id"
         }
     }
 
@@ -44,7 +60,7 @@ class ShortcutsHandler {
 
     fun onCreate(intent: Intent?, savedInstanceState: Bundle?) {
         if (savedInstanceState == null) {
-            pending = shortcutIdOf(intent)
+            pending = shortcutIdOf(intent, keyOf())
         }
     }
 
@@ -88,7 +104,7 @@ class ShortcutsHandler {
     }
 
     fun onNewIntent(intent: Intent) {
-        val id = shortcutIdOf(intent) ?: return
+        val id = shortcutIdOf(intent, keyOf()) ?: return
         val channel = channel
         if (channel == null || !dartListening) {
             pending = id

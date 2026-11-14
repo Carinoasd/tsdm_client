@@ -13,7 +13,8 @@ import UIKit
 ///   it is [HomeWidgetState.unknownCount], a dash, until counted. The day is stored as Dart tells it.
 /// * `kzs.th000.tsdm_client/shortcuts`: a tap on the widget opens a `tsdm://shortcut/<id>` link. Dart asks for the
 ///   link the app was opened with (`getInitialShortcut`, once) and is told the ones opened while it runs
-///   (`onShortcut`); Dart parses the link (`AppShortcut.fromIdOrLink`).
+///   (`onShortcut`); the widget's own taps and the quick actions as the shortcut's id, any other `tsdm://` link as the
+///   link (`AppShortcut.requestOf`).
 ///
 /// The quick actions of a long press on the app icon (`UIApplicationShortcutItems` of Info.plist, titles in the
 /// `InfoPlist.strings` of each language) are the same links: an item's type is its `tsdm://shortcut/<id>` link, handed
@@ -30,6 +31,7 @@ final class HomeWidgetBridge: NSObject, FlutterPlugin, FlutterSceneLifeCycleDele
   static let onShortcutMethod = "onShortcut"
 
   static let linkScheme = "tsdm"
+  static let linkHost = "shortcut"
 
   private var shortcuts: FlutterMethodChannel?
 
@@ -51,6 +53,10 @@ final class HomeWidgetBridge: NSObject, FlutterPlugin, FlutterSceneLifeCycleDele
       instance.handleShortcuts(call, result: result)
     }
     instance.shortcuts = shortcuts
+    // The widget signs its links with the key from now on.
+    if HomeWidgetLinkKey.ensure() {
+      HomeWidgetBridge.reloadWidget()
+    }
     registrar.addApplicationDelegate(instance)
     registrar.addSceneDelegate(instance)
   }
@@ -110,9 +116,14 @@ final class HomeWidgetBridge: NSObject, FlutterPlugin, FlutterSceneLifeCycleDele
   }
 
   /// Take [url] when it is a `tsdm://` link: hand it to Dart, or keep it until Dart asks.
-  private func open(_ url: URL) -> Bool {
+  ///
+  /// A quick action ([trusted]) and a tap on the widget (its link signed with [HomeWidgetLinkKey]) are the user's: the
+  /// shortcut's id is handed over, as Android's `ShortcutsHandler` does. Any other `tsdm://` link (a web page, another
+  /// app) is handed over as the link it is: Dart then only opens the page and does nothing on its own.
+  private func open(_ url: URL, trusted: Bool = false) -> Bool {
     guard url.scheme?.lowercased() == HomeWidgetBridge.linkScheme else { return false }
-    let link = url.absoluteString
+    let own = (trusted || HomeWidgetLinkKey.signs(url)) && url.host?.lowercased() == HomeWidgetBridge.linkHost
+    let link = own ? url.lastPathComponent : url.absoluteString
     if dartListens, let shortcuts = shortcuts {
       shortcuts.invokeMethod(HomeWidgetBridge.onShortcutMethod, arguments: link)
     } else {
@@ -124,7 +135,7 @@ final class HomeWidgetBridge: NSObject, FlutterPlugin, FlutterSceneLifeCycleDele
   /// Take the quick action [item] when its type is a `tsdm://` link; another type is left to the system.
   private func open(_ item: UIApplicationShortcutItem) -> Bool {
     guard let url = URL(string: item.type) else { return false }
-    return open(url)
+    return open(url, trusted: true)
   }
 
   private func open(_ contexts: Set<UIOpenURLContext>) -> Bool {

@@ -1,5 +1,9 @@
 import 'package:collection/collection.dart';
 
+/// A shortcut handed over by a native side ([AppShortcut.requestOf]): `external` when a link from outside the app
+/// asked for it.
+typedef AppShortcutRequest = ({AppShortcut shortcut, bool external});
+
 /// A shortcut of a long press on the app icon (Android: `android/app/src/main/res/xml/shortcuts.xml`; iOS: the
 /// `UIApplicationShortcutItems` of `ios/Runner/Info.plist`), or a tap on the home screen widget.
 ///
@@ -45,7 +49,23 @@ enum AppShortcut {
   }
 
   /// The shortcut a native side handed over: an id (Android) or a link (iOS).
-  static AppShortcut? fromIdOrLink(String? value) => fromId(value) ?? fromLink(value);
+  static AppShortcut? fromIdOrLink(String? value) => fromId(value) ?? requestOf(value)?.shortcut;
+
+  /// The shortcut a native side handed over, and whether a link opened from outside the app asked for it.
+  ///
+  /// An id is a shortcut of the app itself: a launcher shortcut or a tap on the widget, carrying the app's key
+  /// (Android's `ShortcutsHandler`, `ShortcutKey`), a quick action or a tap on the widget, its link signed (iOS
+  /// `HomeWidgetBridge`). A link (`tsdm://shortcut/<id>`) is one another app sent to the exported activity (Android) or
+  /// any web page or app opened (iOS registers the scheme): `external`.
+  static AppShortcutRequest? requestOf(String? value) {
+    if (fromId(value) case final shortcut?) {
+      return (shortcut: shortcut, external: false);
+    }
+    if (fromLink(value) case final shortcut?) {
+      return (shortcut: shortcut, external: true);
+    }
+    return null;
+  }
 
   /// The link opening this shortcut.
   String get link => '$linkScheme://$linkHost/$id';

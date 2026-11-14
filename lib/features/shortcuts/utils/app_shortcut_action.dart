@@ -22,6 +22,12 @@ final class AppShortcutCheckin extends AppShortcutAction {
   const AppShortcutCheckin();
 }
 
+/// Go back to the homepage, without starting anything: the check-in asked for by a link from outside the app.
+final class AppShortcutHome extends AppShortcutAction {
+  /// Constructor.
+  const AppShortcutHome();
+}
+
 /// Show the notice page, the way a tap on the auto sync notification does.
 final class AppShortcutNotice extends AppShortcutAction {
   /// Constructor.
@@ -41,13 +47,18 @@ final class AppShortcutOpenPage extends AppShortcutAction {
 ///
 /// The search is open to guests; the check-in, the notices and the favorites belong to an account, so without one the
 /// login page opens instead.
-AppShortcutAction decideAppShortcut(AppShortcut shortcut, {required bool loggedIn}) => switch (shortcut) {
-  AppShortcut.search => const AppShortcutOpenPage(ScreenPaths.search),
-  _ when !loggedIn => const AppShortcutLogin(),
-  AppShortcut.checkin => const AppShortcutCheckin(),
-  AppShortcut.notice => const AppShortcutNotice(),
-  AppShortcut.favorite => const AppShortcutOpenPage(ScreenPaths.favorite),
-};
+///
+/// A shortcut a link from outside the app asked for ([external]: a web page opening `tsdm://shortcut/checkin` on iOS)
+/// only opens its page: the check-in goes back to the homepage, whose button checks in when the user taps it.
+AppShortcutAction decideAppShortcut(AppShortcut shortcut, {required bool loggedIn, bool external = false}) =>
+    switch (shortcut) {
+      AppShortcut.checkin when external => const AppShortcutHome(),
+      AppShortcut.search => const AppShortcutOpenPage(ScreenPaths.search),
+      _ when !loggedIn => const AppShortcutLogin(),
+      AppShortcut.checkin => const AppShortcutCheckin(),
+      AppShortcut.notice => const AppShortcutNotice(),
+      AppShortcut.favorite => const AppShortcutOpenPage(ScreenPaths.favorite),
+    };
 
 /// Carry out [action] on [router].
 ///
@@ -74,6 +85,10 @@ void performAppShortcut(
       _pushUnlessOnTop(router, path);
     case AppShortcutNotice():
       openNoticePageForTap(router, loggedIn: true, hasPopup: hasPopup);
+    case AppShortcutHome():
+      if (!hasPopup) {
+        returnToHome(router);
+      }
     case AppShortcutCheckin():
       if (!hasPopup) {
         returnToHome(router);

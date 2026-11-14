@@ -107,6 +107,18 @@ Future<LinkTarget> resolveLinkTarget(Uri uri, {bool explicitBrowser = false}) as
 /// [uri] made absolute: a relative link is resolved on the forum host, keeping query and fragment.
 Uri absoluteForumUri(Uri uri) => uri.hasScheme ? uri : Uri.parse('$baseUrl/').resolveUri(uri);
 
+/// What the title bar of the in-app browser shows for the page at [url]: the host it is on, the scheme before it when
+/// it is not `https` (`http://example.com`). Not the title of the page: a page can name itself anything, the forum's
+/// name too, but not the host it is served from. A host is shown as the url has it (`xn--…` for a non-ASCII one).
+String browserTitleOf(Uri url) {
+  final host = url.host;
+  // A page without a host (`data:`, `about:`, `blob:`): its scheme only, the rest is the page's to choose.
+  if (host.isEmpty) {
+    return '${url.scheme.toLowerCase()}:';
+  }
+  return url.scheme.toLowerCase() == 'https' ? host : '${url.scheme}://$host';
+}
+
 /// What the in-app browser does with a navigation.
 sealed class BrowserNavigation {
   const BrowserNavigation();

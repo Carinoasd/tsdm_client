@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
+import 'package:tsdm_client/extensions/uri.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:tsdm_client/utils/antitheft/antitheft_decoder.dart';
 import 'package:tsdm_client/utils/logger.dart';
@@ -93,7 +94,7 @@ final class AntitheftInterceptor extends Interceptor with LoggerMixin {
     return const {'GET', 'HEAD'}.contains(options.method.toUpperCase()) &&
         _isForumHost(uri) &&
         query['tsdmapp'] == 'json' &&
-        uri.pathSegments.lastOrNull == 'forum.php' &&
+        uri.isForumScript('forum.php') &&
         (query['mod'] == 'viewthread' || query['mod'] == 'redirect') &&
         tsdmAppAnswerWithoutContent(data);
   }

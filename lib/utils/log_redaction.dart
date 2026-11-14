@@ -33,8 +33,10 @@ const _secretNameParts =
 
 /// Whole field names that are secrets (or identify the account), alone or behind a Discuz! cookie prefix
 /// (`Ystv_2132_sid`): the session ids, the account ids, the activity stamp, the security question picked. Not the word
-/// `session` alone: log lines say "a previous account or session: GET /forum.php".
-const _secretNameWords = r'sid|uid|touid|ulastactivity|questionid\w*|session_?id|phpsessid';
+/// `session` alone: log lines say "a previous account or session: GET /forum.php". The `aid` of an attachment's
+/// download address is a token (`base64(aid|key|time|uid|tid)`, see `attachment_protocol.dart`) that downloads the
+/// attachment as the account for an hour.
+const _secretNameWords = r'sid|uid|touid|aid|ulastactivity|questionid\w*|session_?id|phpsessid';
 
 /// A field name that is a secret, see [_secretNameParts] and [_secretNameWords]. Exposed for tests.
 const sensitiveNamePattern = '(?:[\\w-]*?(?:$_secretNameParts)[\\w-]*|(?:[\\w-]*_)?(?:$_secretNameWords))';
@@ -127,9 +129,9 @@ const _userSecretNamePattern =
 
 /// [_userSecretNamePattern] and the names that are secrets only as fields of a form (`answer=…` of a pasted login
 /// request, `<input name="seccodeverify">`): the security answer, the captcha, a Discuz! session cookie (`…_sid`), the
-/// `auth` of a link (the forum's RSS links carry one).
+/// `auth` of a link (the forum's RSS links carry one), the `aid` of an attachment's download address (a pasted link).
 const _userSecretFormNamePattern =
-    '(?:$_userSecretNamePattern|[\\w-]*?(?:answer(?!ed\\b|s\\b)|seccode|secverify)[\\w-]*|[\\w-]*_sid|auth)';
+    '(?:$_userSecretNamePattern|[\\w-]*?(?:answer(?!ed\\b|s\\b)|seccode|secverify)[\\w-]*|[\\w-]*_sid|auth|aid)';
 
 /// Secret fields of a text the user wrote, see [_userSecretNamePattern] and [_userSecretFormNamePattern].
 final List<RegExp> _userSecretFieldRes = _secretFieldPatterns(
@@ -141,6 +143,14 @@ final List<RegExp> _userSecretFieldRes = _secretFieldPatterns(
 /// `device` in it and a UUID value, so a device name or a word of prose is left alone.
 final _deviceIdRe = RegExp(
   r'''(?<key>(?<![\w-])["']?[\w-]*device[\w-]*["']?(?:\s*[:=]\s*["']?|\s+))(?<value>[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})''',
+  caseSensitive: false,
+);
+
+/// The download token of an attachment inside a url-encoded url (`url=forum.php%3Fmod%3Dattachment%26aid%3D…`, the
+/// link handed to a page or the in-app browser), after an encoded `?` or `&`, encoded once or twice (`%2526aid%253D…`):
+/// up to the next encoded `&` (its own `=` padding stays encoded in it).
+final _encodedAidRe = RegExp(
+  r'''(?<key>(?:(?<=%26|%3F|%2526|%253F)|(?<![\w-]))aid(?:%3D|%253D))(?<value>(?:(?!%26|%2526)[^&\s;,}\]"'])+)''',
   caseSensitive: false,
 );
 
@@ -200,6 +210,7 @@ String _redactCredentials(String text, List<RegExp> fieldRes) {
   out = out.replaceAllMapped(_digestRe, _keep);
   out = out.replaceAllMapped(fieldRes[0], _keep);
   out = out.replaceAllMapped(_deviceIdRe, _keep);
+  out = out.replaceAllMapped(_encodedAidRe, _keep);
   for (final re in fieldRes.skip(1)) {
     out = out.replaceAllMapped(re, _keepNonEmpty);
   }

@@ -1,4 +1,5 @@
 import 'package:flutter/widgets.dart';
+import 'package:tsdm_client/extensions/uri.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 
 /// The text a thread is shared with: the site's name, the thread's [title] and its [url] (the link "copy link"
@@ -11,7 +12,7 @@ String threadShareText(BuildContext context, {required String title, required St
 /// Anything else (a `findpost` redirect, another page) is returned as it is.
 String shortThreadUrl(String url) {
   final uri = Uri.tryParse(url);
-  if (uri == null || !uri.hasAuthority || !uri.path.endsWith('/forum.php')) {
+  if (uri == null || !uri.hasAuthority || !uri.isForumScript('forum.php')) {
     return url;
   }
   final query = uri.queryParameters;
