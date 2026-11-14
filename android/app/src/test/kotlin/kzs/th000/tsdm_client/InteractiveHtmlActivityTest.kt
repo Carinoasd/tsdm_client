@@ -6,7 +6,9 @@ import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.net.Uri
 import android.os.Bundle
+import android.os.Looper
 import android.os.SystemClock
+import java.time.Duration
 import android.view.View
 import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
@@ -161,6 +163,13 @@ class InteractiveHtmlActivityTest {
         controller.pause().stop().destroy()
     }
 
+    /** Time passes away from the screen: the clock that SystemClock.elapsedRealtime reads. */
+    private fun away(ms: Long) {
+        val before = SystemClock.elapsedRealtime()
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(ms))
+        assertTrue(SystemClock.elapsedRealtime() - before >= ms)
+    }
+
     private fun lockedIntent(delayMs: Long?) = InteractiveHtmlActivity.intent(
         RuntimeEnvironment.getApplication(), html, source, "guest", "42", appLockDelayMs = delayMs,
     )
@@ -187,8 +196,8 @@ class InteractiveHtmlActivityTest {
         val controller = Robolectric.buildActivity(InteractiveHtmlActivity::class.java, lockedIntent(0)).setup()
         assertFalse(controller.get().isFinishing)
         controller.pause().stop()
-        SystemClock.sleep(10)
-        controller.start()
+        away(10)
+        controller.restart()
         assertTrue(controller.get().isFinishing)
         controller.destroy()
     }
@@ -196,12 +205,12 @@ class InteractiveHtmlActivityTest {
     @Test fun lockedAfterAMinuteTheViewerStaysForAShortTripAndClosesAfterALongOne() {
         val controller = Robolectric.buildActivity(InteractiveHtmlActivity::class.java, lockedIntent(60_000)).setup()
         controller.pause().stop()
-        SystemClock.sleep(30_000)
-        controller.start().resume()
+        away(30_000)
+        controller.restart().resume()
         assertFalse(controller.get().isFinishing)
         controller.pause().stop()
-        SystemClock.sleep(60_000)
-        controller.start()
+        away(61_000)
+        controller.restart()
         assertTrue(controller.get().isFinishing)
         controller.destroy()
     }
@@ -209,8 +218,8 @@ class InteractiveHtmlActivityTest {
     @Test fun withoutTheLockTheViewerStaysAfterAnyTimeAway() {
         val controller = Robolectric.buildActivity(InteractiveHtmlActivity::class.java, launchIntent()).setup()
         controller.pause().stop()
-        SystemClock.sleep(24 * 60 * 60 * 1000L)
-        controller.start().resume()
+        away(24 * 60 * 60 * 1000L)
+        controller.restart().resume()
         assertFalse(controller.get().isFinishing)
         assertNotNull(viewer(controller.get()))
         controller.pause().stop().destroy()
