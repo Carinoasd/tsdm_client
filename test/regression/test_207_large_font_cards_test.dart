@@ -38,6 +38,7 @@ import 'package:tsdm_client/utils/html/html_muncher.dart';
 import 'package:tsdm_client/utils/html/netease_card.dart';
 import 'package:tsdm_client/utils/html/newcomer_report_card.dart';
 import 'package:tsdm_client/utils/html/post_table.dart';
+import 'package:tsdm_client/widgets/cached_image/bounded_resize_image.dart';
 import 'package:tsdm_client/widgets/cached_image/cached_image_provider.dart';
 import 'package:tsdm_client/widgets/card/bounty_answer_card.dart';
 import 'package:tsdm_client/widgets/card/bounty_card.dart';
@@ -207,7 +208,7 @@ Future<void> _seed(WidgetTester tester, ImageProvider provider, {int width = 40,
 Future<void> _seedPostImage(WidgetTester tester, String url, double screenWidth, {int width = 40, int height = 40}) =>
     _seed(
       tester,
-      ResizeImage.resizeIfNeeded(screenWidth.toInt(), null, CachedImageProvider(url)),
+      BoundedResizeImage.resizeIfNeeded(screenWidth.toInt(), null, CachedImageProvider(url)),
       width: width,
       height: height,
     );

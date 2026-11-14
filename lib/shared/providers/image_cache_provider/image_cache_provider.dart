@@ -4,12 +4,9 @@ import 'dart:io' if (dart.libaray.js) 'package:web/web.dart';
 import 'dart:isolate';
 import 'dart:math' as math;
 import 'dart:typed_data';
-import 'dart:ui';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show ValueListenable, ValueNotifier, visibleForTesting;
-import 'package:flutter/painting.dart' as painting;
-import 'package:flutter_avif/flutter_avif.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
@@ -28,6 +25,7 @@ import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/providers/cookie_provider/cookie_provider.dart';
 import 'package:tsdm_client/shared/providers/image_cache_provider/image_cache_trim.dart';
+import 'package:tsdm_client/shared/providers/image_cache_provider/image_limits.dart';
 import 'package:tsdm_client/shared/providers/image_cache_provider/models/image_cache_info.dart';
 import 'package:tsdm_client/shared/providers/image_cache_provider/models/models.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
@@ -146,27 +144,60 @@ final class ImageCacheProvider with LoggerMixin {
   /// takes the credits: never asked for a picture (it fails, as it did without the session, the guest's `formhash`
   /// refused). Any other redirect (`none.gif` of an expired link, a storage host) is followed without the session: the
   /// cookie never leaves for another host. The session goes to the canonical forum host only (`https://www.tsdm39.com`).
-  AsyncEither<Response<dynamic>> _fetchImage(String imageUrl, {ProgressCallback? onReceiveProgress}) {
+  ///
+  /// The image may have [maxBytes] at most, through every redirect: a larger one is not downloaded (whole).
+  AsyncEither<Response<dynamic>> _fetchImage(
+    String imageUrl, {
+    required int maxBytes,
+    ProgressCallback? onReceiveProgress,
+  }) {
     final uid = uidOfAttachmentUrl(imageUrl);
     final session = uid == null ? null : _sessionClientOf?.call(uid);
     if (session == null) {
-      return _netClientProvider.getImage(imageUrl, onReceiveProgress: onReceiveProgress);
+      return _netClientProvider.getImage(imageUrl, onReceiveProgress: onReceiveProgress, maxBytes: maxBytes);
     }
     // Sent to the canonical https host only: an `http://` or `tsdm39.com` address (one written in a post) never carries
     // the cookie in clear text, nor gets redirected to the canonical host, where it would go on without the session.
     final target = '${Uri.parse(imageUrl).toCanonicalForumUri()}';
-    return session.getImage(target, onReceiveProgress: onReceiveProgress, followRedirects: false).flatMap((resp) {
-      final status = resp.statusCode ?? HttpStatus.ok;
-      if (status < 300 || status >= 400) {
-        return TaskEither<AppException, Response<dynamic>>.right(resp);
-      }
-      final location = resp.headers.value(HttpHeaders.locationHeader) ?? '';
-      final next = location.isEmpty ? null : '${Uri.parse(target).resolve(location)}';
-      if (next == null || isAttachCreditUrl(next) || isAttachPayUrl(next)) {
-        return TaskEither<AppException, Response<dynamic>>.left(HttpRequestFailedException(status));
-      }
-      return _netClientProvider.getImage(next, onReceiveProgress: onReceiveProgress);
-    });
+    return session
+        .getImage(target, onReceiveProgress: onReceiveProgress, followRedirects: false, maxBytes: maxBytes)
+        .flatMap((resp) {
+          final status = resp.statusCode ?? HttpStatus.ok;
+          if (status < 300 || status >= 400) {
+            return TaskEither<AppException, Response<dynamic>>.right(resp);
+          }
+          final location = resp.headers.value(HttpHeaders.locationHeader) ?? '';
+          final next = location.isEmpty ? null : '${Uri.parse(target).resolve(location)}';
+          if (next == null || isAttachCreditUrl(next) || isAttachPayUrl(next)) {
+            return TaskEither<AppException, Response<dynamic>>.left(HttpRequestFailedException(status));
+          }
+          return _netClientProvider.getImage(next, onReceiveProgress: onReceiveProgress, maxBytes: maxBytes);
+        });
+  }
+
+  /// The most bytes the image of [req] is downloaded with: an avatar or an emoji ([isEmoji]) has
+  /// [maxSmallImageBytes], any other image [maxImageBytes].
+  int _maxBytesOf(ImageCacheRequest req, {required bool isEmoji}) =>
+      debugMaxBytes?.call(req) ?? (req is ImageCacheUserAvatarRequest || isEmoji ? maxSmallImageBytes : maxImageBytes);
+
+  /// Replaces [_maxBytesOf] in tests.
+  @visibleForTesting
+  int Function(ImageCacheRequest req)? debugMaxBytes;
+
+  /// Images found over their limit of bytes in this run (or declaring too many pixels to decode), and the limit they
+  /// were over, by url: not downloaded again (the image widget asks a second time when a load failed) unless with a
+  /// larger limit or reloaded on purpose (`force`). Oldest first, at most [_maxTooLarge].
+  final _tooLarge = <String, int>{};
+
+  static const _maxTooLarge = 256;
+
+  void _rememberTooLarge(String url, int maxBytes) {
+    _tooLarge
+      ..remove(url)
+      ..[url] = maxBytes;
+    if (_tooLarge.length > _maxTooLarge) {
+      _tooLarge.remove(_tooLarge.keys.first);
+    }
   }
 
   /// Messages the server answered instead of image bytes, by image url (e.g. `附件所在主题需要付费，请您付费后下载`).
@@ -416,6 +447,13 @@ final class ImageCacheProvider with LoggerMixin {
       }
     }
 
+    final maxBytes = _maxBytesOf(req, isEmoji: emojiKey != null);
+    if (!force && (_tooLarge[imageUrl] ?? 0) >= maxBytes) {
+      // Over this limit already in this run: not downloaded again.
+      _tell(ImageCacheFailedResponse(imageId, respType));
+      return const Option.none();
+    }
+
     if (req is ImageCacheUserAvatarRequest && !force && isKnownMissingAvatar(imageUrl)) {
       // The server has no file there (404 earlier in this run) and the user has no avatar cached either.
       _tell(ImageCacheFailedResponse(imageId, respType));
@@ -451,6 +489,7 @@ final class ImageCacheProvider with LoggerMixin {
     try {
       final respEither = await _fetchImage(
         imageUrl,
+        maxBytes: maxBytes,
         // Only asked for when someone follows it: the Android client then reads the body in pieces.
         onReceiveProgress: onProgress == null
             ? null
@@ -462,6 +501,10 @@ final class ImageCacheProvider with LoggerMixin {
       ).run();
       if (respEither.isLeft()) {
         final err = respEither.unwrapErr();
+        if (err is ResponseTooLargeException) {
+          _rememberTooLarge(imageUrl, maxBytes);
+          info('image over ${err.maxBytes} bytes, not downloaded: $imageUrl');
+        }
         if (err is ImageResponseNotImageException) {
           // Remember the server's message so the widget can explain the placeholder.
           _htmlMessages[imageUrl] = err.message ?? '';
@@ -471,40 +514,16 @@ final class ImageCacheProvider with LoggerMixin {
       }
       final resp = respEither.unwrap();
       final Uint8List imageData;
-      // Handle avif format stuff.
+      // Avif is not decoded by the engine: kept as a PNG of its first frame, the only one decoded. One declaring more
+      // pixels than a picture is ever decoded at is not decoded at all.
       if (resp.headers.map[Headers.contentTypeHeader]?.firstOrNull == _contentTypeImageAvif) {
-        // Avif format is not supported by dart image, parse and convert to
-        // normal png ones, so image data is saved in png format that dart image
-        // support.
-        //
-        // Currently only the very first frame is reserved, all other frames
-        // are discard during conversion.
-        final avifFrames = await decodeAvif(resp.data as Uint8List);
-        if (avifFrames.isEmpty) {
-          imageData = Uint8List(0);
-          warning(
-            'image from url is in avif format has no frame, '
-            'url: $imageUrl',
-          );
-        } else {
-          if (avifFrames.length != 1) {
-            warning(
-              'image from url is in avif format has multiple frames, '
-              'only reserve the first frame and discarding other frames: '
-              'url: $imageUrl',
-            );
-          }
-          final byteData = await avifFrames.first.image.toByteData(format: ImageByteFormat.png);
-          if (byteData == null) {
-            warning(
-              'image from url is in avif format has one invalid frame '
-              'url: $imageUrl',
-            );
-            imageData = Uint8List(0);
-          } else {
-            imageData = byteData.buffer.asUint8List();
-          }
+        final png = await avifToPng(resp.data as Uint8List);
+        if (png == null) {
+          _rememberTooLarge(imageUrl, maxBytes);
+          warning('avif image declares no size or too many pixels, not decoded: $imageUrl');
+          throw const _EmptyImageException();
         }
+        imageData = png;
       } else {
         imageData = resp.data as Uint8List;
       }
@@ -1143,9 +1162,10 @@ final class ImageCacheProvider with LoggerMixin {
     if (imageData == null) {
       return null;
     }
-    final uiImage = await painting.decodeImageFromList(imageData);
+    // Read from its header: decoded whole, a picture of many pixels took gigabytes.
+    final size = await encodedImageSize(imageData);
     final cacheInfo = await _getCacheInfo(url);
-    if (cacheInfo == null) {
+    if (size == null || cacheInfo == null) {
       return null;
     }
 
@@ -1155,8 +1175,8 @@ final class ImageCacheProvider with LoggerMixin {
       lastCachedTime: cacheInfo.lastCachedTime,
       lastUsedTime: cacheInfo.lastUsedTime,
       usage: cacheInfo.usage,
-      width: uiImage.width,
-      height: uiImage.height,
+      width: size.width,
+      height: size.height,
       cacheSize: File(
         '${_imageCacheDirectory.path}${path.separator}${cacheInfo.fileName}',
       ).statSync().size.withSizeHint(),
@@ -1164,7 +1184,8 @@ final class ImageCacheProvider with LoggerMixin {
   }
 }
 
-/// An image request answered with no bytes: a zero-byte file on the server, or an avif image without a frame.
+/// An image request answered with no bytes: a zero-byte file on the server, or an avif image without a frame (or not
+/// decoded, declaring too many pixels).
 final class _EmptyImageException implements Exception {
   const _EmptyImageException();
 

@@ -19,6 +19,7 @@ import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/providers/image_cache_provider/image_cache_provider.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/show_bottom_sheet.dart';
+import 'package:tsdm_client/widgets/cached_image/bounded_resize_image.dart';
 import 'package:tsdm_client/widgets/cached_image/cached_image_provider.dart';
 import 'package:tsdm_client/widgets/copy_content_dialog.dart';
 
@@ -553,7 +554,7 @@ class _GalleryImageViewState extends State<_GalleryImageView> with SingleTickerP
   }
 
   /// The picture, no larger than [_maxDecodeWidth] by [_maxDecodeHeight].
-  ImageProvider get _provider => ResizeImage(
+  ImageProvider get _provider => BoundedResizeImage(
     CachedImageProvider(widget.image.url),
     width: _maxDecodeWidth,
     height: _maxDecodeHeight,
@@ -615,7 +616,7 @@ class _GalleryImageViewState extends State<_GalleryImageView> with SingleTickerP
       return;
     }
     _unresolve();
-    final maxWidth = provider is ResizeImage ? provider.width : null;
+    final maxWidth = provider is BoundedResizeImage ? provider.width : null;
     var adding = true;
     void update(VoidCallback change) => adding ? change() : setState(change);
     final listener = ImageStreamListener(

@@ -924,11 +924,13 @@ void main() {
       expect(server.requests, isEmpty);
     });
 
-    test('the Kotlin side reads a body in pieces only when its progress is asked for', () {
+    test('the Kotlin side reads a body in pieces only when its progress or a limit is asked for', () {
       final source = File('android/app/src/main/kotlin/kzs/th000/tsdm_client/MainActivity.kt').readAsStringSync();
       expect(
         source,
-        contains('if (progressId == null) resp.body.bytes() else readReportingProgress(resp, progressId)'),
+        contains(
+          'if (progressId == null && maxBytes == null) resp.body.bytes() else readReportingProgress(resp, progressId, maxBytes)',
+        ),
       );
       expect(source, contains('runOnUiThread { httpChannel?.invokeMethod(HTTP_PROGRESS, args) }'));
     });

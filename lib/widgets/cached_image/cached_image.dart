@@ -11,6 +11,7 @@ import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/image_cache_provider/image_cache_provider.dart';
 import 'package:tsdm_client/utils/html/post_typography.dart';
 import 'package:tsdm_client/utils/logger.dart';
+import 'package:tsdm_client/widgets/cached_image/bounded_resize_image.dart';
 import 'package:tsdm_client/widgets/cached_image/cached_image_provider.dart';
 import 'package:tsdm_client/widgets/fallback_picture.dart';
 
@@ -205,7 +206,7 @@ class _CachedImageState extends State<CachedImage> with LoggerMixin {
     }
     _unwatch();
     _provider = provider;
-    final decodeWidth = provider is ResizeImage ? provider.width : null;
+    final decodeWidth = provider is BoundedResizeImage ? provider.width : null;
     final listener = ImageStreamListener(
       (info, synchronousCall) {
         final image = info.image;
@@ -340,7 +341,7 @@ class _CachedImageState extends State<CachedImage> with LoggerMixin {
       final image = Image(
         // Decode no larger than the image is shown: a 4000px picture in a post used to be decoded whole and
         // uploaded to the GPU at full size, which stuttered the scroll and ate memory.
-        image: ResizeImage.resizeIfNeeded(
+        image: BoundedResizeImage.resizeIfNeeded(
           widget.boundDecodeToDisplay
               ? decodeWidthFor(
                   width: widget.width,

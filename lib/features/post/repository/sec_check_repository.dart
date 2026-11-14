@@ -8,6 +8,7 @@ import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/providers/cookie_provider/cookie_provider.dart';
+import 'package:tsdm_client/shared/providers/image_cache_provider/image_limits.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:universal_html/parsing.dart';
@@ -75,7 +76,7 @@ final class SecCheckRepository with LoggerMixin {
       error('captcha script names no image: ${script.length} chars');
       return left(SecCheckUnsupportedException());
     }
-    final image = await net.getImage('$baseUrl/$src', headers: _headers).run();
+    final image = await net.getImage('$baseUrl/$src', headers: _headers, maxBytes: maxSmallImageBytes).run();
     return image.map((resp) => Uint8List.fromList(resp.data as List<int>));
   });
 

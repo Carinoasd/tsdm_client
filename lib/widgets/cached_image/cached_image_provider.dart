@@ -8,6 +8,7 @@ import 'package:tsdm_client/constants/constants.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/providers/image_cache_provider/image_cache_provider.dart';
+import 'package:tsdm_client/shared/providers/image_cache_provider/image_limits.dart';
 import 'package:tsdm_client/shared/providers/image_cache_provider/models/models.dart';
 import 'package:tsdm_client/utils/logger.dart';
 
@@ -154,7 +155,16 @@ final class CachedImageProvider extends ImageProvider<CachedImageProvider> with 
         () => f,
       ).orElse<Uint8List>(() => TaskOption(_onImageError)).run()) {
         case Some(:final value):
-          return (codec: await decode(await ui.ImmutableBuffer.fromUint8List(value)), placeholder: false);
+          // Never decoded at more pixels than its limit (a small file can declare gigabytes of them), also when a
+          // provider around it asks for a size (`BoundedResizeImage`, `CoverResizeImage`; not Flutter's ResizeImage,
+          // which refuses it).
+          final codec = await decode(
+            await ui.ImmutableBuffer.fromUint8List(value),
+            getTargetSize: decodeWithinPixels(
+              usage is ImageUsageInfoUserAvatar ? maxAvatarDecodePixels : maxDecodedImagePixels,
+            ),
+          );
+          return (codec: codec, placeholder: false);
         case None():
           if (usage is ImageUsageInfoUserAvatar) {
             return (

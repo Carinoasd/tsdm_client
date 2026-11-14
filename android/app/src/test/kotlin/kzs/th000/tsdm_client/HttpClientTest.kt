@@ -240,4 +240,44 @@ class HttpClientTest {
         assertFalse(keeps("https://www.forum.test/forum.php", "https://www.forum.test.example/forum.php"))
         assertFalse(keeps("https://www.forum.test/forum.php", "https://cdn.example/file"))
     }
+
+    // An image is read up to the limit Dart sends with it (`maxBytes`), then given up (KT_HTTP_TOO_LARGE).
+    @Test fun aBodySayingItIsOverTheLimitIsNotRead() = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(MockResponse(body = "x".repeat(64 * 1024)))
+            server.start()
+            val resp = HttpClient.get(server.url("/a.png").toString(), hashMapOf())
+            val e = assertThrows(HttpClient.ResponseTooLargeException::class.java) {
+                HttpClient.readBody(resp.body, maxBytes = 4096)
+            }
+            assertEquals("KT_HTTP_TOO_LARGE", HttpClient.errorCode(e))
+        }
+    }
+
+    @Test fun aBodyTellingNoSizeIsGivenUpOnceOverTheLimit() = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(MockResponse.Builder().chunkedBody("x".repeat(256 * 1024), 1024).build())
+            server.start()
+            val resp = HttpClient.get(server.url("/a.png").toString(), hashMapOf())
+            assertEquals(-1L, resp.body.contentLength())
+            var received = 0L
+            assertThrows(HttpClient.ResponseTooLargeException::class.java) {
+                HttpClient.readBody(resp.body, maxBytes = 4096) { r, _ -> received = r }
+            }
+            assertTrue("stopped near the limit, not at the end: $received", received <= 4096)
+        }
+    }
+
+    @Test fun aBodyWithinTheLimitOrWithoutOneIsReadWhole() = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(MockResponse(body = "x".repeat(4096)))
+            server.enqueue(MockResponse.Builder().chunkedBody("y".repeat(4096), 1000).build())
+            server.enqueue(MockResponse(body = "z".repeat(64 * 1024)))
+            server.start()
+            val url = server.url("/a.png").toString()
+            assertEquals(4096, HttpClient.readBody(HttpClient.get(url, hashMapOf()).body, maxBytes = 4096).size)
+            assertEquals(4096, HttpClient.readBody(HttpClient.get(url, hashMapOf()).body, maxBytes = 4096).size)
+            assertEquals(64 * 1024, HttpClient.readBody(HttpClient.get(url, hashMapOf()).body).size)
+        }
+    }
 }

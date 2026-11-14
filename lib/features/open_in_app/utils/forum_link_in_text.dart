@@ -79,8 +79,9 @@ bool _hasPathAfterHost(String raw) {
   return host != null && raw.length > host.end;
 }
 
-/// Punctuation that ends a sentence rather than the link when it closes a match.
-final _trailingRe = RegExp(r"[.,;:!?'\x22]+$");
+/// Punctuation that ends a sentence rather than the link when it closes a match: `.,;:!?'"`.
+bool _isTrailingPunctuation(int c) =>
+    c == 0x2e || c == 0x2c || c == 0x3b || c == 0x3a || c == 0x21 || c == 0x3f || c == 0x27 || c == 0x22;
 
 /// The first link of the forum in [text], null when there is none.
 ///
@@ -121,18 +122,42 @@ ForumLinkInText? findForumLinkInText(String text) {
 }
 
 /// [link] without the punctuation closing the sentence it ends, and without a closing bracket it does not open.
+///
+/// Round by round, as long as one takes something off: the punctuation at the end, then a `)` closing more than the
+/// link opens, then a `]` likewise. The brackets are counted once and the end walked back: linear in the length of the
+/// link, a long run of closing brackets (a pasted text) included.
 String _trimLink(String link) {
-  var s = link;
-  while (true) {
-    final before = s;
-    s = s.replaceFirst(_trailingRe, '');
-    for (final (open, close) in const [('(', ')'), ('[', ']')]) {
-      if (s.endsWith(close) && close.allMatches(s).length > open.allMatches(s).length) {
-        s = s.substring(0, s.length - 1);
-      }
+  var parens = 0;
+  var brackets = 0;
+  for (final c in link.codeUnits) {
+    switch (c) {
+      case 0x28: // (
+        parens--;
+      case 0x29: // )
+        parens++;
+      case 0x5b: // [
+        brackets--;
+      case 0x5d: // ]
+        brackets++;
     }
-    if (s == before) {
-      return s;
+  }
+  // [parens] and [brackets]: how many more closing than opening ones the link up to [end] has.
+  var end = link.length;
+  while (true) {
+    final before = end;
+    while (end > 0 && _isTrailingPunctuation(link.codeUnitAt(end - 1))) {
+      end--;
+    }
+    if (end > 0 && link.codeUnitAt(end - 1) == 0x29 && parens > 0) {
+      end--;
+      parens--;
+    }
+    if (end > 0 && link.codeUnitAt(end - 1) == 0x5d && brackets > 0) {
+      end--;
+      brackets--;
+    }
+    if (end == before) {
+      return link.substring(0, end);
     }
   }
 }

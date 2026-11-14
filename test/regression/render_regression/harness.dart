@@ -25,6 +25,7 @@ import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.d
 import 'package:tsdm_client/themes/app_themes.dart';
 import 'package:tsdm_client/utils/html/post_typography.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
+import 'package:tsdm_client/widgets/cached_image/bounded_resize_image.dart';
 import 'package:tsdm_client/widgets/cached_image/cached_image_provider.dart';
 import 'package:tsdm_client/widgets/munched_html.dart';
 import 'package:universal_html/parsing.dart';
@@ -91,7 +92,7 @@ Future<void> seedImages(WidgetTester tester, String html, {(int, int)? Function(
           final picture = recorder.endRecording();
           return picture.toImage(dw, dh).whenComplete(picture.dispose);
         }))!);
-    final provider = ResizeImage.resizeIfNeeded(decodeWidth, null, CachedImageProvider(url));
+    final provider = BoundedResizeImage.resizeIfNeeded(decodeWidth, null, CachedImageProvider(url));
     final cacheKey = await provider.obtainKey(ImageConfiguration.empty);
     PaintingBinding.instance.imageCache.putIfAbsent(
       cacheKey,
