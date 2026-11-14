@@ -112,9 +112,11 @@ void main() {
     test('an audio attachment: the same check, the canonical address', () {
       PostAudioAttachment? of(String href) => PostAudioAttachment.of(
         parseHtmlDocument(
-          '<ignore_js_op><img src="static/image/filetype/av.gif" />'
-          '<span id="attach_36"><a href="$href">song.mp3</a> <em class="xg1">(36.73 KB, 下载次数: 0)</em></span>'
-          '</ignore_js_op>',
+          [
+            '<ignore_js_op><img src="static/image/filetype/av.gif" />',
+            '<span id="attach_36"><a href="$href">song.mp3</a> <em class="xg1">(36.73 KB, 下载次数: 0)</em></span>',
+            '</ignore_js_op>',
+          ].join(),
         ).querySelector('ignore_js_op')!,
       );
       expect(of('http://tsdm39.com/forum.php?mod=attachment&amp;aid=$token')?.url, canonical);
@@ -159,8 +161,8 @@ void main() {
     }
 
     test('a link written as http goes to the canonical https host, each hop too', () async {
-      final storage = 'https://cdn.example.test/a.zip';
-      final credit = '$baseUrl/forum.php?mod=misc&action=attachcredit&aid=36&formhash=f1f2f3f4';
+      const storage = 'https://cdn.example.test/a.zip';
+      const credit = '$baseUrl/forum.php?mod=misc&action=attachcredit&aid=36&formhash=f1f2f3f4';
       final paid = '$canonical&ck=c1c2c3c4';
       final fetcher = _Fetcher(
         {
@@ -170,10 +172,11 @@ void main() {
           storage: _file(),
         },
         pages: {
-          credit:
-              '<div id="messagetext"><p>ok</p><p class="alert_btnleft">'
-              '<a href="http://www.tsdm39.com/forum.php?mod=attachment&amp;aid=$token&amp;ck=c1c2c3c4">go</a>'
-              '</p></div>',
+          credit: [
+            '<div id="messagetext"><p>ok</p><p class="alert_btnleft">',
+            '<a href="http://www.tsdm39.com/forum.php?mod=attachment&amp;aid=$token&amp;ck=c1c2c3c4">go</a>',
+            '</p></div>',
+          ].join(),
         },
       );
       final manager = managerOf(fetcher);
