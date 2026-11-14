@@ -103,11 +103,19 @@ void main() {
     test('a virtual table whose sql text and rootpage were rewritten by hand', () async {
       final file = await makeDatabase('${dir.path}/disguised.db', username: 'Bob');
       edit(file, 'DROP TABLE read_later');
+      // A module without shadow tables: dbstat, or fts5vocab (over an fts5 table, dropped again).
+      String? module;
       try {
         edit(file, 'CREATE VIRTUAL TABLE read_later USING dbstat');
+        module = 'dbstat';
       } on SqliteException {
-        markTestSkipped('dbstat not compiled into this sqlite');
-        return;
+        try {
+          edit(file, 'CREATE VIRTUAL TABLE read_later USING fts5vocab(main, x, row)');
+          module = 'fts5vocab(main, x, row)';
+        } on SqliteException {
+          markTestSkipped('neither dbstat nor fts5vocab compiled into this sqlite');
+          return;
+        }
       }
       final db = sqlite3.open(file.path);
       try {
@@ -115,7 +123,7 @@ void main() {
         db
           ..execute('PRAGMA writable_schema = ON')
           ..execute(
-            "UPDATE sqlite_master SET sql = 'CREATE/**/VIRTUAL TABLE read_later USING dbstat', rootpage = ? "
+            "UPDATE sqlite_master SET sql = 'CREATE/**/VIRTUAL TABLE read_later USING $module', rootpage = ? "
             "WHERE name = 'read_later'",
             [rootpage],
           )

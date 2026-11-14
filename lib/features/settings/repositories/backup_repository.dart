@@ -726,8 +726,8 @@ final class BackupRepository with LoggerMixin {
   /// 5. When step 4 fails, put the copy from step 3 back ([BackupReplaceException] with `restored: true`).
   ///
   /// The `.bak` copy holds the logins of the replaced database: it is deleted once the import succeeded or the
-  /// previous database is back in place, and kept only when putting it back failed (it is then the only copy left;
-  /// [deleteLeftovers] removes it on a later start once a database is in place).
+  /// previous database is back in place. When putting it back failed it is the only copy left: it is renamed with
+  /// [keptSuffix], which neither [deleteLeftovers] nor a later import touches.
   ///
   /// [secrets], obtained with [unlockSecrets], are written back into the import copy in step 2 so the accounts are
   /// logged in after the import; [secretsTable] is dropped from the copy either way.
