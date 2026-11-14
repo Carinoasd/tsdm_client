@@ -157,7 +157,7 @@ void main() {
       containsAll(const [
         'orientation', 'screenSize', 'screenLayout', 'smallestScreenSize', 'keyboardHidden', 'keyboard', //
         'navigation', 'density', 'uiMode', 'fontScale', 'fontWeightAdjustment', 'locale', 'layoutDirection', //
-        'grammaticalGender', 'colorMode', 'touchscreen', 'mcc', 'mnc',
+        'grammaticalGender', 'colorMode', 'touchscreen', 'mcc', 'mnc', 'assetsPaths',
       ]),
     );
   });
