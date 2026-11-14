@@ -514,7 +514,10 @@ final class AttachmentDownloadManager extends ChangeNotifier with LoggerMixin {
       if (isFileDisposition(answer.disposition)) {
         return item.copyWith(
           status: AttachmentDownloadStatus.completed,
-          filename: filenameOfContentDisposition(answer.disposition) ?? item.filename,
+          filename: switch (displayDownloadName(filenameOfContentDisposition(answer.disposition) ?? '')) {
+            '' => item.filename,
+            final name => name,
+          },
           received: length,
           total: length,
         );
