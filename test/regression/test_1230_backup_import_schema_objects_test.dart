@@ -100,20 +100,25 @@ void main() {
       expect(check.problem, BackupProblem.unexpectedObjects, reason: '$check');
     });
 
-    test('a virtual table whose sql text was rewritten to look like a plain table', () async {
+    test('a virtual table whose sql text and rootpage were rewritten by hand', () async {
       final file = await makeDatabase('${dir.path}/disguised.db', username: 'Bob');
       edit(file, 'DROP TABLE read_later');
       try {
-        edit(file, 'CREATE VIRTUAL TABLE read_later USING fts5(x)');
+        edit(file, 'CREATE VIRTUAL TABLE read_later USING dbstat');
       } on SqliteException {
-        markTestSkipped('fts5 not compiled into this sqlite');
+        markTestSkipped('dbstat not compiled into this sqlite');
         return;
       }
       final db = sqlite3.open(file.path);
       try {
+        final rootpage = db.select("SELECT rootpage FROM sqlite_master WHERE name = 'cookie'").first['rootpage'];
         db
           ..execute('PRAGMA writable_schema = ON')
-          ..execute("UPDATE sqlite_master SET sql = 'CREATE TABLE read_later (x)' WHERE name = 'read_later'")
+          ..execute(
+            "UPDATE sqlite_master SET sql = 'CREATE/**/VIRTUAL TABLE read_later USING dbstat', rootpage = ? "
+            "WHERE name = 'read_later'",
+            [rootpage],
+          )
           ..execute('PRAGMA writable_schema = OFF');
       } finally {
         db.dispose();
@@ -233,13 +238,15 @@ void main() {
       ),
       throwsA(isA<BackupReplaceException>().having((e) => e.restored, 'restored', isFalse)),
     );
-    expect(bak.existsSync(), isTrue);
-    // The next start finds some database in place: the only copy of the data stays all the same.
+    // Moved out of the way: the next start and a later import do not touch it.
+    final kept = File('${bak.path}${BackupRepository.keptSuffix}');
+    expect(bak.existsSync(), isFalse);
+    expect(kept.existsSync(), isTrue);
     Directory(target.path).deleteSync();
     target.writeAsStringSync('whatever is there now');
     await BackupRepository.deleteLeftovers(target);
-    expect(bak.existsSync(), isTrue);
-    expect(String.fromCharCodes(bak.readAsBytesSync()), contains('Alice-token'));
+    expect(kept.existsSync(), isTrue);
+    expect(String.fromCharCodes(kept.readAsBytesSync()), contains('Alice-token'));
   });
 
   group('deleteLeftovers', () {

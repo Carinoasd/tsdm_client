@@ -202,6 +202,13 @@ final class BackupRepository with LoggerMixin {
   /// What in the schema of [db] this app does not create, null when nothing: see [knownTables]. Only tables (of
   /// [knownTables], not virtual) and indexes on them pass, automatic indexes included.
   static String? unexpectedSchemaObject(Database db) {
+    // What sqlite made of the schema, not its text: a `sql` rewritten by hand can hide a virtual table from the
+    // checks below. Empty on sqlite before 3.37, which does not know the pragma; the checks below remain.
+    for (final row in db.select('PRAGMA main.table_list')) {
+      if (row['schema'] == 'main' && row['type'] != 'table') {
+        return '${row['type']} ${row['name']}';
+      }
+    }
     final rows = db.select('SELECT type, name, tbl_name, sql, rootpage FROM sqlite_master');
     for (final row in rows) {
       final type = row['type']?.toString();
@@ -786,7 +793,6 @@ final class BackupRepository with LoggerMixin {
         throw BackupReplaceException('verification failed: $result', restored: restored);
       }
       await _deleteQuietly(previous);
-      await _deleteQuietly(File('${previous.path}$keepSuffix'));
       info('imported database backup (schema v${result.schemaVersion})');
       return result;
     } on FileSystemException catch (e) {
@@ -804,9 +810,10 @@ final class BackupRepository with LoggerMixin {
   /// Suffix of the copy of a backup being prepared for import next to the database.
   static const importSuffix = '.import.tmp';
 
-  /// Suffix of the marker next to a `.bak` copy that could not be put back: the copy is then the only one of the
-  /// data, [deleteLeftovers] keeps it (the user can still recover it by hand).
-  static const keepSuffix = '.keep';
+  /// Suffix a `.bak` copy that could not be put back is renamed with: it is then the only copy of the data, neither
+  /// [deleteLeftovers] nor a later import touches it (the user can still recover it by hand). A rename needs no
+  /// space, the likely reason the copy back failed.
+  static const keptSuffix = '.kept';
 
   /// Age after which an import or export copy is surely no longer being written, see [deleteLeftovers].
   static const staleCopyAge = Duration(hours: 1);
@@ -814,8 +821,8 @@ final class BackupRepository with LoggerMixin {
   /// Delete what an import or export interrupted by the end of the app left next to [databaseFile]: the copy of the
   /// replaced database (`.bak`, it holds the logins of then), and import and export copies older than
   /// [staleCopyAge] (the automatic WebDAV backup of the background isolate may be writing a newer one). The `.bak`
-  /// copy stays while there is no database to fall back from, or when putting it back failed ([keepSuffix]). Never
-  /// throws.
+  /// copy stays while there is no database to fall back from; one that could not be put back was renamed
+  /// ([keptSuffix]) and stays. Never throws.
   static Future<void> deleteLeftovers(File databaseFile, {DateTime? now}) async {
     try {
       final dir = databaseFile.parent;
@@ -832,9 +839,7 @@ final class BackupRepository with LoggerMixin {
         final copy = name == '$base$importSuffix' || (name.startsWith(exportPrefix) && name.endsWith('.tmp'));
         final leftover =
             (copy && (now ?? DateTime.now()).difference(entity.lastModifiedSync()) > staleCopyAge) ||
-            (name == '$base$backupSuffix' &&
-                databaseFile.existsSync() &&
-                !File('${entity.path}$keepSuffix').existsSync());
+            (name == '$base$backupSuffix' && databaseFile.existsSync());
         if (leftover) {
           await _deleteQuietly(entity);
           talker.info('backup: deleted the leftover $name');
@@ -857,8 +862,7 @@ final class BackupRepository with LoggerMixin {
 
   /// Put [previous] back as [target] and delete it; false (and [previous] kept) when that failed.
   ///
-  /// When it failed [previous] is the only copy of the data left: a marker ([keepSuffix]) next to it keeps
-  /// [deleteLeftovers] from removing it on the next start.
+  /// When it failed [previous] is the only copy of the data left: it is renamed out of the way ([keptSuffix]).
   Future<bool> _restore(File previous, File target) async {
     if (!previous.existsSync()) {
       return false;
@@ -866,14 +870,16 @@ final class BackupRepository with LoggerMixin {
     try {
       await previous.copy(target.path);
       await _deleteQuietly(previous);
-      await _deleteQuietly(File('${previous.path}$keepSuffix'));
       return true;
     } on FileSystemException catch (e) {
       error('failed to restore previous database: $e');
       try {
-        await File('${previous.path}$keepSuffix').writeAsString('', flush: true);
+        final kept = File('${previous.path}$keptSuffix');
+        final name = kept.existsSync() ? '${kept.path}-${DateTime.now().microsecondsSinceEpoch}' : kept.path;
+        await previous.rename(name);
+        error('the previous database is kept at $name');
       } on FileSystemException catch (e) {
-        error('failed to mark the previous database to keep: $e');
+        error('failed to keep the previous database apart: $e');
       }
       return false;
     }
