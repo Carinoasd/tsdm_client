@@ -172,11 +172,12 @@ final class AttachmentDownloadManager extends ChangeNotifier with LoggerMixin {
       return again;
     }
     final now = _now();
+    final shownName = displayDownloadName(filename);
     final item = AttachmentDownload(
       id: '${now.microsecondsSinceEpoch}-${_seq++}',
       uid: uid,
       url: target,
-      filename: filename,
+      filename: shownName.isEmpty ? 'attachment-${aid ?? 0}' : shownName,
       createdAt: now,
       size: size,
       tid: tid ?? tidOfAttachmentUrl(target),
