@@ -48,9 +48,9 @@ class _AppShortcutsWatcherState extends State<AppShortcutsWatcher> with LoggerMi
     if (!_supported) {
       return;
     }
-    _channel.listen(_run);
+    _channel.listenRequests(_run);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final shortcut = await _channel.initial();
+      final shortcut = await _channel.initialRequest();
       if (shortcut != null && mounted) {
         _run(shortcut);
       }
@@ -65,13 +65,16 @@ class _AppShortcutsWatcherState extends State<AppShortcutsWatcher> with LoggerMi
     super.dispose();
   }
 
-  void _run(AppShortcut shortcut) {
+  void _run(AppShortcutRequest request) {
     if (!mounted) {
       return;
     }
+    final (:shortcut, :external) = request;
     final loggedIn = context.repo<AuthenticationRepository>().effectiveCurrentUid != null;
-    final action = decideAppShortcut(shortcut, loggedIn: loggedIn);
-    info('app shortcut ${shortcut.id}: ${action.runtimeType}, top=${routerTopLocation(router)}');
+    final action = decideAppShortcut(shortcut, loggedIn: loggedIn, external: external);
+    info(
+      'app shortcut ${shortcut.id}${external ? ' (link)' : ''}: ${action.runtimeType}, top=${routerTopLocation(router)}',
+    );
     performAppShortcut(router, action, hasPopup: popupRouteObserver.hasPopupRoute, checkin: _checkin);
   }
 

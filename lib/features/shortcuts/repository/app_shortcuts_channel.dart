@@ -26,7 +26,10 @@ final class AppShortcutsChannel with LoggerMixin {
   /// The shortcut the app was started with, null when it was started otherwise (or the platform has no shortcuts).
   ///
   /// Asked once: the native side forgets it when told.
-  Future<AppShortcut?> initial() async {
+  Future<AppShortcut?> initial() async => (await initialRequest())?.shortcut;
+
+  /// [initial] with where it came from ([AppShortcut.requestOf]).
+  Future<AppShortcutRequest?> initialRequest() async {
     final String? id;
     try {
       id = await channel.invokeMethod<String>(getInitialShortcut);
@@ -40,7 +43,10 @@ final class AppShortcutsChannel with LoggerMixin {
   }
 
   /// Hand every shortcut tapped while the app runs to [onTapped].
-  void listen(void Function(AppShortcut shortcut) onTapped) {
+  void listen(void Function(AppShortcut shortcut) onTapped) => listenRequests((e) => onTapped(e.shortcut));
+
+  /// [listen] with where each came from ([AppShortcut.requestOf]).
+  void listenRequests(void Function(AppShortcutRequest request) onTapped) {
     channel.setMethodCallHandler((call) async {
       if (call.method != onShortcut) {
         throw MissingPluginException('${call.method} is not a method of $name');
@@ -55,11 +61,11 @@ final class AppShortcutsChannel with LoggerMixin {
   /// Stop listening.
   void dispose() => channel.setMethodCallHandler(null);
 
-  AppShortcut? _parse(String? id) {
+  AppShortcutRequest? _parse(String? id) {
     if (id == null) {
       return null;
     }
-    final shortcut = AppShortcut.fromIdOrLink(id);
+    final shortcut = AppShortcut.requestOf(id);
     if (shortcut == null) {
       warning('unknown app shortcut "$id"');
     }

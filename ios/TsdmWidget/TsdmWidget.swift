@@ -49,7 +49,8 @@ struct HomeWidgetProvider: TimelineProvider {
   }
 }
 
-/// The links the app takes, same as `AppShortcut.link` in Dart.
+/// The links the app takes, same as `AppShortcut.link` in Dart; opened signed with the key of the App Group
+/// ([HomeWidgetLinkKey]), so the app knows them from the same links opened by a web page.
 enum HomeWidgetLink {
   static let checkin = URL(string: "tsdm://shortcut/checkin")!
   static let notice = URL(string: "tsdm://shortcut/notice")!
@@ -105,7 +106,7 @@ struct HomeWidgetView: View {
 
   var body: some View {
     content
-      .widgetURL(family == .systemSmall && !checked ? HomeWidgetLink.checkin : HomeWidgetLink.notice)
+      .widgetURL(HomeWidgetLinkKey.signed(family == .systemSmall && !checked ? HomeWidgetLink.checkin : HomeWidgetLink.notice))
       .homeWidgetBackground()
   }
 
@@ -150,7 +151,7 @@ struct HomeWidgetView: View {
         checkin
           .frame(maxWidth: .infinity)
       } else {
-        Link(destination: HomeWidgetLink.checkin) {
+        Link(destination: HomeWidgetLinkKey.signed(HomeWidgetLink.checkin)) {
           checkin
             .frame(maxWidth: .infinity)
         }

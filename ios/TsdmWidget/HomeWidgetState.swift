@@ -85,3 +85,45 @@ struct HomeWidgetState: Equatable {
     }
   }
 }
+
+/// The key the widget's links carry (`tsdm://shortcut/checkin?key=…`), so the app tells a tap on its widget from a
+/// `tsdm://` link that any web page or app can open: only the app and its widget read the App Group.
+///
+/// The app makes it at its start ([ensure]); a link without it, or with another one, is handed to Dart as a link
+/// (`HomeWidgetBridge`), which then only opens the page and does nothing on its own (`decideAppShortcut`).
+enum HomeWidgetLinkKey {
+  static let queryItem = "key"
+
+  private static let defaultsKey = "linkKey"
+
+  private static var defaults: UserDefaults? { UserDefaults(suiteName: HomeWidgetState.appGroup) }
+
+  /// The key, nil while the app has not made one.
+  static func current() -> String? {
+    guard let key = defaults?.string(forKey: defaultsKey), !key.isEmpty else { return nil }
+    return key
+  }
+
+  /// Make and store the key when there is none yet. Whether one was made.
+  @discardableResult
+  static func ensure() -> Bool {
+    guard current() == nil, let defaults = defaults else { return false }
+    defaults.set(UUID().uuidString, forKey: defaultsKey)
+    return true
+  }
+
+  /// [url] with the key, as the widget opens it; as it is while there is no key.
+  static func signed(_ url: URL) -> URL {
+    guard let key = current(), var parts = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return url }
+    parts.queryItems = [URLQueryItem(name: queryItem, value: key)]
+    return parts.url ?? url
+  }
+
+  /// Whether [url] carries the key.
+  static func signs(_ url: URL) -> Bool {
+    guard let key = current(),
+      let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems
+    else { return false }
+    return items.contains { $0.name == queryItem && $0.value == key }
+  }
+}
