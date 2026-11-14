@@ -22,6 +22,7 @@ import 'package:tsdm_client/features/attachment_download/repository/attachment_f
 import 'package:tsdm_client/features/attachment_download/utils/attachment_protocol.dart';
 import 'package:tsdm_client/features/audio_player/utils/audio_attachment.dart';
 import 'package:tsdm_client/instance.dart';
+import 'package:tsdm_client/utils/html/html_muncher.dart';
 import 'package:universal_html/parsing.dart';
 
 /// The token of attachment [aid] of thread 1000 for uid 31.
@@ -107,6 +108,18 @@ void main() {
       }
       expect(isAttachmentDownloadUrl('https://www.tsdm39.com?mod=attachment&aid=$token'), isTrue);
       expect(isAttachmentDownloadUrl('https://www.tsdm39.com/FORUM.PHP?mod=attachment&aid=$token'), isTrue);
+    });
+
+    test('a tap on an attachment link of a post: relative or from the root, still an attachment', () {
+      for (final href in ['forum.php?mod=attachment&aid=$token', '/forum.php?mod=attachment&aid=$token']) {
+        final target = linkTapTargetOf(href)!;
+        expect(target, canonical, reason: href);
+        expect(isAttachmentDownloadUrl(target), isTrue, reason: href);
+      }
+      expect(linkTapTargetOf('magnet:?xt=urn:btih:0123'), 'magnet:?xt=urn:btih:0123');
+      expect(linkTapTargetOf('www.example.test:8080/a'), '$baseUrl/www.example.test:8080/a');
+      expect(linkTapTargetOf('#pid1'), isNull);
+      expect(linkTapTargetOf(' JavaScript:void(0)'), isNull);
     });
 
     test('an audio attachment: the same check, the canonical address', () {

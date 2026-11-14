@@ -2118,32 +2118,13 @@ final class _Muncher with LoggerMixin {
   /// Whether a link to [url] has a mark before it ([postLinkHasMark] in a post's content).
   bool _marksLink(String url) => !postContent || postLinkHasMark(url);
 
-  /// Whether a link to [url] leads nowhere: an anchor of the page, a script.
-  static bool _leadsNowhere(String url) {
-    final s = url.trim().toLowerCase();
-    return s.isEmpty || s.startsWith('#') || s.startsWith('javascript:');
-  }
-
-  /// What a tap on a link to [href] opens: an absolute url (any scheme: the launch decides, see
-  /// `DispatchUrl.dispatchAsUrl`) as written, a relative one on the forum host; null for a link leading nowhere
-  /// ([_leadsNowhere]). The text of the link and its mark open the same.
-  static String? _tapTargetOf(String href) {
-    if (_leadsNowhere(href)) {
-      return null;
-    }
-    final s = href.trim();
-    // A host with a port and no scheme (`www.example.com:8080/…`) is no scheme.
-    final scheme = Uri.tryParse(s)?.scheme ?? '';
-    return scheme.isNotEmpty && !scheme.contains('.') ? s : s.prependHost();
-  }
-
   List<InlineSpan>? _buildA(uh.Element element) {
     if (!element.attributes.containsKey('href') || !options.renderUrl) {
       return _munch(element);
     }
 
     final url = element.attributes['href']!;
-    final tapUrl = _tapTargetOf(url);
+    final tapUrl = linkTapTargetOf(url);
     if (tapUrl != null && isAttachmentDownloadUrl(url)) {
       _attachmentLinks[tapUrl] = attachmentLinkInfoOf(element);
     }
@@ -3308,4 +3289,25 @@ final class _Muncher with LoggerMixin {
 
     return style;
   }
+}
+
+/// What a tap on a link to [href] in munched html opens: an absolute url (any scheme: the launch decides, see
+/// `DispatchUrl.dispatchAsUrl`) as written, a relative one resolved on the forum host (`forum.php?…` and
+/// `/forum.php?…` alike); null for an anchor of the page or a script. The text of the link and its mark open the same.
+@visibleForTesting
+String? linkTapTargetOf(String href) {
+  final s = href.trim();
+  // A link leading nowhere: an anchor of the page, a script.
+  if (s.isEmpty || s.startsWith('#') || s.toLowerCase().startsWith('javascript:')) {
+    return null;
+  }
+  final uri = Uri.tryParse(s);
+  // A host with a port and no scheme (`www.example.com:8080/…`) is no scheme.
+  if (uri != null && uri.scheme.isNotEmpty && !uri.scheme.contains('.')) {
+    return s;
+  }
+  if (uri == null || uri.scheme.isNotEmpty || uri.hasAuthority) {
+    return s.prependHost();
+  }
+  return '${Uri.parse('$baseUrl/').resolveUri(uri)}';
 }
