@@ -5,6 +5,10 @@ import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.net.Uri
+import android.os.Bundle
+import android.os.Looper
+import android.os.SystemClock
+import java.time.Duration
 import android.view.View
 import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
@@ -157,5 +161,78 @@ class InteractiveHtmlActivityTest {
         assertEquals("kzs.th000.tsdm_client.MainActivityImpl", forum.component!!.className)
         assertEquals(source, forum.dataString)
         controller.pause().stop().destroy()
+    }
+
+    /** Time passes away from the screen: the clock that SystemClock.elapsedRealtime reads. */
+    private fun away(ms: Long) {
+        val before = SystemClock.elapsedRealtime()
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(ms))
+        assertTrue(SystemClock.elapsedRealtime() - before >= ms)
+    }
+
+    private fun lockedIntent(delayMs: Long?) = InteractiveHtmlActivity.intent(
+        RuntimeEnvironment.getApplication(), html, source, "guest", "42", appLockDelayMs = delayMs,
+    )
+
+    @Test fun returnCheckFollowsTheAppLockDelay() {
+        assertFalse(InteractiveHtmlActivity.closesOnReturn(null, 1_000, 1_000_000))
+        assertFalse(InteractiveHtmlActivity.closesOnReturn(0, null, 1_000))
+        assertTrue(InteractiveHtmlActivity.closesOnReturn(0, 1_000, 1_000))
+        assertFalse(InteractiveHtmlActivity.closesOnReturn(60_000, 1_000, 60_999))
+        assertTrue(InteractiveHtmlActivity.closesOnReturn(60_000, 1_000, 61_000))
+        assertTrue("a clock that went back", InteractiveHtmlActivity.closesOnReturn(60_000, 5_000, 4_000))
+        assertTrue(InteractiveHtmlActivity.closesWhenRecreated(0, true))
+        assertFalse(InteractiveHtmlActivity.closesWhenRecreated(0, false))
+        assertFalse(InteractiveHtmlActivity.closesWhenRecreated(null, true))
+    }
+
+    @Test fun lockDelayTravelsOnlyWhenTheLockIsOn() {
+        assertFalse(launchIntent().hasExtra(InteractiveHtmlActivity.EXTRA_APP_LOCK_DELAY_MS))
+        assertFalse(lockedIntent(null).hasExtra(InteractiveHtmlActivity.EXTRA_APP_LOCK_DELAY_MS))
+        assertEquals(300_000L, lockedIntent(300_000).getLongExtra(InteractiveHtmlActivity.EXTRA_APP_LOCK_DELAY_MS, -1))
+    }
+
+    @Test fun lockedImmediatelyTheViewerClosesWhenBackOnTheScreen() {
+        val controller = Robolectric.buildActivity(InteractiveHtmlActivity::class.java, lockedIntent(0)).setup()
+        assertFalse(controller.get().isFinishing)
+        controller.pause().stop()
+        away(10)
+        controller.restart()
+        assertTrue(controller.get().isFinishing)
+        controller.destroy()
+    }
+
+    @Test fun lockedAfterAMinuteTheViewerStaysForAShortTripAndClosesAfterALongOne() {
+        val controller = Robolectric.buildActivity(InteractiveHtmlActivity::class.java, lockedIntent(60_000)).setup()
+        controller.pause().stop()
+        away(30_000)
+        controller.restart().resume()
+        assertFalse(controller.get().isFinishing)
+        controller.pause().stop()
+        away(61_000)
+        controller.restart()
+        assertTrue(controller.get().isFinishing)
+        controller.destroy()
+    }
+
+    @Test fun withoutTheLockTheViewerStaysAfterAnyTimeAway() {
+        val controller = Robolectric.buildActivity(InteractiveHtmlActivity::class.java, launchIntent()).setup()
+        controller.pause().stop()
+        away(24 * 60 * 60 * 1000L)
+        controller.restart().resume()
+        assertFalse(controller.get().isFinishing)
+        assertNotNull(viewer(controller.get()))
+        controller.pause().stop().destroy()
+    }
+
+    @Test fun recreatedWithTheLockOnTheViewerClosesBeforeShowingTheContent() {
+        val controller = Robolectric.buildActivity(InteractiveHtmlActivity::class.java, lockedIntent(60_000))
+            .create(Bundle())
+        assertTrue(controller.get().isFinishing)
+        assertNull(controller.get().findViewById<View>(android.R.id.content)?.findViewWithTag<View>("interactive_html_webview"))
+        // Without the lock a recreated viewer shows its content as before.
+        val unlocked = Robolectric.buildActivity(InteractiveHtmlActivity::class.java, launchIntent()).create(Bundle())
+        assertFalse(unlocked.get().isFinishing)
+        unlocked.destroy()
     }
 }

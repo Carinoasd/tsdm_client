@@ -205,6 +205,7 @@ class MainActivityImpl: AudioServiceFragmentActivity() {
                             call.argument<Any>("postId") as? String,
                             call.argument<Any>("locale") as? String,
                             call.argument<Any>("labels") as? Map<*, *>,
+                            (call.argument<Any>("appLockDelayMs") as? Number)?.toLong(),
                         ))
                         result.success(true)
                     } catch (error: InteractiveHtmlPolicy.Failure) {
