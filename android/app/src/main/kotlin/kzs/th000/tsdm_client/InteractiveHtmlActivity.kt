@@ -46,8 +46,10 @@ import java.util.Locale
  *
  * The app lock covers the Flutter pages only: while this activity is on top, Dart does not see the app leave and come
  * back. So it closes itself where the app would lock ([EXTRA_APP_LOCK_DELAY_MS], sent while the lock is on): back on
- * the screen after that long away, or recreated after the process died. The app underneath then shows its lock screen,
- * as its own time away counts from the moment this activity opened.
+ * the screen after that long away, or recreated after the process died (the configuration changes it could be
+ * recreated for are all handled in place, see the manifest). The app underneath then shows its lock screen, as its own
+ * time away counts from the moment this activity opened (as long as the wall clock was not set back meanwhile: Dart
+ * measures with it).
  */
 class InteractiveHtmlActivity : Activity() {
     private lateinit var content: InteractiveHtmlPolicy.Content

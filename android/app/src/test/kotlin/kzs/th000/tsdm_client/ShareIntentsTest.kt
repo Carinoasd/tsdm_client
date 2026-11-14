@@ -106,4 +106,13 @@ class ShareIntentsTest {
         assertTrue(ShareIntents.ownsAuthority(app, "${app.packageName}.updates"))
         assertFalse(ShareIntents.ownsAuthority(app, foreign))
     }
+
+    @Test fun manyUrisAskEachAuthorityOnceAndStopAtTheMostTaken() {
+        var asked = 0
+        val ours = (0 until 2000).map { Uri.parse("content://$own/attachments/$it.png") }
+        val intent = Intent(Intent.ACTION_SEND_MULTIPLE).setType("image/*")
+            .putParcelableArrayListExtra(Intent.EXTRA_STREAM, ArrayList(ours))
+        assertTrue(images(ShareIntents.read(app, intent) { asked += 1; it.equals(own, ignoreCase = true) }).isEmpty())
+        assertEquals(1, asked)
+    }
 }

@@ -140,7 +140,24 @@ void main() {
     // MainActivityImpl is exported too: a share sent straight to it does not pass ShareActivity, so the check is
     // where both end, in ShareIntents.read (the Kotlin tests cover the rule itself).
     final share = File('android/app/src/main/kotlin/kzs/th000/tsdm_client/ShareIntents.kt').readAsStringSync();
-    expect(share, contains('copyImages(context, streamsOf(intent).filter { acceptsStream(it, ownsAuthority) })'));
+    expect(share, contains('.filter { uri -> acceptsStream(uri) {'));
+    expect(share, contains('val images = copyImages(context, accepted)'));
     expect(RegExp(r'copyImages\(').allMatches(share), hasLength(2), reason: 'one definition, one call');
+  });
+
+  test('the interactive viewer handles every configuration change in place', () {
+    // With the app lock on, a recreated viewer closes (it cannot tell a dead process from a configuration change):
+    // the changes a user makes in the system settings while away must not recreate it.
+    final viewer = _componentsOf(manifest).singleWhere(
+      (e) => e.getAttribute('name', namespace: _android) == 'kzs.th000.tsdm_client.InteractiveHtmlActivity',
+    );
+    final changes = viewer.getAttribute('configChanges', namespace: _android)!.split('|').toSet();
+    expect(
+      changes,
+      containsAll(const [
+        'orientation', 'screenSize', 'screenLayout', 'smallestScreenSize', 'keyboardHidden', 'keyboard', //
+        'navigation', 'density', 'uiMode', 'fontScale', 'locale', 'layoutDirection',
+      ]),
+    );
   });
 }

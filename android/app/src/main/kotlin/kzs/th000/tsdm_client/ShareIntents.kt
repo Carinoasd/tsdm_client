@@ -46,7 +46,13 @@ object ShareIntents {
         if (!isShare(intent)) return null
         val text = intent.getStringExtra(Intent.EXTRA_TEXT)?.takeIf { it.isNotBlank() }
         val subject = intent.getStringExtra(Intent.EXTRA_SUBJECT)?.takeIf { it.isNotBlank() }
-        val images = copyImages(context, streamsOf(intent).filter { acceptsStream(it, ownsAuthority) })
+        // Checked lazily up to the most taken, each authority asked once: a share may name thousands of uris.
+        val asked = HashMap<String, Boolean>()
+        val accepted = streamsOf(intent).asSequence()
+            .filter { uri -> acceptsStream(uri) { authority -> asked.getOrPut(authority.lowercase()) { ownsAuthority(authority) } } }
+            .take(MAX_IMAGES)
+            .toList()
+        val images = copyImages(context, accepted)
         if (text == null && images.isEmpty()) return null
         return mapOf("subject" to subject, "text" to text, "images" to images)
     }
