@@ -30,6 +30,14 @@ void main() {
       ]) {
         expect(runsAsProgram(name), isTrue, reason: name);
       }
+      // Every one of the list, none dropped by mistake.
+      for (final ext in desktopProgramExtensions) {
+        expect(ext, ext.toLowerCase());
+        expect(runsAsProgram('a.$ext'), isTrue, reason: ext);
+      }
+      for (final ext in ['msixbundle', 'iso', 'vhdx', 'library-ms', 'rdp', 'py', 'applescript', 'deb', 'flatpakref']) {
+        expect(desktopProgramExtensions, contains(ext));
+      }
     });
 
     test('whatever the case, the trailing dots and spaces Windows drops, the last of several extensions', () {
@@ -174,14 +182,22 @@ void main() {
     test('Windows: Explorer with the file selected (its exit code tells nothing)', () async {
       const path = r'C:\Users\x\Downloads\a b.exe';
       expect(await reveal(path, DesktopSystem.windows, exitCode: 1), isTrue);
-      expect(runs.single.$1, 'explorer.exe');
+      // By its full path, never a bare name looked for in the working folder.
+      expect(runs.single.$1, endsWith(r'\explorer.exe'));
+      expect(p.windows.isAbsolute(runs.single.$1), isTrue);
       expect(runs.single.$2, ['/select,', path]);
       expect(launched, isEmpty);
     });
 
+    test('Windows: a comma without a space (no quotes around it) splits the path for Explorer: its folder', () async {
+      expect(await reveal(r'C:\Users\x\Downloads\a,b.exe', DesktopSystem.windows), isTrue);
+      expect(runs, isEmpty);
+      expect(launched, [Uri.directory(r'C:\Users\x\Downloads', windows: true)]);
+    });
+
     test('macOS: Finder with the file selected', () async {
       expect(await reveal('/Users/x/Downloads/a.command', DesktopSystem.macos), isTrue);
-      expect(runs.single.$1, 'open');
+      expect(runs.single.$1, '/usr/bin/open');
       expect(runs.single.$2, ['-R', '/Users/x/Downloads/a.command']);
       expect(launched, isEmpty);
     });
@@ -191,6 +207,7 @@ void main() {
       final (exe, args) = runs.single;
       expect(exe, 'dbus-send');
       expect(args, contains('org.freedesktop.FileManager1.ShowItems'));
+      expect(args, contains('--reply-timeout=3000'));
       final items = args.singleWhere((e) => e.startsWith('array:string:'));
       expect(items.contains(','), isFalse);
       expect(Uri.parse(items.substring('array:string:'.length)).toFilePath(), '/srv/dl/a, b 名.sh');

@@ -220,9 +220,13 @@ String? _absolute(String link, Uri base) {
   return uri == null ? null : '${base.resolveUri(uri)}';
 }
 
-/// What a file name may not hold unseen: the controls (C0, delete, C1) and the marks of the text direction
-/// (U+061C, U+200E, U+200F, U+202A to U+202E, U+2066 to U+2069) that make `photo<U+202E>gpj.exe` read `photoexe.jpg`.
-final _hiddenInNameRe = RegExp(r'[\x00-\x1f\x7f-\x9f\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]');
+/// What a file name may not hold unseen: the controls (C0, delete, C1), the marks of the text direction (U+061C,
+/// U+200E, U+200F, U+202A to U+202E, U+2066 to U+2069) that make `photo<U+202E>gpj.exe` read `photoexe.jpg`, and the
+/// characters of no width or blank (U+00AD, U+200B, U+2060 to U+2064, U+206A to U+206F, U+2800, U+3164, U+FEFF) that
+/// push the real extension out of sight. The joiners (U+200C, U+200D) stay: emoji are made of them.
+final _hiddenInNameRe = RegExp(
+  r'[\x00-\x1f\x7f-\x9f\xad\u061c\u200b\u200e\u200f\u202a-\u202e\u2060-\u2064\u2066-\u206f\u2800\u3164\ufeff]',
+);
 
 /// The names Windows keeps for its devices, whatever follows the first dot (`nul.tar.gz` is `NUL`).
 final _reservedNameRe = RegExp(

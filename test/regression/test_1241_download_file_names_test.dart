@@ -103,6 +103,25 @@ void main() {
       expect(safe('\u202e\u2066\u200f'), 'fallback');
     });
 
+    test('the characters of no width or blank are taken out, the joiners of emoji kept', () {
+      for (final c in [
+        '\u00ad',
+        '\u200b',
+        '\u2060',
+        '\u2064',
+        '\u206a',
+        '\u206f',
+        '\u2800',
+        '\u3164',
+        '\ufeff',
+      ]) {
+        expect(safe('a${c}b.zip'), 'ab.zip', reason: 'U+${c.codeUnitAt(0).toRadixString(16)}');
+      }
+      const family = '\u{1F468}\u200d\u{1F469}\u200d\u{1F467}';
+      expect(safe('$family.png'), '$family.png');
+      expect(safe('a\u200cb.zip'), 'a\u200cb.zip');
+    });
+
     test('the controls (C0, C1, delete) are taken out', () {
       expect(safe('a\u0000b\u0007c\u001fd.zip'), 'abcd.zip');
       expect(safe('a\u0080b\u0085c\u009fd\u007f.zip'), 'abcd.zip');

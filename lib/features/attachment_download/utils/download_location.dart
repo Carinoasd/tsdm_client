@@ -112,14 +112,17 @@ bool get canShareDownloadedFile => !kIsWeb && !Platform.isLinux;
 /// and disk images of Windows, macOS and Linux. Kept together for all three (a program of one system runs on another
 /// through Wine, a script opens in a terminal). Lower case, without the dot.
 const desktopProgramExtensions = <String>{
-  // Windows.
-  'exe', 'msi', 'msp', 'msix', 'appx', 'appinstaller', 'bat', 'cmd', 'com', 'scr', 'pif', 'ps1', 'psm1', 'vbs', 'vbe',
-  'js', 'jse', 'wsf', 'wsh', 'hta', 'lnk', 'url', 'scf', 'reg', 'inf', 'chm', 'jar', 'cpl', 'msc', 'appref-ms',
-  'application', 'gadget', 'settingcontent-ms',
+  // Windows: programs, installers, scripts, shortcuts, disk images that mount on a double click.
+  'exe', 'com', 'scr', 'pif', 'cpl', 'msc', 'gadget', 'xll',
+  'msi', 'msp', 'msu', 'msix', 'msixbundle', 'appx', 'appxbundle', 'appinstaller', 'application', 'appref-ms',
+  'bat', 'cmd', 'ps1', 'psm1', 'vb', 'vbs', 'vbe', 'js', 'jse', 'ws', 'wsf', 'wsh', 'wsc', 'sct', 'hta', 'py', 'pyw',
+  'jar', 'jnlp', 'lnk', 'url', 'website', 'scf', 'rdp', 'library-ms', 'search-ms', 'searchconnector-ms',
+  'settingcontent-ms', 'reg', 'inf', 'chm', 'diagcab', 'iso', 'img', 'vhd', 'vhdx',
   // macOS.
-  'app', 'command', 'pkg', 'mpkg', 'dmg', 'scpt', 'terminal', 'workflow', 'fileloc', 'inetloc', 'webloc',
+  'app', 'command', 'pkg', 'mpkg', 'dmg', 'scpt', 'scptd', 'applescript', 'terminal', 'workflow', 'action',
+  'shortcut', 'mobileconfig', 'fileloc', 'inetloc', 'webloc',
   // Linux.
-  'desktop', 'sh', 'run', 'appimage',
+  'desktop', 'sh', 'run', 'appimage', 'deb', 'rpm', 'flatpakref',
 };
 
 /// Whether the file [name] (or path) is one the shell of a desktop runs ([desktopProgramExtensions]): its last
@@ -202,11 +205,17 @@ Future<bool> revealDownloadedFile(
   try {
     switch (os) {
       case DesktopSystem.windows:
+        // Explorer splits what it is given at a comma: a path with one is quoted only when it holds a space too.
+        if (path.contains(',') && !path.contains(' ')) {
+          break;
+        }
+        // By its full path: a bare name is looked for in the working folder first.
+        final root = Platform.environment['SystemRoot'] ?? Platform.environment['windir'] ?? r'C:\Windows';
         // Explorer answers 1 when it did select the file: its exit code tells nothing.
-        await runner('explorer.exe', ['/select,', path]);
+        await runner(p.windows.join(root, 'explorer.exe'), ['/select,', path]);
         return true;
       case DesktopSystem.macos:
-        if (await runner('open', ['-R', path]) == 0) {
+        if (await runner('/usr/bin/open', ['-R', path]) == 0) {
           return true;
         }
       case DesktopSystem.linux:
@@ -215,6 +224,8 @@ Future<bool> revealDownloadedFile(
         final code = await runner('dbus-send', [
           '--session',
           '--print-reply',
+          // A file manager slow to start: its folder instead of a button doing nothing for 25 seconds.
+          '--reply-timeout=3000',
           '--dest=org.freedesktop.FileManager1',
           '--type=method_call',
           '/org/freedesktop/FileManager1',
