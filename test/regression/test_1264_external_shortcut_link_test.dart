@@ -129,6 +129,8 @@ void main() {
       final entry = RegExp(r'<activity\s+android:name="\.ShortcutActivity"[^>]*>').firstMatch(manifest)?.group(0);
       expect(entry, isNotNull);
       expect(entry, contains('android:exported="false"'));
+      // The root of the app's task when a shortcut starts it: the task stays in the recent apps.
+      expect(entry, isNot(contains('excludeFromRecents')));
       expect(entry, isNot(contains('<intent-filter')));
     });
 

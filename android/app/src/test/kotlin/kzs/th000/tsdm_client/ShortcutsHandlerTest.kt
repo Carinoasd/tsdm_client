@@ -78,4 +78,16 @@ class ShortcutsHandlerTest {
         assertNull(shadowOf(controller.get()).nextStartedActivity)
         assertTrue(controller.get().isFinishing)
     }
+
+    @Test
+    fun aReplayFromTheRecentsOpensTheAppWithoutTheShortcut() {
+        val replay = shortcut("checkin").addFlags(Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY)
+        val controller = Robolectric.buildActivity(ShortcutActivity::class.java, replay).create()
+        val started = shadowOf(controller.get()).nextStartedActivity
+        assertNotNull(started)
+        assertEquals(MainActivityImpl::class.java.name, started.component?.className)
+        assertNull(started.data)
+        assertNull(ShortcutsHandler.shortcutIdOf(started, ShortcutKey.of(app)))
+        assertTrue(controller.get().isFinishing)
+    }
 }

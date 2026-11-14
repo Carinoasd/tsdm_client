@@ -34,6 +34,10 @@ object ShortcutKey {
  * The target of the launcher shortcuts (`res/xml/shortcuts.xml`), not exported: only the launcher starts it, on the
  * app's behalf. It shows nothing, hands the shortcut to [MainActivityImpl] with [ShortcutKey] (`NEW_TASK`,
  * `CLEAR_TOP`, `SINGLE_TOP`, as the widget's taps go) and finishes at once.
+ *
+ * A shortcut starts it as the root of the app's task (`NEW_TASK | CLEAR_TASK`, as it started [MainActivityImpl]
+ * before), so the task keeps its intent: started again from the recent apps (the task emptied), it opens the app
+ * without running the shortcut a second time.
  */
 class ShortcutActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -41,9 +45,15 @@ class ShortcutActivity : Activity() {
         val received = intent
         val replayed = savedInstanceState != null ||
             (received.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) != 0
-        if (!replayed && ShortcutsHandler.idOfData(received) != null) {
+        val target = when {
+            // The recent apps start the root of an emptied task again: the app opens, the shortcut is not run twice.
+            replayed -> open(this)
+            ShortcutsHandler.idOfData(received) != null -> forward(this, received)
+            else -> null
+        }
+        if (target != null) {
             try {
-                startActivity(forward(this, received))
+                startActivity(target)
             } catch (_: Exception) {
                 // Nothing to show: the shortcut is dropped.
             }
@@ -52,6 +62,11 @@ class ShortcutActivity : Activity() {
     }
 
     companion object {
+        /** The intent opening [MainActivityImpl] without a shortcut. */
+        fun open(context: Context): Intent = Intent(Intent.ACTION_MAIN)
+            .setClass(context, MainActivityImpl::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+
         /** The intent handing the shortcut of [received] to [MainActivityImpl], signed with [ShortcutKey]. */
         fun forward(context: Context, received: Intent): Intent = Intent(Intent.ACTION_MAIN)
             .setClass(context, MainActivityImpl::class.java)

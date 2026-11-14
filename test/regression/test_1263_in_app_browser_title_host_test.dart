@@ -39,9 +39,13 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     const long = 'www.tsdm39.com.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.evil.example';
-    Future<String> shown(String host) async {
+    Future<String> shown(String host, {bool bold = false}) async {
       await tester.pumpWidget(
         MaterialApp(
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(boldText: bold),
+            child: child!,
+          ),
           home: Scaffold(
             appBar: AppBar(
               leading: const CloseButton(),
@@ -59,6 +63,8 @@ void main() {
     expect(cut, endsWith('.evil.example'));
     expect(cut, isNot(contains('tsdm39')));
     expect(await shown('www.tsdm39.com'), 'www.tsdm39.com');
+    // Bold text, as the system may ask for: still the end.
+    expect(await shown(long, bold: true), endsWith('.evil.example'));
   });
 
   test('the page shows no title of the page', () {

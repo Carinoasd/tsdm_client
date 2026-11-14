@@ -12,7 +12,11 @@ class BrowserHostTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = DefaultTextStyle.of(context).style;
+    // Measured as drawn: `Text` makes it bold when the system asks for bold text.
+    var style = DefaultTextStyle.of(context).style;
+    if (MediaQuery.boldTextOf(context)) {
+      style = style.merge(const TextStyle(fontWeight: FontWeight.bold));
+    }
     final direction = Directionality.of(context);
     final scaler = MediaQuery.textScalerOf(context);
     return LayoutBuilder(
