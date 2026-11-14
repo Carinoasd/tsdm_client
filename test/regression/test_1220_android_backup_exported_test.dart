@@ -145,7 +145,7 @@ void main() {
     expect(RegExp(r'copyImages\(').allMatches(share), hasLength(2), reason: 'one definition, one call');
   });
 
-  test('the interactive viewer handles every configuration change in place', () {
+  test('the interactive viewer handles in place the configuration changes a user can make while away', () {
     // With the app lock on, a recreated viewer closes (it cannot tell a dead process from a configuration change):
     // the changes a user makes in the system settings while away must not recreate it.
     final viewer = _componentsOf(manifest).singleWhere(
@@ -156,7 +156,8 @@ void main() {
       changes,
       containsAll(const [
         'orientation', 'screenSize', 'screenLayout', 'smallestScreenSize', 'keyboardHidden', 'keyboard', //
-        'navigation', 'density', 'uiMode', 'fontScale', 'locale', 'layoutDirection',
+        'navigation', 'density', 'uiMode', 'fontScale', 'fontWeightAdjustment', 'locale', 'layoutDirection', //
+        'grammaticalGender', 'colorMode', 'touchscreen', 'mcc', 'mnc',
       ]),
     );
   });

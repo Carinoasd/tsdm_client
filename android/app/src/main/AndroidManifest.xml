@@ -56,7 +56,7 @@
                 android:name="kzs.th000.tsdm_client.InteractiveHtmlActivity"
                 android:exported="false"
                 android:theme="@android:style/Theme.Material.Light.NoActionBar"
-                android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|navigation|density|uiMode|fontScale|locale|layoutDirection"
+                android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|navigation|density|uiMode|fontScale|fontWeightAdjustment|locale|layoutDirection|grammaticalGender|colorMode|touchscreen|mcc|mnc"
                 android:hardwareAccelerated="true"
                 android:windowSoftInputMode="adjustResize" />
         <activity
