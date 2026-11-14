@@ -88,6 +88,32 @@ String? nextAudioAttachmentHop(String url, int status, String? location) {
   return canonicalAttachmentUrl('${Uri.parse(url).resolve(location)}');
 }
 
+/// Request the audio attachment at [url] with [request] and follow its redirects, one by one, at most
+/// [maxAudioAttachmentHops] of them: the answer of the last request (a redirect still when there were more).
+///
+/// The attachment goes with the account's session (`session`) to the canonical https host only
+/// ([canonicalAttachmentUrl], [isCanonicalForumUrl]): a track kept in the queue by an earlier version may name `http`
+/// or the host without www, and a redirect to the forum over `http` is taken to https ([nextAudioAttachmentHop]). A hop
+/// anywhere else (a storage host, a plain `http` address) goes without it. A failed request ends the hops.
+@visibleForTesting
+Future<Either<AppException, Response<dynamic>>> followAudioAttachmentRedirects(
+  String url, {
+  required Future<Either<AppException, Response<dynamic>>> Function(String url, {required bool session}) request,
+}) async {
+  var next = canonicalAttachmentUrl(url);
+  for (var hop = 0; ; hop++) {
+    final result = await request(next, session: isCanonicalForumUrl(next));
+    final resp = result.toNullable();
+    final target = resp == null
+        ? null
+        : nextAudioAttachmentHop(next, resp.statusCode ?? 0, resp.headers.value(HttpHeaders.locationHeader));
+    if (target == null || hop >= maxAudioAttachmentHops) {
+      return result;
+    }
+    next = target;
+  }
+}
+
 /// The options of one request of an audio attachment: no redirect followed, on every platform (the Kotlin client of
 /// Android reads [singleAttemptHttpRequestKey], not [Options.followRedirects]), a redirect answered as it is.
 @visibleForTesting
@@ -161,35 +187,23 @@ final class NetAudioFetcher with LoggerMixin implements AudioFetcher {
   ) async {
     // One part file per request: a cancelled one still finishing does not write into the next.
     final part = File('${file.path}.${cancelToken.hashCode}.part');
-    // An attachment goes with the account's session to the canonical https host only ([canonicalAttachmentUrl]): a
-    // track kept in the queue by an earlier version may name `http` or the host without www. Its redirects are
-    // followed here, one by one ([nextAudioAttachmentHop]): a hop anywhere else goes without the session.
+    // An attachment goes with the account's session to the canonical https host only, its redirects followed one by
+    // one ([followAudioAttachmentRedirects]); a song of NetEase Cloud Music without a cookie.
     final attachment = track.source == AudioTrackSource.attachment;
-    var url = attachment ? canonicalAttachmentUrl(track.url) : track.url;
     void progress(int received, int total) => onProgress?.call(total > 0 ? received / total : null);
-    late Either<AppException, Response<dynamic>> result;
-    for (var hop = 0; hop < maxAudioAttachmentHops; hop++) {
-      final client = attachment && isCanonicalForumUrl(url)
-          ? getIt.get<NetClientProvider>()
-          : getIt.get<NetClientProvider>(instanceName: ServiceKeys.noCookie);
-      result = await client
-          .download(
-            url,
-            part.path,
-            cancelToken: cancelToken,
-            onReceiveProgress: progress,
-            options: attachment ? audioAttachmentRequestOptions() : null,
-          )
-          .run();
-      final resp = result.toNullable();
-      final next = resp == null || !attachment
-          ? null
-          : nextAudioAttachmentHop(url, resp.statusCode ?? 0, resp.headers.value(HttpHeaders.locationHeader));
-      if (next == null) {
-        break;
-      }
-      url = next;
-    }
+    Future<Either<AppException, Response<dynamic>>> request(String url, {required bool session}) => getIt
+        .get<NetClientProvider>(instanceName: session ? null : ServiceKeys.noCookie)
+        .download(
+          url,
+          part.path,
+          cancelToken: cancelToken,
+          onReceiveProgress: progress,
+          options: attachment ? audioAttachmentRequestOptions() : null,
+        )
+        .run();
+    final result = attachment
+        ? await followAudioAttachmentRedirects(track.url, request: request)
+        : await request(track.url, session: false);
     if (result.isLeft()) {
       if (part.existsSync()) {
         await part.delete();
