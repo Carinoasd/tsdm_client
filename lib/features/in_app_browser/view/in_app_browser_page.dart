@@ -42,8 +42,6 @@ class _InAppBrowserPageState extends State<InAppBrowserPage> {
   /// The page in view.
   late Uri _url = widget.url ?? Uri();
 
-  String? _title;
-
   /// Loading progress, 0 to 100.
   int _progress = 0;
 
@@ -204,7 +202,8 @@ class _InAppBrowserPageState extends State<InAppBrowserPage> {
         appBar: AppBar(
           // Closes the page at once; the back key and gesture go back in the web view first.
           leading: CloseButton(onPressed: () => Navigator.of(context).pop()),
-          title: Text(_title?.isNotEmpty ?? false ? _title! : _url.host, maxLines: 1, overflow: TextOverflow.ellipsis),
+          // The host of the page, never its title ([browserTitleOf]).
+          title: Text(browserTitleOf(_url), maxLines: 1, overflow: TextOverflow.ellipsis),
           actions: [
             if (valid) ...[
               IconButton(
@@ -255,7 +254,6 @@ class _InAppBrowserPageState extends State<InAppBrowserPage> {
                   initialSettings: InAppWebViewSettings(useShouldOverrideUrlLoading: true),
                   onWebViewCreated: _onCreated,
                   shouldOverrideUrlLoading: _onNavigation,
-                  onTitleChanged: (_, title) => _update(() => _title = title),
                   onProgressChanged: (_, progress) => _update(() => _progress = progress),
                   onLoadStop: (controller, url) async {
                     _initialPending = false;
