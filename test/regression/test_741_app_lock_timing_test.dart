@@ -74,9 +74,9 @@ void main() {
       expect(timer.returned(now.add(const Duration(hours: 1)), AppLockTiming.oneMinute), isFalse, reason: 'not left');
     });
 
-    test('a clock set back does not lock', () {
+    test('a clock set back while away locks: how long it was can not be told', () {
       final timer = AppLockTimer()..left(now);
-      expect(timer.returned(now.subtract(const Duration(minutes: 10)), AppLockTiming.immediately), isFalse);
+      expect(timer.returned(now.subtract(const Duration(minutes: 10)), AppLockTiming.fiveMinutes), isTrue);
     });
   });
 

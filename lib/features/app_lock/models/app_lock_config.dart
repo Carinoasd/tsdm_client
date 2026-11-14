@@ -90,6 +90,8 @@ final class AppLockConfig {
     this.requireForAccountSwitch = false,
     this.failedAttempts = 0,
     this.lockedOutUntil,
+    this.lockedOutAt,
+    this.lockedOutSinceBoot,
   });
 
   /// From [toJson]. A file naming a lock without a readable PIN is taken as no lock: there would be no way in.
@@ -97,6 +99,8 @@ final class AppLockConfig {
     final pin = PinHash.fromJson(json['pin']);
     final method = AppLockMethod.values.asNameMap()[json['method']] ?? AppLockMethod.off;
     final until = json['lockedOutUntil'];
+    final at = json['lockedOutAt'];
+    final sinceBoot = json['lockedOutSinceBoot'];
     return AppLockConfig(
       method: pin == null ? AppLockMethod.off : method,
       pin: pin,
@@ -107,6 +111,8 @@ final class AppLockConfig {
         _ => 0,
       },
       lockedOutUntil: until is int ? DateTime.fromMillisecondsSinceEpoch(until) : null,
+      lockedOutAt: at is int ? DateTime.fromMillisecondsSinceEpoch(at) : null,
+      lockedOutSinceBoot: sinceBoot is int && sinceBoot >= 0 ? Duration(microseconds: sinceBoot) : null,
     );
   }
 
@@ -128,13 +134,21 @@ final class AppLockConfig {
   /// Wrong PINs entered in a row.
   final int failedAttempts;
 
-  /// No PIN is checked before this time (too many wrong ones).
+  /// No PIN is checked before this time (too many wrong ones), by the wall clock when the wait began; the wait itself
+  /// is counted on the monotonic clock, see `AppLockCubit`.
   final DateTime? lockedOutUntil;
+
+  /// Wall clock time the wait of [lockedOutUntil] began.
+  final DateTime? lockedOutAt;
+
+  /// Monotonic clock (time since the device started) when the wait of [lockedOutUntil] began: tells how long it
+  /// has run after a restart of the app, whatever the wall clock was set to.
+  final Duration? lockedOutSinceBoot;
 
   /// Whether the app lock is on.
   bool get enabled => method != AppLockMethod.off && pin != null;
 
-  /// A copy with the given fields replaced; [clearLockout] resets [lockedOutUntil].
+  /// A copy with the given fields replaced; [clearLockout] resets [lockedOutUntil] and when it began.
   AppLockConfig copyWith({
     AppLockMethod? method,
     PinHash? pin,
@@ -142,6 +156,8 @@ final class AppLockConfig {
     bool? requireForAccountSwitch,
     int? failedAttempts,
     DateTime? lockedOutUntil,
+    DateTime? lockedOutAt,
+    Duration? lockedOutSinceBoot,
     bool clearLockout = false,
   }) => AppLockConfig(
     method: method ?? this.method,
@@ -150,6 +166,8 @@ final class AppLockConfig {
     requireForAccountSwitch: requireForAccountSwitch ?? this.requireForAccountSwitch,
     failedAttempts: failedAttempts ?? this.failedAttempts,
     lockedOutUntil: clearLockout ? null : (lockedOutUntil ?? this.lockedOutUntil),
+    lockedOutAt: clearLockout ? null : (lockedOutAt ?? this.lockedOutAt),
+    lockedOutSinceBoot: clearLockout ? null : (lockedOutSinceBoot ?? this.lockedOutSinceBoot),
   );
 
   /// For the file.
@@ -161,5 +179,7 @@ final class AppLockConfig {
     'requireForAccountSwitch': requireForAccountSwitch,
     'failedAttempts': failedAttempts,
     if (lockedOutUntil != null) 'lockedOutUntil': lockedOutUntil!.millisecondsSinceEpoch,
+    if (lockedOutAt != null) 'lockedOutAt': lockedOutAt!.millisecondsSinceEpoch,
+    if (lockedOutSinceBoot != null) 'lockedOutSinceBoot': lockedOutSinceBoot!.inMicroseconds,
   };
 }

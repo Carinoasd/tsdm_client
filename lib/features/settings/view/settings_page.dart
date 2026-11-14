@@ -1691,7 +1691,7 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
     return switch (check.problem) {
       BackupProblem.unreadable => tr.problem.unreadable,
       BackupProblem.notSqlite => tr.problem.notSqlite,
-      BackupProblem.corrupted => tr.problem.corrupted,
+      BackupProblem.corrupted || BackupProblem.unexpectedObjects => tr.problem.corrupted,
       BackupProblem.missingTables => tr.problem.missingTables,
       BackupProblem.invalidVersion => tr.problem.invalidVersion,
       BackupProblem.newerSchema => tr.problem.newerSchema(version: check.detail ?? ''),

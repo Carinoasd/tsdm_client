@@ -5,6 +5,7 @@ import 'package:tsdm_client/features/settings/repositories/webdav_backup_reposit
 import 'package:tsdm_client/features/settings/repositories/webdav_client.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
+import 'package:tsdm_client/utils/show_dialog.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/custom_alert_dialog.dart';
@@ -81,6 +82,9 @@ class _WebdavSettingsDialogState extends State<_WebdavSettingsDialog> {
   bool testing = false;
   bool saving = false;
 
+  /// The plain http url the user agreed to send the password to, see [WebdavBackupConfig.sendsPasswordInClear].
+  String? clearUrlConfirmed;
+
   @override
   void dispose() {
     url.dispose();
@@ -99,8 +103,20 @@ class _WebdavSettingsDialogState extends State<_WebdavSettingsDialog> {
     keep: int.tryParse(keep.text.trim()),
   );
 
+  /// Ask before the password goes to a plain http server outside the local network; true when it may.
+  Future<bool> _confirmClearUrl() async {
+    final config = _config;
+    if (!config.sendsPasswordInClear || clearUrlConfirmed == config.url) return true;
+    final tr = context.t.settingsPage.advancedSection.webdav;
+    final ok = await showQuestionDialog(context: context, title: tr.title, message: tr.plainHttpConfirm);
+    if (ok != true || !mounted) return false;
+    clearUrlConfirmed = config.url;
+    return true;
+  }
+
   Future<void> _test() async {
     if (!formKey.currentState!.validate()) return;
+    if (!await _confirmClearUrl()) return;
     setState(() => testing = true);
     final result = await widget.repository.testConnection(_config, password.text);
     if (!mounted) return;
@@ -112,6 +128,7 @@ class _WebdavSettingsDialogState extends State<_WebdavSettingsDialog> {
 
   Future<void> _save() async {
     if (!formKey.currentState!.validate()) return;
+    if (!await _confirmClearUrl()) return;
     setState(() => saving = true);
     final store = widget.repository.store;
     try {

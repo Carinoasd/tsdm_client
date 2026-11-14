@@ -841,6 +841,7 @@
         "password": "Password",
         "directory": "Directory",
         "invalidUrl": "Enter a URL starting with http:// or https://",
+        "plainHttpConfirm": "This address is not encrypted, the username and password are sent in plain text. Use it anyway?",
         "autoBackup": "Automatic backup",
         "schedule": {
           "off": "Off",

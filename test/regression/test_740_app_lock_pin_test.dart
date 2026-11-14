@@ -72,6 +72,9 @@ void main() {
 
   test('the cubit unlocks with the right PIN, counts wrong ones and keeps the count across a restart', () async {
     var now = DateTime(2026, 11, 9, 12);
+    // The monotonic clock goes on with the wall clock here: nobody sets the time.
+    final began = now;
+    Duration sinceBoot() => const Duration(hours: 1) + now.difference(began);
     final store = AppLockStore.memory();
     final setup = AppLockCubit(
       config: const AppLockConfig(),
@@ -79,6 +82,7 @@ void main() {
       biometrics: _NoBiometrics(),
       hasher: hasher,
       now: () => now,
+      sinceBoot: sinceBoot,
     );
     await setup.setPin('4321');
     await setup.pendingWrites;
@@ -93,6 +97,7 @@ void main() {
       biometrics: _NoBiometrics(),
       hasher: hasher,
       now: () => now,
+      sinceBoot: sinceBoot,
     );
 
     var cubit = AppLockCubit(
@@ -101,6 +106,7 @@ void main() {
       biometrics: _NoBiometrics(),
       hasher: hasher,
       now: () => now,
+      sinceBoot: sinceBoot,
     );
     expect(cubit.state.locked, isTrue, reason: 'a start with the lock on is locked');
     for (var i = 1; i <= 4; i++) {
@@ -118,7 +124,14 @@ void main() {
     // A restart does not reset the count.
     final saved = await store.load();
     expect(saved.failedAttempts, 5);
-    cubit = AppLockCubit(config: saved, store: store, biometrics: _NoBiometrics(), hasher: hasher, now: () => now);
+    cubit = AppLockCubit(
+      config: saved,
+      store: store,
+      biometrics: _NoBiometrics(),
+      hasher: hasher,
+      now: () => now,
+      sinceBoot: sinceBoot,
+    );
     expect(cubit.lockedOutUntil, isNotNull);
     now = now.add(const Duration(seconds: 31));
     expect(cubit.lockedOutUntil, isNull);
@@ -147,6 +160,7 @@ void main() {
       biometrics: _NoBiometrics(),
       hasher: hasher,
       now: () => now,
+      sinceBoot: () => const Duration(hours: 1),
     );
     expect(cubit.lockedOutUntil, now.add(const Duration(seconds: 30)));
     await cubit.close();

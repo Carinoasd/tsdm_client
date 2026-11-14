@@ -30,6 +30,9 @@ enum BackupProblem {
 
   /// The backup was written by a newer app with a newer schema; this app can not migrate it.
   newerSchema,
+
+  /// The file holds schema objects this app never creates: triggers, views, virtual tables or unknown tables.
+  unexpectedObjects,
 }
 
 /// Result of checking a backup file.
@@ -170,6 +173,66 @@ final class BackupRepository with LoggerMixin {
   /// Tables that must exist in every backup this app can import (present since schema version 1).
   static const requiredTables = ['settings', 'cookie', 'image_cache'];
 
+  /// Every table any schema version of this app creates, plus [secretsTable]. A backup holding any other table, or
+  /// any trigger or view, is refused ([BackupProblem.unexpectedObjects]): a trigger would run inside this app on the
+  /// next write (writing the account logins back into a later export without them), a view would pose as a table.
+  static const Set<String> knownTables = {
+    'avatar_history',
+    'broadcast_message',
+    'cookie',
+    'custom_image',
+    'fast_rate_template',
+    'fast_reply_template',
+    'image_cache',
+    'notice',
+    'offline_thread',
+    'personal_message',
+    'read_later',
+    'reading_time',
+    'replied_thread',
+    'settings',
+    'thread_visit_history',
+    'user_avatar',
+    secretsTable,
+  };
+
+  /// Tables sqlite itself creates (`AUTOINCREMENT` counters, `ANALYZE` statistics).
+  static const _sqliteTables = {'sqlite_sequence', 'sqlite_stat1', 'sqlite_stat2', 'sqlite_stat3', 'sqlite_stat4'};
+
+  /// What in the schema of [db] this app does not create, null when nothing: see [knownTables]. Only tables (of
+  /// [knownTables], not virtual) and indexes on them pass, automatic indexes included.
+  static String? unexpectedSchemaObject(Database db) {
+    final rows = db.select('SELECT type, name, tbl_name, sql FROM sqlite_master');
+    for (final row in rows) {
+      final type = row['type']?.toString();
+      final name = row['name']?.toString() ?? '';
+      final table = row['tbl_name']?.toString() ?? '';
+      final sql = (row['sql']?.toString() ?? '').replaceAll(RegExp(r'\s+'), ' ').trim().toUpperCase();
+      final bool ok;
+      switch (type) {
+        case 'table':
+          ok = (knownTables.contains(name) || _sqliteTables.contains(name)) && !sql.startsWith('CREATE VIRTUAL ');
+        case 'index':
+          ok = knownTables.contains(table) || _sqliteTables.contains(table);
+        default:
+          ok = false;
+      }
+      if (!ok) {
+        return '$type $name';
+      }
+    }
+    return null;
+  }
+
+  /// Drop every trigger and view of [db]: this app creates none, a copy for export must not run any.
+  static void dropTriggersAndViews(Database db) {
+    final objects = db.select("SELECT type, name FROM sqlite_master WHERE type IN ('trigger', 'view')");
+    for (final row in objects) {
+      final quoted = '"${row['name'].toString().replaceAll('"', '""')}"';
+      db.execute('DROP ${row['type'] == 'view' ? 'VIEW' : 'TRIGGER'} IF EXISTS $quoted');
+    }
+  }
+
   /// Columns of the settings table this app reads (present since schema version 1).
   static const requiredSettingsColumns = ['name', 'int_value', 'string_value', 'bool_value'];
 
@@ -218,6 +281,8 @@ final class BackupRepository with LoggerMixin {
       final exported = sqlite3.open(copy.path);
       var accounts = 0;
       try {
+        // Before any write: a trigger (from a backup imported by an older version) would run on it.
+        dropTriggersAndViews(exported);
         final password = secretsPassword;
         final payload = password == null ? null : readCredentials(exported);
         stripCredentials(exported);
@@ -244,7 +309,7 @@ final class BackupRepository with LoggerMixin {
     }
   }
 
-  /// Copy [databaseFile] into the new file [copy] as `VACUUM INTO` does (every table, index and trigger, the rows, the
+  /// Copy [databaseFile] into the new file [copy] as `VACUUM INTO` does (every table and index, the rows, the
   /// autoincrement counters and the schema version), except the rows of [offlineCopyTables]: those tables are created
   /// empty, their rows (large, the forum pages of every account) are never written to the copy at all.
   ///
@@ -283,7 +348,7 @@ final class BackupRepository with LoggerMixin {
       try {
         final objects = db.select(
           "SELECT type, name, sql FROM src.sqlite_master WHERE sql IS NOT NULL AND name NOT LIKE 'sqlite_%' "
-          "ORDER BY CASE type WHEN 'table' THEN 0 WHEN 'index' THEN 1 ELSE 2 END, rowid",
+          "AND type IN ('table', 'index') ORDER BY CASE type WHEN 'table' THEN 0 ELSE 1 END, rowid",
         );
         for (final row in objects) {
           final name = row['name'] as String;
@@ -570,7 +635,8 @@ final class BackupRepository with LoggerMixin {
   ///
   /// The file is opened read-only and never modified. It passes when it is a SQLite database, `PRAGMA integrity_check`
   /// answers `ok`, the schema version is between 1 and [currentSchemaVersion] (older versions are migrated by the app on
-  /// the next start, newer ones can not be) and the tables and columns this app relies on exist.
+  /// the next start, newer ones can not be), the schema holds nothing this app does not create
+  /// ([unexpectedSchemaObject]) and the tables and columns this app relies on exist.
   Future<BackupValidation> validate(File file, {required int currentSchemaVersion}) async {
     final List<int> head;
     try {
@@ -622,6 +688,10 @@ final class BackupRepository with LoggerMixin {
       if (missingColumns.isNotEmpty) {
         return BackupValidation.failed(BackupProblem.missingTables, 'settings columns: ${missingColumns.join(', ')}');
       }
+      final unexpected = unexpectedSchemaObject(db);
+      if (unexpected != null) {
+        return BackupValidation.failed(BackupProblem.unexpectedObjects, unexpected);
+      }
       return BackupValidation.ok(version);
     } on SqliteException catch (e) {
       return BackupValidation.failed(BackupProblem.corrupted, e.message);
@@ -634,13 +704,16 @@ final class BackupRepository with LoggerMixin {
   ///
   /// The caller must have closed the database connection. Steps:
   ///
-  /// 1. [validate] the source; an invalid file changes nothing ([BackupInvalidException]).
-  /// 2. Prepare an import copy of the source with credentials and cache path records removed.
+  /// 1. Copy the source next to [target] and [validate] that copy (the checked file is the one installed, a source
+  ///    changed meanwhile can not slip through); an invalid file changes nothing ([BackupInvalidException]).
+  /// 2. Remove credentials and cache path records from the import copy.
   /// 3. Copy the current database to `target.bak` and remove stale journal files.
   /// 4. Move the import copy into place and [validate] the result (plus [verify], if given).
   /// 5. When step 4 fails, put the copy from step 3 back ([BackupReplaceException] with `restored: true`).
   ///
-  /// The `.bak` copy is kept after a successful import as a last resort.
+  /// The `.bak` copy holds the logins of the replaced database: it is deleted once the import succeeded or the
+  /// previous database is back in place, and kept only when putting it back failed (it is then the only copy left;
+  /// [deleteLeftovers] removes it on a later start once a database is in place).
   ///
   /// [secrets], obtained with [unlockSecrets], are written back into the import copy in step 2 so the accounts are
   /// logged in after the import; [secretsTable] is dropped from the copy either way.
@@ -651,16 +724,24 @@ final class BackupRepository with LoggerMixin {
     Future<bool> Function(File replaced)? verify,
     BackupSecretsPayload? secrets,
   }) async {
-    final check = await validate(source, currentSchemaVersion: currentSchemaVersion);
-    if (!check.ok) {
-      warning('refuse to import backup: $check');
-      throw BackupInvalidException(check);
-    }
-
-    final importCopy = File('${target.path}.import.tmp');
+    final importCopy = File('${target.path}$importSuffix');
     final previous = File('${target.path}$backupSuffix');
+    // Until the import copy is moved into place the database is untouched: nothing to put back.
+    var replaced = false;
     try {
-      await source.copy(importCopy.path);
+      try {
+        await source.copy(importCopy.path);
+      } on FileSystemException catch (e) {
+        final failed = BackupValidation.failed(BackupProblem.unreadable, e.message);
+        warning('refuse to import backup: $failed');
+        throw BackupInvalidException(failed);
+      }
+      final check = await validate(importCopy, currentSchemaVersion: currentSchemaVersion);
+      if (!check.ok) {
+        warning('refuse to import backup: $check');
+        throw BackupInvalidException(check);
+      }
+
       final db = sqlite3.open(importCopy.path);
       try {
         stripCredentials(db);
@@ -687,6 +768,7 @@ final class BackupRepository with LoggerMixin {
           await stale.delete();
         }
       }
+      replaced = true;
       await importCopy.rename(target.path);
 
       final result = await validate(target, currentSchemaVersion: currentSchemaVersion);
@@ -696,25 +778,72 @@ final class BackupRepository with LoggerMixin {
         error('imported database failed verification ($result), restored=$restored');
         throw BackupReplaceException('verification failed: $result', restored: restored);
       }
-      info('imported database backup (schema v${result.schemaVersion}), previous copy kept at ${previous.path}');
+      await _deleteQuietly(previous);
+      info('imported database backup (schema v${result.schemaVersion})');
       return result;
     } on FileSystemException catch (e) {
-      final restored = await _restore(previous, target);
+      final restored = replaced ? await _restore(previous, target) : target.existsSync();
+      if (!replaced) {
+        await _deleteQuietly(previous);
+      }
       error('failed to replace database: $e, restored=$restored');
       throw BackupReplaceException(e.message, restored: restored);
     } finally {
-      if (importCopy.existsSync()) {
-        await importCopy.delete();
-      }
+      await _deleteQuietly(importCopy);
     }
   }
 
+  /// Suffix of the copy of a backup being prepared for import next to the database.
+  static const importSuffix = '.import.tmp';
+
+  /// Delete what an import or export interrupted by the end of the app left next to [databaseFile]: the copy of the
+  /// replaced database (`.bak`, it holds the logins of then), the import copy and export copies. The `.bak` copy
+  /// stays while there is no database to fall back from. Never throws.
+  static Future<void> deleteLeftovers(File databaseFile) async {
+    try {
+      final dir = databaseFile.parent;
+      if (!dir.existsSync()) {
+        return;
+      }
+      final base = databaseFile.uri.pathSegments.last;
+      final exportPrefix = '$base.export-';
+      await for (final entity in dir.list(followLinks: false)) {
+        if (entity is! File) {
+          continue;
+        }
+        final name = entity.uri.pathSegments.last;
+        final leftover =
+            name == '$base$importSuffix' ||
+            (name.startsWith(exportPrefix) && name.endsWith('.tmp')) ||
+            (name == '$base$backupSuffix' && databaseFile.existsSync());
+        if (leftover) {
+          await _deleteQuietly(entity);
+          talker.info('backup: deleted the leftover $name');
+        }
+      }
+    } on Object catch (e) {
+      talker.warning('backup: can not delete leftovers: $e');
+    }
+  }
+
+  static Future<void> _deleteQuietly(File file) async {
+    try {
+      if (file.existsSync()) {
+        await file.delete();
+      }
+    } on FileSystemException catch (e) {
+      talker.warning('backup: can not delete ${file.path}: $e');
+    }
+  }
+
+  /// Put [previous] back as [target] and delete it; false (and [previous] kept) when that failed.
   Future<bool> _restore(File previous, File target) async {
     if (!previous.existsSync()) {
       return false;
     }
     try {
       await previous.copy(target.path);
+      await _deleteQuietly(previous);
       return true;
     } on FileSystemException catch (e) {
       error('failed to restore previous database: $e');

@@ -23,6 +23,7 @@ import 'package:tsdm_client/features/local_notice/callback.dart';
 import 'package:tsdm_client/features/local_notice/direct_reply_entry.dart';
 import 'package:tsdm_client/features/local_notice/opt_in_notifications.dart';
 import 'package:tsdm_client/features/local_notice/show.dart';
+import 'package:tsdm_client/features/settings/repositories/backup_repository.dart';
 import 'package:tsdm_client/features/settings/repositories/custom_font_store.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/features/settings/repositories/webdav_backup_repository.dart';
@@ -67,6 +68,8 @@ Future<void> _boot(List<String> args) async {
 
   talker.debug('------------------- start app $appFullVersion -------------------');
   listenAndroidWindowEvents();
+  // A copy of the database an import left (it holds the logins of then), before the database is opened.
+  await BackupRepository.deleteLeftovers(await databaseFile);
   await initProviders();
   // Whether anything was stored before this start, read before anything else writes: tells a new install from an update.
   final whatsNew = WhatsNewController.forApp(getIt.get<StorageProvider>());

@@ -841,6 +841,7 @@
         "password": "密码",
         "directory": "目录",
         "invalidUrl": "请填写 http:// 或 https:// 开头的地址",
+        "plainHttpConfirm": "此地址未加密，账号和密码会以明文发送，仍要使用吗？",
         "autoBackup": "自动备份",
         "schedule": {
           "off": "关闭",

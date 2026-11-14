@@ -841,6 +841,7 @@
         "password": "密碼",
         "directory": "目錄",
         "invalidUrl": "請填寫 http:// 或 https:// 開頭的網址",
+        "plainHttpConfirm": "此網址未加密，帳號和密碼會以明文傳送，仍要使用嗎？",
         "autoBackup": "自動備份",
         "schedule": {
           "off": "關閉",

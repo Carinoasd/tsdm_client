@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer' show Timeline;
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -8,29 +9,56 @@ import 'package:tsdm_client/features/app_lock/repository/biometric_authenticator
 import 'package:tsdm_client/features/app_lock/repository/pin_hasher.dart';
 import 'package:tsdm_client/utils/logger.dart';
 
+/// Time since the device started, on a clock that can not be set by hand (the wall clock can): what the waits of the
+/// app lock are counted on. The same clock for every process of one start of the device.
+Duration appLockSinceBoot() => Duration(microseconds: Timeline.now);
+
 /// When the app locks after leaving the screen, apart from the widgets so it can be tested with a fake clock.
 ///
 /// Only [AppLifecycleState.hidden] and [AppLifecycleState.paused] (and detached) count as leaving: losing the focus
 /// ([AppLifecycleState.inactive]) does not, the system biometric prompt itself makes the app inactive.
+///
+/// The time away is read on both the wall clock and the monotonic one ([appLockSinceBoot]): the wall clock goes on
+/// while the device sleeps, the monotonic one can not be set by hand. Either reaching the delay locks, and so does the
+/// wall clock going back (set back while away, the time away can not be told).
 final class AppLockTimer {
   DateTime? _leftAt;
+  Duration? _leftSinceBoot;
 
   /// When the app left the screen, null while it is on it.
   DateTime? get leftAt => _leftAt;
 
-  /// The app left the screen at [now]; a second call before [returned] keeps the first time (the way back passes
-  /// through hidden again).
-  void left(DateTime now) => _leftAt ??= now;
+  /// The app left the screen at [now] ([sinceBoot] on the monotonic clock); a second call before [returned] keeps the
+  /// first time (the way back passes through hidden again).
+  void left(DateTime now, {Duration? sinceBoot}) {
+    if (_leftAt != null) {
+      return;
+    }
+    _leftAt = now;
+    _leftSinceBoot = sinceBoot;
+  }
 
-  /// The app is back on the screen at [now]: whether it was away for [timing] or longer. Forgets the time it left.
-  bool returned(DateTime now, AppLockTiming timing) {
+  /// The app is back on the screen at [now] ([sinceBoot] on the monotonic clock): whether it was away for [timing]
+  /// or longer. Forgets the time it left.
+  bool returned(DateTime now, AppLockTiming timing, {Duration? sinceBoot}) {
     final at = _leftAt;
-    _leftAt = null;
-    return at != null && !now.difference(at).isNegative && now.difference(at) >= timing.delay;
+    final atSinceBoot = _leftSinceBoot;
+    reset();
+    if (at == null) {
+      return false;
+    }
+    final away = now.difference(at);
+    if (away.isNegative || away >= timing.delay) {
+      return true;
+    }
+    return atSinceBoot != null && sinceBoot != null && sinceBoot - atSinceBoot >= timing.delay;
   }
 
   /// Forget the time the app left.
-  void reset() => _leftAt = null;
+  void reset() {
+    _leftAt = null;
+    _leftSinceBoot = null;
+  }
 }
 
 /// State of the app lock.
@@ -91,28 +119,96 @@ final class AppLockState {
 
 /// The app lock: its settings, whether the app is locked, and unlocking with the PIN or the system unlock.
 final class AppLockCubit extends Cubit<AppLockState> with LoggerMixin {
-  /// Constructor; the app starts locked when [config] has the lock on.
-  AppLockCubit({
+  /// Constructor; the app starts locked when [config] has the lock on. [now] is the wall clock, [sinceBoot] the
+  /// monotonic one ([appLockSinceBoot]); tests replace both.
+  factory AppLockCubit({
     required AppLockConfig config,
     required AppLockStore store,
     required BiometricAuthenticator biometrics,
     PinHasher hasher = const PinHasher(),
     DateTime Function()? now,
+    Duration Function()? sinceBoot,
+  }) {
+    final wall = now ?? DateTime.now;
+    final monotonic = sinceBoot ?? appLockSinceBoot;
+    final resumed = resumeLockout(config, now: wall(), sinceBoot: monotonic());
+    return AppLockCubit._(
+      resumed.config,
+      resumed.endsAt,
+      store: store,
+      biometrics: biometrics,
+      hasher: hasher,
+      now: wall,
+      sinceBoot: monotonic,
+    );
+  }
+
+  AppLockCubit._(
+    AppLockConfig config,
+    this._lockoutEndsAt, {
+    required AppLockStore store,
+    required BiometricAuthenticator biometrics,
+    required PinHasher hasher,
+    required DateTime Function() now,
+    required Duration Function() sinceBoot,
   }) : _store = store,
        _biometrics = biometrics,
        _hasher = hasher,
-       _now = now ?? DateTime.now,
-       super(AppLockState(config: _boundLockout(config, (now ?? DateTime.now)()), locked: config.enabled));
+       _now = now,
+       _sinceBoot = sinceBoot,
+       super(AppLockState(config: config, locked: config.enabled));
 
-  /// A wait saved longer than the one of its count of wrong PINs (the clock went back, by hand or by a correction)
-  /// is cut to that, counted from [now]: it must not keep the PIN pad closed for days.
-  static AppLockConfig _boundLockout(AppLockConfig config, DateTime now) {
+  /// The wait after too many wrong PINs saved in [config], carried into this run of the app: the settings to start
+  /// with and when, on the monotonic clock, the wait ends (null: no wait).
+  ///
+  /// The wait is counted on the monotonic clock, which setting the time of the device does not move. Within one start
+  /// of the device the clock saved with the wait ([AppLockConfig.lockedOutSinceBoot]) tells how long it ran. After
+  /// the device restarted only the wall clock is left: when it went back, or past the whole wait (a clock set
+  /// forward can not be told from time that really passed), the whole wait begins again. A file of an older version
+  /// (no monotonic time saved) keeps its wall clock wait, cut to the length of its count.
+  @visibleForTesting
+  static ({AppLockConfig config, Duration? endsAt}) resumeLockout(
+    AppLockConfig config, {
+    required DateTime now,
+    required Duration sinceBoot,
+  }) {
     final until = config.lockedOutUntil;
-    final allowed = appLockLockoutFor(config.failedAttempts) ?? Duration.zero;
-    if (until == null || until.difference(now) <= allowed) {
-      return config;
+    if (until == null) {
+      return (config: config, endsAt: null);
     }
-    return config.copyWith(lockedOutUntil: now.add(allowed));
+    final wait = appLockLockoutFor(config.failedAttempts);
+    if (wait == null) {
+      return (config: config.copyWith(clearLockout: true), endsAt: null);
+    }
+    final startedSinceBoot = config.lockedOutSinceBoot;
+    if (startedSinceBoot != null && sinceBoot >= startedSinceBoot) {
+      final ends = startedSinceBoot + wait;
+      return (config: config, endsAt: sinceBoot < ends ? ends : null);
+    }
+    final at = config.lockedOutAt ?? until.subtract(wait);
+    final away = now.difference(at);
+    final Duration ran;
+    if (away.isNegative) {
+      ran = Duration.zero;
+    } else if (away < wait) {
+      ran = away;
+    } else if (startedSinceBoot == null) {
+      // An older version's file whose wait is over.
+      return (config: config, endsAt: null);
+    } else {
+      ran = Duration.zero;
+    }
+    final anchor = sinceBoot - ran;
+    final start = anchor.isNegative ? Duration.zero : anchor;
+    final left = start + wait - sinceBoot;
+    return (
+      config: config.copyWith(
+        lockedOutUntil: now.add(left),
+        lockedOutAt: now.subtract(sinceBoot - start),
+        lockedOutSinceBoot: start,
+      ),
+      endsAt: start + wait,
+    );
   }
 
   /// The clock of the lock (tests replace it).
@@ -123,6 +219,8 @@ final class AppLockCubit extends Cubit<AppLockState> with LoggerMixin {
     AppLockStore? store,
     BiometricAuthenticator? biometrics,
     PinHasher hasher = const PinHasher(),
+    DateTime Function()? now,
+    Duration Function()? sinceBoot,
   }) async {
     final s = store ?? AppLockStore();
     final saved = await s.load();
@@ -131,9 +229,12 @@ final class AppLockCubit extends Cubit<AppLockState> with LoggerMixin {
       store: s,
       biometrics: biometrics ?? LocalBiometricAuthenticator(),
       hasher: hasher,
+      now: now,
+      sinceBoot: sinceBoot,
     );
-    if (cubit.state.config.lockedOutUntil != saved.lockedOutUntil) {
-      // Cut to its count: the next start must not wait the whole time again.
+    if (cubit.state.config.lockedOutUntil != saved.lockedOutUntil ||
+        cubit.state.config.lockedOutSinceBoot != saved.lockedOutSinceBoot) {
+      // Carried into this start of the device: the next start of the app goes on from here.
       unawaited(cubit._save(cubit.state.config));
     }
     unawaited(cubit.refreshBiometricAvailability());
@@ -148,7 +249,11 @@ final class AppLockCubit extends Cubit<AppLockState> with LoggerMixin {
   final BiometricAuthenticator _biometrics;
   final PinHasher _hasher;
   final DateTime Function() _now;
+  final Duration Function() _sinceBoot;
   final _timer = AppLockTimer();
+
+  /// When the wait after too many wrong PINs ends on the monotonic clock, null when there is none.
+  Duration? _lockoutEndsAt;
 
   bool _authenticating = false;
   AppLifecycleState? _lifecycle;
@@ -205,7 +310,7 @@ final class AppLockCubit extends Cubit<AppLockState> with LoggerMixin {
       if (state.locked) {
         return;
       }
-      _timer.left(_now());
+      _timer.left(_now(), sinceBoot: _sinceBoot());
       if (state.config.timing == AppLockTiming.immediately) {
         // Covered before it is seen again, also in the app switcher where the system takes the picture later.
         _lock();
@@ -215,7 +320,7 @@ final class AppLockCubit extends Cubit<AppLockState> with LoggerMixin {
     if (lifecycle == AppLifecycleState.hidden || _timer.leftAt == null) {
       return;
     }
-    if (_timer.returned(_now(), state.config.timing) && !state.locked) {
+    if (_timer.returned(_now(), state.config.timing, sinceBoot: _sinceBoot()) && !state.locked) {
       _lock();
     }
     if (state.locked) {
@@ -236,10 +341,15 @@ final class AppLockCubit extends Cubit<AppLockState> with LoggerMixin {
     }
   }
 
-  /// When the PIN pad accepts a PIN again, null when it does now.
+  /// When the PIN pad accepts a PIN again, null when it does now. Counted on the monotonic clock: setting the time
+  /// of the device neither ends nor stretches the wait.
   DateTime? get lockedOutUntil {
-    final until = state.config.lockedOutUntil;
-    return until != null && until.isAfter(_now()) ? until : null;
+    final ends = _lockoutEndsAt;
+    if (ends == null) {
+      return null;
+    }
+    final left = ends - _sinceBoot();
+    return left > Duration.zero ? _now().add(left) : null;
   }
 
   /// Check [pin]; unlocks when it is the one set. False also while too many wrong ones wait ([lockedOutUntil]).
@@ -261,7 +371,22 @@ final class AppLockCubit extends Cubit<AppLockState> with LoggerMixin {
     final wait = appLockLockoutFor(failed);
     info('app lock: wrong PIN ($failed in a row)');
     emit(state.copyWith(checking: false, wrongPin: true));
-    await _save(state.config.copyWith(failedAttempts: failed, lockedOutUntil: wait == null ? null : _now().add(wait)));
+    if (wait == null) {
+      _lockoutEndsAt = null;
+      await _save(state.config.copyWith(failedAttempts: failed, clearLockout: true));
+      return false;
+    }
+    final now = _now();
+    final sinceBoot = _sinceBoot();
+    _lockoutEndsAt = sinceBoot + wait;
+    await _save(
+      state.config.copyWith(
+        failedAttempts: failed,
+        lockedOutUntil: now.add(wait),
+        lockedOutAt: now,
+        lockedOutSinceBoot: sinceBoot,
+      ),
+    );
     return false;
   }
 
@@ -289,6 +414,7 @@ final class AppLockCubit extends Cubit<AppLockState> with LoggerMixin {
   Future<void> _unlocked() async {
     info('app lock: unlocked');
     _unlockedAt = _now();
+    _lockoutEndsAt = null;
     _timer.reset();
     emit(state.copyWith(locked: false, verifying: false, checking: false, wrongPin: false));
     _completeVerification(true);
@@ -342,6 +468,7 @@ final class AppLockCubit extends Cubit<AppLockState> with LoggerMixin {
     final hash = await _hasher.hash(pin);
     final next = method ?? (state.config.enabled ? state.config.method : AppLockMethod.pin);
     _unlockedAt = _now();
+    _lockoutEndsAt = null;
     await _save(state.config.copyWith(method: next, pin: hash, failedAttempts: 0, clearLockout: true));
   }
 
@@ -363,6 +490,7 @@ final class AppLockCubit extends Cubit<AppLockState> with LoggerMixin {
   /// Turn the lock off and forget the PIN (also after "forgot PIN" removed every account).
   Future<void> disable() async {
     _timer.reset();
+    _lockoutEndsAt = null;
     emit(state.copyWith(locked: false, verifying: false, checking: false, wrongPin: false));
     // A switch waiting for the unlock: the accounts may be gone, it must not go on.
     _completeVerification(false);
