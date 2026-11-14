@@ -88,6 +88,55 @@ final class WebdavBackupConfig {
   /// Whether the server is set.
   bool get configured => baseUri != null;
 
+  /// Whether the password would cross the internet readable: plain `http://` to a host that is not this device or
+  /// the local network ([isLocalNetworkHost]). Such a server is asked to be confirmed before it is used.
+  bool get sendsPasswordInClear {
+    final uri = baseUri;
+    return uri != null && uri.isScheme('http') && !isLocalNetworkHost(uri.host);
+  }
+
+  /// Whether [host] is this device or on the local network: `localhost`, a name of one label (`nas`) or under
+  /// `.local`, `.lan`, `.home.arpa`, `.internal`, or a loopback, private, link-local or shared (CGNAT, the range of
+  /// overlay VPNs) address.
+  static bool isLocalNetworkHost(String host) {
+    var h = host.toLowerCase();
+    if (h.endsWith('.')) {
+      h = h.substring(0, h.length - 1);
+    }
+    if (h.startsWith('[') && h.endsWith(']')) {
+      h = h.substring(1, h.length - 1);
+    }
+    if (h.isEmpty) {
+      return false;
+    }
+    final address = InternetAddress.tryParse(h);
+    if (address == null) {
+      // A single label of digits (or hex) is read as an IPv4 address by the resolver: not a local name.
+      final numeric = RegExp(r'^(0x[0-9a-f]+|[0-9]+)$').hasMatch(h);
+      return h == 'localhost' ||
+          (!h.contains('.') && !numeric) ||
+          const ['.localhost', '.local', '.lan', '.home.arpa', '.internal'].any(h.endsWith);
+    }
+    final b = address.rawAddress;
+    if (address.type == InternetAddressType.IPv4) {
+      return b[0] == 127 ||
+          b[0] == 10 ||
+          (b[0] == 172 && b[1] >= 16 && b[1] <= 31) ||
+          (b[0] == 192 && b[1] == 168) ||
+          (b[0] == 169 && b[1] == 254) ||
+          (b[0] == 100 && b[1] >= 64 && b[1] <= 127);
+    }
+    if (address.isLoopback || address.isLinkLocal) {
+      return true;
+    }
+    // Unique local fc00::/7; an IPv4 mapped address (::ffff:a.b.c.d) as its IPv4 address.
+    if ((b[0] & 0xfe) == 0xfc) {
+      return true;
+    }
+    final mapped = b.sublist(0, 10).every((x) => x == 0) && b[10] == 0xff && b[11] == 0xff;
+    return mapped && isLocalNetworkHost(b.sublist(12).join('.'));
+  }
+
   /// Encode.
   Map<String, dynamic> toJson() => {
     'url': url,

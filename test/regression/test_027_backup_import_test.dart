@@ -50,7 +50,8 @@ void main() {
   }
 
   int count(Database d, String table) => d.select('SELECT count(*) AS c FROM $table').first['c'] as int;
-  List<String> settingNames(Database d) => d.select('SELECT name FROM settings').map((r) => r['name'] as String).toList();
+  List<String> settingNames(Database d) =>
+      d.select('SELECT name FROM settings').map((r) => r['name'] as String).toList();
 
   group('validate', () {
     test('accepts a database written by this app', () async {
@@ -100,7 +101,10 @@ void main() {
       sqlite3.open(file.path)
         ..userVersion = 0
         ..dispose();
-      expect((await repository.validate(file, currentSchemaVersion: schemaVersion)).problem, BackupProblem.invalidVersion);
+      expect(
+        (await repository.validate(file, currentSchemaVersion: schemaVersion)).problem,
+        BackupProblem.invalidVersion,
+      );
     });
   });
 
@@ -123,7 +127,11 @@ void main() {
       final source = await makeDatabase('${dir.path}/from-other-device.db', username: 'Bob', uid: 2000);
       final sourceBefore = source.readAsBytesSync();
 
-      final result = await repository.replaceDatabase(target: target, source: source, currentSchemaVersion: schemaVersion);
+      final result = await repository.replaceDatabase(
+        target: target,
+        source: source,
+        currentSchemaVersion: schemaVersion,
+      );
       expect(result.ok, isTrue);
       expect(result.schemaVersion, schemaVersion);
 
@@ -143,14 +151,8 @@ void main() {
       } finally {
         db.dispose();
       }
-      // The previous database is kept next to the new one, the source file is not modified.
-      final previous = sqlite3.open('${target.path}.bak', mode: OpenMode.readOnly);
-      try {
-        expect(count(previous, 'cookie'), 1);
-        expect(previous.select('SELECT thread_title FROM thread_visit_history').first['thread_title'], 'thread of Alice');
-      } finally {
-        previous.dispose();
-      }
+      // The copy of the previous database (with its logins) is not left behind, the source file is not modified.
+      expect(File('${target.path}.bak').existsSync(), isFalse);
       expect(source.readAsBytesSync(), sourceBefore);
       expect(File('${target.path}.import.tmp').existsSync(), isFalse);
 
