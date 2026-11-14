@@ -104,7 +104,7 @@ class _AttachmentDownloadsPageState extends State<AttachmentDownloadsPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(item.filename, maxLines: 2, overflow: TextOverflow.ellipsis, style: textTheme.titleSmall),
+                Text(item.shownName, maxLines: 2, overflow: TextOverflow.ellipsis, style: textTheme.titleSmall),
                 if (item.status.active) ...[
                   const SizedBox(height: 6),
                   LinearProgressIndicator(value: item.status == AttachmentDownloadStatus.queued ? null : item.progress),

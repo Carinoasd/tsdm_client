@@ -52,7 +52,7 @@ Future<void> downloadAttachment(BuildContext context, String url, {String? filen
     return;
   }
   final size = attachmentSizeOf(sizeText);
-  final typed = (filename ?? '').trim();
+  final typed = displayDownloadName(filename ?? '');
   final name = typed.isNotEmpty ? typed : 'attachment-${aidOfAttachmentUrl(absolute) ?? 0}';
   if (await attachmentDownloadNeedsConfirm(size)) {
     if (!context.mounted) {
@@ -140,7 +140,7 @@ class AttachmentDownloadView extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(item.filename, style: textTheme.titleMedium, maxLines: 3, overflow: TextOverflow.ellipsis),
+          Text(item.shownName, style: textTheme.titleMedium, maxLines: 3, overflow: TextOverflow.ellipsis),
           const SizedBox(height: 12),
           if (item.status.active) ...[
             LinearProgressIndicator(value: item.status == AttachmentDownloadStatus.queued ? null : item.progress),
@@ -313,7 +313,7 @@ Future<void> runAttachmentDownloadAction(
       if (path == null) {
         return;
       }
-      final saved = await saveDownloadedFileAs(path, item.filename);
+      final saved = await saveDownloadedFileAs(path, item.shownName);
       if (saved != null && context.mounted) {
         showSnackBar(
           context: context,
@@ -334,7 +334,7 @@ Future<void> runAttachmentDownloadAction(
       final ok = await showQuestionDialog(
         context: context,
         title: tr.deleteTitle,
-        message: tr.deleteMessage(name: item.filename),
+        message: tr.deleteMessage(name: item.shownName),
         dangerous: true,
       );
       if (ok ?? false) {

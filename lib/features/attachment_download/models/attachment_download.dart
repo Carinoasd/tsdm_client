@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:tsdm_client/features/attachment_download/utils/attachment_protocol.dart';
 
 /// Where a download of an attachment is.
 enum AttachmentDownloadStatus {
@@ -49,6 +50,10 @@ final class AttachmentDownload {
     this.resolvedUrl,
     this.resolvedAt,
   });
+
+  /// [filename] as shown: without the controls and the marks of the text direction ([displayDownloadName]), also for
+  /// the downloads an older version kept as the post named them.
+  String get shownName => displayDownloadName(filename);
 
   /// From what [toJson] wrote; null when [json] misses what a download needs.
   static AttachmentDownload? fromJson(Object? json) {

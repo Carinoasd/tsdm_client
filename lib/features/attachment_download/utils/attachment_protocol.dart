@@ -220,20 +220,52 @@ String? _absolute(String link, Uri base) {
   return uri == null ? null : '${base.resolveUri(uri)}';
 }
 
-/// The name a download is saved as: [name] without what a file name may not hold, at most 180 characters (the
-/// extension kept); [fallback] when nothing is left.
+/// What a file name may not hold unseen: the controls (C0, delete, C1), the marks of the text direction (U+061C,
+/// U+200E, U+200F, U+202A to U+202E, U+2066 to U+2069) that make `photo<U+202E>gpj.exe` read `photoexe.jpg`, and the
+/// characters of no width or blank (U+00AD, U+200B, U+2060 to U+2064, U+206A to U+206F, U+2800, U+3164, U+FEFF) that
+/// push the real extension out of sight. The joiners (U+200C, U+200D) stay: emoji are made of them.
+final _hiddenInNameRe = RegExp(
+  r'[\x00-\x1f\x7f-\x9f\xad\u061c\u200b\u200e\u200f\u202a-\u202e\u2060-\u2064\u2066-\u206f\u2800\u3164\ufeff]',
+);
+
+/// The names Windows keeps for its devices, whatever follows the first dot (`nul.tar.gz` is `NUL`).
+final _reservedNameRe = RegExp(
+  r'^(con|prn|aux|nul|com[0-9\u00b9\u00b2\u00b3]|lpt[0-9\u00b9\u00b2\u00b3]|conin\$|conout\$)$',
+  caseSensitive: false,
+);
+
+/// The name of a download as shown: [name] without the controls and the marks of the text direction, its spaces
+/// collapsed.
+String displayDownloadName(String name) => name.replaceAll(_hiddenInNameRe, '').replaceAll(RegExp(r'\s+'), ' ').trim();
+
+/// The name a download is saved as: [name] without the controls and the marks of the text direction, what a file name
+/// may not hold replaced, not one of the names Windows keeps, at most 180 characters (the extension kept); [fallback]
+/// when nothing is left.
 String safeDownloadFileName(String name, {required String fallback}) {
-  var cleaned = name.replaceAll(RegExp(r'[\x00-\x1f\x7f/\\:*?"<>|]'), '_').replaceAll(RegExp(r'\s+'), ' ').trim();
+  var cleaned = displayDownloadName(name).replaceAll(RegExp(r'[/\\:*?"<>|]'), '_');
   // A leading dot hides the file, trailing dots and spaces are dropped by Windows.
-  cleaned = cleaned.replaceFirst(RegExp(r'^\.+'), '').replaceFirst(RegExp(r'[. ]+$'), '');
+  String trimmed(String s) => s.replaceFirst(RegExp(r'^\.+'), '').replaceFirst(RegExp(r'[. ]+$'), '');
+  cleaned = trimmed(cleaned);
   if (cleaned.isEmpty || cleaned == '.' || cleaned == '..') {
     return fallback;
+  }
+  final dot = cleaned.indexOf('.');
+  if (_reservedNameRe.hasMatch((dot < 0 ? cleaned : cleaned.substring(0, dot)).trimRight())) {
+    cleaned = '_$cleaned';
   }
   const max = 180;
   if (cleaned.length > max) {
     final dot = cleaned.lastIndexOf('.');
     final ext = dot > 0 && cleaned.length - dot <= 16 ? cleaned.substring(dot) : '';
-    cleaned = cleaned.substring(0, max - ext.length) + ext;
+    var end = max - ext.length;
+    // Not between the two halves of a character.
+    if (end > 0 && (cleaned.codeUnitAt(end - 1) & 0xfc00) == 0xd800) {
+      end--;
+    }
+    cleaned = trimmed(cleaned.substring(0, end)) + ext;
+    if (cleaned.isEmpty) {
+      return fallback;
+    }
   }
   return cleaned;
 }

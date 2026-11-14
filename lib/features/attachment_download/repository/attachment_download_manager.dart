@@ -172,11 +172,12 @@ final class AttachmentDownloadManager extends ChangeNotifier with LoggerMixin {
       return again;
     }
     final now = _now();
+    final shownName = displayDownloadName(filename);
     final item = AttachmentDownload(
       id: '${now.microsecondsSinceEpoch}-${_seq++}',
       uid: uid,
       url: target,
-      filename: filename,
+      filename: shownName.isEmpty ? 'attachment-${aid ?? 0}' : shownName,
       createdAt: now,
       size: size,
       tid: tid ?? tidOfAttachmentUrl(target),
@@ -513,7 +514,10 @@ final class AttachmentDownloadManager extends ChangeNotifier with LoggerMixin {
       if (isFileDisposition(answer.disposition)) {
         return item.copyWith(
           status: AttachmentDownloadStatus.completed,
-          filename: filenameOfContentDisposition(answer.disposition) ?? item.filename,
+          filename: switch (displayDownloadName(filenameOfContentDisposition(answer.disposition) ?? '')) {
+            '' => item.filename,
+            final name => name,
+          },
           received: length,
           total: length,
         );

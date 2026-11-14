@@ -108,10 +108,43 @@ String formatDownloadSize(int bytes) {
 /// Whether a downloaded file can be shared as a file here: the share sheet of Linux only takes text.
 bool get canShareDownloadedFile => !kIsWeb && !Platform.isLinux;
 
+/// The extensions of the files the shell of a desktop runs rather than opens: programs, scripts, shortcuts, installers
+/// and disk images of Windows, macOS and Linux. Kept together for all three (a program of one system runs on another
+/// through Wine, a script opens in a terminal). Lower case, without the dot.
+const desktopProgramExtensions = <String>{
+  // Windows: programs, installers, scripts, shortcuts, disk images that mount on a double click.
+  'exe', 'com', 'scr', 'pif', 'cpl', 'msc', 'gadget', 'xll',
+  'msi', 'msp', 'msu', 'msix', 'msixbundle', 'appx', 'appxbundle', 'appinstaller', 'application', 'appref-ms',
+  'bat', 'cmd', 'ps1', 'psm1', 'vb', 'vbs', 'vbe', 'js', 'jse', 'ws', 'wsf', 'wsh', 'wsc', 'sct', 'hta', 'py', 'pyw',
+  'jar', 'jnlp', 'lnk', 'url', 'website', 'scf', 'rdp', 'library-ms', 'search-ms', 'searchconnector-ms',
+  'settingcontent-ms', 'reg', 'inf', 'chm', 'diagcab', 'iso', 'img', 'vhd', 'vhdx',
+  // macOS.
+  'app', 'command', 'pkg', 'mpkg', 'dmg', 'scpt', 'scptd', 'applescript', 'terminal', 'workflow', 'action',
+  'shortcut', 'mobileconfig', 'fileloc', 'inetloc', 'webloc',
+  // Linux.
+  'desktop', 'sh', 'run', 'appimage', 'deb', 'rpm', 'flatpakref',
+};
+
+/// Whether the file [name] (or path) is one the shell of a desktop runs ([desktopProgramExtensions]): its last
+/// extension, whatever its case, the trailing dots and spaces Windows drops ignored.
+bool runsAsProgram(String name) {
+  final base = name.split(RegExp(r'[/\\]')).last.replaceFirst(RegExp(r'[\s.]+$'), '');
+  final dot = base.lastIndexOf('.');
+  return dot >= 0 && desktopProgramExtensions.contains(base.substring(dot + 1).toLowerCase());
+}
+
 /// Hand the downloaded file at [path] to the system: the app that opens its type (Android asks which one; when no app
-/// takes it, or on iOS, the share sheet is shown instead), the default app of the desktop. [origin] is where the share
-/// sheet points from on a tablet. Returns whether something was opened.
-Future<bool> openDownloadedFile(String path, {Rect? origin}) async {
+/// takes it, or on iOS, the share sheet is shown instead), the default app of the desktop. A file the desktop would run
+/// ([runsAsProgram]) is shown in the file manager instead ([revealDownloadedFile]). [origin] is where the share sheet
+/// points from on a tablet. Returns whether something was opened.
+///
+/// [launch] and [reveal] stand for the system in tests.
+Future<bool> openDownloadedFile(
+  String path, {
+  Rect? origin,
+  @visibleForTesting Future<bool> Function(Uri uri)? launch,
+  @visibleForTesting Future<bool> Function(String path)? reveal,
+}) async {
   if (!File(path).existsSync()) {
     return false;
   }
@@ -128,11 +161,91 @@ Future<bool> openDownloadedFile(String path, {Rect? origin}) async {
   if (isIOS) {
     return shareDownloadedFile(path, origin: origin);
   }
-  return launchUrl(Uri.file(path));
+  if (runsAsProgram(path)) {
+    return (reveal ?? revealDownloadedFile)(path);
+  }
+  return (launch ?? launchUrl)(Uri.file(path));
 }
 
-/// Show the folder holding the downloaded file at [path] (desktop).
-Future<bool> showDownloadedFileFolder(String path) async => launchUrl(Uri.directory(p.dirname(path)));
+/// The desktop systems, for [revealDownloadedFile].
+enum DesktopSystem {
+  /// Windows.
+  windows,
+
+  /// macOS.
+  macos,
+
+  /// Linux.
+  linux,
+}
+
+DesktopSystem get _currentDesktopSystem => Platform.isWindows
+    ? DesktopSystem.windows
+    : Platform.isMacOS
+    ? DesktopSystem.macos
+    : DesktopSystem.linux;
+
+Future<int> _runProcess(String executable, List<String> arguments) async =>
+    (await Process.run(executable, arguments)).exitCode;
+
+/// Show the downloaded file at [path] selected in the file manager (desktop): Explorer, Finder, the file manager of
+/// the Linux desktop (`org.freedesktop.FileManager1`). When that cannot be done its folder is opened; the file itself
+/// is never handed to the shell. Returns whether something was shown.
+///
+/// [system], [run] and [launch] stand for the system in tests.
+Future<bool> revealDownloadedFile(
+  String path, {
+  @visibleForTesting DesktopSystem? system,
+  @visibleForTesting Future<int> Function(String executable, List<String> arguments)? run,
+  @visibleForTesting Future<bool> Function(Uri uri)? launch,
+}) async {
+  final os = system ?? _currentDesktopSystem;
+  final runner = run ?? _runProcess;
+  final windows = os == DesktopSystem.windows;
+  try {
+    switch (os) {
+      case DesktopSystem.windows:
+        // Explorer splits what it is given at a comma: a path with one is quoted only when it holds a space too.
+        if (path.contains(',') && !path.contains(' ')) {
+          break;
+        }
+        // By its full path: a bare name is looked for in the working folder first.
+        final root = Platform.environment['SystemRoot'] ?? Platform.environment['windir'] ?? r'C:\Windows';
+        // Explorer answers 1 when it did select the file: its exit code tells nothing.
+        await runner(p.windows.join(root, 'explorer.exe'), ['/select,', path]);
+        return true;
+      case DesktopSystem.macos:
+        if (await runner('/usr/bin/open', ['-R', path]) == 0) {
+          return true;
+        }
+      case DesktopSystem.linux:
+        // `dbus-send` splits an array at its commas.
+        final item = Uri.file(path, windows: false).toString().replaceAll(',', '%2C');
+        final code = await runner('dbus-send', [
+          '--session',
+          '--print-reply',
+          // A file manager slow to start: its folder instead of a button doing nothing for 25 seconds.
+          '--reply-timeout=3000',
+          '--dest=org.freedesktop.FileManager1',
+          '--type=method_call',
+          '/org/freedesktop/FileManager1',
+          'org.freedesktop.FileManager1.ShowItems',
+          'array:string:$item',
+          'string:',
+        ]);
+        if (code == 0) {
+          return true;
+        }
+    }
+  } on Object catch (e) {
+    talker.warning('failed to show the downloaded file in its folder: $e');
+  }
+  final context = windows ? p.windows : p.posix;
+  return (launch ?? launchUrl)(Uri.directory(context.dirname(path), windows: windows));
+}
+
+/// Show the downloaded file at [path] in its folder (desktop), selected where the file manager can.
+Future<bool> showDownloadedFileFolder(String path) async => revealDownloadedFile(path);
 
 /// Share the downloaded file at [path] through the system's share sheet; [origin] is where it points from on a
 /// tablet. Returns whether the sheet was shown.
