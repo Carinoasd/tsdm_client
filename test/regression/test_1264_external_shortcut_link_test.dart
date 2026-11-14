@@ -114,6 +114,34 @@ void main() {
     });
   });
 
+  group('Android', () {
+    String read(String path) => File(path).readAsStringSync();
+    const kotlin = 'android/app/src/main/kotlin/kzs/th000/tsdm_client';
+
+    test('the launcher shortcuts go through the activity that is not exported', () {
+      final shortcuts = read('android/app/src/main/res/xml/shortcuts.xml');
+      expect(
+        RegExp(r'android:targetClass="kzs\.th000\.tsdm_client\.ShortcutActivity"').allMatches(shortcuts),
+        hasLength(AppShortcut.values.length),
+      );
+      expect(shortcuts, isNot(contains('android:targetClass="kzs.th000.tsdm_client.MainActivityImpl"')));
+      final manifest = read('android/app/src/main/AndroidManifest.xml');
+      final entry = RegExp(r'<activity\s+android:name="\.ShortcutActivity"[^>]*>').firstMatch(manifest)?.group(0);
+      expect(entry, isNotNull);
+      expect(entry, contains('android:exported="false"'));
+      expect(entry, isNot(contains('<intent-filter')));
+    });
+
+    test('the key goes with the forwarded shortcut and the widget, and decides id or link', () {
+      expect(read('$kotlin/ShortcutActivity.kt'), contains('.putExtra(ShortcutKey.EXTRA, ShortcutKey.of(context))'));
+      expect(read('$kotlin/HomeWidgetProvider.kt'), contains('.putExtra(ShortcutKey.EXTRA, ShortcutKey.of(context))'));
+      final handler = read('$kotlin/ShortcutsHandler.kt');
+      expect(handler, contains(r'sent == key) id else "$SCHEME://$HOST/$id"'));
+      expect(handler, contains('shortcutIdOf(intent, keyOf())'));
+      expect(read('$kotlin/MainActivity.kt'), contains('ShortcutsHandler { ShortcutKey.of(this) }'));
+    });
+  });
+
   group('iOS', () {
     String read(String path) => File(path).readAsStringSync();
 

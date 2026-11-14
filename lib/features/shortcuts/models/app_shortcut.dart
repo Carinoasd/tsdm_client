@@ -53,9 +53,10 @@ enum AppShortcut {
 
   /// The shortcut a native side handed over, and whether a link opened from outside the app asked for it.
   ///
-  /// An id is a shortcut of the app itself: a launcher shortcut or the widget (Android's `ShortcutsHandler`), a quick
-  /// action or a tap on the widget, its link signed (iOS `HomeWidgetBridge`). A link (`tsdm://shortcut/<id>`) is one
-  /// any web page or app may open (iOS registers the scheme): `external`.
+  /// An id is a shortcut of the app itself: a launcher shortcut or a tap on the widget, carrying the app's key
+  /// (Android's `ShortcutsHandler`, `ShortcutKey`), a quick action or a tap on the widget, its link signed (iOS
+  /// `HomeWidgetBridge`). A link (`tsdm://shortcut/<id>`) is one another app sent to the exported activity (Android) or
+  /// any web page or app opened (iOS registers the scheme): `external`.
   static AppShortcutRequest? requestOf(String? value) {
     if (fromId(value) case final shortcut?) {
       return (shortcut: shortcut, external: false);

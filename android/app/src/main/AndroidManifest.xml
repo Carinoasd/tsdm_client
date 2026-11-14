@@ -180,6 +180,15 @@
                 android:exported="false" />
         <!-- Text, links and images shared from other apps: this invisible activity forwards the share to MainActivityImpl
              in the app's own task (see ShareActivity.kt), which hands it to Dart over the shareReceive channel. -->
+        <!-- The target of the launcher shortcuts (res/xml/shortcuts.xml): not exported, it hands the shortcut to
+             MainActivityImpl with the app's ShortcutKey, so a tsdm://shortcut intent another app sends to the exported
+             activity only opens a page (ShortcutActivity.kt). -->
+        <activity
+                android:name=".ShortcutActivity"
+                android:exported="false"
+                android:excludeFromRecents="true"
+                android:noHistory="true"
+                android:theme="@android:style/Theme.NoDisplay" />
         <activity
                 android:name=".ShareActivity"
                 android:exported="true"
