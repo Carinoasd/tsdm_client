@@ -20,6 +20,7 @@ import 'package:tsdm_client/features/attachment_download/repository/attachment_d
 import 'package:tsdm_client/features/attachment_download/repository/attachment_download_store.dart';
 import 'package:tsdm_client/features/attachment_download/repository/attachment_fetcher.dart';
 import 'package:tsdm_client/features/attachment_download/utils/attachment_protocol.dart';
+import 'package:tsdm_client/features/audio_player/controller/audio_fetcher.dart';
 import 'package:tsdm_client/features/audio_player/utils/audio_attachment.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/utils/html/html_muncher.dart';
@@ -118,8 +119,26 @@ void main() {
       }
       expect(linkTapTargetOf('magnet:?xt=urn:btih:0123'), 'magnet:?xt=urn:btih:0123');
       expect(linkTapTargetOf('www.example.test:8080/a'), '$baseUrl/www.example.test:8080/a');
+      expect(linkTapTargetOf('//cdn.example.test/a.png'), 'https://cdn.example.test/a.png');
       expect(linkTapTargetOf('#pid1'), isNull);
       expect(linkTapTargetOf(' JavaScript:void(0)'), isNull);
+    });
+
+    test('an audio attachment follows its redirects one by one, the forum ones on the canonical host', () {
+      expect(nextAudioAttachmentHop(canonical, 200, null), isNull);
+      expect(nextAudioAttachmentHop(canonical, 302, null), isNull);
+      final forum = nextAudioAttachmentHop(
+        canonical,
+        302,
+        'http://tsdm39.com/forum.php?mod=attachment&aid=$token&ck=1',
+      );
+      expect(forum, '$canonical&ck=1');
+      expect(isCanonicalForumUrl(forum!), isTrue);
+      expect(nextAudioAttachmentHop(canonical, 302, 'forum.php?mod=attachment&aid=$token&ck=1'), '$canonical&ck=1');
+      // Anywhere else: as named, and not with the session.
+      final other = nextAudioAttachmentHop(canonical, 301, 'http://cdn.example.test/a.mp3');
+      expect(other, 'http://cdn.example.test/a.mp3');
+      expect(isCanonicalForumUrl(other!), isFalse);
     });
 
     test('an audio attachment: the same check, the canonical address', () {

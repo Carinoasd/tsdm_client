@@ -3306,7 +3306,11 @@ String? linkTapTargetOf(String href) {
   if (uri != null && uri.scheme.isNotEmpty && !uri.scheme.contains('.')) {
     return s;
   }
-  if (uri == null || uri.scheme.isNotEmpty || uri.hasAuthority) {
+  // A link without the scheme (`//host/path`) is over https.
+  if (uri != null && uri.scheme.isEmpty && uri.hasAuthority) {
+    return 'https:$s';
+  }
+  if (uri == null || uri.scheme.isNotEmpty) {
     return s.prependHost();
   }
   return '${Uri.parse('$baseUrl/').resolveUri(uri)}';
