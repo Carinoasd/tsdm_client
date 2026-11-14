@@ -11,8 +11,8 @@ import 'package:tsdm_client/features/open_in_app/utils/forum_link_in_text.dart';
 
 const _link = 'https://www.tsdm39.com/forum.php?mod=viewthread&tid=1';
 
-/// The median time, in microseconds, to find the link in [text] (of [runs] runs).
-int _medianMicros(String text, {int runs = 5}) {
+/// The shortest time, in microseconds, to find the link in [text] (of [runs] runs): noise only makes a run longer.
+int _minMicros(String text, {int runs = 5}) {
   final times = <int>[];
   for (var i = 0; i < runs; i++) {
     final watch = Stopwatch()..start();
@@ -20,7 +20,7 @@ int _medianMicros(String text, {int runs = 5}) {
     times.add(watch.elapsedMicroseconds);
   }
   times.sort();
-  return times[runs ~/ 2];
+  return times.first;
 }
 
 void main() {
@@ -46,11 +46,11 @@ void main() {
     const small = 2000;
     const large = small * 8;
     // Warm up: the first runs compile the code.
-    _medianMicros(closing(small));
-    _medianMicros(closing(large));
+    _minMicros(closing(small));
+    _minMicros(closing(large));
 
     expect(findForumLinkInText(closing(large))?.url, _link);
-    final ratio = _medianMicros(closing(large)) / _medianMicros(closing(small)).clamp(1, 1 << 62);
+    final ratio = _minMicros(closing(large)) / _minMicros(closing(small)).clamp(1, 1 << 62);
     // Eight times the text: about eight times the time when linear, sixty-four times when quadratic.
     expect(ratio, lessThan(24), reason: 'time ratio $ratio for 8x the input');
   });

@@ -7,6 +7,7 @@
 /// package tells no size before it decodes.
 library;
 
+import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
@@ -94,6 +95,11 @@ void main() {
       expect(() => avifDeclaredSize(broken), returnsNormally);
       // A box of size 0 to 7 (not even its header) ends the walk.
       expect(avifDeclaredSize(Uint8List.fromList([0, 0, 0, 1, ...'meta'.codeUnits, ...List.filled(32, 0)])), isNull);
+    });
+
+    test('of a real animated AVIF (the example of flutter_avif, an image sequence with a still image) is read', () {
+      final file = File('packages/flutter_avif/flutter_avif/example/assets/vettel.avif');
+      expect(avifDeclaredSize(file.readAsBytesSync()), (width: 370, height: 400));
     });
 
     test('is read from the boxes, not from bytes of the data looking like one', () {
