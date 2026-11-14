@@ -121,7 +121,7 @@ class _InAppBrowserPageState extends State<InAppBrowserPage> {
           linkActivated: action.navigationType == NavigationType.LINK_ACTIVATED,
         );
         if (byUser) {
-          unawaited(_launchOtherApp(controller, uri));
+          unawaited(_launchOtherApp(controller, uri, original: url.rawValue));
         }
         return NavigationActionPolicy.CANCEL;
     }
@@ -148,14 +148,15 @@ class _InAppBrowserPageState extends State<InAppBrowserPage> {
     });
   }
 
-  /// Open [uri], a link of another app ([externalLaunchOf]).
-  Future<void> _launchOtherApp(InAppWebViewController controller, Uri uri) async {
+  /// Open [uri], a link of another app ([externalLaunchOf]), handed over as the page wrote it ([original], see
+  /// `externalLaunchTarget`).
+  Future<void> _launchOtherApp(InAppWebViewController controller, Uri uri, {String? original}) async {
     switch (externalLaunchOf(uri)) {
       case ExternalLaunchApp(:final uri):
         try {
           // The link of an app on a phone (`weixin://`, `market://`); on a desktop only the schemes of web pages, mail
           // and the forum's downloads: a Windows handler (`ms-*`) or a file is never started from a web page.
-          await launchExternalUrl(uri, appSchemes: isAndroid || isIOS);
+          await launchExternalUrl(uri, appSchemes: isAndroid || isIOS, original: original);
         } on Object catch (e, st) {
           talker.handle(e, st, 'failed to launch a link of another app (scheme=${uri.scheme})');
         }

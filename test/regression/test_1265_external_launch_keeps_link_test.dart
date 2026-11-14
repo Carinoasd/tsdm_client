@@ -5,6 +5,8 @@
 /// checked on the parsed form ([mayLaunchExternally]), and a web page is handed over as before.
 library;
 
+import 'dart:io';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:talker_flutter/talker_flutter.dart';
@@ -67,5 +69,13 @@ void main() {
       expect(await launchExternalUrl(Uri.parse('file:///etc/hosts'), original: 'file:///etc/hosts'), isFalse);
       expect(launched, hasLength(3));
     });
+  });
+
+  test('a tap on a link and a link followed in the in-app browser hand over the link as written', () {
+    final dispatch = File('lib/extensions/build_context.dart').readAsStringSync();
+    expect(RegExp(r'launchExternalUrl\(absoluteForumUri\(u\), original: url\)').allMatches(dispatch), hasLength(2));
+    final browser = File('lib/features/in_app_browser/view/in_app_browser_page.dart').readAsStringSync();
+    expect(browser, contains('_launchOtherApp(controller, uri, original: url.rawValue)'));
+    expect(browser, contains('launchExternalUrl(uri, appSchemes: isAndroid || isIOS, original: original)'));
   });
 }
