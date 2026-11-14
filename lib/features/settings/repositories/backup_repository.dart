@@ -796,10 +796,14 @@ final class BackupRepository with LoggerMixin {
   /// Suffix of the copy of a backup being prepared for import next to the database.
   static const importSuffix = '.import.tmp';
 
+  /// Age after which an import or export copy is surely no longer being written, see [deleteLeftovers].
+  static const staleCopyAge = Duration(hours: 1);
+
   /// Delete what an import or export interrupted by the end of the app left next to [databaseFile]: the copy of the
-  /// replaced database (`.bak`, it holds the logins of then), the import copy and export copies. The `.bak` copy
-  /// stays while there is no database to fall back from. Never throws.
-  static Future<void> deleteLeftovers(File databaseFile) async {
+  /// replaced database (`.bak`, it holds the logins of then), and import and export copies older than
+  /// [staleCopyAge] (the automatic WebDAV backup of the background isolate may be writing a newer one). The `.bak`
+  /// copy stays while there is no database to fall back from. Never throws.
+  static Future<void> deleteLeftovers(File databaseFile, {DateTime? now}) async {
     try {
       final dir = databaseFile.parent;
       if (!dir.existsSync()) {
@@ -812,9 +816,9 @@ final class BackupRepository with LoggerMixin {
           continue;
         }
         final name = entity.uri.pathSegments.last;
+        final copy = name == '$base$importSuffix' || (name.startsWith(exportPrefix) && name.endsWith('.tmp'));
         final leftover =
-            name == '$base$importSuffix' ||
-            (name.startsWith(exportPrefix) && name.endsWith('.tmp')) ||
+            (copy && (now ?? DateTime.now()).difference(entity.lastModifiedSync()) > staleCopyAge) ||
             (name == '$base$backupSuffix' && databaseFile.existsSync());
         if (leftover) {
           await _deleteQuietly(entity);

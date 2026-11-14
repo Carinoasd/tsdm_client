@@ -201,13 +201,23 @@ void main() {
       final export = File('${target.path}.export-1700000000.tmp')..writeAsStringSync('x');
       final other = File('${dir.path}/other.bak')..writeAsStringSync('kept');
       final wal = File('${target.path}-wal')..writeAsStringSync('kept');
-      await BackupRepository.deleteLeftovers(target);
+      final later = DateTime.now().add(BackupRepository.staleCopyAge + const Duration(minutes: 1));
+      await BackupRepository.deleteLeftovers(target, now: later);
       expect(bak.existsSync(), isFalse);
       expect(import.existsSync(), isFalse);
       expect(export.existsSync(), isFalse);
       expect(other.existsSync(), isTrue);
       expect(wal.existsSync(), isTrue);
       expect(target.existsSync(), isTrue);
+    });
+
+    test('keeps a recent export copy: the background isolate may be writing it', () async {
+      final target = await makeDatabase('${dir.path}/mainV2.db', username: 'Alice');
+      final bak = File('${target.path}.bak')..writeAsStringSync('Alice-token');
+      final export = File('${target.path}.export-1700000000.tmp')..writeAsStringSync('x');
+      await BackupRepository.deleteLeftovers(target);
+      expect(bak.existsSync(), isFalse);
+      expect(export.existsSync(), isTrue);
     });
 
     test('keeps the copy while there is no database to fall back from', () async {
