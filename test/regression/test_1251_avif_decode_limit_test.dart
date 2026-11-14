@@ -140,6 +140,8 @@ void main() {
       expect(await avifToPng(_still([_ispe(8192, 8193)]), firstFrame: decode), isNull);
       expect(await avifToPng(_sequence(_tkhd(30000, 30000)), firstFrame: decode), isNull);
       expect(await avifToPng(_still([]), firstFrame: decode), isNull);
+      // A property of 0xffffffff by 0xffffffff no item uses, beside the one used: its product overflows 64 bits.
+      expect(await avifToPng(_still([_ispe(64, 64), _ispe(0xffffffff, 0xffffffff)]), firstFrame: decode), isNull);
       expect(decoded, 0);
     });
   });

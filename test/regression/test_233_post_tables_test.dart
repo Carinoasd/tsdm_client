@@ -41,6 +41,7 @@ import 'package:tsdm_client/shared/providers/net_client_provider/net_client_prov
 import 'package:tsdm_client/utils/html/html_muncher.dart';
 import 'package:tsdm_client/utils/html/post_table.dart';
 import 'package:tsdm_client/utils/html/post_typography.dart';
+import 'package:tsdm_client/widgets/cached_image/bounded_resize_image.dart';
 import 'package:tsdm_client/widgets/cached_image/cached_image_provider.dart';
 import 'package:tsdm_client/widgets/card/lock_card/locked_card.dart';
 import 'package:tsdm_client/widgets/card/spoiler_card.dart';
@@ -128,7 +129,7 @@ Future<void> _seedImage(WidgetTester tester, String url, {required int width, re
   final picture = recorder.endRecording();
   final image = await tester.runAsync(() => picture.toImage(width, height));
   picture.dispose();
-  final provider = ResizeImage.resizeIfNeeded(_screen.toInt(), null, CachedImageProvider(url));
+  final provider = BoundedResizeImage.resizeIfNeeded(_screen.toInt(), null, CachedImageProvider(url));
   final key = await provider.obtainKey(ImageConfiguration.empty);
   PaintingBinding.instance.imageCache.putIfAbsent(
     key,

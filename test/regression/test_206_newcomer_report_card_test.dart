@@ -27,6 +27,7 @@ import 'package:tsdm_client/shared/providers/net_client_provider/net_client_prov
 import 'package:tsdm_client/utils/html/html_muncher.dart';
 import 'package:tsdm_client/utils/html/newcomer_report_card.dart';
 import 'package:tsdm_client/utils/html/post_table.dart';
+import 'package:tsdm_client/widgets/cached_image/bounded_resize_image.dart';
 import 'package:tsdm_client/widgets/cached_image/cached_image_provider.dart';
 import 'package:tsdm_client/widgets/network_indicator_image.dart';
 import 'package:universal_html/parsing.dart';
@@ -288,7 +289,7 @@ void main() {
         final image = await tester.runAsync(() => picture.toImage(120, 90));
         picture.dispose();
         // Images in the post are decoded at the width of the 400 px test screen.
-        final provider = ResizeImage.resizeIfNeeded(400, null, CachedImageProvider(url));
+        final provider = BoundedResizeImage.resizeIfNeeded(400, null, CachedImageProvider(url));
         final key = await provider.obtainKey(ImageConfiguration.empty);
         PaintingBinding.instance.imageCache.putIfAbsent(
           key,

@@ -49,6 +49,7 @@ import 'package:tsdm_client/shared/providers/storage_provider/models/database/da
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 import 'package:tsdm_client/shared/repositories/fragments_repository/fragments_repository.dart';
 import 'package:tsdm_client/utils/html/post_typography.dart';
+import 'package:tsdm_client/widgets/cached_image/bounded_resize_image.dart';
 import 'package:tsdm_client/widgets/cached_image/cached_image.dart';
 import 'package:tsdm_client/widgets/cached_image/cached_image_provider.dart';
 import 'package:tsdm_client/widgets/card/post_card/post_card.dart';
@@ -397,8 +398,8 @@ void main() {
         home: Scaffold(body: PostLineWidth(child: CachedImage('https://img.example/photo.jpg'))),
       ),
     );
-    final image = tester.widget<Image>(find.byWidgetPredicate((w) => w is Image && w.image is ResizeImage));
-    final resize = image.image as ResizeImage;
+    final image = tester.widget<Image>(find.byWidgetPredicate((w) => w is Image && w.image is BoundedResizeImage));
+    final resize = image.image as BoundedResizeImage;
     final content = postContentWidthOf(tester.element(find.byType(CachedImage)))!;
     expect(content, lessThan(1080 / 2.625));
     expect(resize.width, (content * 2.625).ceil());

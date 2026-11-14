@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
+import 'package:tsdm_client/shared/providers/image_cache_provider/image_limits.dart';
 
 /// [provider] decoded just large enough to cover a square of [extent] physical pixels (`BoxFit.cover`): the shorter
 /// side of the picture at [extent], the longer side in proportion, but at most [maxAspect] times [extent] (a very long
@@ -72,8 +73,16 @@ final class CoverResizeImage extends ImageProvider<CoverResizeImageKey> {
 
   @override
   ImageStreamCompleter loadImage(CoverResizeImageKey key, ImageDecoderCallback decode) {
-    Future<ui.Codec> decodeCover(ui.ImmutableBuffer buffer, {ui.TargetImageSizeCallback? getTargetSize}) =>
-        decode(buffer, getTargetSize: (width, height) => targetSize(width, height, extent, maxAspect: maxAspect));
+    // Never at more pixels than the provider takes ([composeTargetSize]).
+    Future<ui.Codec> decodeCover(ui.ImmutableBuffer buffer, {ui.TargetImageSizeCallback? getTargetSize}) => decode(
+      buffer,
+      getTargetSize: (width, height) => composeTargetSize(
+        targetSize(width, height, extent, maxAspect: maxAspect),
+        width,
+        height,
+        inner: getTargetSize,
+      ),
+    );
     return provider.loadImage(key._providerKey, decodeCover);
   }
 

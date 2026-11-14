@@ -17,6 +17,7 @@ import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/providers/cookie_provider/cookie_provider.dart';
+import 'package:tsdm_client/shared/providers/image_cache_provider/image_limits.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
 import 'package:tsdm_client/shared/providers/providers.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
@@ -232,7 +233,10 @@ class AuthenticationRepository with LoggerMixin {
       return taskLeft(LoginFormHashNotFoundException());
     }
     final rand = DateTime.now().millisecondsSinceEpoch;
-    return _clientFactory(cookie).getImage('$baseUrl/misc.php?mod=seccode&update=$rand&idhash=$secCodeHash');
+    return _clientFactory(cookie).getImage(
+      '$baseUrl/misc.php?mod=seccode&update=$rand&idhash=$secCodeHash',
+      maxBytes: maxSmallImageBytes,
+    );
   }
 
   /// Login with password and other parameters in [credential].

@@ -10,6 +10,7 @@ import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/cookie_provider/cookie_provider.dart';
 import 'package:tsdm_client/shared/providers/image_cache_provider/image_cache_provider.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
+import 'package:tsdm_client/widgets/cached_image/bounded_resize_image.dart';
 import 'package:tsdm_client/widgets/cached_image/cached_image_provider.dart';
 import 'package:tsdm_client/widgets/munched_html.dart';
 import 'package:tsdm_client/widgets/network_indicator_image.dart';
@@ -41,7 +42,7 @@ void main() {
       final picture = recorder.endRecording();
       final image = await tester.runAsync(() => picture.toImage(400 - i * 50, 800));
       picture.dispose();
-      final provider = ResizeImage.resizeIfNeeded(800, null, CachedImageProvider(urls[i]));
+      final provider = BoundedResizeImage.resizeIfNeeded(800, null, CachedImageProvider(urls[i]));
       final key = await provider.obtainKey(ImageConfiguration.empty);
       PaintingBinding.instance.imageCache.putIfAbsent(
         key,

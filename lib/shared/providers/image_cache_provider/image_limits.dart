@@ -2,7 +2,6 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
-import 'package:flutter/painting.dart' show ImageDecoderCallback;
 import 'package:flutter_avif/flutter_avif.dart' show SingleFrameAvifCodec;
 
 /// The most bytes an image of a post (or any image but an avatar or an emoji) is downloaded with: long pictures and
@@ -13,7 +12,7 @@ const int maxImageBytes = 40 * 1024 * 1024;
 const int maxSmallImageBytes = 4 * 1024 * 1024;
 
 /// The most pixels a picture is decoded at: the largest the gallery decodes a picture at (4096 by 16384, 256 MB). A
-/// picture declaring more is decoded smaller ([cappedDecodeSize]), an AVIF one not at all.
+/// picture declaring more is decoded smaller ([decodeWithinPixels]), an AVIF one not at all.
 const int maxDecodedImagePixels = 4096 * 16384;
 
 /// The most pixels an avatar is decoded at (it is shown a few hundred pixels wide).
@@ -25,41 +24,41 @@ const _maxCappedWidth = 4096;
 /// The size to decode a picture of [width] by [height] at, within [maxPixels] and its proportions kept, no wider than
 /// 4096; null when it is within the limit already (decoded as asked).
 ui.TargetImageSize? cappedDecodeSize(int width, int height, {required int maxPixels}) {
-  if (width <= 0 || height <= 0 || width * height <= maxPixels) {
+  // Compared without multiplying: two sizes read from a file can overflow their product.
+  if (width <= 0 || height <= 0 || width <= maxPixels ~/ height) {
     return null;
   }
-  final scale = math.min(math.sqrt(maxPixels / (width * height)), _maxCappedWidth / width);
+  final scale = math.min(math.sqrt(maxPixels / (width.toDouble() * height)), _maxCappedWidth / width);
   final w = math.max(1, (width * scale).floor());
   final h = math.max(1, math.min((height * scale).floor(), maxPixels ~/ w));
   return ui.TargetImageSize(width: w, height: h);
 }
 
-/// The codec of the picture in [buffer], decoded by [decode] (a `ResizeImage`'s, the size it asks for) when the
-/// picture declares no more than [maxPixels], within them otherwise ([cappedDecodeSize]) without [decode].
-///
-/// The size is read from the header of the picture, nothing decoded; a buffer that is no picture the engine knows goes
-/// to [decode], which fails as before.
-Future<ui.Codec> decodeWithinPixelLimit(
-  ui.ImmutableBuffer buffer,
-  ImageDecoderCallback decode, {
-  int maxPixels = maxDecodedImagePixels,
-}) async {
-  final ui.ImageDescriptor descriptor;
-  try {
-    descriptor = await ui.ImageDescriptor.encoded(buffer);
-  } on Exception {
-    return decode(buffer);
+/// What a picture is decoded at by a provider taking at most [maxPixels] (`CachedImageProvider`, its `getTargetSize`):
+/// its own size within them, else [cappedDecodeSize].
+ui.TargetImageSizeCallback decodeWithinPixels(int maxPixels) =>
+    (width, height) => cappedDecodeSize(width, height, maxPixels: maxPixels) ?? const ui.TargetImageSize();
+
+/// The size a picture of [width] by [height] is decoded at when a provider around it asks for [outer] (a resize to the
+/// size it is shown at) and the provider inside takes [inner] at most ([decodeWithinPixels]): [outer], made smaller
+/// still when the size it comes to is over what [inner] takes.
+ui.TargetImageSize composeTargetSize(
+  ui.TargetImageSize outer,
+  int width,
+  int height, {
+  ui.TargetImageSizeCallback? inner,
+}) {
+  if (inner == null || width <= 0 || height <= 0) {
+    return outer;
   }
-  final target = cappedDecodeSize(descriptor.width, descriptor.height, maxPixels: maxPixels);
-  if (target == null) {
-    descriptor.dispose();
-    return decode(buffer);
-  }
-  try {
-    return await descriptor.instantiateCodec(targetWidth: target.width, targetHeight: target.height);
-  } finally {
-    buffer.dispose();
-  }
+  final (w, h) = switch ((outer.width, outer.height)) {
+    (null, null) => (width, height),
+    (final int w, null) => (w, math.max(1, (height * w / width).round())),
+    (null, final int h) => (math.max(1, (width * h / height).round()), h),
+    (final int w, final int h) => (w, h),
+  };
+  final bounded = inner(w, h);
+  return bounded.width == null && bounded.height == null ? outer : bounded;
 }
 
 /// The size of the picture [bytes] holds, read from its header without decoding it; null when it is no picture the
@@ -152,7 +151,8 @@ Future<Uint8List?> avifToPng(
   Future<ui.Image> Function(Uint8List bytes)? firstFrame,
 }) async {
   final size = avifDeclaredSize(bytes);
-  if (size == null || size.width * size.height > maxPixels) {
+  // Compared without multiplying: the sizes of the file can overflow their product.
+  if (size == null || size.width > maxPixels ~/ size.height) {
     return null;
   }
   final image = await (firstFrame ?? _firstAvifFrame)(bytes);
