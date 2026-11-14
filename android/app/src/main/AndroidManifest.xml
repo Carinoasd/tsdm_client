@@ -22,10 +22,18 @@
             <action android:name="android.intent.action.TTS_SERVICE" />
         </intent>
     </queries>
+    <!-- No system backup: the cookie database, the accounts and the settings stay off the cloud backup and the
+         device-to-device transfer (the app has its own export, import and sync). allowBackup only stops the cloud
+         backup from Android 12 on: data_extraction_rules.xml stops the transfer there, backup_rules.xml covers the
+         older ones. -->
     <application
             android:label="天使动漫"
             android:name=".TsdmApplication"
-            android:icon="@mipmap/ic_launcher">
+            android:icon="@mipmap/ic_launcher"
+            android:allowBackup="false"
+            android:fullBackupContent="@xml/backup_rules"
+            android:dataExtractionRules="@xml/data_extraction_rules"
+            tools:targetApi="31">
         <provider
                 android:name="kzs.th000.tsdm_client.UpdateFileProvider"
                 android:authorities="${applicationId}.updates"
@@ -228,6 +236,17 @@
              all go through the media session. The system's media resumption card (Android 11+) did bind it, but the
              app browses nothing (no children, no play from a media id), so that card had nothing to resume.
              The intent filter stays: MediaButtonReceiver looks this service up by its action within this package. -->
+        <!-- flutter_background_service declares these two exported. The watchdog only gets the plugin's own alarm (an
+             explicit pending intent, delivered as this app), the boot receiver only the boot and update broadcasts,
+             which the system delivers to an unexported receiver too: no other app has to reach either. -->
+        <receiver
+              android:name="id.flutter.flutter_background_service.WatchdogReceiver"
+              android:exported="false"
+              tools:replace="android:exported" />
+        <receiver
+              android:name="id.flutter.flutter_background_service.BootReceiver"
+              android:exported="false"
+              tools:replace="android:exported" />
         <service
               android:name="com.ryanheise.audioservice.AudioService"
               android:foregroundServiceType="mediaPlayback"

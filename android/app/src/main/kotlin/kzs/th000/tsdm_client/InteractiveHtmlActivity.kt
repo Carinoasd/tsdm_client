@@ -10,6 +10,7 @@ import android.net.Uri
 import android.net.http.SslError
 import android.os.Build
 import android.os.Bundle
+import android.os.SystemClock
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.ClientCertRequest
@@ -40,7 +41,14 @@ import org.json.JSONObject
 import java.io.ByteArrayInputStream
 import java.util.Locale
 
-/** Runs only the selected post fragment, never a logged-in forum page. No JavascriptInterface is installed. */
+/**
+ * Runs only the selected post fragment, never a logged-in forum page. No JavascriptInterface is installed.
+ *
+ * The app lock covers the Flutter pages only: while this activity is on top, Dart does not see the app leave and come
+ * back. So it closes itself where the app would lock ([EXTRA_APP_LOCK_DELAY_MS], sent while the lock is on): back on
+ * the screen after that long away, or recreated after the process died. The app underneath then shows its lock screen,
+ * as its own time away counts from the moment this activity opened.
+ */
 class InteractiveHtmlActivity : Activity() {
     private lateinit var content: InteractiveHtmlPolicy.Content
     private lateinit var body: LinearLayout
@@ -53,8 +61,21 @@ class InteractiveHtmlActivity : Activity() {
         Labels.resolve(labelMap(intent.getBundleExtra(EXTRA_LABELS)), intent.getStringExtra(EXTRA_LOCALE))
     }
 
+    /** Time away after which the app locks, null while the lock is off. */
+    private val appLockDelayMs: Long? by lazy {
+        intent.getLongExtra(EXTRA_APP_LOCK_DELAY_MS, -1L).takeIf { it >= 0 }
+    }
+
+    /** When this activity left the screen ([SystemClock.elapsedRealtime]), null while on it. */
+    private var leftAt: Long? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (closesWhenRecreated(appLockDelayMs, savedInstanceState != null)) {
+            // The process died while away: the app underneath starts locked, this content must not show before it.
+            finish()
+            return
+        }
         content = try {
             InteractiveHtmlPolicy.validate(
                 intent.getStringExtra(EXTRA_HTML), intent.getStringExtra(EXTRA_SOURCE_URL),
@@ -285,6 +306,21 @@ class InteractiveHtmlActivity : Activity() {
 
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
 
+    override fun onStart() {
+        super.onStart()
+        val at = leftAt
+        leftAt = null
+        if (closesOnReturn(appLockDelayMs, at, SystemClock.elapsedRealtime())) {
+            if (::body.isInitialized) body.visibility = View.INVISIBLE
+            finish()
+        }
+    }
+
+    override fun onStop() {
+        if (leftAt == null) leftAt = SystemClock.elapsedRealtime()
+        super.onStop()
+    }
+
     override fun onPause() { webView?.onPause(); super.onPause() }
     override fun onResume() { super.onResume(); webView?.onResume() }
     override fun onDestroy() {
@@ -313,6 +349,20 @@ class InteractiveHtmlActivity : Activity() {
         const val EXTRA_POST_ID = "interactive_html.post_id"
         const val EXTRA_LOCALE = "interactive_html.locale"
         const val EXTRA_LABELS = "interactive_html.labels"
+        const val EXTRA_APP_LOCK_DELAY_MS = "interactive_html.app_lock_delay_ms"
+
+        /**
+         * Whether the viewer closes on coming back to the screen: the app lock is on ([delayMs] not null) and it was
+         * away [delayMs] or longer (any time for "immediately", 0). A clock that went back counts as long enough.
+         */
+        internal fun closesOnReturn(delayMs: Long?, leftAt: Long?, now: Long): Boolean {
+            if (delayMs == null || leftAt == null) return false
+            val away = now - leftAt
+            return away < 0 || away >= delayMs
+        }
+
+        /** Whether the viewer closes when the system recreates it (its process died meanwhile): when the lock is on. */
+        internal fun closesWhenRecreated(delayMs: Long?, recreated: Boolean): Boolean = recreated && delayMs != null
 
         internal fun isDark(configuration: Configuration) =
             configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
@@ -327,7 +377,7 @@ class InteractiveHtmlActivity : Activity() {
 
         fun intent(
             context: Context, html: String?, sourceUrl: String?, accountScope: String?, postId: String?,
-            locale: String? = null, labels: Map<*, *>? = null,
+            locale: String? = null, labels: Map<*, *>? = null, appLockDelayMs: Long? = null,
         ): Intent {
             val texts = Bundle().apply { labelMap(labels).forEach { (key, value) -> putString(key, value) } }
             val checked = InteractiveHtmlPolicy.validate(html, sourceUrl, accountScope, postId)
@@ -338,6 +388,7 @@ class InteractiveHtmlActivity : Activity() {
                 .putExtra(EXTRA_POST_ID, checked.postId)
                 .putExtra(EXTRA_LOCALE, locale)
                 .putExtra(EXTRA_LABELS, texts)
+                .apply { if (appLockDelayMs != null && appLockDelayMs >= 0) putExtra(EXTRA_APP_LOCK_DELAY_MS, appLockDelayMs) }
         }
     }
 
