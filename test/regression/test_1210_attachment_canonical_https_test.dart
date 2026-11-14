@@ -23,6 +23,7 @@ import 'package:tsdm_client/features/attachment_download/utils/attachment_protoc
 import 'package:tsdm_client/features/audio_player/controller/audio_fetcher.dart';
 import 'package:tsdm_client/features/audio_player/utils/audio_attachment.dart';
 import 'package:tsdm_client/instance.dart';
+import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider_android.dart';
 import 'package:tsdm_client/utils/html/html_muncher.dart';
 import 'package:universal_html/parsing.dart';
 
@@ -139,6 +140,12 @@ void main() {
       final other = nextAudioAttachmentHop(canonical, 301, 'http://cdn.example.test/a.mp3');
       expect(other, 'http://cdn.example.test/a.mp3');
       expect(isCanonicalForumUrl(other!), isFalse);
+      // Not followed by the platform's client either, Android's included.
+      final options = audioAttachmentRequestOptions();
+      expect(options.followRedirects, isFalse);
+      expect(options.extra?[singleAttemptHttpRequestKey], isTrue);
+      expect(options.validateStatus?.call(302), isTrue);
+      expect(options.validateStatus?.call(404), isFalse);
     });
 
     test('an audio attachment: the same check, the canonical address', () {

@@ -14,6 +14,7 @@ import 'package:tsdm_client/features/audio_player/utils/audio_attachment.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/cookie_provider/cookie_provider.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
+import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider_android.dart';
 import 'package:tsdm_client/shared/providers/providers.dart';
 import 'package:tsdm_client/utils/logger.dart';
 
@@ -86,6 +87,15 @@ String? nextAudioAttachmentHop(String url, int status, String? location) {
   }
   return canonicalAttachmentUrl('${Uri.parse(url).resolve(location)}');
 }
+
+/// The options of one request of an audio attachment: no redirect followed, on every platform (the Kotlin client of
+/// Android reads [singleAttemptHttpRequestKey], not [Options.followRedirects]), a redirect answered as it is.
+@visibleForTesting
+Options audioAttachmentRequestOptions() => Options(
+  followRedirects: false,
+  validateStatus: (s) => s != null && s < HttpStatus.badRequest,
+  extra: {singleAttemptHttpRequestKey: true},
+);
 
 /// [AudioFetcher] through the app's net client: the attachments with the account's cookie, as a download is (the
 /// forum takes the credits and counts the download of an attachment for each request, and does not serve a range of
@@ -168,9 +178,7 @@ final class NetAudioFetcher with LoggerMixin implements AudioFetcher {
             part.path,
             cancelToken: cancelToken,
             onReceiveProgress: progress,
-            options: attachment
-                ? Options(followRedirects: false, validateStatus: (s) => s != null && s < HttpStatus.badRequest)
-                : null,
+            options: attachment ? audioAttachmentRequestOptions() : null,
           )
           .run();
       final resp = result.toNullable();
