@@ -1,4 +1,5 @@
-/// A request over plain http never carries the account ([PlainTransportGuard], the last interceptor of every client).
+/// A request over plain http never carries the account ([PlainTransportGuard], around the transport of every
+/// client, after all its interceptors).
 ///
 /// To the forum's host it goes over https instead (same host, the cookie read for it); to any other host it goes
 /// without `Cookie` and without the app's `X-Tsdmapp-*` headers. An https request is left as it is.
@@ -97,14 +98,14 @@ void main() {
     expect('${other.uri}', 'https://cdn.example.test/a.zip');
   });
 
-  test('after the cookie manager: the cookie it adds for an http host does not leave', () async {
+  test('after the interceptors: the cookie the cookie manager adds for an http host does not leave', () async {
     final jar = CookieJar();
     await jar.saveFromResponse(Uri.parse('http://cdn.example.test/'), [Cookie('s_cdn', 'synthetic')]);
     await jar.saveFromResponse(Uri.parse('https://www.tsdm39.com/'), [Cookie('s_auth', 'synthetic')]);
     final adapter = _Adapter();
     final dio = Dio()
-      ..httpClientAdapter = adapter
-      ..interceptors.addAll([CookieManager(jar), _DeviceHeader(), PlainTransportGuard()]);
+      ..httpClientAdapter = PlainTransportGuard(adapter)
+      ..interceptors.addAll([CookieManager(jar), _DeviceHeader()]);
     await dio.get<dynamic>('http://cdn.example.test/a.zip');
     await dio.get<dynamic>('http://www.tsdm39.com/forum.php?mod=attachment&aid=1');
     final (cdn, forum) = (adapter.sent[0], adapter.sent[1]);
@@ -115,7 +116,7 @@ void main() {
     expect(_header(forum.headers, 'Cookie'), contains('s_auth=synthetic'));
   });
 
-  test('a client of the app has the guard last', () async {
+  test('a client of the app sends through the guard', () async {
     final adapter = _Adapter();
     final client = NetClientProvider.buildNoCookie(
       dio: Dio()..httpClientAdapter = adapter,
