@@ -71,6 +71,26 @@ void main() {
     });
   });
 
+  group('a platform refusing the link as written', () {
+    const channel = MethodChannel('plugins.flutter.io/url_launcher');
+    final messenger = TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    tearDown(() => messenger.setMockMethodCallHandler(channel, null));
+
+    test('gets the parsed form', () async {
+      final launched = <String>[];
+      messenger.setMockMethodCallHandler(channel, (call) async {
+        final url = (call.arguments as Map)['url'] as String;
+        if (call.method == 'launch' && url == _ed2k) {
+          throw PlatformException(code: 'argument_error', message: 'Unable to parse URL');
+        }
+        launched.add(url);
+        return true;
+      });
+      expect(await launchExternalUrl(Uri.parse(_ed2k), original: _ed2k), isTrue);
+      expect(launched, ['${Uri.parse(_ed2k)}']);
+    });
+  });
+
   test('a tap on a link and a link followed in the in-app browser hand over the link as written', () {
     final dispatch = File('lib/extensions/build_context.dart').readAsStringSync();
     expect(RegExp(r'launchExternalUrl\(absoluteForumUri\(u\), original: url\)').allMatches(dispatch), hasLength(2));

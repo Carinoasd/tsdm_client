@@ -147,10 +147,10 @@ final _deviceIdRe = RegExp(
 );
 
 /// The download token of an attachment inside a url-encoded url (`url=forum.php%3Fmod%3Dattachment%26aid%3D…`, the
-/// link handed to a page or the in-app browser), after an encoded `?` or `&`: up to the next encoded `&` (its own `=`
-/// padding stays encoded in it).
+/// link handed to a page or the in-app browser), after an encoded `?` or `&`, encoded once or twice (`%2526aid%253D…`):
+/// up to the next encoded `&` (its own `=` padding stays encoded in it).
 final _encodedAidRe = RegExp(
-  r'''(?<key>(?:(?<=%26|%3F)|(?<![\w-]))aid%3D)(?<value>(?:(?!%26)[^&\s;,}\]"'])+)''',
+  r'''(?<key>(?:(?<=%26|%3F|%2526|%253F)|(?<![\w-]))aid(?:%3D|%253D))(?<value>(?:(?!%26|%2526)[^&\s;,}\]"'])+)''',
   caseSensitive: false,
 );
 

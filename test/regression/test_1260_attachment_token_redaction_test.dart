@@ -44,6 +44,14 @@ void main() {
     expect(tail, contains('%26nothumb%3Dyes&autoOpen=x'));
   });
 
+  test('the link encoded twice', () {
+    final twice = Uri.encodeQueryComponent(Uri.encodeQueryComponent('forum.php?mod=attachment&aid=$_token&x=1'));
+    final out = redactSensitive('url=$twice');
+    expect(out, contains('aid%253D$redactionMask'));
+    expect(out, contains('%2526x%253D1'));
+    expect(out, isNot(contains('MzZ8')));
+  });
+
   test('as a map entry, in an old log and in an export', () {
     expect(redactSensitive('{mod: attachment, aid: $_token}'), isNot(contains(_token)));
     expect(redactSensitive('{"aid":"$_token"}'), isNot(contains(_token)));

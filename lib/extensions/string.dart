@@ -295,7 +295,7 @@ extension ParseUrl on String {
     if (mod == 'post' &&
         queryParameters['action'] == 'edit' &&
         queryParameters['fid'] != null &&
-        queryParameters['pid'] != null &&
+        queryParameters['tid'] != null &&
         queryParameters['pid'] != null) {
       return RecognizedRoute(
         ScreenPaths.editPost,

@@ -35,8 +35,8 @@ extension UriOriginExt on Uri {
   bool get isForumOrRelative => (!hasScheme && !hasAuthority) || isForumHost;
 
   /// Whether the path of this url is the forum's script [script] (`forum.php`, `home.php`…) at the root of the forum:
-  /// `/forum.php` (on a host or relative) or `forum.php` (relative). A path that only ends with the name (`/xforum.php`,
-  /// `/attachment/forum.php`) is another one.
+  /// `/forum.php` (on a host or relative) or `forum.php` (relative), in any case. A path that only ends with the name
+  /// (`/xforum.php`, `/attachment/forum.php`) is another one.
   bool isForumScript(String script) {
     final p = path.toLowerCase();
     return p == '/$script' || (!hasAuthority && p == script);

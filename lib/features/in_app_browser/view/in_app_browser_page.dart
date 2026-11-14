@@ -5,6 +5,7 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/features/in_app_browser/utils/forum_cookies.dart';
 import 'package:tsdm_client/features/in_app_browser/utils/link_routing.dart';
+import 'package:tsdm_client/features/in_app_browser/widgets/browser_host_title.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/cookie_provider/cookie_provider.dart';
@@ -204,7 +205,7 @@ class _InAppBrowserPageState extends State<InAppBrowserPage> {
           // Closes the page at once; the back key and gesture go back in the web view first.
           leading: CloseButton(onPressed: () => Navigator.of(context).pop()),
           // The host of the page, never its title ([browserTitleOf]).
-          title: Text(browserTitleOf(_url), maxLines: 1, overflow: TextOverflow.ellipsis),
+          title: BrowserHostTitle(browserTitleOf(_url)),
           actions: [
             if (valid) ...[
               IconButton(

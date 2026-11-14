@@ -112,8 +112,9 @@ Uri absoluteForumUri(Uri uri) => uri.hasScheme ? uri : Uri.parse('$baseUrl/').re
 /// name too, but not the host it is served from. A host is shown as the url has it (`xn--…` for a non-ASCII one).
 String browserTitleOf(Uri url) {
   final host = url.host;
+  // A page without a host (`data:`, `about:`, `blob:`): its scheme only, the rest is the page's to choose.
   if (host.isEmpty) {
-    return '$url';
+    return '${url.scheme.toLowerCase()}:';
   }
   return url.scheme.toLowerCase() == 'https' ? host : '${url.scheme}://$host';
 }

@@ -89,5 +89,14 @@ Future<bool> launchExternalUrl(Uri uri, {bool appSchemes = false, String? origin
   if (target == '$uri') {
     return launchUrl(uri, mode: LaunchMode.externalApplication);
   }
-  return launchUrlString(target, mode: LaunchMode.externalApplication);
+  try {
+    if (await launchUrlString(target, mode: LaunchMode.externalApplication)) {
+      return true;
+    }
+    // A platform that cannot take the link as written (iOS and macOS parse it with `URL(string:)`, which refuses the
+    // `|` of an `ed2k://` link): the parsed form, which opens even if changed.
+  } on Object catch (e) {
+    talker.warning('launching a link as written failed (scheme=${uri.scheme}): $e');
+  }
+  return launchUrl(uri, mode: LaunchMode.externalApplication);
 }
