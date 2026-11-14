@@ -2124,14 +2124,28 @@ final class _Muncher with LoggerMixin {
     return s.isEmpty || s.startsWith('#') || s.startsWith('javascript:');
   }
 
+  /// What a tap on a link to [href] opens: an absolute url (any scheme: the launch decides, see
+  /// `DispatchUrl.dispatchAsUrl`) as written, a relative one on the forum host; null for a link leading nowhere
+  /// ([_leadsNowhere]). The text of the link and its mark open the same.
+  static String? _tapTargetOf(String href) {
+    if (_leadsNowhere(href)) {
+      return null;
+    }
+    final s = href.trim();
+    // A host with a port and no scheme (`www.example.com:8080/…`) is no scheme.
+    final scheme = Uri.tryParse(s)?.scheme ?? '';
+    return scheme.isNotEmpty && !scheme.contains('.') ? s : s.prependHost();
+  }
+
   List<InlineSpan>? _buildA(uh.Element element) {
     if (!element.attributes.containsKey('href') || !options.renderUrl) {
       return _munch(element);
     }
 
     final url = element.attributes['href']!;
-    if (isAttachmentDownloadUrl(url)) {
-      _attachmentLinks[url.prependHost()] = attachmentLinkInfoOf(element);
+    final tapUrl = _tapTargetOf(url);
+    if (tapUrl != null && isAttachmentDownloadUrl(url)) {
+      _attachmentLinks[tapUrl] = attachmentLinkInfoOf(element);
     }
     // Flag indicating only has <img> inside the <a> node.
     // <a href="xxx"><img src="xxx"></a>
@@ -2154,7 +2168,7 @@ final class _Muncher with LoggerMixin {
       ..pendingSpace = false
       ..pendingBreak = false
       // An anchor of the page (`#…`) or a script (`javascript:`) leads nowhere: what is in it (a picture) is not a link.
-      ..tapUrl = _leadsNowhere(url) ? null : url.prependHost()
+      ..tapUrl = tapUrl
       ..wrapInWord = true
       // The link in its own color, not in the color of a `<font>` around it; underlined in a post as on the web page.
       ..linkDepth = state.colorStack.length
@@ -2242,13 +2256,16 @@ final class _Muncher with LoggerMixin {
         children: [
           if (content != null)
             WidgetSpan(
-              child: MouseRegion(
-                cursor: SystemMouseCursors.click,
-                child: GestureDetector(
-                  onTap: () async => _openUrl(url),
-                  child: content,
-                ),
-              ),
+              // The mark opens what the text of the link opens.
+              child: tapUrl == null
+                  ? content
+                  : MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: GestureDetector(
+                        onTap: () async => _openUrl(tapUrl),
+                        child: content,
+                      ),
+                    ),
             ),
           ...ret,
         ],

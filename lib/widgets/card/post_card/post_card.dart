@@ -52,6 +52,7 @@ import 'package:tsdm_client/shared/models/post_image_auto_load.dart';
 import 'package:tsdm_client/shared/models/thread_floor_interaction_mode.dart';
 import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/clipboard.dart';
+import 'package:tsdm_client/utils/external_launch.dart';
 import 'package:tsdm_client/utils/html/post_typography.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
@@ -69,7 +70,6 @@ import 'package:tsdm_client/widgets/heroes.dart';
 import 'package:tsdm_client/widgets/munched_html.dart';
 import 'package:universal_html/html.dart' as uh;
 import 'package:universal_html/parsing.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 /// Width of the secondary title, capped by available room without enlarging on rotation.
 double postAuthorSecondBadgeWidth(double availableWidth) =>
@@ -795,7 +795,7 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
           origin: shareOriginOf(context),
         );
       case _PostCardActions.openInBrowser:
-        await launchUrl(Uri.parse(widget.post.shareLink!), mode: LaunchMode.externalApplication);
+        await launchExternalUrl(Uri.parse(widget.post.shareLink!));
       case _PostCardActions.openAndCopy:
         final data =
             parseHtmlDocument(widget.post.data).body?.childNodes

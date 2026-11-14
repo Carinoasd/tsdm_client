@@ -13,9 +13,9 @@ import 'package:tsdm_client/features/report_handling/repository/report_source.da
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
+import 'package:tsdm_client/utils/external_launch.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 /// Handling reports (舉報處理) of a [source]: choose the part (the panel's forum), list the reports (each opens what
 /// was reported), pick some with the reporter's reward and a message when the forum sets a reward (a message alone
@@ -160,7 +160,7 @@ class _ReportHandlingPageState extends State<ReportHandlingPage> {
     if (item.linkIsForum) {
       await context.dispatchAsUrl('$link');
     } else {
-      await launchUrl(link, mode: LaunchMode.externalApplication);
+      await launchExternalUrl(link);
     }
   }
 

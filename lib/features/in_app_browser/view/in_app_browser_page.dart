@@ -10,8 +10,9 @@ import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/cookie_provider/cookie_provider.dart';
 import 'package:tsdm_client/utils/browser_launcher.dart';
 import 'package:tsdm_client/utils/clipboard.dart';
+import 'package:tsdm_client/utils/external_launch.dart';
+import 'package:tsdm_client/utils/platform.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 enum _MenuAction { openExternal, copyUrl }
 
@@ -154,7 +155,9 @@ class _InAppBrowserPageState extends State<InAppBrowserPage> {
     switch (externalLaunchOf(uri)) {
       case ExternalLaunchApp(:final uri):
         try {
-          await launchUrl(uri, mode: LaunchMode.externalApplication);
+          // The link of an app on a phone (`weixin://`, `market://`); on a desktop only the schemes of web pages, mail
+          // and the forum's downloads: a Windows handler (`ms-*`) or a file is never started from a web page.
+          await launchExternalUrl(uri, appSchemes: isAndroid || isIOS);
         } on Object catch (e, st) {
           talker.handle(e, st, 'failed to launch a link of another app (scheme=${uri.scheme})');
         }
