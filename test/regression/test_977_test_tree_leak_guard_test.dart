@@ -95,6 +95,30 @@ final class _Allowed {
 
 const _allowed = <_Allowed>[
   _Allowed(
+    'test/regression/test_1232_webdav_plain_http_confirm_test.dart',
+    'public IPv4',
+    "clear('http://172.32.",
+    'just past 172.16.0.0/12: an input of the local network check, nothing connects',
+  ),
+  _Allowed(
+    'test/regression/test_1232_webdav_plain_http_confirm_test.dart',
+    'public IPv4',
+    "clear('http://192.169.",
+    'just past 192.168.0.0/16: an input of the local network check, nothing connects',
+  ),
+  _Allowed(
+    'test/regression/test_1232_webdav_plain_http_confirm_test.dart',
+    'localhost host',
+    ":8080',",
+    'a WebDAV address fed to the local network check, nothing connects',
+  ),
+  _Allowed(
+    'test/regression/test_1232_webdav_plain_http_confirm_test.dart',
+    'loopback address',
+    "0.0.1/',",
+    'a WebDAV address fed to the local network check, nothing connects',
+  ),
+  _Allowed(
     'test/regression/proxy_provider_refresh_test.dart',
     'loopback address',
     "var server = '",

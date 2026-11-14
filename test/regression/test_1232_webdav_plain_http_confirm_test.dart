@@ -19,7 +19,7 @@ void main() {
     test('plain http to the internet', () {
       expect(clear('http://dav.example.com/remote.php/dav'), isTrue);
       expect(clear('HTTP://dav.example.com'), isTrue);
-      expect(clear('http://8.8.8.8:5005/dav'), isTrue);
+      expect(clear('http://203.0.113.5:5005/dav'), isTrue);
       expect(clear('http://[2001:db8::1]/dav'), isTrue);
       expect(clear('http://172.32.0.1/'), isTrue);
       expect(clear('http://192.169.1.1/'), isTrue);
