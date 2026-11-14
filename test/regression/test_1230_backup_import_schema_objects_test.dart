@@ -100,6 +100,28 @@ void main() {
       expect(check.problem, BackupProblem.unexpectedObjects, reason: '$check');
     });
 
+    test('a virtual table whose sql text was rewritten to look like a plain table', () async {
+      final file = await makeDatabase('${dir.path}/disguised.db', username: 'Bob');
+      edit(file, 'DROP TABLE read_later');
+      try {
+        edit(file, 'CREATE VIRTUAL TABLE read_later USING fts5(x)');
+      } on SqliteException {
+        markTestSkipped('fts5 not compiled into this sqlite');
+        return;
+      }
+      final db = sqlite3.open(file.path);
+      try {
+        db
+          ..execute('PRAGMA writable_schema = ON')
+          ..execute("UPDATE sqlite_master SET sql = 'CREATE TABLE read_later (x)' WHERE name = 'read_later'")
+          ..execute('PRAGMA writable_schema = OFF');
+      } finally {
+        db.dispose();
+      }
+      final check = await repository.validate(file, currentSchemaVersion: schemaVersion);
+      expect(check.ok, isFalse, reason: '$check');
+    });
+
     test('an index on a table of the app, and the indexes sqlite makes itself, pass', () async {
       final file = await makeDatabase('${dir.path}/index.db', username: 'Bob');
       edit(file, 'CREATE INDEX extra_index ON settings (string_value)');
@@ -191,6 +213,33 @@ void main() {
       expect(target.readAsBytesSync(), before);
       expect(File('${target.path}${BackupRepository.backupSuffix}').existsSync(), isFalse);
     });
+  });
+
+  test('a copy that could not be put back is kept on the next start', () async {
+    final target = await makeDatabase('${dir.path}/mainV2.db', username: 'Alice');
+    final source = await makeDatabase('${dir.path}/other.db', username: 'Bob', uid: 2000);
+    final bak = File('${target.path}${BackupRepository.backupSuffix}');
+    await expectLater(
+      repository.replaceDatabase(
+        target: target,
+        source: source,
+        currentSchemaVersion: schemaVersion,
+        // The import fails verification and the database path can not be written back (a directory took it).
+        verify: (replaced) async {
+          replaced.deleteSync();
+          Directory(replaced.path).createSync();
+          return false;
+        },
+      ),
+      throwsA(isA<BackupReplaceException>().having((e) => e.restored, 'restored', isFalse)),
+    );
+    expect(bak.existsSync(), isTrue);
+    // The next start finds some database in place: the only copy of the data stays all the same.
+    Directory(target.path).deleteSync();
+    target.writeAsStringSync('whatever is there now');
+    await BackupRepository.deleteLeftovers(target);
+    expect(bak.existsSync(), isTrue);
+    expect(String.fromCharCodes(bak.readAsBytesSync()), contains('Alice-token'));
   });
 
   group('deleteLeftovers', () {

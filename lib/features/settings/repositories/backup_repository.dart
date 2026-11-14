@@ -202,7 +202,7 @@ final class BackupRepository with LoggerMixin {
   /// What in the schema of [db] this app does not create, null when nothing: see [knownTables]. Only tables (of
   /// [knownTables], not virtual) and indexes on them pass, automatic indexes included.
   static String? unexpectedSchemaObject(Database db) {
-    final rows = db.select('SELECT type, name, tbl_name, sql FROM sqlite_master');
+    final rows = db.select('SELECT type, name, tbl_name, sql, rootpage FROM sqlite_master');
     for (final row in rows) {
       final type = row['type']?.toString();
       final name = row['name']?.toString() ?? '';
@@ -211,7 +211,13 @@ final class BackupRepository with LoggerMixin {
       final bool ok;
       switch (type) {
         case 'table':
-          ok = (knownTables.contains(name) || _sqliteTables.contains(name)) && !sql.startsWith('CREATE VIRTUAL ');
+          // A virtual table has no b-tree of its own (rootpage 0), whatever its `sql` text says.
+          final rootpage = row['rootpage'];
+          ok =
+              (knownTables.contains(name) || _sqliteTables.contains(name)) &&
+              !sql.startsWith('CREATE VIRTUAL ') &&
+              rootpage is int &&
+              rootpage > 0;
         case 'index':
           ok = knownTables.contains(table) || _sqliteTables.contains(table);
         default:
@@ -281,7 +287,8 @@ final class BackupRepository with LoggerMixin {
       final exported = sqlite3.open(copy.path);
       var accounts = 0;
       try {
-        // Before any write: a trigger (from a backup imported by an older version) would run on it.
+        // A second line of defense: the snapshot copies tables and indexes only, but the `VACUUM INTO` fallback copies
+        // everything, and a trigger (from a backup imported by an older version) would run on the writes below.
         dropTriggersAndViews(exported);
         final password = secretsPassword;
         final payload = password == null ? null : readCredentials(exported);
@@ -779,6 +786,7 @@ final class BackupRepository with LoggerMixin {
         throw BackupReplaceException('verification failed: $result', restored: restored);
       }
       await _deleteQuietly(previous);
+      await _deleteQuietly(File('${previous.path}$keepSuffix'));
       info('imported database backup (schema v${result.schemaVersion})');
       return result;
     } on FileSystemException catch (e) {
@@ -796,13 +804,18 @@ final class BackupRepository with LoggerMixin {
   /// Suffix of the copy of a backup being prepared for import next to the database.
   static const importSuffix = '.import.tmp';
 
+  /// Suffix of the marker next to a `.bak` copy that could not be put back: the copy is then the only one of the
+  /// data, [deleteLeftovers] keeps it (the user can still recover it by hand).
+  static const keepSuffix = '.keep';
+
   /// Age after which an import or export copy is surely no longer being written, see [deleteLeftovers].
   static const staleCopyAge = Duration(hours: 1);
 
   /// Delete what an import or export interrupted by the end of the app left next to [databaseFile]: the copy of the
   /// replaced database (`.bak`, it holds the logins of then), and import and export copies older than
   /// [staleCopyAge] (the automatic WebDAV backup of the background isolate may be writing a newer one). The `.bak`
-  /// copy stays while there is no database to fall back from. Never throws.
+  /// copy stays while there is no database to fall back from, or when putting it back failed ([keepSuffix]). Never
+  /// throws.
   static Future<void> deleteLeftovers(File databaseFile, {DateTime? now}) async {
     try {
       final dir = databaseFile.parent;
@@ -819,7 +832,9 @@ final class BackupRepository with LoggerMixin {
         final copy = name == '$base$importSuffix' || (name.startsWith(exportPrefix) && name.endsWith('.tmp'));
         final leftover =
             (copy && (now ?? DateTime.now()).difference(entity.lastModifiedSync()) > staleCopyAge) ||
-            (name == '$base$backupSuffix' && databaseFile.existsSync());
+            (name == '$base$backupSuffix' &&
+                databaseFile.existsSync() &&
+                !File('${entity.path}$keepSuffix').existsSync());
         if (leftover) {
           await _deleteQuietly(entity);
           talker.info('backup: deleted the leftover $name');
@@ -841,6 +856,9 @@ final class BackupRepository with LoggerMixin {
   }
 
   /// Put [previous] back as [target] and delete it; false (and [previous] kept) when that failed.
+  ///
+  /// When it failed [previous] is the only copy of the data left: a marker ([keepSuffix]) next to it keeps
+  /// [deleteLeftovers] from removing it on the next start.
   Future<bool> _restore(File previous, File target) async {
     if (!previous.existsSync()) {
       return false;
@@ -848,9 +866,15 @@ final class BackupRepository with LoggerMixin {
     try {
       await previous.copy(target.path);
       await _deleteQuietly(previous);
+      await _deleteQuietly(File('${previous.path}$keepSuffix'));
       return true;
     } on FileSystemException catch (e) {
       error('failed to restore previous database: $e');
+      try {
+        await File('${previous.path}$keepSuffix').writeAsString('', flush: true);
+      } on FileSystemException catch (e) {
+        error('failed to mark the previous database to keep: $e');
+      }
       return false;
     }
   }

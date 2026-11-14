@@ -23,6 +23,9 @@ void main() {
       expect(clear('http://[2001:db8::1]/dav'), isTrue);
       expect(clear('http://172.32.0.1/'), isTrue);
       expect(clear('http://192.169.1.1/'), isTrue);
+      // A single label of digits is an IPv4 address to the resolver.
+      expect(clear('http://3405803777/'), isTrue);
+      expect(clear('http://0xcb007105/'), isTrue);
     });
 
     test('https, or not a usable url', () {

@@ -11,6 +11,10 @@ import 'package:tsdm_client/utils/logger.dart';
 
 /// Time since the device started, on a clock that can not be set by hand (the wall clock can): what the waits of the
 /// app lock are counted on. The same clock for every process of one start of the device.
+///
+/// `Timeline.now` is documented only as the trace clock: since boot and shared by processes is how the Dart VM
+/// implements it (`CLOCK_MONOTONIC`, `mach_absolute_time`, QPC), checked in an AOT build. Check again (lock out,
+/// restart the app after the wait: no wait again) when the Flutter version changes.
 Duration appLockSinceBoot() => Duration(microseconds: Timeline.now);
 
 /// When the app locks after leaving the screen, apart from the widgets so it can be tested with a fake clock.

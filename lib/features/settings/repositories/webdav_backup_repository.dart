@@ -111,8 +111,10 @@ final class WebdavBackupConfig {
     }
     final address = InternetAddress.tryParse(h);
     if (address == null) {
+      // A single label of digits (or hex) is read as an IPv4 address by the resolver: not a local name.
+      final numeric = RegExp(r'^(0x[0-9a-f]+|[0-9]+)$').hasMatch(h);
       return h == 'localhost' ||
-          !h.contains('.') ||
+          (!h.contains('.') && !numeric) ||
           const ['.localhost', '.local', '.lan', '.home.arpa', '.internal'].any(h.endsWith);
     }
     final b = address.rawAddress;
