@@ -303,6 +303,23 @@ class HttpClientTest {
         }
     }
 
+    @Test fun aSingleAttemptKeepsNoConnectionForTheNextOne() = runBlocking {
+        // Two writes some seconds apart (a vote, then another): the first one's connection is not kept for the second.
+        MockWebServer().use { server ->
+            server.enqueue(answerThenCloseTheConnection("first vote counted"))
+            server.enqueue(MockResponse(body = "second vote counted"))
+            server.start()
+            HttpClient.get(server.url("/vote?stand=1").toString(), hashMapOf(), singleAttempt = true).use {
+                assertEquals("first vote counted", it.body.string())
+            }
+            waitForTheServerToClose()
+            HttpClient.get(server.url("/vote?stand=2").toString(), hashMapOf(), singleAttempt = true).use {
+                assertEquals("second vote counted", it.body.string())
+            }
+            assertEquals(2, server.requestCount)
+        }
+    }
+
     @Test fun aReadFollowingNoRedirectIsSentAgainWhenAKeptConnectionTurnsOutClosed() = runBlocking {
         // The audio attachment: requested hop by hop after the thread page, often more than 5 seconds later.
         MockWebServer().use { server ->

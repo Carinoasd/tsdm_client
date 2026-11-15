@@ -421,6 +421,7 @@ class KotlinHttpClientAdapter implements HttpClientAdapter {
         headers: Map.from(options.headers.filter((v) => v is String))
           ..removeWhere((k, v) => k.toLowerCase() == HttpHeaders.acceptEncodingHeader),
         singleAttempt: options.extra[singleAttemptHttpRequestKey] == true,
+        // Read for a GET only: a POST that is not a single attempt follows redirects in Kotlin whatever it says.
         followRedirects: options.followRedirects,
         // The body arrives here at once, dio would only tell its progress at the end: Kotlin tells it while it loads.
         onProgress: options.onReceiveProgress,

@@ -81,12 +81,8 @@ void main() {
     expect(args['followRedirects'], isFalse);
   });
 
-  test('the Kotlin side reads the flag and keeps the single attempt off kept connections (the Kotlin source)', () {
+  test('the Kotlin side reads the flag (the Kotlin source; its behaviour is tested in HttpClientTest.kt)', () {
     final activity = File('android/app/src/main/kotlin/kzs/th000/tsdm_client/MainActivity.kt').readAsStringSync();
     expect(activity, contains('call.argument<Boolean>("followRedirects")'));
-    expect(activity, contains('followRedirects = followRedirects'));
-    final client = File('android/app/src/main/kotlin/kzs/th000/tsdm_client/HttpClient.kt').readAsStringSync();
-    expect(client, contains('.connectionPool(freshConnections)'));
-    expect(client, contains('!followRedirects -> noRedirectClient'));
   });
 }
