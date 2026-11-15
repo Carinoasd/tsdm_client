@@ -139,6 +139,7 @@ abstract class _AndroidHttpMethodChannel {
     required String url,
     required Map<String, String> headers,
     bool singleAttempt = false,
+    bool followRedirects = true,
     ProgressCallback? onProgress,
     int? maxBytes,
   }) async {
@@ -153,6 +154,9 @@ abstract class _AndroidHttpMethodChannel {
         'url': url,
         'headers': headers,
         'singleAttempt': singleAttempt,
+        // A redirect answered as it is (a read followed hop by hop); still sent again on a new connection when a kept
+        // one turned out closed, unlike a single attempt.
+        if (!followRedirects) 'followRedirects': false,
         'progressId': ?progressId,
         // Kotlin stops reading the body past it (KT_HTTP_TOO_LARGE).
         'maxBytes': ?maxBytes,
@@ -321,6 +325,7 @@ final class KotlinHttpClient {
     Uri url, {
     Map<String, String>? headers,
     bool singleAttempt = false,
+    bool followRedirects = true,
     ProgressCallback? onProgress,
     int? maxBytes,
   }) async {
@@ -331,6 +336,7 @@ final class KotlinHttpClient {
       url: url.toString(),
       headers: headers ?? {},
       singleAttempt: singleAttempt,
+      followRedirects: followRedirects,
       onProgress: onProgress,
       maxBytes: maxBytes,
     );
@@ -415,6 +421,8 @@ class KotlinHttpClientAdapter implements HttpClientAdapter {
         headers: Map.from(options.headers.filter((v) => v is String))
           ..removeWhere((k, v) => k.toLowerCase() == HttpHeaders.acceptEncodingHeader),
         singleAttempt: options.extra[singleAttemptHttpRequestKey] == true,
+        // Read for a GET only: a POST that is not a single attempt follows redirects in Kotlin whatever it says.
+        followRedirects: options.followRedirects,
         // The body arrives here at once, dio would only tell its progress at the end: Kotlin tells it while it loads.
         onProgress: options.onReceiveProgress,
         maxBytes: responseMaxBytesOf(options),

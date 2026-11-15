@@ -247,9 +247,9 @@ final class NetClientProvider with LoggerMixin {
   /// downloads, for the progress of an image being loaded.
   ///
   /// With [followRedirects] false a redirect is not followed: its answer (a 3xx status, the `Location` header) is the
-  /// result, for the caller to decide where to go with which client. The request is then also marked as a single
-  /// attempt ([singleAttemptHttpRequestKey]): the Kotlin client of Android reads that mark, not
-  /// [Options.followRedirects], to pick its client that never follows a redirect.
+  /// result, for the caller to decide where to go with which client. The Kotlin client of Android reads
+  /// [Options.followRedirects] too; the request is still a read, sent again on a new connection when a kept one turned
+  /// out closed (not a single attempt, [singleAttemptHttpRequestKey]).
   ///
   /// [maxBytes]: the most bytes the image may have; a larger one fails with [ResponseTooLargeException], not read
   /// whole ([responseMaxBytesKey]).
@@ -274,10 +274,7 @@ final class NetClientProvider with LoggerMixin {
         },
         followRedirects: followRedirects,
         validateStatus: followRedirects ? null : (status) => status != null && status < HttpStatus.badRequest,
-        extra: {
-          if (!followRedirects) singleAttemptHttpRequestKey: true,
-          responseMaxBytesKey: ?maxBytes,
-        },
+        extra: {responseMaxBytesKey: ?maxBytes},
       ),
     );
 

@@ -676,12 +676,14 @@ class MainActivityImpl: AudioServiceFragmentActivity() {
                 val url = call.argument<String>("url")!!
                 val headers = call.argument<HashMap<String, String>>("headers")!!
                 val singleAttempt = call.argument<Boolean>("singleAttempt") ?: false
+                // A redirect answered as it is, for Dart to follow hop by hop (an audio attachment).
+                val followRedirects = call.argument<Boolean>("followRedirects") ?: true
                 val progressId = call.argument<Int>("progressId")
                 // The most bytes the body may have (an image): Dart sends an int, a long when it is large.
                 val maxBytes = call.argument<Number>("maxBytes")?.toLong()
                 CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
                     try {
-                        val resp = HttpClient.get(url, headers, singleAttempt = singleAttempt)
+                        val resp = HttpClient.get(url, headers, singleAttempt = singleAttempt, followRedirects = followRedirects)
                         val statusCode = resp.code
                         val headers = HashMap(resp.headers.toMultimap())
                         val body = if (progressId == null && maxBytes == null) resp.body.bytes() else readReportingProgress(resp, progressId, maxBytes)
