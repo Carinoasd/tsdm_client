@@ -143,7 +143,8 @@ void main() {
       // Not followed by the platform's client either, Android's included.
       final options = audioAttachmentRequestOptions();
       expect(options.followRedirects, isFalse);
-      expect(options.extra?[singleAttemptHttpRequestKey], isTrue);
+      // A read, not a single attempt: sent again when a kept connection turns out closed (test_1267).
+      expect(options.extra?[singleAttemptHttpRequestKey], isNot(isTrue));
       expect(options.validateStatus?.call(302), isTrue);
       expect(options.validateStatus?.call(404), isFalse);
     });

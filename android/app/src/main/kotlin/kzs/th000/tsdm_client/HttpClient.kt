@@ -2,6 +2,7 @@ package kzs.th000.tsdm_client
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.ConnectionPool
 import okhttp3.FormBody
 import okhttp3.Headers
 import okhttp3.HttpUrl
@@ -70,20 +71,35 @@ object HttpClient {
             .build()
     }
 
-    // Share connections and dispatchers, but never replay a non-idempotent transaction.
+    // Never replay a non-idempotent transaction. Its own pool, keeping no connection idle: a request sent once must not
+    // be written into a kept connection the server has closed meanwhile (Apache closes an idle one after 5 seconds).
+    // OkHttp checks a kept connection closely only before a request with a body, so a GET would be lost there ("unexpected
+    // end of stream") with no second attempt to make up for it; a new connection costs a handshake, once per write.
+    private val freshConnections by lazy { ConnectionPool(0, 1, TimeUnit.SECONDS) }
     private val singleAttemptClient by lazy { noReplay(client) }
     private val relaxedSingleAttemptClient by lazy { noReplay(relaxedClient) }
 
-    private fun noReplay(base: OkHttpClient) = base.newBuilder()
+    private fun noReplay(base: OkHttpClient) = noRedirect(base).newBuilder()
         .retryOnConnectionFailure(false)
+        .connectionPool(freshConnections)
+        .build()
+
+    // A read that answers a redirect as it is, for the caller to follow hop by hop (an audio attachment): it shares the
+    // connections and, unlike a single attempt, is sent again on a new one when a kept connection turns out closed.
+    private val noRedirectClient by lazy { noRedirect(client) }
+    private val relaxedNoRedirectClient by lazy { noRedirect(relaxedClient) }
+
+    private fun noRedirect(base: OkHttpClient) = base.newBuilder()
         .followRedirects(false)
         .followSslRedirects(false)
         .build()
 
-    private fun pick(relaxed: Boolean, singleAttempt: Boolean) = when {
+    private fun pick(relaxed: Boolean, singleAttempt: Boolean, followRedirects: Boolean = true) = when {
         relaxed && singleAttempt -> relaxedSingleAttemptClient
-        relaxed -> relaxedClient
         singleAttempt -> singleAttemptClient
+        relaxed && !followRedirects -> relaxedNoRedirectClient
+        !followRedirects -> noRedirectClient
+        relaxed -> relaxedClient
         else -> client
     }
 
@@ -143,8 +159,15 @@ object HttpClient {
         return if (unreachable) "KT_HTTP_UNREACHABLE" else "KT_HTTP_ERROR"
     }
 
-    // A GET that writes (the forum's AJAX menus, a debate vote) is never replayed either: singleAttempt.
-    suspend fun get(url: String, headers: HashMap<String, String>, singleAttempt: Boolean = false): Response {
+    // A GET that writes (the forum's AJAX menus, a debate vote) is never replayed either: singleAttempt. A read that
+    // follows no redirect (followRedirects false) answers the redirect as it is, and is sent again when a kept
+    // connection was found closed, as any read is.
+    suspend fun get(
+        url: String,
+        headers: HashMap<String, String>,
+        singleAttempt: Boolean = false,
+        followRedirects: Boolean = true,
+    ): Response {
         val request = Request.Builder()
             .url(url)
             .headers(Headers.headersOf(*headers.toList().flatMap { listOf(it.first, it.second) }.toTypedArray()))
@@ -153,7 +176,7 @@ object HttpClient {
 
         return withContext(Dispatchers.IO) {
             try {
-                pick(needsMoreTime(url, headers), singleAttempt).newCall(request).execute()
+                pick(needsMoreTime(url, headers), singleAttempt, followRedirects).newCall(request).execute()
             } catch (e: Exception) {
                 throw e
             }

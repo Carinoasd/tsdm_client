@@ -280,4 +280,58 @@ class HttpClientTest {
             assertEquals(64 * 1024, HttpClient.readBody(HttpClient.get(url, hashMapOf()).body).size)
         }
     }
+
+    // A connection kept for reuse that the server has closed meanwhile (Apache closes an idle one after 5s): OkHttp only
+    // checks a pooled connection closely before a request with a body, so a GET is written into it and fails with
+    // "unexpected end of stream". The ordinary client sends it again on a new connection; a single attempt may not.
+    private fun answerThenCloseTheConnection(body: String) =
+        MockResponse.Builder().body(body).onResponseEnd(SocketEffect.ShutdownConnection).build()
+
+    private fun waitForTheServerToClose() = Thread.sleep(300)
+
+    @Test fun aSingleAttemptGetIsNeverWrittenIntoAConnectionTheServerClosedWhileIdle() = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(answerThenCloseTheConnection("thread page"))
+            server.enqueue(MockResponse(body = "vote counted"))
+            server.start()
+            HttpClient.get(server.url("/thread").toString(), hashMapOf()).use { assertEquals(200, it.code) }
+            waitForTheServerToClose()
+            HttpClient.get(server.url("/vote?stand=1").toString(), hashMapOf(), singleAttempt = true).use {
+                assertEquals("vote counted", it.body.string())
+            }
+            assertEquals(2, server.requestCount)
+        }
+    }
+
+    @Test fun aReadFollowingNoRedirectIsSentAgainWhenAKeptConnectionTurnsOutClosed() = runBlocking {
+        // The audio attachment: requested hop by hop after the thread page, often more than 5 seconds later.
+        MockWebServer().use { server ->
+            server.enqueue(answerThenCloseTheConnection("thread page"))
+            server.enqueue(MockResponse.Builder().code(302).addHeader("Location", "/elsewhere.mp3").build())
+            server.enqueue(MockResponse(body = "Must not be requested: the caller follows the redirect itself"))
+            server.start()
+            HttpClient.get(server.url("/thread").toString(), hashMapOf()).use { assertEquals(200, it.code) }
+            waitForTheServerToClose()
+            HttpClient.get(server.url("/attachment").toString(), hashMapOf(), followRedirects = false).use {
+                assertEquals(302, it.code)
+                assertEquals("/elsewhere.mp3", it.header("Location"))
+            }
+            assertEquals(2, server.requestCount)
+        }
+    }
+
+    @Test fun aReadFollowingNoRedirectAnswersEveryKindOfRedirectAsItIs() = runBlocking {
+        MockWebServer().use { server ->
+            for (code in listOf(301, 302, 303, 307, 308)) {
+                server.enqueue(MockResponse.Builder().code(code).addHeader("Location", "/next").build())
+            }
+            server.start()
+            for (code in listOf(301, 302, 303, 307, 308)) {
+                HttpClient.get(server.url("/attachment").toString(), hashMapOf(), followRedirects = false).use {
+                    assertEquals(code, it.code)
+                }
+            }
+            assertEquals(5, server.requestCount)
+        }
+    }
 }

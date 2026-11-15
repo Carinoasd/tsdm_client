@@ -221,9 +221,9 @@ void main() {
     test('asks every client not to follow a redirect of the session, the Kotlin client of Android too', () async {
       await images.getOrMakeCache(ImageCacheGeneralRequest(_attachmentUrl(31)));
       final sent = session.options.single;
+      // The Kotlin client of Android reads it too (test_1267); a read, not a single attempt.
       expect(sent.followRedirects, isFalse);
-      // What the Kotlin client reads to pick its client that follows no redirect.
-      expect(sent.extra[singleAttemptHttpRequestKey], isTrue);
+      expect(sent.extra[singleAttemptHttpRequestKey], isNot(isTrue));
     });
 
     test('sends the session to the canonical https host only', () async {

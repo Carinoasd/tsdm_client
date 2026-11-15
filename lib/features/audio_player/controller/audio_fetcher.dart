@@ -115,12 +115,15 @@ Future<Either<AppException, Response<dynamic>>> followAudioAttachmentRedirects(
 }
 
 /// The options of one request of an audio attachment: no redirect followed, on every platform (the Kotlin client of
-/// Android reads [singleAttemptHttpRequestKey], not [Options.followRedirects]), a redirect answered as it is.
+/// Android reads [Options.followRedirects] too), a redirect answered as it is.
+///
+/// Not a single attempt ([singleAttemptHttpRequestKey]): a read, sent again as any read is when the connection it was
+/// written into turns out closed by the server while kept for reuse (it failed with "unexpected end of stream" when
+/// played more than a few seconds after the thread loaded), as it was before the redirects were followed hop by hop.
 @visibleForTesting
 Options audioAttachmentRequestOptions() => Options(
   followRedirects: false,
   validateStatus: (s) => s != null && s < HttpStatus.badRequest,
-  extra: {singleAttemptHttpRequestKey: true},
 );
 
 /// [AudioFetcher] through the app's net client: the attachments with the account's cookie, as a download is (the
