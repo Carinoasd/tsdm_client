@@ -309,6 +309,31 @@ void main() {
 
     await setMark(tester, on: false);
     expect(colorOf(tester, 'later 7').a, 1);
+    await setMark(tester, on: true);
+    expect(colorOf(tester, 'later 7').a, lessThan(1));
+  });
+
+  testWidgets('a title on another background keeps a readable contrast on that one', (tester) async {
+    const dark = Color(0xFF202020);
+    late TextStyle? style;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) {
+            style = visitedTitleStyle(
+              context,
+              const TextStyle(color: Color(0xFFB0B0B0)),
+              visited: true,
+              background: dark,
+            );
+            return const SizedBox();
+          },
+        ),
+      ),
+    );
+    final color = style!.color!;
+    expect(color.a, lessThan(1));
+    expect(contrastRatio(Color.alphaBlend(color, dark), dark), greaterThanOrEqualTo(readableContrast - 0.01));
   });
 
   testWidgets('a forum in the favorites is never dimmed', (tester) async {
