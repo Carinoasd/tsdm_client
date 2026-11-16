@@ -297,7 +297,8 @@ class ScreenPaths {
   /// https://tsdm39.com/home.php?mod=space&uid=xxx&do=thread&view=me[&type=reply]
   ///
   /// Query parameters: `uid` and/or `username` (the member, as the link named them), `tab` (`reply` to show the
-  /// replies first). The current user's own list redirects to [myThread].
+  /// replies first), `fid` (a forum the page offers to limit the lists to: the forum of the thread it was opened from).
+  /// The current user's own list redirects to [myThread].
   static const String memberThread = '/memberThread';
 
   /// Page to show the favorites (收藏) of the current user.

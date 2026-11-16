@@ -60,6 +60,8 @@ Future<void> showUserBriefProfileDialog(
   required String? signature,
   required PostFloorPokemon? pokemon,
   required PostCheckinStatus? checkin,
+  // The forum of the thread the floor is in: the author's lists can be limited to it.
+  int? fid,
 }) async {
   await showHeroDialog<void>(
     context,
@@ -74,6 +76,7 @@ Future<void> showUserBriefProfileDialog(
       signature,
       pokemon,
       checkin,
+      fid,
     ),
   );
 }
@@ -90,6 +93,7 @@ class _UserBriefProfileDialog extends StatefulWidget {
     this.signature,
     this.pokemon,
     this.checkin,
+    this.fid,
   );
 
   final UserBriefProfile profile;
@@ -116,6 +120,9 @@ class _UserBriefProfileDialog extends StatefulWidget {
 
   /// Checkin info.
   final PostCheckinStatus? checkin;
+
+  /// The forum of the thread the floor is in, null outside a thread page.
+  final int? fid;
 
   @override
   State<_UserBriefProfileDialog> createState() => _UserBriefProfileDialogState();
@@ -158,11 +165,12 @@ class _UserBriefProfileDialogState extends State<_UserBriefProfileDialog> {
     final accountUid = auth?.effectiveCurrentUid;
     final accountName = auth?.effectiveCurrentUser?.username;
     // A floor without a uid names the author only: then the name decides, as the member thread route does.
-    final isSelf = authorUid != null && authorUid > 0
-        ? authorUid == accountUid
-        : accountName != null &&
-              widget.profile.username.isNotEmpty &&
-              forumUsernameKey(widget.profile.username) == forumUsernameKey(accountName);
+    final isSelf = isAccountMember(
+      uid: authorUid,
+      username: widget.profile.username,
+      accountUid: accountUid,
+      accountName: accountName,
+    );
     // The title badge needs a verified current account; the uid is compared again by the badge against the title it
     // holds.
     final ownFloor = widget.secondBadge == null && authorUid != null && authorUid == auth?.currentUser?.uid;
@@ -285,6 +293,7 @@ class _UserBriefProfileDialogState extends State<_UserBriefProfileDialog> {
           uid: authorUid,
           username: widget.profile.username,
           isSelf: isSelf,
+          fid: widget.fid,
           hasAccount: accountUid != null,
           width: contentWidth,
         ),
@@ -553,6 +562,7 @@ class _AuthorActions extends StatelessWidget {
     required this.isSelf,
     required this.hasAccount,
     required this.width,
+    this.fid,
   });
 
   /// Parsed author uid, null if the floor carries no number.
@@ -567,6 +577,9 @@ class _AuthorActions extends StatelessWidget {
 
   /// Width of the dialog content.
   final double width;
+
+  /// The forum the lists of another member can be limited to.
+  final int? fid;
 
   /// Content narrower than this gets the fixed two rows.
   static const _wrapWidth = 300.0;
@@ -615,10 +628,7 @@ class _AuthorActions extends StatelessWidget {
     void openMemberThreads(String? tab) => unawaited(
       context.pushNamed(
         ScreenPaths.memberThread,
-        queryParameters: {
-          if (uid != null) 'uid': '$uid' else if (username.isNotEmpty) 'username': username,
-          'tab': ?tab,
-        },
+        queryParameters: memberThreadQuery(uid: uid, username: username, tab: tab, fid: isSelf ? null : fid),
       ),
     );
 

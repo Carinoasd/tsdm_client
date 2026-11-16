@@ -19,6 +19,7 @@ import 'package:tsdm_client/features/image/utils/image_actions.dart';
 import 'package:tsdm_client/features/image/utils/post_gallery_images.dart';
 import 'package:tsdm_client/features/image/utils/save_all_images.dart';
 import 'package:tsdm_client/features/image/widgets/post_image.dart';
+import 'package:tsdm_client/features/member_thread/utils/member_thread_url.dart';
 import 'package:tsdm_client/features/moderate/models/moderate_posts.dart';
 import 'package:tsdm_client/features/moderate/widgets/floor_moderate_dialog.dart';
 import 'package:tsdm_client/features/moderate/widgets/member_ban_dialog.dart';
@@ -95,6 +96,9 @@ enum _PostCardActions {
 
   /// View all authors.
   viewAllAuthors,
+
+  /// Open the other threads of the floor's author (the member's "TA的主题" list), for another member's floor.
+  authorThreads,
 
   /// Edit the post.
   ///
@@ -273,6 +277,7 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
           signature: widget.post.signature,
           pokemon: widget.post.pokemon,
           checkin: widget.post.checkin,
+          fid: context.readOrNull<ThreadBloc>()?.state.fid,
         );
       }
     }
@@ -619,6 +624,8 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
         // Viewing specified author now, can switch to view all authors mode.
         if (threadBloc != null && onlyVisibleUid != null)
           item(_PostCardActions.viewAllAuthors, Icons.group_outlined, context.t.postCard.viewAllAuthors),
+        if (online && _otherAuthorUid(context) != null)
+          item(_PostCardActions.authorThreads, Icons.topic_outlined, context.t.postCard.authorThreads),
         if (online && widget.post.editUrl != null)
           item(_PostCardActions.edit, Icons.edit_outlined, context.t.postCard.edit),
       ],
@@ -726,6 +733,13 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
         // Here is guaranteed a not-null `ThreadBloc` and a
         // not-null author uid.
         context.read<ThreadBloc>().add(ThreadViewAllAuthorsRequested());
+      case _PostCardActions.authorThreads:
+        if (_otherAuthorUid(context) case final uid?) {
+          await context.pushNamed(
+            ScreenPaths.memberThread,
+            queryParameters: memberThreadQuery(uid: uid, fid: context.readOrNull<ThreadBloc>()?.state.fid),
+          );
+        }
       case _PostCardActions.edit:
         final url = Uri.parse(widget.post.editUrl!);
         final editType = widget.post.isDraft ? PostEditType.editDraft.index : PostEditType.editPost.index;
@@ -852,6 +866,18 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
           await showFloorIpDialog(context, url: url, pid: pid);
         }
     }
+  }
+
+  /// The uid of the floor's author when it is another member than the account in use: null for an anonymous floor
+  /// (no uid, by the structured answer and by the web page alike) and for the account's own floor, whose threads are
+  /// on the "my threads" page.
+  int? _otherAuthorUid(BuildContext context) {
+    final uid = int.tryParse(widget.post.author.uid ?? '');
+    if (uid == null || uid <= 0) {
+      return null;
+    }
+    // With a uid the account is told by it alone (as [isAccountMember] tells it).
+    return uid == context.readOrNull<AuthenticationRepository>()?.effectiveCurrentUid ? null : uid;
   }
 
   /// The thread and floor ids a bookmark of this floor has, null where none can be kept: no thread page above (the

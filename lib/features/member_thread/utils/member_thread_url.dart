@@ -15,13 +15,38 @@ enum MemberThreadTab {
 ///
 /// Both are passed on as the link gave them: the forum locates the member by `username` when there is one (a renamed
 /// member by the name history too) and by `uid` otherwise, as it does for every space page.
-String memberThreadUrl(MemberThreadTab tab, {String? uid, String? username}) {
+///
+/// With [fid] (above 0) the list holds what the member posted in that forum only: the forum's `fid` filter of the
+/// page (`source/app/home/child/space/thread.php`, both lists), kept by the links to the next pages.
+String memberThreadUrl(MemberThreadTab tab, {String? uid, String? username, int? fid}) {
   final who = [
     if (uid != null && uid.isNotEmpty) 'uid=${Uri.encodeQueryComponent(uid)}',
     if (username != null && username.isNotEmpty) 'username=${Uri.encodeQueryComponent(username)}',
   ].join('&');
-  return '$baseUrl/home.php?mod=space&$who&do=thread&view=me&type=${tab.name}';
+  final forum = fid != null && fid > 0 ? '&fid=$fid' : '';
+  return '$baseUrl/home.php?mod=space&$who&do=thread&view=me&type=${tab.name}$forum';
 }
+
+/// The query of the route of a member's list ([ScreenPaths.memberThread]): the member by [uid], by [username] when
+/// the uid is not known, the list [tab] when it is not the threads, and the forum [fid] the page may limit the lists
+/// to (above 0).
+Map<String, String> memberThreadQuery({int? uid, String? username, String? tab, int? fid}) => {
+  if (uid != null && uid > 0) 'uid': '$uid' else if (username != null && username.isNotEmpty) 'username': username,
+  'tab': ?tab,
+  if (fid != null && fid > 0) 'fid': '$fid',
+};
+
+/// Whether the author of a floor ([uid], [username]) is the account in use ([accountUid], [accountName]): by the uid
+/// when the floor has one, else by the name as the forum compares names ([forumUsernameKey]), as the member list
+/// route tells the own list ([memberThreadRedirect]).
+bool isAccountMember({
+  required int? uid,
+  required String username,
+  required int? accountUid,
+  required String? accountName,
+}) => uid != null && uid > 0
+    ? uid == accountUid
+    : accountName != null && username.isNotEmpty && forumUsernameKey(username) == forumUsernameKey(accountName);
 
 /// [value] as PHP's `intval` reads a query parameter (the forum's `intval($_GET['uid'])`): its leading digits after
 /// optional blanks and sign, 0 when there are none (`abc`, empty, missing).

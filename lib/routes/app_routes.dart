@@ -290,6 +290,7 @@ final List<RouteBase> _appRoutes = [
     builder: (state) => MemberThreadPage(
       uid: state.uri.queryParameters['uid'],
       username: state.uri.queryParameters['username'],
+      fid: int.tryParse(state.uri.queryParameters['fid'] ?? ''),
       initialTab: state.uri.queryParameters['tab'] == MemberThreadTab.reply.name
           ? MemberThreadTab.reply
           : MemberThreadTab.thread,

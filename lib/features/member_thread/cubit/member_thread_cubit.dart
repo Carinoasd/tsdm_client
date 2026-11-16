@@ -118,6 +118,7 @@ final class MemberThreadState {
     this.ownerUid,
     this.ownerName,
     this.viewerUid,
+    this.forumOnly = false,
   });
 
   /// The threads.
@@ -135,6 +136,9 @@ final class MemberThreadState {
 
   /// The account the lists were asked for (the uid of the session in use when they were asked), null for a guest.
   final int? viewerUid;
+
+  /// Whether the lists hold what the member posted in the forum of the cubit ([MemberThreadCubit.fid]) only.
+  final bool forumOnly;
 
   /// The list [tab].
   MemberThreadListState of(MemberThreadTab tab) => switch (tab) {
@@ -154,6 +158,7 @@ final class MemberThreadState {
     ownerUid: ownerUid ?? this.ownerUid,
     ownerName: ownerName ?? this.ownerName,
     viewerUid: viewerUid != null ? viewerUid() : this.viewerUid,
+    forumOnly: forumOnly,
   );
 }
 
@@ -182,11 +187,13 @@ MemberThreadSession _sessionNow() {
 final class MemberThreadCubit extends Cubit<MemberThreadState> with LoggerMixin {
   /// Constructor.
   ///
-  /// The member is [uid] and/or [username], as the link named them ([memberThreadUrl]).
+  /// The member is [uid] and/or [username], as the link named them ([memberThreadUrl]); [fid] is the forum the lists
+  /// can be limited to ([setForumOnly]).
   MemberThreadCubit({
     required MyThreadRepository repository,
     this.uid,
     this.username,
+    this.fid,
     MemberThreadSession Function()? session,
   }) : _repository = repository,
        _session = session ?? _sessionNow,
@@ -197,6 +204,9 @@ final class MemberThreadCubit extends Cubit<MemberThreadState> with LoggerMixin 
 
   /// Name of the member, as the route named it.
   final String? username;
+
+  /// The forum the lists can be limited to (the forum of the thread the page was opened from), null for none.
+  final int? fid;
 
   final MyThreadRepository _repository;
   final MemberThreadSession Function() _session;
@@ -231,7 +241,7 @@ final class MemberThreadCubit extends Cubit<MemberThreadState> with LoggerMixin 
             : const MemberThreadListState(status: MemberThreadStatus.loading),
       ),
     );
-    final url = memberThreadUrl(tab, uid: uid, username: username);
+    final url = memberThreadUrl(tab, uid: uid, username: username, fid: state.forumOnly ? fid : null);
     final result = await _repository.fetchPage(url).run();
     if (!_isCurrent(tab, generation)) {
       return;
@@ -398,7 +408,25 @@ final class MemberThreadCubit extends Cubit<MemberThreadState> with LoggerMixin 
     if (isClosed) {
       return;
     }
-    emit(MemberThreadState(ownerUid: state.ownerUid, ownerName: state.ownerName));
+    emit(MemberThreadState(ownerUid: state.ownerUid, ownerName: state.ownerName, forumOnly: state.forumOnly));
+    await Future.wait(MemberThreadTab.values.map(load));
+  }
+
+  /// Limit both lists to what the member posted in the forum [fid] ([forumOnly]), or show all of it again: both start
+  /// over from their first page, the rows of the other choice dropped at once, and an answer still on its way for them
+  /// is dropped too. Nothing to limit to without a forum.
+  Future<void> setForumOnly({required bool forumOnly}) async {
+    if (isClosed || forumOnly == state.forumOnly || (forumOnly && (fid ?? 0) <= 0)) {
+      return;
+    }
+    emit(
+      MemberThreadState(
+        ownerUid: state.ownerUid,
+        ownerName: state.ownerName,
+        viewerUid: state.viewerUid,
+        forumOnly: forumOnly,
+      ),
+    );
     await Future.wait(MemberThreadTab.values.map(load));
   }
 

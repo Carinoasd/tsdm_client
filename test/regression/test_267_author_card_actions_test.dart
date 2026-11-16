@@ -20,6 +20,8 @@ import 'package:tsdm_client/features/member_thread/utils/member_thread_url.dart'
 import 'package:tsdm_client/features/profile/bloc/current_title_cubit.dart';
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
+import 'package:tsdm_client/features/thread/v1/bloc/thread_bloc.dart';
+import 'package:tsdm_client/features/thread/v1/repository/thread_repository.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
@@ -169,6 +171,7 @@ void main() {
     bool blockAware = false,
     Post? post,
     Size? window,
+    int? threadFid,
   }) async {
     if (window != null) {
       tester.view
@@ -210,17 +213,25 @@ void main() {
       await status.close();
       await auth.dispose();
     });
+    // The thread page above the floor, in forum [threadFid].
+    final thread = threadFid == null ? null : _ThreadBloc(threadFid);
+    if (thread != null) {
+      addTearDown(thread.close);
+    }
     final router = GoRouter(
       routes: [
         GoRoute(
           path: '/',
-          builder: (_, _) => Scaffold(
-            body: SingleChildScrollView(
-              child: blockAware
-                  ? BlockAwarePost(post: floor, postList: [floor], builder: (_, p) => PostCard(p))
-                  : PostCard(floor),
-            ),
-          ),
+          builder: (_, _) {
+            final card = blockAware
+                ? BlockAwarePost(post: floor, postList: [floor], builder: (_, p) => PostCard(p))
+                : PostCard(floor);
+            return Scaffold(
+              body: SingleChildScrollView(
+                child: thread == null ? card : BlocProvider<ThreadBloc>.value(value: thread, child: card),
+              ),
+            );
+          },
         ),
         GoRoute(
           name: ScreenPaths.memberThread,
@@ -319,6 +330,24 @@ void main() {
     expect(opened, hasLength(1));
     expect(opened.single.path, ScreenPaths.myThread);
     expect(opened.single.queryParameters, {'tab': 'reply'});
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets("opened from a thread: another author's lists come with the thread's forum, the own lists without", (
+    tester,
+  ) async {
+    var opened = await openDialog(tester, reader: 2000, threadFid: 12);
+    await tester.tap(action('threads'));
+    await _settle(tester);
+    expect(opened.single.path, ScreenPaths.memberThread);
+    expect(opened.single.queryParameters, {'uid': '$_author', 'fid': '12'});
+
+    await tester.pumpWidget(const SizedBox());
+    opened = await openDialog(tester, reader: _author, threadFid: 12);
+    await tester.tap(action('threads'));
+    await _settle(tester);
+    expect(opened.single.path, ScreenPaths.myThread);
+    expect(opened.single.queryParameters, isEmpty);
     expect(tester.takeException(), isNull);
   });
 
@@ -506,4 +535,23 @@ void main() {
     expect(action('block'), findsNothing);
     expect(tester.takeException(), isNull);
   });
+}
+
+/// The thread page above the floor: a thread of forum `fid`.
+final class _ThreadBloc extends ThreadBloc {
+  _ThreadBloc(int fid)
+    : _state = ThreadState(tid: '1', fid: fid, status: ThreadStatus.success),
+      super(
+        tid: '1',
+        pid: null,
+        onlyVisibleUid: null,
+        reverseOrder: null,
+        exactOrder: null,
+        threadRepository: ThreadRepository(),
+      );
+
+  final ThreadState _state;
+
+  @override
+  ThreadState get state => _state;
 }

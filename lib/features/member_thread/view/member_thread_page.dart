@@ -33,11 +33,14 @@ import 'package:tsdm_client/widgets/two_pane.dart';
 /// The member is located by [uid] and/or [username] as the link named them ([memberThreadUrl]); the account's own
 /// lists open the "my threads" page instead (the route's redirect, [memberThreadRedirect]). The rows look as on the
 /// "my threads" page. A member blocked on this device has their lists hidden, as their threads are everywhere else.
+///
+/// Opened from a thread ([fid], its forum), both lists can be limited to that forum or show all of it again.
 class MemberThreadPage extends StatefulWidget {
   /// Constructor.
   const MemberThreadPage({
     this.uid,
     this.username,
+    this.fid,
     this.initialTab = MemberThreadTab.thread,
     this.cubit,
     this.moderateRepository,
@@ -49,6 +52,9 @@ class MemberThreadPage extends StatefulWidget {
 
   /// Name of the member.
   final String? username;
+
+  /// The forum the lists can be limited to, null to offer none.
+  final int? fid;
 
   /// The tab shown first: the replies for a link to them (`type=reply`).
   final MemberThreadTab initialTab;
@@ -99,7 +105,13 @@ class _MemberThreadPageState extends State<MemberThreadPage> with SingleTickerPr
       }
     });
     _cubit =
-        widget.cubit ?? MemberThreadCubit(repository: MyThreadRepository(), uid: widget.uid, username: widget.username);
+        widget.cubit ??
+        MemberThreadCubit(
+          repository: MyThreadRepository(),
+          uid: widget.uid,
+          username: widget.username,
+          fid: widget.fid,
+        );
     // What the forum shows of the member depends on who asks: another account coming into use reloads both lists,
     // and so does a login of the account in use again while a list was refused (the forum may have dropped its
     // session, issue #25, and answered as to a guest). The status replayed to a new listener ended before: no login.
@@ -322,6 +334,18 @@ class _MemberThreadPageState extends State<MemberThreadPage> with SingleTickerPr
                             : (name == null || name.isEmpty ? tr.titleUnknown : tr.title(name: name)),
                       ),
                       actions: [
+                        if ((_cubit.fid ?? 0) > 0 && !own)
+                          SegmentedButton<bool>(
+                            key: const ValueKey('member-thread-scope'),
+                            showSelectedIcon: false,
+                            style: const ButtonStyle(visualDensity: VisualDensity.compact),
+                            segments: [
+                              ButtonSegment(value: true, label: Text(tr.scopeForum)),
+                              ButtonSegment(value: false, label: Text(tr.scopeAll)),
+                            ],
+                            selected: {state.forumOnly},
+                            onSelectionChanged: (v) => unawaited(_cubit.setForumOnly(forumOnly: v.first)),
+                          ),
                         IconButton(
                           icon: const Icon(Icons.person_outline),
                           tooltip: context.t.profilePage.title,
