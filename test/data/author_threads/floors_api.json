@@ -303,7 +303,7 @@
     "comment": "forum.php?mod=misc&action=comment&tid=9199196&pid=3409&extra=&page=1",
     "viewip": "forum.php?mod=topicadmin&action=getip&fid=12&tid=9199196&pid=3409"
    },
-   "signature_html": "<strong>测试签名</strong> 第二行<br />\n<font color=\"Red\">红字</font> <a href=\"https://example.com\" target=\"_blank\">链接</a>",
+   "signature_html": "",
    "poll_html": "",
    "packet_html": "",
    "rate": null,
