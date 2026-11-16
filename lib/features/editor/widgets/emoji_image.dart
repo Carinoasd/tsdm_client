@@ -97,6 +97,13 @@ class _EmojiCacheImageState extends State<EmojiCacheImage> {
       } else {
         _waitForList(cache);
       }
+    } else if (bytes == null && !await cache.isInEmojiList(groupId, id)) {
+      // Not in the list on this device (a group the forum added later): the forum's list, once a run.
+      if (await EmojiListInBackground.refresh(cache) != null) {
+        bytes = await cache.getOrMakeEmojiCache(groupId, id);
+      } else {
+        _waitForList(cache);
+      }
     }
     if (bytes != null && mounted && widget.groupId == groupId && widget.id == id) {
       setState(() => _bytes = bytes);
@@ -215,9 +222,13 @@ class _EmojiGroupViewState extends State<EmojiGroupView> {
             label: Text(context.t.general.retry),
           ),
           EmojiStatus.success => const SizedBox.shrink(),
+          // Moving from the first answer on, a failed one too; running until then (empty tiles and a bar at 0 looked
+          // like nothing happened while the images failed one after the other).
           _ => LinearProgressIndicator(
             key: const ValueKey('emoji-group-progress'),
-            value: progress == null || progress.total == 0 ? null : done / progress.total,
+            value: progress == null || progress.total == 0 || done + progress.failed == 0
+                ? null
+                : (done + progress.failed) / progress.total,
             minHeight: 2,
           ),
         };

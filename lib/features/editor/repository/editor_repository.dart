@@ -13,18 +13,83 @@ import 'package:tsdm_client/shared/providers/net_client_provider/net_client_prov
 import 'package:tsdm_client/shared/providers/providers.dart';
 import 'package:tsdm_client/utils/logger.dart';
 
-/// The emoji list fetched in the background for the forum's emoji shown before the emoji panel ever loaded it (the
-/// emoji of an old draft or a quote in the editor): once a run of the app. A fetch that failed is not tried again in
-/// this run (the emoji stay their code; the emoji panel tries again on its own when opened).
+/// The forum's emoji list (`data/cache/common_smilies_var.js`) asked in the background: one request at a time for
+/// the emoji panel and the editor together, saved when it changed.
+///
+/// * The emoji panel shows the list on this device at once and asks the forum for its list once a run ([refresh]):
+///   a group the forum added shows, an emoji it removed goes. A failure says nothing; the next run asks again.
+/// * The editor shows the forum's emoji of an old draft or a quote before the emoji panel ever loaded the list
+///   ([ensure]): fetched once a run (the emoji stay their code when it fails; the emoji panel tries again on its own
+///   when opened). An emoji the list on this device has not (a group added later) waits for [refresh].
 abstract final class EmojiListInBackground {
-  static Future<bool>? _loading;
+  /// The request running now.
+  static Future<List<EmojiGroup>?>? _request;
 
+  /// The forum's list was asked in this run (and arrived), or a refresh was tried: not asked again in the background.
+  static var _asked = false;
+
+  /// [ensure] failed in this run.
   static var _failed = false;
+
+  static NetClientProvider? _clientOr(NetClientProvider? client) =>
+      client ??
+      (getIt.isRegistered<NetClientProvider>(instanceName: ServiceKeys.noCookie)
+          ? getIt.get<NetClientProvider>(instanceName: ServiceKeys.noCookie)
+          : null);
+
+  /// The forum's list, asked now unless a request is running already (its answer then); saved in [cache] when it has
+  /// emoji and is not the list there ([sameEmojiList]). Null when it could not be had.
+  static Future<List<EmojiGroup>?> fetch(ImageCacheProvider cache, {NetClientProvider? client}) {
+    final running = _request;
+    if (running != null) {
+      return running;
+    }
+    final netClient = _clientOr(client);
+    if (!cache.emojiCacheReady || netClient == null) {
+      return Future.value();
+    }
+    return _request = () async {
+      // Not the repository of a panel: closing the panel must not stop the request others wait for.
+      final repository = EditorRepository(netClientProvider: netClient, imageCacheProvider: cache);
+      try {
+        final groups = await repository._fetchEmojiList();
+        if (groups == null) {
+          return null;
+        }
+        _asked = true;
+        final saved = await cache.loadEmojiInfo();
+        if (saved == null || !sameEmojiList(saved, groups)) {
+          await cache.saveEmojiInfo(groups);
+        }
+        return groups;
+      } on Exception catch (e) {
+        talker.handle(e);
+        return null;
+      } finally {
+        repository.dispose();
+        _request = null;
+      }
+    }();
+  }
+
+  /// The forum's list for a device that has one already: asked once a run (the request running now, if any, is
+  /// shared). Null when it was asked before in this run or could not be had.
+  static Future<List<EmojiGroup>?> refresh(ImageCacheProvider cache, {NetClientProvider? client}) {
+    final running = _request;
+    if (running != null) {
+      return running;
+    }
+    if (_asked || !cache.emojiCacheReady || _clientOr(client) == null) {
+      return Future.value();
+    }
+    _asked = true;
+    return fetch(cache, client: client);
+  }
 
   /// Whether the emoji list is in [cache] ([ImageCacheProvider.hasEmojiList]), fetched now when it is not and no
   /// fetch failed in this run; callers at the same time share one fetch.
   static Future<bool> ensure(ImageCacheProvider cache) async {
-    if (!cache.emojiCacheReady || !getIt.isRegistered<NetClientProvider>(instanceName: ServiceKeys.noCookie)) {
+    if (!cache.emojiCacheReady || _clientOr(null) == null) {
       return false;
     }
     if (await cache.hasEmojiList()) {
@@ -33,29 +98,49 @@ abstract final class EmojiListInBackground {
     if (_failed) {
       return false;
     }
-    return _loading ??= () async {
-      final repository = EditorRepository(imageCacheProvider: cache);
-      try {
-        final loaded = (await repository.loadEmojiFromCacheOrServer().run()).isRight();
-        _failed = !loaded;
-        return loaded;
-      } on Exception catch (e) {
-        talker.handle(e);
-        _failed = true;
-        return false;
-      } finally {
-        repository.dispose();
-        _loading = null;
-      }
-    }();
+    final groups = await fetch(cache);
+    _failed = groups == null;
+    return groups != null;
   }
 
   /// Forget the fetches of this run.
   @visibleForTesting
   static void reset() {
-    _loading = null;
+    _request = null;
+    _asked = false;
     _failed = false;
   }
+}
+
+/// Whether [a] and [b] are the same group: name, place and its emoji in the same order. The url of an image is not
+/// compared, only where it is ([ImageCacheProvider.emojiImageKeyOf]): an older version saved them on the image host.
+bool sameEmojiGroup(EmojiGroup a, EmojiGroup b) {
+  if (a.id != b.id || a.name != b.name || a.routeName != b.routeName || a.emojiList.length != b.emojiList.length) {
+    return false;
+  }
+  for (var i = 0; i < a.emojiList.length; i++) {
+    final x = a.emojiList[i];
+    final y = b.emojiList[i];
+    if (x.id != y.id ||
+        x.code != y.code ||
+        (ImageCacheProvider.emojiImageKeyOf(x.url) ?? x.url) != (ImageCacheProvider.emojiImageKeyOf(y.url) ?? y.url)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/// Whether the lists [a] and [b] are the same groups in the same order ([sameEmojiGroup]).
+bool sameEmojiList(List<EmojiGroup> a, List<EmojiGroup> b) {
+  if (a.length != b.length) {
+    return false;
+  }
+  for (var i = 0; i < a.length; i++) {
+    if (!sameEmojiGroup(a[i], b[i])) {
+      return false;
+    }
+  }
+  return true;
 }
 
 /// The repository of bbcode editor features injected into bbcode editor.
@@ -100,8 +185,8 @@ final class EditorRepository with LoggerMixin {
   ///   "10" in "{:10_200:}".
   /// * GROUP_NAME: Human readable emoji group name.
   /// * GROUP_ROUTE_NAME: A part of the route we fetch the emoji image. For
-  ///   example: In https://img.mikudm.net/img02/smilies/TSDM/9.jpg the "TSDM"
-  ///   is the group route name.
+  ///   example: In https://www.tsdm39.com/static/image/smiley/TSDM/9.jpg the
+  ///   "TSDM" is the group route name.
   /// * PAGE_NUMBER: Page number of the emoji in group when display in browser.
   ///   Optional because we provides a different layout and this parameter is
   ///   not required.
@@ -111,11 +196,6 @@ final class EditorRepository with LoggerMixin {
   /// * FILE_NAME: the final file name in url when we fetch the emoji image. We
   ///   don't name cache with this value.
   static const _emojiInfoUrl = '$baseUrl/data/cache/common_smilies_var.js';
-
-  /// Head of the image url.
-  ///
-  /// Full url: [_emojiFileUrlHead]/${ROUTE_NAME}/${FILE_NAME}
-  static const _emojiFileUrlHead = 'https://img.tsdm39.com/img02/smilies/';
 
   /// Expected to match data:
   ///
@@ -214,8 +294,11 @@ final class EditorRepository with LoggerMixin {
         final id = dd[1];
         final code = dd[3].replaceAll(_escapedQuotePlaceholder, "'");
         final fileName = dd[5];
-        // Some files have spaces in their names (`1 (15).gif`).
-        final url = '$_emojiFileUrlHead${Uri.encodeComponent(group.routeName)}/${Uri.encodeComponent(fileName)}';
+        // Where the forum's pages show it from ([ImageCacheProvider.emojiImageUrlsOf] adds the image host). Some files
+        // have spaces in their names (`1 (15).gif`, `d (1).gif`).
+        final url =
+            '${ImageCacheProvider.emojiForumImageHead}'
+            '${Uri.encodeComponent(group.routeName)}/${Uri.encodeComponent(fileName)}';
         emojiList.add(Emoji(id: id, code: code, url: url));
       }
       emojiGroupMap[groupId] = group.copyWith(emojiList: [...group.emojiList, ...emojiList]);
@@ -235,7 +318,8 @@ final class EditorRepository with LoggerMixin {
   ImageCacheProvider get _imageCache => _imageCacheProvider ?? getIt.get<ImageCacheProvider>();
 
   /// Load the emoji groups into [emojiGroupList]: the list saved on this device, else the forum's list (saved for the
-  /// next time). Only the list: the images of a group are downloaded when it is shown ([downloadEmojiGroup]).
+  /// next time). Only the list: the images of a group are downloaded when it is shown ([downloadEmojiGroup]); the
+  /// list on this device is asked again of the forum in the background ([refreshEmojiList]).
   AsyncVoidEither loadEmojiFromCacheOrServer() => AsyncVoidEither(() async {
     final saved = await _imageCache.loadEmojiInfo();
     if (saved != null && saved.isNotEmpty) {
@@ -243,32 +327,59 @@ final class EditorRepository with LoggerMixin {
       return rightVoid();
     }
     info('load emoji list from server');
+    final groups = await EmojiListInBackground.fetch(_imageCache, client: _netClientProvider);
+    if (groups == null || _disposed) {
+      return left(EmojiLoadFailedException());
+    }
+    emojiGroupList = groups;
+    return rightVoid();
+  });
+
+  /// The forum's list when it is not [emojiGroupList] ([sameEmojiList]), saved; asked once a run
+  /// ([EmojiListInBackground.refresh]). Null when nothing changed, it was asked before in this run, or it could not be
+  /// had (nothing said: the list on this device stays).
+  Future<List<EmojiGroup>?> refreshEmojiList() async {
+    final shown = emojiGroupList;
+    // Asked before in this run: what that request saved, when it came after this panel read the list.
+    final groups =
+        await EmojiListInBackground.refresh(_imageCache, client: _netClientProvider) ??
+        await _imageCache.loadEmojiInfo();
+    if (groups == null || groups.isEmpty || _disposed || (shown != null && sameEmojiList(shown, groups))) {
+      return null;
+    }
+    emojiGroupList = groups;
+    return groups;
+  }
+
+  /// The forum's list ([_emojiInfoUrl]), null when it could not be had or has no emoji.
+  Future<List<EmojiGroup>?> _fetchEmojiList() async {
     final netClient = _netClientProvider ?? getIt.get<NetClientProvider>(instanceName: ServiceKeys.noCookie);
     final respEither = await netClient.get(_emojiInfoUrl).run();
     if (respEither.isLeft()) {
       handle(respEither.unwrapErr());
-      return left(EmojiLoadFailedException());
+      return null;
     }
     final resp = respEither.unwrap();
     if (resp.statusCode != HttpStatus.ok || resp.data is! String) {
       error('failed to load emoji info: StatusCode=${resp.statusCode}');
-      return left(EmojiLoadFailedException());
+      return null;
     }
     final groups = _parseEmojiInfo(resp.data as String);
-    if (groups.isEmpty) {
-      return left(EmojiLoadFailedException());
-    }
-    emojiGroupList = groups;
-    await _imageCache.saveEmojiInfo(groups);
-    return rightVoid();
-  });
+    return groups.isEmpty ? null : groups;
+  }
 
   /// Download the images of [group] not in the emoji cache yet, a few at once ([ImageCacheProvider.getOrMakeEmojiCache]
   /// limits all emoji downloads together); [onProgress] is
   /// told how many of all the group has are there.
   ///
+  /// [onFailed] is told how many failed so far.
+  ///
   /// Returns how many are still missing: failed to download, or left when the repository was disposed.
-  Future<int> downloadEmojiGroup(EmojiGroup group, {void Function(int done, int total)? onProgress}) async {
+  Future<int> downloadEmojiGroup(
+    EmojiGroup group, {
+    void Function(int done, int total)? onProgress,
+    void Function(int failed)? onFailed,
+  }) async {
     final cache = _imageCache;
     final total = group.emojiList.length;
     final missing = group.emojiList.where((e) => !cache.hasEmojiCacheFile(group.id, e.id)).toList();
@@ -281,6 +392,9 @@ final class EditorRepository with LoggerMixin {
           final data = await cache.getOrMakeEmojiCache(group.id, emoji.id, url: emoji.url, wanted: () => !_disposed);
           if (data == null) {
             failed++;
+            if (!_disposed) {
+              onFailed?.call(failed);
+            }
             return;
           }
           done++;

@@ -19,7 +19,7 @@ enum EmojiStatus {
 @MappableClass()
 final class EmojiGroupProgress with EmojiGroupProgressMappable {
   /// Constructor.
-  const EmojiGroupProgress({required this.status, required this.done, required this.total});
+  const EmojiGroupProgress({required this.status, required this.done, required this.total, this.failed = 0});
 
   /// [EmojiStatus.loading] while downloading, [EmojiStatus.failure] when some are still missing after it.
   final EmojiStatus status;
@@ -29,6 +29,9 @@ final class EmojiGroupProgress with EmojiGroupProgressMappable {
 
   /// How many images the group has.
   final int total;
+
+  /// How many images of this download failed so far: the progress moves with them too.
+  final int failed;
 }
 
 /// State of emoji bloc.

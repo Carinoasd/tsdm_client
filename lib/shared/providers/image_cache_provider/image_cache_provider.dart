@@ -913,7 +913,6 @@ final class ImageCacheProvider with LoggerMixin {
   ///
   /// Only on the forum's own hosts (`www.tsdm39.com`, `img.tsdm39.com`…): an image of another site with such a path
   /// must never be kept as one of the forum's emoji.
-  @visibleForTesting
   static String? emojiImageKeyOf(String url) {
     final uri = Uri.tryParse(url);
     final host = uri?.host.toLowerCase();
@@ -929,6 +928,27 @@ final class ImageCacheProvider with LoggerMixin {
       return null;
     }
     return '${segments[segments.length - 2]}/${segments.last}';
+  }
+
+  /// Where the forum's web pages show its emoji from: `${emojiForumImageHead}${ROUTE_NAME}/${FILE_NAME}`. Every
+  /// emoji the forum offers is there, a group added later too.
+  static const emojiForumImageHead = '$baseUrl/static/image/smiley/';
+
+  /// The image host the forum's emoji were also put on: `${emojiImageHostHead}${ROUTE_NAME}/${FILE_NAME}`. A group
+  /// added later may be missing there (`deepseek`, 404).
+  static const emojiImageHostHead = 'https://img.tsdm39.com/img02/smilies/';
+
+  /// The places to download the image of an emoji from, in order: the forum's own ([emojiForumImageHead]), then the
+  /// image host ([emojiImageHostHead]), whichever of them [url] names (the list saved by an older version named the
+  /// image host); [url] only when it is not one of the forum's emoji ([emojiImageKeyOf]).
+  static List<String> emojiImageUrlsOf(String url) {
+    final key = emojiImageKeyOf(url);
+    if (key == null) {
+      return [url];
+    }
+    final slash = key.indexOf('/');
+    final tail = '${Uri.encodeComponent(key.substring(0, slash))}/${Uri.encodeComponent(key.substring(slash + 1))}';
+    return ['$emojiForumImageHead$tail', '$emojiImageHostHead$tail'];
   }
 
   void _indexEmoji(List<EmojiGroup> groups) {
@@ -1020,9 +1040,9 @@ final class ImageCacheProvider with LoggerMixin {
 
   static final _emojiSlots = _Slots(maxEmojiDownloads);
 
-  /// The image of the emoji [id] in group [groupId]: from the emoji cache, else downloaded from [url] (by default the
-  /// url the saved emoji list names) and kept there. Null when it is not cached and can not be downloaded, or no
-  /// longer [wanted] when its turn to download comes.
+  /// The image of the emoji [id] in group [groupId]: from the emoji cache, else downloaded from the places of [url]
+  /// (by default the url the saved emoji list names; [emojiImageUrlsOf]) and kept there. Null when it is not cached
+  /// and can not be downloaded, or no longer [wanted] when its turn to download comes.
   ///
   /// At most [maxEmojiDownloads] download at once, the others wait their turn. Asked again while it downloads, it
   /// waits for the same request ([getOrMakeCache]).
@@ -1037,16 +1057,34 @@ final class ImageCacheProvider with LoggerMixin {
       return null;
     }
     return _emojiSlots.run(() async {
-      if (wanted != null && !wanted()) {
-        return null;
+      // One place failing (a group the image host has not) is not the emoji failing: the other is asked, in the same
+      // turn, so no more go at once.
+      for (final place in emojiImageUrlsOf(imageUrl)) {
+        if (wanted != null && !wanted()) {
+          return null;
+        }
+        final data = (await getOrMakeCache(ImageCacheGeneralRequest(place))).toNullable();
+        if (data != null) {
+          if (!hasEmojiCacheFile(groupId, id)) {
+            // An image the saved list does not know as this emoji's (another list, or another emoji with the same
+            // file).
+            await updateEmojiCache(groupId, id, data);
+          }
+          return data;
+        }
+        if (_tooLarge.containsKey(place)) {
+          // Over the limit of an emoji: the same file at the other place is too.
+          return null;
+        }
       }
-      final data = (await getOrMakeCache(ImageCacheGeneralRequest(imageUrl))).toNullable();
-      if (data != null && !hasEmojiCacheFile(groupId, id)) {
-        // An image the saved list does not know as this emoji's (another list, or another emoji with the same file).
-        await updateEmojiCache(groupId, id, data);
-      }
-      return data;
+      return null;
     });
+  }
+
+  /// Whether the emoji [id] of group [groupId] is in the emoji list saved on this device.
+  Future<bool> isInEmojiList(String groupId, String id) async {
+    await _ensureEmojiIndex();
+    return _emojiIndex?.urls.containsKey('${groupId}_$id') ?? false;
   }
 
   /// Emoji cache is save as jpg file no matter the real content.
