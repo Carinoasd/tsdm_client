@@ -1468,7 +1468,6 @@
   },
   "memberThreadPage": {
     "scopeForum": "本版",
-    "scopeAll": "全部",
     "title": "${name} 的貼文",
     "titleUnknown": "此會員的貼文",
     "blocked": "你已屏蔽此用戶（本機），其主題與回覆不顯示。",

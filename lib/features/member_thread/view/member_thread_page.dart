@@ -242,16 +242,31 @@ class _MemberThreadPageState extends State<MemberThreadPage> with SingleTickerPr
   /// The lists, or what replaces them for a member blocked on this device: by uid, or by name while the uid is not
   /// known (a link by name answered by the web page, which names no uid on a single page), held back until the block
   /// list is known.
-  Widget _buildBody(BuildContext context, MemberThreadState state) {
+  bool _hidden(BuildContext context, MemberThreadState state) {
     final blockList = currentBlockList(context);
     final name = state.ownerName ?? widget.username;
-    final hidden = switch (state.ownerUid) {
+    return switch (state.ownerUid) {
       final int uid => blockList.hides(uid),
       null when name != null && name.isNotEmpty =>
         !blockList.isKnown || blockList.users.any((e) => forumUsernameKey(e.username) == forumUsernameKey(name)),
       null => false,
     };
-    if (hidden) {
+  }
+
+  /// Whether the lists can be limited to the forum of the page: one given, another member's lists, not hidden, and at
+  /// least one of them a list (not the login prompt or the forum's message in both).
+  bool _offersForumOnly(BuildContext context, MemberThreadState state, {required bool own}) =>
+      (_cubit.fid ?? 0) > 0 &&
+      !own &&
+      !_hidden(context, state) &&
+      !MemberThreadTab.values.every((tab) {
+        final status = state.of(tab).status;
+        return status == MemberThreadStatus.needLogin || status == MemberThreadStatus.notice;
+      });
+
+  Widget _buildBody(BuildContext context, MemberThreadState state) {
+    final blockList = currentBlockList(context);
+    if (_hidden(context, state)) {
       final tr = context.t.userBlock;
       if (!blockList.isKnown) {
         return AppStateView(
@@ -334,17 +349,14 @@ class _MemberThreadPageState extends State<MemberThreadPage> with SingleTickerPr
                             : (name == null || name.isEmpty ? tr.titleUnknown : tr.title(name: name)),
                       ),
                       actions: [
-                        if ((_cubit.fid ?? 0) > 0 && !own)
-                          SegmentedButton<bool>(
+                        // One chip, narrow enough to leave the title its room on a phone: on, this forum only; off, all.
+                        if (_offersForumOnly(context, state, own: own))
+                          FilterChip(
                             key: const ValueKey('member-thread-scope'),
-                            showSelectedIcon: false,
-                            style: const ButtonStyle(visualDensity: VisualDensity.compact),
-                            segments: [
-                              ButtonSegment(value: true, label: Text(tr.scopeForum)),
-                              ButtonSegment(value: false, label: Text(tr.scopeAll)),
-                            ],
-                            selected: {state.forumOnly},
-                            onSelectionChanged: (v) => unawaited(_cubit.setForumOnly(forumOnly: v.first)),
+                            label: Text(tr.scopeForum),
+                            selected: state.forumOnly,
+                            visualDensity: VisualDensity.compact,
+                            onSelected: (v) => unawaited(_cubit.setForumOnly(forumOnly: v)),
                           ),
                         IconButton(
                           icon: const Icon(Icons.person_outline),

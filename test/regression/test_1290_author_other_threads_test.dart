@@ -110,8 +110,14 @@ final class _Auth extends Fake implements AuthenticationRepository {
 
 /// The thread page above the floors: a thread of forum `fid`.
 final class _ThreadBloc extends ThreadBloc {
-  _ThreadBloc(int? fid)
-    : _state = ThreadState(tid: '9199196', fid: fid, forumName: 'Forum $fid', status: ThreadStatus.success),
+  _ThreadBloc(int? fid, {DateTime? offlineSavedAt})
+    : _state = ThreadState(
+        tid: '9199196',
+        fid: fid,
+        forumName: 'Forum $fid',
+        status: ThreadStatus.success,
+        offlineSavedAt: offlineSavedAt,
+      ),
       super(
         tid: '9199196',
         pid: null,
@@ -143,6 +149,9 @@ final class _Forum implements HttpClientAdapter {
   final requests = <Uri>[];
   Completer<void>? gate;
 
+  /// Answer the forum's login prompt of a guest instead.
+  bool guest = false;
+
   @override
   Future<ResponseBody> fetch(
     RequestOptions options,
@@ -155,9 +164,8 @@ final class _Forum implements HttpClientAdapter {
       await gate.future;
     }
     final reply = options.uri.queryParameters['type'] == 'reply';
-    final json =
-        jsonDecode(_read('test/data/tsdmapp/${reply ? 'mythread_v9_other_reply.json' : 'mythread_v9_other.json'}'))
-            as Map<String, dynamic>;
+    final name = guest ? 'mythread_v9_guest.json' : (reply ? 'mythread_v9_other_reply.json' : 'mythread_v9_other.json');
+    final json = jsonDecode(_read('test/data/tsdmapp/$name')) as Map<String, dynamic>;
     return ResponseBody.fromString(
       jsonEncode(json),
       200,
@@ -204,6 +212,8 @@ MemberThreadCubit _cubit({int? fid}) => MemberThreadCubit(
   fid: fid,
   session: () => (uid: 35, generation: 1),
 );
+
+String get _trOnlyViewAuthor => LocaleSettings.instance.currentTranslations.postCard.onlyViewAuthor;
 
 void main() {
   setUpAll(() async {
@@ -463,6 +473,19 @@ void main() {
       });
     }
 
+    testWidgets("another member's floor read back from an offline copy: not in the menu", (tester) async {
+      final bloc = _ThreadBloc(12, offlineSavedAt: DateTime(2026, 11, 17));
+      addTearDown(bloc.close);
+      await pump(
+        tester,
+        BlocProvider<ThreadBloc>.value(value: bloc, child: PostCard(_bare(_floors(web: false)['3406']!))),
+        auth: _Auth(35),
+      );
+      await openMenu(tester);
+      expect(find.text(_trOnlyViewAuthor), findsOneWidget, reason: 'the menu is open');
+      expect(label, findsNothing);
+    });
+
     testWidgets('outside a thread page (a notice): the list of all of it, no forum', (tester) async {
       final opened = <Map<String, String>>[];
       await pump(tester, PostCard(_bare(_floors(web: false)['3406']!)), auth: _Auth(35), opened: opened);
@@ -507,12 +530,37 @@ void main() {
         expect(scope, findsOneWidget);
         expect(forum.requests.map((e) => e.queryParameters['fid']), [null, null]);
         forum.requests.clear();
-        await tester.tap(find.descendant(of: scope, matching: find.text('本版')));
+        await tester.tap(scope);
         await _pumpSettled(tester);
         expect(cubit.state.forumOnly, isTrue);
+        expect(tester.widget<FilterChip>(scope).selected, isTrue);
         expect(forum.requests.map((e) => e.queryParameters['fid']), ['11', '11']);
+        // Off again: all of it.
+        forum.requests.clear();
+        await tester.tap(scope);
+        await _pumpSettled(tester);
+        expect(cubit.state.forumOnly, isFalse);
+        expect(forum.requests.map((e) => e.queryParameters['fid']), [null, null]);
         await tester.pumpWidget(const SizedBox());
       }
+    });
+
+    testWidgets('the page: no switch while both lists are the login prompt', (tester) async {
+      final forum = _Forum()..guest = true;
+      _use(forum);
+      final cubit = _cubit(fid: 11);
+      addTearDown(cubit.close);
+      await pump(
+        tester,
+        SizedBox(
+          height: 600,
+          child: MemberThreadPage(uid: '31', fid: 11, cubit: cubit),
+        ),
+        auth: _Auth(35),
+      );
+      await _pumpSettled(tester);
+      expect(cubit.state.thread.status, MemberThreadStatus.needLogin);
+      expect(find.byKey(const ValueKey('member-thread-scope')), findsNothing);
     });
   });
 }

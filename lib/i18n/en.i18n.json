@@ -1468,7 +1468,6 @@
   },
   "memberThreadPage": {
     "scopeForum": "This forum",
-    "scopeAll": "All",
     "title": "${name}'s threads",
     "titleUnknown": "Member's threads",
     "blocked": "You blocked this user on this device; their threads and replies are hidden.",
