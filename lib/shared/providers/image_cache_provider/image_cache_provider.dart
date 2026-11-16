@@ -1041,8 +1041,8 @@ final class ImageCacheProvider with LoggerMixin {
   static final _emojiSlots = _Slots(maxEmojiDownloads);
 
   /// The image of the emoji [id] in group [groupId]: from the emoji cache, else downloaded from the places of [url]
-  /// (by default the url the saved emoji list names; [emojiImageUrlsOf]) and kept there. Null when it is not cached and can not be downloaded, or no
-  /// longer [wanted] when its turn to download comes.
+  /// (by default the url the saved emoji list names; [emojiImageUrlsOf]) and kept there. Null when it is not cached
+  /// and can not be downloaded, or no longer [wanted] when its turn to download comes.
   ///
   /// At most [maxEmojiDownloads] download at once, the others wait their turn. Asked again while it downloads, it
   /// waits for the same request ([getOrMakeCache]).

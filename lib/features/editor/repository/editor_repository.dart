@@ -79,7 +79,7 @@ abstract final class EmojiListInBackground {
     if (running != null) {
       return running;
     }
-    if (_asked) {
+    if (_asked || !cache.emojiCacheReady || _clientOr(client) == null) {
       return Future.value();
     }
     _asked = true;
@@ -340,8 +340,11 @@ final class EditorRepository with LoggerMixin {
   /// had (nothing said: the list on this device stays).
   Future<List<EmojiGroup>?> refreshEmojiList() async {
     final shown = emojiGroupList;
-    final groups = await EmojiListInBackground.refresh(_imageCache, client: _netClientProvider);
-    if (groups == null || _disposed || (shown != null && sameEmojiList(shown, groups))) {
+    // Asked before in this run: what that request saved, when it came after this panel read the list.
+    final groups =
+        await EmojiListInBackground.refresh(_imageCache, client: _netClientProvider) ??
+        await _imageCache.loadEmojiInfo();
+    if (groups == null || groups.isEmpty || _disposed || (shown != null && sameEmojiList(shown, groups))) {
       return null;
     }
     emojiGroupList = groups;

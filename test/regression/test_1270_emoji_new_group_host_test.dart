@@ -397,6 +397,44 @@ void main() {
       },
     );
 
+    test('a group downloading when the list comes ends with all its images', () async {
+      final six = (
+        name: '梦予馨',
+        dir: 'TSDM',
+        emoji: [for (var i = 1; i <= 6; i++) ('${860 + i}', '$i.jpg')],
+      );
+      await saveOldList({'12': six});
+      forum
+        ..list = _list({'20': _fish, '12': six})
+        ..imageDelay = const Duration(milliseconds: 40);
+      final gate = forum.listGate = Completer<void>();
+      final bloc = EmojiBloc(editRepository: newRepo())..add(EmojiFetchFromCacheEvent());
+      addTearDown(bloc.close);
+      await bloc.stream.firstWhere((e) => e.status == EmojiStatus.success);
+      bloc.add(EmojiFetchGroupEvent('12'));
+      await bloc.stream.firstWhere((e) => (e.groupProgress['12']?.done ?? 0) > 0);
+      gate.complete();
+      await bloc.stream.firstWhere((e) => e.emojiGroupList!.length == 2);
+      final done = await bloc.stream
+          .firstWhere((e) => e.groupProgress['12']?.status != EmojiStatus.loading)
+          .timeout(const Duration(seconds: 5));
+      expect(done.groupProgress['12']!.status, EmojiStatus.success);
+      expect(done.groupProgress['12']!.done, 6);
+      for (var i = 1; i <= 6; i++) {
+        expect(cache.hasEmojiCacheFile('12', '${860 + i}'), isTrue);
+      }
+      expect(forum.imageRequests, hasLength(6), reason: 'not downloaded twice');
+    });
+
+    test('a panel that read the list before another one refreshed it gets the new list', () async {
+      await saveOldList({'12': _tsdm});
+      final late = newRepo();
+      await late.loadEmojiFromCacheOrServer().run();
+      expect(await EmojiListInBackground.refresh(cache), isNotNull);
+      expect((await late.refreshEmojiList())!.map((e) => e.id), ['20', '12']);
+      expect(forum.listRequests, 1);
+    });
+
     test('nothing changed: not saved again, not shown again', () async {
       final repo = newRepo();
       await repo.loadEmojiFromCacheOrServer().run();

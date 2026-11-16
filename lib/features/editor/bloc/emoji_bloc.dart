@@ -63,7 +63,12 @@ final class EmojiBloc extends Bloc<EmojiEvent, EmojiState> with LoggerMixin {
         again.add(group.id);
       }
     }
-    emit(state.copyWith(emojiGroupList: fresh, groupProgress: progress));
+    // A group that did not change stays the same object: a download running for it goes on telling its progress.
+    final groups = [
+      for (final g in fresh)
+        if (shown[g.id] case final before? when sameEmojiGroup(before, g)) before else g,
+    ];
+    emit(state.copyWith(emojiGroupList: groups, groupProgress: progress));
     for (final id in again) {
       add(EmojiFetchGroupEvent(id));
     }
@@ -78,7 +83,8 @@ final class EmojiBloc extends Bloc<EmojiEvent, EmojiState> with LoggerMixin {
     }
     void tell(EmojiGroupProgress Function(EmojiGroupProgress? now) progress) {
       // The group may have changed meanwhile (the forum's list came): its own download tells then.
-      if (!emit.isDone && identical(state.emojiGroupList?.where((e) => e.id == groupId).firstOrNull, group)) {
+      final now = state.emojiGroupList?.where((e) => e.id == groupId).firstOrNull;
+      if (!emit.isDone && now != null && sameEmojiGroup(now, group)) {
         emit(state.copyWith(groupProgress: {...state.groupProgress, groupId: progress(state.groupProgress[groupId])}));
       }
     }
