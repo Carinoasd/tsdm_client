@@ -562,5 +562,34 @@ void main() {
       expect(cubit.state.thread.status, MemberThreadStatus.needLogin);
       expect(find.byKey(const ValueKey('member-thread-scope')), findsNothing);
     });
+
+    testWidgets('the page: limited to the forum, the switch stays to go back even when both lists are messages', (
+      tester,
+    ) async {
+      final forum = _Forum();
+      _use(forum);
+      final cubit = _cubit(fid: 11);
+      addTearDown(cubit.close);
+      await pump(
+        tester,
+        SizedBox(
+          height: 600,
+          child: MemberThreadPage(uid: '31', fid: 11, cubit: cubit),
+        ),
+        auth: _Auth(35),
+      );
+      await _pumpSettled(tester);
+      final scope = find.byKey(const ValueKey('member-thread-scope'));
+      forum.guest = true;
+      await tester.tap(scope);
+      await _pumpSettled(tester);
+      expect(cubit.state.thread.status, MemberThreadStatus.needLogin);
+      expect(scope, findsOneWidget);
+      forum.guest = false;
+      await tester.tap(scope);
+      await _pumpSettled(tester);
+      expect(cubit.state.forumOnly, isFalse);
+      expect(cubit.state.thread.status, MemberThreadStatus.success);
+    });
   });
 }

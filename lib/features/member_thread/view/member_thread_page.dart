@@ -254,15 +254,16 @@ class _MemberThreadPageState extends State<MemberThreadPage> with SingleTickerPr
   }
 
   /// Whether the lists can be limited to the forum of the page: one given, another member's lists, not hidden, and at
-  /// least one of them a list (not the login prompt or the forum's message in both).
+  /// least one of them a list (not the login prompt or the forum's message in both); once limited, always, to go back.
   bool _offersForumOnly(BuildContext context, MemberThreadState state, {required bool own}) =>
       (_cubit.fid ?? 0) > 0 &&
       !own &&
       !_hidden(context, state) &&
-      !MemberThreadTab.values.every((tab) {
-        final status = state.of(tab).status;
-        return status == MemberThreadStatus.needLogin || status == MemberThreadStatus.notice;
-      });
+      (state.forumOnly ||
+          !MemberThreadTab.values.every((tab) {
+            final status = state.of(tab).status;
+            return status == MemberThreadStatus.needLogin || status == MemberThreadStatus.notice;
+          }));
 
   Widget _buildBody(BuildContext context, MemberThreadState state) {
     final blockList = currentBlockList(context);
@@ -355,6 +356,7 @@ class _MemberThreadPageState extends State<MemberThreadPage> with SingleTickerPr
                             key: const ValueKey('member-thread-scope'),
                             label: Text(tr.scopeForum),
                             selected: state.forumOnly,
+                            showCheckmark: false,
                             visualDensity: VisualDensity.compact,
                             onSelected: (v) => unawaited(_cubit.setForumOnly(forumOnly: v)),
                           ),
