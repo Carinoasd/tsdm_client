@@ -16,16 +16,15 @@
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/Carinoasd/tsdm_client" alt="license"/></a>
 </p>
 
-## Latest update: 1.57.1 (2026-11-14)
+## Latest update: 1.58.0 (2026-11-16)
 
-- Pasting a forum link, or a whole piece of share text, into the search box opens the thread directly; "Copy share text" in the thread menu; optional clipboard link prompt (off by default).
-- "Settings → Other → Report a problem": share a diagnostics bundle or reply in the feedback thread; a prompt to export diagnostics after an abnormal exit.
-- Task detail page (apply, claim reward, give up) and item log (forum API plugin 4.0.0 and later); "My images" added to cross-device sync.
-- Smilies are no longer bundled, making the installer about 12 MB smaller: each group downloads when first shown and stays on the device.
-- 1.57.1: "Copy link" and "Copy share text" of a thread keep only the thread id.
-- The Android build number is 173 and installs over earlier releases and test builds.
+- Security hardening: the session only goes to the forum over https; Android system backup is off; imported backups are checked; the app lock wait no longer follows the system clock; image downloads and decoding have size limits.
+- New emoji groups of the forum show up on their own: the emoji list is refreshed in the background when the panel opens, and emoji images come from the forum itself with the image host as a fallback.
+- Moderators: tap the "warned" mark of a floor to see the warning records; select several threads in search results, a member's threads and the latest threads to moderate them together; "Recommended threads" in the moderator panel.
+- The in-app browser title bar shows the domain; on desktop, "Open" on a program-like attachment selects it in the file manager instead of running it.
+- The Android build number is 174 and installs over earlier releases and test builds.
 
-[Download 1.57.1](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.57.1) · [Full changelog](./CHANGELOG.md)
+[Download 1.58.0](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.58.0) · [Full changelog](./CHANGELOG.md)
 
 ## What it is
 
