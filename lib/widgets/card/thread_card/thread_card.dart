@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -28,6 +30,7 @@ import 'package:tsdm_client/shared/models/data_saver_mode.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/themes/widget_themes.dart';
 import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
+import 'package:tsdm_client/utils/html/author_style.dart' show contrastRatio, readableContrast;
 import 'package:tsdm_client/utils/platform.dart';
 import 'package:tsdm_client/widgets/adaptive_ink_response.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
@@ -67,6 +70,7 @@ class _CardLayout extends StatelessWidget {
     this.isRecentThread = false,
     this.replied = false,
     this.progress,
+    this.markReplies,
     this.onPick,
     this.onStartPicking,
   });
@@ -95,9 +99,17 @@ class _CardLayout extends StatelessWidget {
   /// The current account replied in this thread (local mark, issue #21): a small reply icon in the trailing row.
   final bool replied;
 
-  /// Where the current account stopped reading this thread, null when it never read it: the title is dimmed and the
-  /// replies posted since its last visit are told ("+N" after the reply count).
+  /// Where the current account stopped reading this thread, null when it never read it or the lists do not mark the
+  /// threads read ([visitMarkOf]): the replies posted since its last visit are told ("+N" after the reply count);
+  /// without any, the title is dimmed.
   final ReadingProgress? progress;
+
+  /// The replies of the thread as the list counts them, for telling the replies posted since the last visit when the
+  /// card shows no reply count ([replyCount] null): the title is not dimmed when there are some.
+  final int? markReplies;
+
+  /// Replies posted since the current account read this thread, 0 when not known or not read.
+  int get _newReplies => progress?.newRepliesOf(replyCount ?? markReplies) ?? 0;
 
   /// See [NormalThreadCard.onPick].
   final VoidCallback? onPick;
@@ -250,7 +262,7 @@ class _CardLayout extends StatelessWidget {
       false => null,
     };
 
-    final newReplies = progress?.newRepliesOf(replyCount) ?? 0;
+    final newReplies = _newReplies;
     final infoList = <_ThreadInfo>[
       if (replyCount != null) (Icons.forum_outlined, '$replyCount', newReplies > 0 ? '+$newReplies' : null),
       if (viewCount != null) (Icons.bar_chart_outlined, '$viewCount', null),
@@ -521,7 +533,7 @@ class _CardLayout extends StatelessWidget {
                 children: [
                   Expanded(
                     // The thread title leads the card, as in the homepage guide; forum set colors and weights stay. A
-                    // thread read before is dimmed, as visited links are.
+                    // thread read before is dimmed, as visited links are, until replies are posted after the visit.
                     child: Text(
                       context.displayText(title),
                       maxLines: 3,
@@ -533,7 +545,7 @@ class _CardLayout extends StatelessWidget {
                           fontWeight: css?.fontWeight ?? FontWeight.w500,
                           height: 1.45,
                         ),
-                        visited: progress != null,
+                        visited: progress != null && _newReplies == 0,
                       ),
                     ),
                   ),
@@ -659,7 +671,7 @@ class NormalThreadCard extends StatelessWidget {
       disableTap: disableTap,
       isRecentThread: thread.isRecentThread,
       replied: isThreadReplied(context, thread.threadID),
-      progress: readingProgressOf(context, thread.threadID),
+      progress: visitMarkOf(context, thread.threadID),
       onPick: onPick,
       onStartPicking: onStartPicking,
     );
@@ -694,7 +706,7 @@ class SearchedThreadCard extends StatelessWidget {
       forum: thread.forumName,
       author: thread.author,
       publishTime: thread.publishTime,
-      progress: readingProgressOf(context, '${thread.threadID}'),
+      progress: visitMarkOf(context, '${thread.threadID}'),
       onPick: onPick,
       onStartPicking: onStartPicking,
     );
@@ -730,7 +742,7 @@ class MyThreadCard extends StatelessWidget {
       latestReplyTime: thread.latestReplyTime,
       replyCount: thread.replyCount,
       viewCount: thread.viewCount,
-      progress: readingProgressOf(context, thread.threadID),
+      progress: visitMarkOf(context, thread.threadID),
       onPick: onPick,
       onStartPicking: onStartPicking,
     );
@@ -769,7 +781,9 @@ class LatestThreadCard extends StatelessWidget {
       publishTime: thread.latestReplyTime,
       // The forum's own excerpt of a search row goes with the excerpts setting; a reply quoted always shows.
       quotedMessage: thread.quoteIsExcerpt && !showExcerpt ? null : thread.quotedMessage,
-      progress: readingProgressOf(context, thread.threadID),
+      progress: visitMarkOf(context, thread.threadID),
+      // Not shown on this card, still the replies since the last visit undim the title.
+      markReplies: thread.replyCount,
       onPick: onPick,
       onStartPicking: onStartPicking,
     );
@@ -777,14 +791,31 @@ class LatestThreadCard extends StatelessWidget {
 }
 
 /// [style] of a thread title, dimmed when the thread was [visited] (read before by the current account), as visited
-/// links are: its own color (a forum may color a title) at a lower opacity.
+/// links are: its own color (a forum may color a title; else the theme's text color) at a lower opacity.
+///
+/// Never dimmer than text that reads on the card ([readableContrast], more with the platform's high contrast): in a
+/// theme (or a forum color) where [visitedTitleOpacity] would not read, the title is dimmed less, down to not at all.
 TextStyle? visitedTitleStyle(BuildContext context, TextStyle? style, {required bool visited}) {
   if (!visited) {
     return style;
   }
-  final color = style?.color ?? DefaultTextStyle.of(context).style.color ?? Theme.of(context).colorScheme.onSurface;
-  return (style ?? const TextStyle()).copyWith(color: color.withValues(alpha: color.a * visitedTitleOpacity));
+  final theme = Theme.of(context);
+  final color = style?.color ?? DefaultTextStyle.of(context).style.color ?? theme.colorScheme.onSurface;
+  final background = theme.cardTheme.color ?? theme.colorScheme.surfaceContainerLow;
+  final needed = (MediaQuery.maybeHighContrastOf(context) ?? false) ? highContrastVisitedTitle : readableContrast;
+  double contrastAt(double opacity) =>
+      contrastRatio(Color.alphaBlend(color.withValues(alpha: color.a * opacity), background), background);
+  // A color hard to read at full opacity already is not made any harder.
+  final target = math.min(needed, contrastAt(1));
+  var opacity = visitedTitleOpacity;
+  while (opacity < 1 && contrastAt(opacity) < target) {
+    opacity = math.min(1, opacity + 0.05);
+  }
+  return (style ?? const TextStyle()).copyWith(color: color.withValues(alpha: color.a * opacity));
 }
 
 /// Opacity of the title of a thread read before, see [visitedTitleStyle].
 const visitedTitleOpacity = 0.6;
+
+/// Contrast a dimmed title keeps on the card with the platform's high contrast on: WCAG AAA for body text.
+const highContrastVisitedTitle = 7.0;

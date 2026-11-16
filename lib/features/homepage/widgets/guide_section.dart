@@ -254,7 +254,7 @@ class _GuideItemTile extends StatelessWidget {
                     fontWeight: item.highlighted ? FontWeight.bold : FontWeight.w500,
                     height: 1.45,
                   ),
-                  visited: readingProgressOf(context, item.tid) != null,
+                  visited: visitMarkOf(context, item.tid) != null,
                 ),
               ),
               sizedBoxW4H4,

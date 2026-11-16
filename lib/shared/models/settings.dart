@@ -157,6 +157,10 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
   /// while the web page only loads it once the thread is opened.
   threadCardExternalThumbnails<bool>(name: 'threadCardExternalThumbnails', type: bool, defaultValue: false),
 
+  /// Mark the threads the current account read in the thread lists: their titles dimmed, the replies posted since
+  /// ("+N" after the reply count, the title no longer dimmed).
+  threadCardMarkVisited<bool>(name: 'threadCardMarkVisited', type: bool, defaultValue: true),
+
   /// Order and visibility of the homepage blocks, see `HomeBlockLayout`. Empty is the default arrangement.
   homeLayout<String>(name: 'homeLayout', type: String, defaultValue: ''),
 
