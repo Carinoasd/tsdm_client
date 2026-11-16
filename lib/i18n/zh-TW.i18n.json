@@ -1467,6 +1467,7 @@
     "forum": "分區"
   },
   "memberThreadPage": {
+    "scopeForum": "本版",
     "title": "${name} 的貼文",
     "titleUnknown": "此會員的貼文",
     "blocked": "你已屏蔽此用戶（本機），其主題與回覆不顯示。",
@@ -2067,6 +2068,7 @@
     "rate": "評分",
     "onlyViewAuthor": "只看該作者",
     "viewAllAuthors": "查看所有作者",
+    "authorThreads": "作者的其他主題",
     "rateFetchInfoFailed": "获取评分信息失败",
     "rateFailed": "评分失败",
     "edit": "編輯",

@@ -33,11 +33,14 @@ import 'package:tsdm_client/widgets/two_pane.dart';
 /// The member is located by [uid] and/or [username] as the link named them ([memberThreadUrl]); the account's own
 /// lists open the "my threads" page instead (the route's redirect, [memberThreadRedirect]). The rows look as on the
 /// "my threads" page. A member blocked on this device has their lists hidden, as their threads are everywhere else.
+///
+/// Opened from a thread ([fid], its forum), both lists can be limited to that forum or show all of it again.
 class MemberThreadPage extends StatefulWidget {
   /// Constructor.
   const MemberThreadPage({
     this.uid,
     this.username,
+    this.fid,
     this.initialTab = MemberThreadTab.thread,
     this.cubit,
     this.moderateRepository,
@@ -49,6 +52,9 @@ class MemberThreadPage extends StatefulWidget {
 
   /// Name of the member.
   final String? username;
+
+  /// The forum the lists can be limited to, null to offer none.
+  final int? fid;
 
   /// The tab shown first: the replies for a link to them (`type=reply`).
   final MemberThreadTab initialTab;
@@ -99,7 +105,13 @@ class _MemberThreadPageState extends State<MemberThreadPage> with SingleTickerPr
       }
     });
     _cubit =
-        widget.cubit ?? MemberThreadCubit(repository: MyThreadRepository(), uid: widget.uid, username: widget.username);
+        widget.cubit ??
+        MemberThreadCubit(
+          repository: MyThreadRepository(),
+          uid: widget.uid,
+          username: widget.username,
+          fid: widget.fid,
+        );
     // What the forum shows of the member depends on who asks: another account coming into use reloads both lists,
     // and so does a login of the account in use again while a list was refused (the forum may have dropped its
     // session, issue #25, and answered as to a guest). The status replayed to a new listener ended before: no login.
@@ -230,16 +242,33 @@ class _MemberThreadPageState extends State<MemberThreadPage> with SingleTickerPr
   /// The lists, or what replaces them for a member blocked on this device: by uid, or by name while the uid is not
   /// known (a link by name answered by the web page, which names no uid on a single page), held back until the block
   /// list is known.
-  Widget _buildBody(BuildContext context, MemberThreadState state) {
+  bool _hidden(BuildContext context, MemberThreadState state) {
     final blockList = currentBlockList(context);
     final name = state.ownerName ?? widget.username;
-    final hidden = switch (state.ownerUid) {
+    return switch (state.ownerUid) {
       final int uid => blockList.hides(uid),
       null when name != null && name.isNotEmpty =>
         !blockList.isKnown || blockList.users.any((e) => forumUsernameKey(e.username) == forumUsernameKey(name)),
       null => false,
     };
-    if (hidden) {
+  }
+
+  /// Whether the lists can be limited to the forum of the page: one given, the lists not hidden, and another member's
+  /// lists of which at least one is a list (not the login prompt or the forum's message in both). Once limited, always
+  /// (also when another account came into use and the lists turned out the own ones), to go back to all of it.
+  bool _offersForumOnly(BuildContext context, MemberThreadState state, {required bool own}) =>
+      (_cubit.fid ?? 0) > 0 &&
+      !_hidden(context, state) &&
+      (state.forumOnly ||
+          (!own &&
+              !MemberThreadTab.values.every((tab) {
+                final status = state.of(tab).status;
+                return status == MemberThreadStatus.needLogin || status == MemberThreadStatus.notice;
+              })));
+
+  Widget _buildBody(BuildContext context, MemberThreadState state) {
+    final blockList = currentBlockList(context);
+    if (_hidden(context, state)) {
       final tr = context.t.userBlock;
       if (!blockList.isKnown) {
         return AppStateView(
@@ -322,6 +351,16 @@ class _MemberThreadPageState extends State<MemberThreadPage> with SingleTickerPr
                             : (name == null || name.isEmpty ? tr.titleUnknown : tr.title(name: name)),
                       ),
                       actions: [
+                        // One chip, narrow enough to leave the title its room on a phone: on, this forum only; off, all.
+                        if (_offersForumOnly(context, state, own: own))
+                          FilterChip(
+                            key: const ValueKey('member-thread-scope'),
+                            label: Text(tr.scopeForum),
+                            selected: state.forumOnly,
+                            showCheckmark: false,
+                            visualDensity: VisualDensity.compact,
+                            onSelected: (v) => unawaited(_cubit.setForumOnly(forumOnly: v)),
+                          ),
                         IconButton(
                           icon: const Icon(Icons.person_outline),
                           tooltip: context.t.profilePage.title,

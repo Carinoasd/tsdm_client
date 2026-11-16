@@ -1467,6 +1467,7 @@
     "forum": "Forum"
   },
   "memberThreadPage": {
+    "scopeForum": "This forum",
     "title": "${name}'s threads",
     "titleUnknown": "Member's threads",
     "blocked": "You blocked this user on this device; their threads and replies are hidden.",
@@ -2067,6 +2068,7 @@
     "rate": "Rate",
     "onlyViewAuthor": "Only this author",
     "viewAllAuthors": "All authors",
+    "authorThreads": "Author's other threads",
     "rateFetchInfoFailed": "Failed to get rating info",
     "rateFailed": "Rating failed",
     "edit": "Edit",
