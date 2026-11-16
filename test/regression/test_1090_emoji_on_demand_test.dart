@@ -424,10 +424,11 @@ void main() {
   test('5. file names with spaces are encoded in the urls', () {
     final groups = newRepo().parseEmojiInfo(_smiliesJs);
     final miku = groups.firstWhere((e) => e.id == '4');
+    // On the forum, where its pages show them from (test_1270: the image host has not every group).
     expect(miku.emojiList.map((e) => e.url), [
-      'https://img.tsdm39.com/img02/smilies/MIKU/9.jpg',
-      'https://img.tsdm39.com/img02/smilies/MIKU/1%20(15).gif',
-      'https://img.tsdm39.com/img02/smilies/MIKU/15.gif',
+      'https://www.tsdm39.com/static/image/smiley/MIKU/9.jpg',
+      'https://www.tsdm39.com/static/image/smiley/MIKU/1%20(15).gif',
+      'https://www.tsdm39.com/static/image/smiley/MIKU/15.gif',
     ]);
   });
 }

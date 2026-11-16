@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:math';
-import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:tsdm_client/constants/layout.dart';
@@ -95,13 +95,22 @@ class _EmojiPanelState extends State<EmojiPanel> with TickerProviderStateMixin {
     widget.onPicked(code);
   }
 
-  /// [count] tabs, the forum's groups from [firstGroup] on.
+  /// The ids of the forum's groups of the tabs.
+  List<String> _groupIds = const [];
+
+  /// [count] tabs, the forum's groups [groupIds] from [firstGroup] on.
   ///
-  /// Made again when the number of tabs changes (the custom emoji packs come once the reply knows it can take them, a
-  /// pack is added or emptied): the tab shown stays, a forum group by its place among the groups.
-  TabController _controllerOf(int count, {required int firstGroup, required bool startWithRecent}) {
+  /// Made again when the tabs change (the custom emoji packs come once the reply knows it can take them, a pack is
+  /// added or emptied, the forum's list came with a group more or less): the tab shown stays, a forum group by its id
+  /// (by its place among the groups when it is gone).
+  TabController _controllerOf(
+    int count, {
+    required int firstGroup,
+    required bool startWithRecent,
+    required List<String> groupIds,
+  }) {
     final old = _tabs;
-    if (old == null || _tabCount != count) {
+    if (old == null || _tabCount != count || !listEquals(_groupIds, groupIds)) {
       final int initial;
       if (old == null) {
         // The recent ones first when there are any, else the first group of the forum.
@@ -109,13 +118,17 @@ class _EmojiPanelState extends State<EmojiPanel> with TickerProviderStateMixin {
       } else if (old.index < 2) {
         initial = old.index;
       } else if (old.index >= _firstGroup) {
-        initial = old.index - _firstGroup + firstGroup;
+        final place = old.index - _firstGroup;
+        final id = place < _groupIds.length ? _groupIds[place] : null;
+        final now = id == null ? -1 : groupIds.indexOf(id);
+        initial = (now < 0 ? place : now) + firstGroup;
       } else {
         initial = old.index < firstGroup ? old.index : firstGroup - 1;
       }
       old?.dispose();
       _tabCount = count;
       _firstGroup = firstGroup;
+      _groupIds = groupIds;
       _tabs = TabController(length: count, vsync: this, initialIndex: count == 0 ? 0 : initial.clamp(0, count - 1));
     }
     return _tabs!;
@@ -279,6 +292,7 @@ class _EmojiPanelState extends State<EmojiPanel> with TickerProviderStateMixin {
       groups.length + packs.length + 2,
       firstGroup: packs.length + 2,
       startWithRecent: hasRecent,
+      groupIds: groups.map((e) => e.id).toList(),
     );
     return Column(
       children: [

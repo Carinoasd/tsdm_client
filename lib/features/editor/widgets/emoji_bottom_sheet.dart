@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:tsdm_client/constants/layout.dart';
@@ -47,10 +48,13 @@ class _EmojiBottomSheet extends StatefulWidget {
   State<_EmojiBottomSheet> createState() => _EmojiBottomSheetState();
 }
 
-// A new controller whenever the number of tabs changes (the packs are read before the sheet opens; kept safe anyway).
+// A new controller whenever the tabs change (the packs are read before the sheet opens; kept safe anyway).
 class _EmojiBottomSheetState extends State<_EmojiBottomSheet> with TickerProviderStateMixin {
   TabController? tabController;
   int _tabCount = 0;
+
+  /// The packs and the forum's groups of the tabs after the first.
+  List<String> _tabIds = const [];
 
   @override
   void dispose() {
@@ -63,10 +67,16 @@ class _EmojiBottomSheetState extends State<_EmojiBottomSheet> with TickerProvide
     final emojiGroupList = state.emojiGroupList!;
     // The user's own image stickers come first (#5), their emoji packs, then the forum emoji groups.
     final count = emojiGroupList.length + packs.length + 1;
-    if (tabController == null || _tabCount != count) {
-      tabController?.dispose();
+    final ids = [for (final p in packs) 'pack-${p.id}', for (final g in emojiGroupList) g.id];
+    if (tabController == null || _tabCount != count || !listEquals(_tabIds, ids)) {
+      // The tab shown stays when the forum's list came with a group more or less.
+      final old = tabController;
+      final shown = old == null || old.index == 0 ? null : _tabIds.elementAtOrNull(old.index - 1);
+      final now = shown == null ? -1 : ids.indexOf(shown);
+      old?.dispose();
       _tabCount = count;
-      tabController = TabController(length: count, vsync: this);
+      _tabIds = ids;
+      tabController = TabController(length: count, vsync: this, initialIndex: now < 0 ? 0 : now + 1);
     }
 
     final tabs = [

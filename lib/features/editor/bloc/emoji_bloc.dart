@@ -1,5 +1,6 @@
 import 'package:bloc/bloc.dart';
 import 'package:dart_mappable/dart_mappable.dart';
+import 'package:fpdart/fpdart.dart';
 import 'package:tsdm_client/features/editor/repository/editor_repository.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/utils/logger.dart';
@@ -33,13 +34,39 @@ final class EmojiBloc extends Bloc<EmojiEvent, EmojiState> with LoggerMixin {
 
   Future<void> _onFetchFromCache(_Emit emit) async {
     emit(state.copyWith(status: EmojiStatus.loading));
-    await _editorRepository.loadEmojiFromCacheOrServer().match(
-      (e) {
-        handle(e);
-        emit(state.copyWith(status: EmojiStatus.failure));
-      },
-      (_) => emit(state.copyWith(status: EmojiStatus.success, emojiGroupList: _editorRepository.emojiGroupList)),
-    ).run();
+    final loaded = await _editorRepository.loadEmojiFromCacheOrServer().run();
+    if (loaded case Left(:final value)) {
+      handle(value);
+      emit(state.copyWith(status: EmojiStatus.failure));
+      return;
+    }
+    emit(state.copyWith(status: EmojiStatus.success, emojiGroupList: _editorRepository.emojiGroupList));
+
+    // Shown at once; the forum's list now, once a run.
+    final fresh = await _editorRepository.refreshEmojiList();
+    if (fresh == null || emit.isDone) {
+      return;
+    }
+    final shown = {for (final g in state.emojiGroupList ?? const <EmojiGroup>[]) g.id: g};
+    final progress = <String, EmojiGroupProgress>{};
+    final again = <String>[];
+    for (final group in fresh) {
+      final p = state.groupProgress[group.id];
+      if (p == null) {
+        continue;
+      }
+      final before = shown[group.id];
+      if (before != null && sameEmojiGroup(before, group)) {
+        progress[group.id] = p;
+      } else {
+        // Shown already and changed: what it gained is downloaded.
+        again.add(group.id);
+      }
+    }
+    emit(state.copyWith(emojiGroupList: fresh, groupProgress: progress));
+    for (final id in again) {
+      add(EmojiFetchGroupEvent(id));
+    }
   }
 
   /// Download what group [groupId] misses, unless it is downloading or all there already.
@@ -49,23 +76,36 @@ final class EmojiBloc extends Bloc<EmojiEvent, EmojiState> with LoggerMixin {
     if (group == null || status == EmojiStatus.loading || status == EmojiStatus.success) {
       return;
     }
-    void tell(EmojiGroupProgress progress) {
-      if (!emit.isDone) {
-        emit(state.copyWith(groupProgress: {...state.groupProgress, groupId: progress}));
+    void tell(EmojiGroupProgress Function(EmojiGroupProgress? now) progress) {
+      // The group may have changed meanwhile (the forum's list came): its own download tells then.
+      if (!emit.isDone && identical(state.emojiGroupList?.where((e) => e.id == groupId).firstOrNull, group)) {
+        emit(state.copyWith(groupProgress: {...state.groupProgress, groupId: progress(state.groupProgress[groupId])}));
       }
     }
 
     final total = group.emojiList.length;
-    tell(EmojiGroupProgress(status: EmojiStatus.loading, done: state.groupProgress[groupId]?.done ?? 0, total: total));
+    tell(
+      (now) => EmojiGroupProgress(
+        status: EmojiStatus.loading,
+        done: now?.done ?? 0,
+        total: total,
+      ),
+    );
     final missing = await _editorRepository.downloadEmojiGroup(
       group,
-      onProgress: (done, total) => tell(EmojiGroupProgress(status: EmojiStatus.loading, done: done, total: total)),
+      onProgress: (done, total) => tell(
+        (now) => EmojiGroupProgress(status: EmojiStatus.loading, done: done, total: total, failed: now?.failed ?? 0),
+      ),
+      onFailed: (failed) => tell(
+        (now) => EmojiGroupProgress(status: EmojiStatus.loading, done: now?.done ?? 0, total: total, failed: failed),
+      ),
     );
     tell(
-      EmojiGroupProgress(
+      (_) => EmojiGroupProgress(
         status: missing == 0 ? EmojiStatus.success : EmojiStatus.failure,
         done: total - missing,
         total: total,
+        failed: missing,
       ),
     );
   }
