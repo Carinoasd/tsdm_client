@@ -152,6 +152,9 @@ final class _Forum implements HttpClientAdapter {
   /// Answer the forum's login prompt of a guest instead.
   bool guest = false;
 
+  /// The member the lists are of, in place of uid 31: the viewer's own lists with 35.
+  int? ownerUid;
+
   @override
   Future<ResponseBody> fetch(
     RequestOptions options,
@@ -166,6 +169,9 @@ final class _Forum implements HttpClientAdapter {
     final reply = options.uri.queryParameters['type'] == 'reply';
     final name = guest ? 'mythread_v9_guest.json' : (reply ? 'mythread_v9_other_reply.json' : 'mythread_v9_other.json');
     final json = jsonDecode(_read('test/data/tsdmapp/$name')) as Map<String, dynamic>;
+    if ((ownerUid, json['owner']) case (final int uid, final Map<String, dynamic> owner)) {
+      owner['uid'] = uid;
+    }
     return ResponseBody.fromString(
       jsonEncode(json),
       200,
@@ -590,6 +596,36 @@ void main() {
       await _pumpSettled(tester);
       expect(cubit.state.forumOnly, isFalse);
       expect(cubit.state.thread.status, MemberThreadStatus.success);
+    });
+
+    testWidgets('the page: limited to the forum, the switch stays when the lists turn out the own ones', (
+      tester,
+    ) async {
+      final forum = _Forum();
+      _use(forum);
+      final cubit = _cubit(fid: 11);
+      addTearDown(cubit.close);
+      await pump(
+        tester,
+        SizedBox(
+          height: 600,
+          child: MemberThreadPage(uid: '31', fid: 11, cubit: cubit),
+        ),
+        auth: _Auth(35),
+      );
+      await _pumpSettled(tester);
+      final scope = find.byKey(const ValueKey('member-thread-scope'));
+      // As after a switch to the member's own account: the forum answers the viewer's own lists.
+      forum.ownerUid = 35;
+      await tester.tap(scope);
+      await _pumpSettled(tester);
+      expect(cubit.state.ownerUid, cubit.state.viewerUid, reason: 'the own lists');
+      expect(scope, findsOneWidget);
+      await tester.tap(scope);
+      await _pumpSettled(tester);
+      expect(cubit.state.forumOnly, isFalse);
+      // Not limited any more: the own lists offer no switch.
+      expect(scope, findsNothing);
     });
   });
 }

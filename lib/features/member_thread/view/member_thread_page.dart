@@ -253,17 +253,18 @@ class _MemberThreadPageState extends State<MemberThreadPage> with SingleTickerPr
     };
   }
 
-  /// Whether the lists can be limited to the forum of the page: one given, another member's lists, not hidden, and at
-  /// least one of them a list (not the login prompt or the forum's message in both); once limited, always, to go back.
+  /// Whether the lists can be limited to the forum of the page: one given, the lists not hidden, and another member's
+  /// lists of which at least one is a list (not the login prompt or the forum's message in both). Once limited, always
+  /// (also when another account came into use and the lists turned out the own ones), to go back to all of it.
   bool _offersForumOnly(BuildContext context, MemberThreadState state, {required bool own}) =>
       (_cubit.fid ?? 0) > 0 &&
-      !own &&
       !_hidden(context, state) &&
       (state.forumOnly ||
-          !MemberThreadTab.values.every((tab) {
-            final status = state.of(tab).status;
-            return status == MemberThreadStatus.needLogin || status == MemberThreadStatus.notice;
-          }));
+          (!own &&
+              !MemberThreadTab.values.every((tab) {
+                final status = state.of(tab).status;
+                return status == MemberThreadStatus.needLogin || status == MemberThreadStatus.notice;
+              })));
 
   Widget _buildBody(BuildContext context, MemberThreadState state) {
     final blockList = currentBlockList(context);
