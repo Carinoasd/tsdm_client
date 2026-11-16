@@ -29,6 +29,8 @@ import 'package:tsdm_client/features/favorite/widgets/favorite_card.dart';
 import 'package:tsdm_client/features/homepage/models/models.dart';
 import 'package:tsdm_client/features/homepage/widgets/guide_section.dart';
 import 'package:tsdm_client/features/latest_thread/models/latest_thread.dart';
+import 'package:tsdm_client/features/read_later/cubit/read_later_cubit.dart';
+import 'package:tsdm_client/features/read_later/view/read_later_page.dart';
 import 'package:tsdm_client/features/reading_progress/cubit/reading_progress_cubit.dart';
 import 'package:tsdm_client/features/reading_progress/models/reading_progress.dart';
 import 'package:tsdm_client/features/reading_progress/repository/reading_progress_store.dart';
@@ -273,6 +275,40 @@ void main() {
     expect(colorOf(tester, 'guide 7').a, lessThan(1));
     expect(colorOf(tester, 'favorite 9').a, lessThan(1));
     expect(find.textContaining('+4'), findsOneWidget);
+  });
+
+  testWidgets('the read later list dims what was read, and nothing with the setting off', (tester) async {
+    await tester.runAsync(() async {
+      await storage.addReadLater(uid: _uid, tid: 7, title: 'later 7', time: DateTime(2026, 1, 2));
+      await storage.addReadLater(uid: _uid, tid: 8, title: 'later 8', time: DateTime(2026, 1, 3));
+      await store.save(_uid, 7, const ReadingProgress(page: 2, floor: 14, seenReplies: 20));
+    });
+    final progress = await tester.runAsync(() => cubitOf(_uid));
+    final readLater = ReadLaterCubit(storageProvider: storage, uid: _uid);
+    addTearDown(readLater.close);
+    await tester.pumpWidget(
+      TranslationProvider(
+        child: BlocProvider<SettingsBloc>.value(
+          value: settingsBloc,
+          child: BlocProvider<ReadingProgressCubit>.value(
+            value: progress!,
+            child: BlocProvider<ReadLaterCubit>.value(
+              value: readLater,
+              child: const MaterialApp(home: ReadLaterPage()),
+            ),
+          ),
+        ),
+      ),
+    );
+    for (var i = 0; i < 4; i++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 30)));
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(colorOf(tester, 'later 7').a, lessThan(1));
+    expect(colorOf(tester, 'later 8').a, 1);
+
+    await setMark(tester, on: false);
+    expect(colorOf(tester, 'later 7').a, 1);
   });
 
   testWidgets('a forum in the favorites is never dimmed', (tester) async {

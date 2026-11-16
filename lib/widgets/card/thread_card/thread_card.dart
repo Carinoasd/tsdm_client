@@ -793,18 +793,19 @@ class LatestThreadCard extends StatelessWidget {
 /// [style] of a thread title, dimmed when the thread was [visited] (read before by the current account), as visited
 /// links are: its own color (a forum may color a title; else the theme's text color) at a lower opacity.
 ///
-/// Never dimmer than text that reads on the card ([readableContrast], more with the platform's high contrast): in a
-/// theme (or a forum color) where [visitedTitleOpacity] would not read, the title is dimmed less, down to not at all.
-TextStyle? visitedTitleStyle(BuildContext context, TextStyle? style, {required bool visited}) {
+/// Never dimmer than text that reads on its [background] ([readableContrast], more with the platform's high contrast):
+/// in a theme (or a forum color) where [visitedTitleOpacity] would not read, the title is dimmed less, down to not at
+/// all. [background] defaults to the one of a card ([Card], `AppSurface`); pass the color the title is on otherwise.
+TextStyle? visitedTitleStyle(BuildContext context, TextStyle? style, {required bool visited, Color? background}) {
   if (!visited) {
     return style;
   }
   final theme = Theme.of(context);
   final color = style?.color ?? DefaultTextStyle.of(context).style.color ?? theme.colorScheme.onSurface;
-  final background = theme.cardTheme.color ?? theme.colorScheme.surfaceContainerLow;
+  final behind = background ?? theme.cardTheme.color ?? theme.colorScheme.surfaceContainerLow;
   final needed = (MediaQuery.maybeHighContrastOf(context) ?? false) ? highContrastVisitedTitle : readableContrast;
   double contrastAt(double opacity) =>
-      contrastRatio(Color.alphaBlend(color.withValues(alpha: color.a * opacity), background), background);
+      contrastRatio(Color.alphaBlend(color.withValues(alpha: color.a * opacity), behind), behind);
   // A color hard to read at full opacity already is not made any harder.
   final target = math.min(needed, contrastAt(1));
   var opacity = visitedTitleOpacity;

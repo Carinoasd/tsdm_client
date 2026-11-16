@@ -169,12 +169,12 @@ class SettingsMap with SettingsMapMappable {
   /// versions lack it.
   final int threadCardThumbnailMode;
 
-  /// Whether the thread lists mark the threads read before. Not required: backups from older versions lack it.
-  final bool threadCardMarkVisited;
-
   /// Whether the thumbnails of the thread lists load the images of other sites too. Not required: backups from older
   /// versions lack it.
   final bool threadCardExternalThumbnails;
+
+  /// Whether the thread lists mark the threads read before. Not required: backups from older versions lack it.
+  final bool threadCardMarkVisited;
 
   /// Index of a `ChineseDisplayMode`: the script the forum text is shown in. Not required: backups from older versions
   /// lack it.
