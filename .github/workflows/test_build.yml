@@ -63,7 +63,7 @@ jobs:
   build-linux:
     name: Build Linux
     if: ${{ github.event_name == 'pull_request' || github.event_name == 'push' || inputs.build_linux }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:
@@ -116,7 +116,7 @@ jobs:
   build-android:
     name: Build Android
     if: ${{ github.event_name == 'push' || inputs.build_android }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:
