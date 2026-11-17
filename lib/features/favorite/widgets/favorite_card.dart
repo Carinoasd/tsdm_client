@@ -3,10 +3,12 @@ import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/date_time.dart';
 import 'package:tsdm_client/features/favorite/models/models.dart';
+import 'package:tsdm_client/features/reading_progress/cubit/reading_progress_cubit.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
+import 'package:tsdm_client/widgets/card/thread_card/thread_card.dart';
 import 'package:tsdm_client/widgets/two_pane.dart';
 
 /// Card of one favorite record (thread or forum): kind icon, title, time pill, optional note and a remove button.
@@ -101,7 +103,15 @@ class FavoriteCard extends StatelessWidget {
                 children: [
                   Text(
                     context.displayText(item.title),
-                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                    // A thread read before is dimmed, as in the thread lists.
+                    style: visitedTitleStyle(
+                      context,
+                      theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                      visited: switch (item) {
+                        FavoriteThread(:final tid) => visitMarkOf(context, tid) != null,
+                        FavoriteForum() => false,
+                      },
+                    ),
                   ),
                   sizedBoxW8H8,
                   Wrap(

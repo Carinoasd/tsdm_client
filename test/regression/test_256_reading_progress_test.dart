@@ -500,7 +500,9 @@ void main() {
 
     double alphaOf(WidgetTester tester, String text) => tester.widget<Text>(find.text(text)).style!.color!.a;
 
-    testWidgets('a thread read before is dimmed; the replies posted since are told', (tester) async {
+    testWidgets('a thread read before is dimmed; the replies posted since are told, the title not dimmed then', (
+      tester,
+    ) async {
       await store.save(_alice.uid!, 7, const ReadingProgress(page: 1, floor: 1, seenReplies: 10));
       final cubit = ReadingProgressCubit(store: store, uid: _alice.uid);
       addTearDown(cubit.close);
@@ -509,7 +511,8 @@ void main() {
         host(Column(children: [NormalThreadCard(thread(7, 13)), NormalThreadCard(thread(8, 13))]), cubit),
       );
       await tester.pump();
-      expect(alphaOf(tester, 'thread 7'), closeTo(visitedTitleOpacity, 0.01));
+      // Replies since the visit (test_1280): told, and the title is no longer dimmed.
+      expect(alphaOf(tester, 'thread 7'), 1);
       expect(alphaOf(tester, 'thread 8'), 1);
       expect(find.byKey(const ValueKey('thread-card-new-replies')), findsOneWidget);
       expect(find.textContaining('+3'), findsOneWidget);
@@ -521,6 +524,8 @@ void main() {
       );
       await tester.pump();
       expect(find.byKey(const ValueKey('thread-card-new-replies')), findsNothing);
+      // Dimmed, never below a readable contrast (test_1280).
+      expect(alphaOf(tester, 'thread 7'), inInclusiveRange(visitedTitleOpacity, 0.99));
     });
 
     testWidgets('the guide dims what was read; the history tells how far', (tester) async {
@@ -536,7 +541,7 @@ void main() {
         host(const GuideModuleList(GuideModule(title: 'hot', view: 'hot', moreUrl: '', items: items)), cubit),
       );
       await tester.pump();
-      expect(alphaOf(tester, 'guide 7'), closeTo(visitedTitleOpacity, 0.01));
+      expect(alphaOf(tester, 'guide 7'), inInclusiveRange(visitedTitleOpacity, 0.99));
       expect(alphaOf(tester, 'guide 8'), 1);
 
       ThreadVisitHistoryModel record(int uid) => ThreadVisitHistoryModel(

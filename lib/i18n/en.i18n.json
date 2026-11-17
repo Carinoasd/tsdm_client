@@ -459,6 +459,7 @@
         "highlightRecentThread": "Highlight recently published threads",
         "highlightAuthorName": "Highlight thread author's username",
         "highlightInfoRow": "Highlight the info row",
+        "markVisited": "Mark threads already read",
         "listPreview": {
           "title": "List previews",
           "note": "The excerpts and the thumbnails come from the forum; until the forum offers them, the lists show the titles only. Content that needs a permission to read never shows in a preview.",

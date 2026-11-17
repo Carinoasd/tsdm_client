@@ -188,6 +188,14 @@ class _SettingsThreadCardAppearancePageState extends State<SettingsThreadCardApp
           onChanged: (v) =>
               context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.threadCardHighlightInfoRow, v)),
         ),
+        SectionSwitchListTile(
+          key: const ValueKey('settings-thread-card-mark-visited'),
+          secondary: const Icon(Icons.done_all_outlined),
+          title: Text(tr.markVisited),
+          value: settings.threadCardMarkVisited,
+          onChanged: (v) =>
+              context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.threadCardMarkVisited, v)),
+        ),
       ],
     );
   }
