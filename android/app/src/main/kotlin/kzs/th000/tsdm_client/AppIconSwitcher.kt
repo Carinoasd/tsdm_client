@@ -17,12 +17,24 @@ object AppIconSwitcher {
         "pink" to "IconPink",
     )
 
-    /** Enable the alias of [name] and disable the others. Returns false when [name] is not an icon of the app. */
-    fun apply(context: Context, name: String): Boolean {
+    /**
+     * Enable the alias of [name] and disable the others. Returns false when [name] is not an icon of the app.
+     *
+     * The forums and threads pinned to the home screen belong to the alias enabled when they were pinned, and the
+     * launcher removes them with it: [moveShortcuts] ties them to the new alias in between, when both are enabled
+     * ([PinnedShortcuts.moveTo]). The launcher hears of the aliases switched later (the system sends the change of
+     * components enabled without killing the app about a second after), and of the shortcuts updated at once.
+     */
+    fun apply(
+        context: Context,
+        name: String,
+        moveShortcuts: (ComponentName) -> Unit = { PinnedShortcuts.moveTo(context, it) },
+    ): Boolean {
         val chosen = aliases[name] ?: return false
         val manager = context.packageManager
         // The new entry first: the launcher never sees an app without any entry.
         setEnabled(context, manager, chosen, true)
+        moveShortcuts(ComponentName(context, "kzs.th000.tsdm_client.$chosen"))
         for (alias in aliases.values) {
             if (alias != chosen) setEnabled(context, manager, alias, false)
         }

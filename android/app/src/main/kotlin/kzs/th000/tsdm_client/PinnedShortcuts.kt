@@ -1,7 +1,10 @@
 package kzs.th000.tsdm_client
 
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ShortcutInfo
+import android.content.pm.ShortcutManager
 import android.net.Uri
 import android.os.Build
 import androidx.core.content.pm.ShortcutInfoCompat
@@ -23,11 +26,20 @@ import io.flutter.plugin.common.MethodChannel
  * (`INSTALL_SHORTCUT`), and the launcher starts its intent by itself, which may not start [ShortcutActivity]; nor can
  * a shortcut pinned that way be updated.
  *
- * [iconOf] gives the icon of a shortcut id (tests replace the app's drawables, which they do not have).
+ * A pinned shortcut belongs to an activity of the launcher's: the main activity enabled when it was pinned, the alias
+ * of the app icon then shown. Switching the app icon disables that alias, and the launcher removes the items of a
+ * component disabled: [AppIconSwitcher] moves the shortcuts to the new alias first ([moveTo]).
+ *
+ * [iconOf] gives the icon of a shortcut id (tests replace the app's drawables, which they do not have). [pinnedIds] and
+ * [askToPin] are the system's: the ids pinned on any launcher, and the request to the default launcher.
  */
 class PinnedShortcuts(
     private val context: Context,
     private val iconOf: (String) -> IconCompat = { id -> IconCompat.createWithResource(context, iconResOf(id)) },
+    private val pinnedIds: () -> Set<String> = {
+        ShortcutManagerCompat.getShortcuts(context, ShortcutManagerCompat.FLAG_MATCH_PINNED).map { it.id }.toSet()
+    },
+    private val askToPin: (ShortcutInfoCompat) -> Boolean = { ShortcutManagerCompat.requestPinShortcut(context, it, null) },
 ) {
     companion object {
         const val IS_SUPPORTED = "isPinShortcutSupported"
@@ -61,6 +73,29 @@ class PinnedShortcuts(
         fun iconResOf(id: String): Int =
             if (id.startsWith("forum-")) R.drawable.ic_shortcut_forum else R.drawable.ic_shortcut_thread
 
+        /**
+         * Tie the forums and threads pinned to [activity], the alias of the app icon about to be shown, which must be
+         * enabled already (the system takes a main activity only), while the alias they belong to is still enabled.
+         * The launcher rebuilds its item of an updated shortcut from the shortcut's activity, so the items moved are
+         * not the disabled component's any more when the old alias goes. The shortcuts of `shortcuts.xml` are not the
+         * app's to update; the system publishes them again for the alias enabled.
+         *
+         * Returns how many moved. Never throws: the icon switches all the same.
+         */
+        fun moveTo(context: Context, activity: ComponentName, sdk: Int = Build.VERSION.SDK_INT): Int {
+            if (sdk < Build.VERSION_CODES.O) return 0
+            return try {
+                val manager = context.getSystemService(ShortcutManager::class.java) ?: return 0
+                // An update with the activity alone: the label, the icon and the intent are kept.
+                val moved = manager.pinnedShortcuts
+                    .filter { isPinnableId(it.id) && it.activity != activity }
+                    .map { ShortcutInfo.Builder(context, it.id).setActivity(activity).build() }
+                if (moved.isNotEmpty() && manager.updateShortcuts(moved)) moved.size else 0
+            } catch (_: Exception) {
+                0
+            }
+        }
+
         /** [this] cut to [max] UTF-16 units, never between the two of a surrogate pair. */
         private fun String.cut(max: Int): String {
             if (length <= max) return this
@@ -93,11 +128,16 @@ class PinnedShortcuts(
 
     /**
      * Ask the launcher to pin the forum or thread [id], labelled [shortLabel] (under the icon) and [longLabel] (where
-     * there is room). One pinned already is updated first and asked for again: the launcher that has it answers at once
-     * without asking the user, one that does not (the default launcher changed since) asks.
+     * there is room). One pinned already is only updated (labels and icon): the system hands a request to the launcher
+     * even for a shortcut it has, and Pixel Launcher then asks the user again and adds a second icon. One removed from
+     * the home screen is no longer pinned (the system drops a shortcut no launcher pins) and is asked for again.
      *
-     * Returns [REQUESTED] or [UPDATED], null when nothing was asked: not a forum or thread id, no label, a launcher that
-     * does not pin, the system refusing (the app not in front).
+     * "Pinned" is the system's answer to the app: pinned on any launcher of the user, the default one or another still
+     * installed that pinned it before (the app is not told which). On a default launcher changed since, the shortcut is
+     * then updated where it is, and the new launcher is not asked.
+     *
+     * Returns [REQUESTED] or [UPDATED], null when nothing was asked or updated: not a forum or thread id, no label, a
+     * launcher that does not pin, the system refusing (the app not in front, too many updates).
      */
     fun request(id: String?, shortLabel: String?, longLabel: String?): String? {
         if (id == null || !isPinnableId(id) || !supported(context)) return null
@@ -111,13 +151,10 @@ class PinnedShortcuts(
                 .setIcon(iconOf(id))
                 .setIntent(intentOf(context, id))
                 .build()
-            val pinned = ShortcutManagerCompat.getShortcuts(context, ShortcutManagerCompat.FLAG_MATCH_PINNED)
-                .any { it.id == id }
-            if (pinned) ShortcutManagerCompat.updateShortcuts(context, listOf(info))
             when {
-                !ShortcutManagerCompat.requestPinShortcut(context, info, null) -> null
-                pinned -> UPDATED
-                else -> REQUESTED
+                id in pinnedIds() -> if (ShortcutManagerCompat.updateShortcuts(context, listOf(info))) UPDATED else null
+                askToPin(info) -> REQUESTED
+                else -> null
             }
         } catch (_: Exception) {
             null

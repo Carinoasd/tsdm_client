@@ -1,9 +1,11 @@
 package kzs.th000.tsdm_client
 
+import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.ShortcutManager
 import android.graphics.Bitmap
 import android.os.Build
+import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.graphics.drawable.IconCompat
 import org.junit.Assert.*
 import org.junit.Test
@@ -26,7 +28,9 @@ class PinnedShortcutsTest {
     private val app get() = RuntimeEnvironment.getApplication()
 
     /** The app's drawables are not in the test's resources: a bitmap stands for them. */
-    private fun pins() = PinnedShortcuts(app) { IconCompat.createWithBitmap(Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)) }
+    private val icon: (String) -> IconCompat = { IconCompat.createWithBitmap(Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)) }
+
+    private fun pins() = PinnedShortcuts(app, icon)
 
     private val manager get() = app.getSystemService(ShortcutManager::class.java)
 
@@ -69,6 +73,78 @@ class PinnedShortcutsTest {
         assertEquals("forum-7", info.id)
         assertEquals("New", info.shortLabel)
         assertEquals("New name", info.longLabel)
+    }
+
+    /**
+     * A launcher asked to pin a shortcut it has already pins it a second time (Pixel Launcher shows its dialog again and
+     * adds a second icon): one pinned is only updated, the launcher is not asked.
+     */
+    @Test
+    fun aPinnedShortcutIsUpdatedWithoutAskingTheLauncher() {
+        launcherPins()
+        var asked = 0
+        val pins = PinnedShortcuts(app, icon, askToPin = {
+            asked++
+            ShortcutManagerCompat.requestPinShortcut(app, it, null)
+        })
+        assertEquals(PinnedShortcuts.REQUESTED, pins.request("thread-42", "Old", "Old title"))
+        assertEquals(1, asked)
+        assertEquals(PinnedShortcuts.UPDATED, pins.request("thread-42", "New", "New title"))
+        assertEquals(1, asked)
+        val info = manager.pinnedShortcuts.single()
+        assertEquals("New", info.shortLabel)
+        assertEquals("New title", info.longLabel)
+    }
+
+    /** Removed from the home screen (no launcher pins it any more), it is pinned again: the launcher is asked. */
+    @Test
+    fun oneRemovedFromTheHomeScreenIsPinnedAgain() {
+        launcherPins()
+        var asked = 0
+        var pinned = emptySet<String>()
+        val pins = PinnedShortcuts(app, icon, pinnedIds = { pinned }, askToPin = {
+            asked++
+            true
+        })
+        assertEquals(PinnedShortcuts.REQUESTED, pins.request("forum-7", "Name", "Name"))
+        pinned = setOf("forum-7", "thread-1")
+        assertEquals(PinnedShortcuts.UPDATED, pins.request("forum-7", "Name", "Name"))
+        pinned = setOf("thread-1")
+        assertEquals(PinnedShortcuts.REQUESTED, pins.request("forum-7", "Name", "Name"))
+        assertEquals(2, asked)
+    }
+
+    /** A launcher that refuses: nothing is reported pinned. */
+    @Test
+    fun aRefusedRequestIsNoPin() {
+        launcherPins()
+        assertNull(PinnedShortcuts(app, icon, pinnedIds = { emptySet() }, askToPin = { false }).request("forum-7", "N", "N"))
+    }
+
+    /**
+     * Switching the app icon disables the alias the pinned shortcuts were tied to (their activity, the main activity
+     * when they were pinned), and the launcher removes the items of a disabled component: the forums and threads pinned
+     * move to the alias of the new icon. The launcher's own shortcuts (`shortcuts.xml`) cannot be updated and are left.
+     */
+    @Test
+    fun thePinnedForumsAndThreadsMoveToTheIconShown() {
+        launcherPins()
+        assertEquals(PinnedShortcuts.REQUESTED, pins().request("thread-42", "Thread", "Thread"))
+        assertEquals(PinnedShortcuts.REQUESTED, pins().request("forum-7", "Forum", "Forum"))
+        val pink = ComponentName(app, "kzs.th000.tsdm_client.IconPink")
+        assertEquals(2, PinnedShortcuts.moveTo(app, pink))
+        assertEquals(setOf("thread-42", "forum-7"), manager.pinnedShortcuts.map { it.id }.toSet())
+        assertEquals(setOf(pink), manager.pinnedShortcuts.map { it.activity }.toSet())
+        // Already there: nothing to move.
+        assertEquals(0, PinnedShortcuts.moveTo(app, pink))
+    }
+
+    @Test
+    fun nothingMovesBeforeAndroid8() {
+        launcherPins()
+        assertEquals(PinnedShortcuts.REQUESTED, pins().request("thread-42", "Thread", "Thread"))
+        val pink = ComponentName(app, "kzs.th000.tsdm_client.IconPink")
+        assertEquals(0, PinnedShortcuts.moveTo(app, pink, sdk = Build.VERSION_CODES.N_MR1))
     }
 
     @Test
