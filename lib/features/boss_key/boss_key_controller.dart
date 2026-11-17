@@ -403,13 +403,16 @@ class BossKey with WindowListener, LoggerMixin {
       }
       return;
     }
-    await beforeWindowShown();
+    await _beforeWindowShown();
     await _showWindow();
   }
 
-  /// The window is about to be shown again (the boss key, the tray): with the window hidden by the boss key, the app
-  /// lock decides now and its lock screen gets a frame, before the window is seen.
-  Future<void> beforeWindowShown() async {
+  /// The window is about to be shown again by the app (the tray, a notification): with the window hidden by the boss
+  /// key, the app lock decides now and its lock screen gets a frame, before the window is seen. After a press of the
+  /// boss key being handled: a window still on its way out is not taken for one coming back.
+  Future<void> beforeWindowShown() => _toggling = _toggling.then((_) => _beforeWindowShown()).catchError(handleRaw);
+
+  Future<void> _beforeWindowShown() async {
     if (!_hidden) {
       return;
     }

@@ -44,6 +44,7 @@ void main() {
     bool configuredByDesktop = false,
     bool configureOpens = true,
     bool recordSettle = false,
+    Completer<void>? frame,
   }) {
     final boss = BossKey.forTesting(
       register: (hotKey) async {
@@ -73,7 +74,12 @@ void main() {
         calls.add('configure');
         return configureOpens;
       },
-      settle: recordSettle ? () async => calls.add('frame') : null,
+      settle: recordSettle
+          ? () async {
+              calls.add('frame');
+              await frame?.future;
+            }
+          : null,
     );
     controllers.add(boss);
     return boss;
@@ -274,14 +280,33 @@ void main() {
       expect(calls, ['lock: hidden', 'frame', 'hide', 'lock: shown', 'frame', 'show']);
     });
 
+    test('shown from the tray while the press is still hiding it: told after the window went, in order', () async {
+      final frame = Completer<void>();
+      final boss = newBossKey(recordSettle: true, frame: frame)..start();
+      await boss.setEnabled(enable: true);
+      calls.clear();
+      await press();
+      final tray = boss.beforeWindowShown();
+      await settle();
+      expect(calls, ['lock: hidden', 'frame']);
+      frame.complete();
+      await tray;
+      expect(calls, ['lock: hidden', 'frame', 'hide', 'lock: shown', 'frame']);
+      expect(boss.hidden, isFalse);
+    });
+
     test('every way of the app to show the window tells the boss key first', () {
       final shows = <String>[];
       for (final file in Directory('lib').listSync(recursive: true).whereType<File>()) {
-        if (!file.path.endsWith('.dart')) continue;
+        final path = file.path.replaceAll(r'\', '/');
+        if (!path.endsWith('.dart')) continue;
         final source = file.readAsStringSync();
-        if (source.contains('windowManager.show(')) shows.add(file.path.replaceAll(r'\', '/'));
-        if (source.contains('await bringWindowToFront()') && !file.path.contains('boss_key')) {
-          expect(source, contains('BossKey.instance.beforeWindowShown()'), reason: file.path);
+        if (source.contains('windowManager.show(')) shows.add(path);
+        // Any use of it, called or torn off, but where it is defined and in the boss key itself.
+        if (source.contains('bringWindowToFront') &&
+            path != 'lib/utils/window_configs.dart' &&
+            !path.startsWith('lib/features/boss_key/')) {
+          expect(source, contains('BossKey.instance.beforeWindowShown()'), reason: path);
         }
       }
       expect(shows, ['lib/utils/window_configs.dart'], reason: 'one place shows the window: bringWindowToFront');
