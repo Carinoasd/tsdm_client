@@ -136,6 +136,7 @@ class ForumBloc extends Bloc<ForumEvent, ForumState> with LoggerMixin {
         state.copyWith(
           status: ForumStatus.loading,
           normalThreadList: [],
+          listStickThreadList: [],
           pollOfferUid: null,
           perms: null,
           permsUid: null,
@@ -188,6 +189,7 @@ class ForumBloc extends Bloc<ForumEvent, ForumState> with LoggerMixin {
       state.copyWith(
         status: ForumStatus.loading,
         normalThreadList: [],
+        listStickThreadList: [],
         pollOfferUid: null,
         perms: null,
         permsUid: null,
@@ -234,6 +236,7 @@ class ForumBloc extends Bloc<ForumEvent, ForumState> with LoggerMixin {
       state.copyWith(
         status: ForumStatus.loading,
         normalThreadList: [],
+        listStickThreadList: [],
         filterState: event.filterState,
         pollOfferUid: null,
         perms: null,
@@ -282,10 +285,24 @@ class ForumBloc extends Bloc<ForumEvent, ForumState> with LoggerMixin {
     final base = from ?? state;
     final allNormalThread = [...base.normalThreadList, ...page.normalThreadList];
 
+    // The pinned threads above the list: those of its first page, none when it starts at another one; a page going on
+    // with the list adds the ones it still has.
+    final List<StickThread> listStickThreadList;
+    if (base.normalThreadList.isEmpty) {
+      listStickThreadList = (page.currentPage ?? pageNumber) == 1 ? page.stickThreadList : const [];
+    } else {
+      final listed = {for (final e in base.listStickThreadList) e.threadID};
+      listStickThreadList = [
+        ...base.listStickThreadList,
+        ...page.stickThreadList.where((e) => listed.add(e.threadID)),
+      ];
+    }
+
     var producedState = base.copyWith(
       status: ForumStatus.success,
       title: page.title,
       normalThreadList: allNormalThread,
+      listStickThreadList: listStickThreadList,
       canLoadMore: page.canLoadMore,
       needLogin: page.needLogin,
       postAllowed: page.postAllowed,

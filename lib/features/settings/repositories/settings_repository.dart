@@ -185,6 +185,8 @@ final class SettingsRepository with LoggerMixin {
       threadSwipePaging: s.extract(_SK.threadSwipePaging),
       immersiveForums: s.extract(_SK.immersiveForums),
       immersiveAllForums: s.extract(_SK.immersiveAllForums),
+      collapsePinnedThreads: s.extract(_SK.collapsePinnedThreads),
+      pinnedThreadsFold: s.extract(_SK.pinnedThreadsFold),
       twoPaneLayout: s.extract(_SK.twoPaneLayout),
       twoPaneListWidth: s.extract(_SK.twoPaneListWidth),
       postMediaPreview: s.extract(_SK.postMediaPreview),

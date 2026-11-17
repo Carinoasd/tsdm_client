@@ -74,6 +74,7 @@ final class SyncedSetting<T extends Object> {
 /// * the notifications (which kinds, the quiet hours, how often the followed threads and the watched forums are
 ///   checked, the content hidden, the direct reply, the permission of iOS, macOS and Linux), the auto sync and the
 ///   background service, the update check, the debug switch;
+/// * the pinned threads section of each forum (left open, the pinned threads seen there: what this device showed);
 /// * the tray, the app icon, the in-app browser (only where there is a web view), the app lock, the reading time
 ///   statistics (counted on the device);
 /// * the image cache, the offline threads, the data saver and the download folder (the storage and the network of the
@@ -121,6 +122,7 @@ final syncedSettings = <SyncedSetting<Object>>[
   ),
   // Thread lists.
   SyncedSetting._(SettingsKeys.showShortcutInForumCard, (s) => s.showShortcutInForumCard),
+  SyncedSetting._(SettingsKeys.collapsePinnedThreads, (s) => s.collapsePinnedThreads),
   SyncedSetting._(SettingsKeys.threadCardInfoRowAlignCenter, (s) => s.threadCardInfoRowAlignCenter),
   SyncedSetting._(SettingsKeys.threadCardShowLastReplyAuthor, (s) => s.threadCardShowLastReplyAuthor),
   SyncedSetting._(SettingsKeys.threadCardHighlightRecentThread, (s) => s.threadCardHighlightRecentThread),
@@ -179,7 +181,12 @@ final syncedSettings = <SyncedSetting<Object>>[
 ///
 /// A setting added to [syncedSettings] later goes here too: the names a device keeps once it ran this version
 /// (`SyncLocalStore.settingsKnown`) only cover the devices that ran it.
-const syncedSettingsAddedLater = {'editImageBeforeUpload', 'uploadImageMaxSide', 'uploadImageQuality'};
+const syncedSettingsAddedLater = {
+  'editImageBeforeUpload',
+  'uploadImageMaxSide',
+  'uploadImageQuality',
+  'collapsePinnedThreads',
+};
 
 /// The values of [syncedSettings] in [settings], by stored name: the `values` of the `settings` section.
 Map<String, Object> syncedSettingsValues(SettingsMap settings) => {

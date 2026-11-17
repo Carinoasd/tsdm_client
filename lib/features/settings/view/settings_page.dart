@@ -666,6 +666,14 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
               context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.showShortcutInForumCard, v)),
         ),
         SectionSwitchListTile(
+          key: const ValueKey('settings-collapse-pinned-threads'),
+          secondary: const Icon(Icons.push_pin_outlined),
+          title: Text(tr.collapsePinnedThreads.title),
+          value: state.settingsMap.collapsePinnedThreads,
+          onChanged: (v) async =>
+              context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.collapsePinnedThreads, v)),
+        ),
+        SectionSwitchListTile(
           key: const ValueKey('settings-two-pane-layout'),
           secondary: const Icon(Icons.vertical_split_outlined),
           title: Text(tr.twoPaneLayout.title),

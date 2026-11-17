@@ -434,6 +434,9 @@
         "title": "Shortcuts on forum cards",
         "detail": "Show shortcuts to the latest thread and the subforums on forum cards"
       },
+      "collapsePinnedThreads": {
+        "title": "Collapse pinned threads"
+      },
       "twoPaneLayout": {
         "title": "Two panes on wide windows"
       },
@@ -1133,7 +1136,8 @@
       "threadDigested": "Digest",
       "threadRecommended": "Recommended",
       "noFilteredThread": "No threads match the filters",
-      "clearFilter": "Clear filters"
+      "clearFilter": "Clear filters",
+      "pinnedFold": "Pinned threads ($count)"
     },
     "subredditTab": {
       "title": "Subforums",
