@@ -32,7 +32,10 @@ import 'package:tsdm_client/widgets/two_pane.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  setUpAll(() => talker = TalkerFlutter.init(settings: TalkerSettings(enabled: false)));
+  setUpAll(() async {
+    talker = TalkerFlutter.init(settings: TalkerSettings(enabled: false));
+    await LocaleSettings.setLocale(AppLocale.zhCn);
+  });
 
   group('ids', () {
     test('a forum or a thread with a positive id', () {
@@ -347,7 +350,6 @@ void main() {
     });
 
     Future<BuildContext> pumpPage(WidgetTester tester) async {
-      await LocaleSettings.setLocale(AppLocale.zhCn);
       late BuildContext page;
       await tester.pumpWidget(
         TranslationProvider(
