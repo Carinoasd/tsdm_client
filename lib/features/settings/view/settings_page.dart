@@ -22,6 +22,7 @@ import 'package:tsdm_client/features/attachment_download/widgets/attachment_down
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/authentication/repository/models/models.dart';
 import 'package:tsdm_client/features/background_sync/background_sync_controller.dart';
+import 'package:tsdm_client/features/boss_key/widgets/boss_key_tiles.dart';
 import 'package:tsdm_client/features/checkin/models/models.dart';
 import 'package:tsdm_client/features/diagnostics/diagnostics_export.dart';
 import 'package:tsdm_client/features/in_app_browser/utils/link_routing.dart';
@@ -814,6 +815,8 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
                   : (v) => _toggleCloseToTray(context, enable: v),
             ),
           ),
+        BossKeySwitchTile(enabled: state.settingsMap.bossKey),
+        BossKeyShortcutTile(combo: state.settingsMap.bossKeyCombo),
       ],
     );
   }

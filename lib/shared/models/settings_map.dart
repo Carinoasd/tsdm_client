@@ -66,6 +66,8 @@ class SettingsMap with SettingsMapMappable {
     this.windowMaximized = false,
     this.desktopTrayIcon = false,
     this.closeToTray = false,
+    this.bossKey = false,
+    this.bossKeyCombo = 'ctrl+alt+h',
     this.enableBackgroundMessageService = false,
     this.notificationPermissionPrompted = false,
     this.backgroundSyncAllAccounts = false,
@@ -143,6 +145,12 @@ class SettingsMap with SettingsMapMappable {
 
   /// See `SettingsKeys.closeToTray`. Not required: backups from older versions lack it.
   final bool closeToTray;
+
+  /// See `SettingsKeys.bossKey`. Not required: backups from older versions lack it.
+  final bool bossKey;
+
+  /// See `SettingsKeys.bossKeyCombo`. Not required: backups from older versions lack it.
+  final String bossKeyCombo;
   final String loginUsername;
   final int loginUid;
   final String loginEmail;
@@ -441,6 +449,8 @@ class SettingsMap with SettingsMapMappable {
       SettingsKeys.windowInCenter => copyWith(windowInCenter: value as bool?),
       SettingsKeys.desktopTrayIcon => copyWith(desktopTrayIcon: value as bool?),
       SettingsKeys.closeToTray => copyWith(closeToTray: value as bool?),
+      SettingsKeys.bossKey => copyWith(bossKey: value as bool?),
+      SettingsKeys.bossKeyCombo => copyWith(bossKeyCombo: value as String?),
       SettingsKeys.loginUsername => copyWith(loginUsername: value as String?),
       SettingsKeys.loginUid => copyWith(loginUid: value as int?),
       SettingsKeys.loginEmail => copyWith(loginEmail: value as String?),

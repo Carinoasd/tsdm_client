@@ -19,6 +19,15 @@ import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/widgets/shutdown.dart';
 import 'package:window_manager/window_manager.dart';
 
+/// Show the window, hidden or minimized, and give it the focus: the tray menu and the boss key (`BossKey`).
+Future<void> bringWindowToFront() async {
+  if (await windowManager.isMinimized()) {
+    await windowManager.restore();
+  }
+  await windowManager.show();
+  await windowManager.focus();
+}
+
 /// The desktop has no tray to put the icon in (Linux, [TrayPlatform.probesTrayHost]).
 class TrayUnavailableException implements Exception {
   @override
@@ -283,13 +292,7 @@ class TrayHelper with TrayListener, LoggerMixin {
   }
 
   /// 从最小化/后台状态还原窗口并聚焦。
-  Future<void> _bringToFront() async {
-    if (await windowManager.isMinimized()) {
-      await windowManager.restore();
-    }
-    await windowManager.show();
-    await windowManager.focus();
-  }
+  Future<void> _bringToFront() => bringWindowToFront();
 
   /// Remove the tray, then let the shared shutdown flow close storage before terminating.
   ///

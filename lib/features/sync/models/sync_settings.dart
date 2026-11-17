@@ -74,8 +74,8 @@ final class SyncedSetting<T extends Object> {
 /// * the notifications (which kinds, the quiet hours, how often the followed threads and the watched forums are
 ///   checked, the content hidden, the direct reply, the permission of iOS, macOS and Linux), the auto sync and the
 ///   background service, the update check, the debug switch;
-/// * the tray, the app icon, the in-app browser (only where there is a web view), the app lock, the reading time
-///   statistics (counted on the device);
+/// * the tray, the boss key (what is free differs per computer), the app icon, the in-app browser (only where there
+///   is a web view), the app lock, the reading time statistics (counted on the device);
 /// * the image cache, the offline threads, the data saver and the download folder (the storage and the network of the
 ///   device), the homepage group last opened;
 /// * the quick phrases (their own section) and the switches of the sync itself.

@@ -604,7 +604,15 @@
       "closeToTray": "關閉視窗時縮到托盤",
       "closeToMenuBar": "關閉視窗時留在選單列",
       "trayUnavailable": "這個桌面環境沒有托盤",
-      "trayFailed": "托盤圖示無法顯示"
+      "trayFailed": "托盤圖示無法顯示",
+      "bossKey": "老闆鍵",
+      "bossKeyShortcut": "快捷鍵",
+      "bossKeyNeedsModifiers": "至少按住兩個修飾鍵，其中一個是 Ctrl 或 $meta",
+      "bossKeyUnsupportedKey": "只能用字母、數字、F1–F12 或空白鍵",
+      "bossKeyUsedInApp": "與 App 內的快捷鍵衝突",
+      "bossKeyConflict": "這個快捷鍵已被其他程式佔用",
+      "bossKeyDeclined": "系統沒有允許這個快捷鍵",
+      "bossKeyUnavailable": "這個桌面環境不支援全域快捷鍵"
     },
     "behaviorSection": {
       "title": "行為",

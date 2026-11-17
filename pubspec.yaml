@@ -103,6 +103,11 @@ dependencies:
   sqlite3_flutter_libs: ^0.5.41
   stream_transform: ^2.1.1
   super_sliver_list: ^0.4.1
+  # Desktop boss key: system-wide shortcut (RegisterHotKey on Windows, RegisterEventHotKey on macOS, the GlobalShortcuts
+  # portal over D-Bus on Linux, no native Linux code).
+  system_hotkeys: ^0.2.0
+  # Names the app to the Linux portal (`SystemHotkeysLinux.registerWith`).
+  system_hotkeys_linux: ^0.2.1
   system_network_proxy:
     path: ./packages/flutter_system_network_proxy/system_network_proxy
   system_theme:

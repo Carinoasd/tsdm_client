@@ -122,6 +122,8 @@ final class SettingsRepository with LoggerMixin {
       windowInCenter: s.extract(_SK.windowInCenter),
       desktopTrayIcon: s.extract(_SK.desktopTrayIcon),
       closeToTray: s.extract(_SK.closeToTray),
+      bossKey: s.extract(_SK.bossKey),
+      bossKeyCombo: s.extract(_SK.bossKeyCombo),
       loginUsername: s.extract(_SK.loginUsername),
       loginUid: s.extract(_SK.loginUid),
       loginEmail: s.extract(_SK.loginEmail),

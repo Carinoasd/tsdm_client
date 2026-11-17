@@ -71,6 +71,13 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
   /// default (closing the window quits, as it always did); only applied while the tray icon is up. Not synced.
   closeToTray<bool>(name: 'closeToTray', type: bool, defaultValue: false),
 
+  /// Windows, macOS and Linux: a system-wide shortcut ([bossKeyCombo]) hides the window and brings it back (`BossKey`).
+  /// Off by default; turned back off when the shortcut can not be bound. Tied to the device: not synced.
+  bossKey<bool>(name: 'bossKey', type: bool, defaultValue: false),
+
+  /// The combination of [bossKey] as `encodeBossKey` writes it (`ctrl+alt+h`). Tied to the device: not synced.
+  bossKeyCombo<String>(name: 'bossKeyCombo', type: String, defaultValue: 'ctrl+alt+h'),
+
   /// Login user username.
   loginUsername<String>(name: 'loginUsername', type: String, defaultValue: ''),
 
