@@ -13,6 +13,7 @@ import 'package:tsdm_client/features/attachment_download/utils/download_location
 import 'package:tsdm_client/features/audio_player/utils/audio_attachment.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/utils/logger.dart';
+import 'package:tsdm_client/utils/zone_identifier.dart';
 
 /// How long the download address the forum gives after taking the credits (`…&ck=…`) is reused: the forum takes it
 /// for an hour.
@@ -370,6 +371,7 @@ final class AttachmentDownloadManager extends ChangeNotifier with LoggerMixin {
         } finally {
           _reserved.remove(target.path);
         }
+        await markDownloadedFromInternet(target.path);
         item = item.copyWith(path: target.path, filename: p.basename(target.path));
       }
     } on DioException catch (e) {

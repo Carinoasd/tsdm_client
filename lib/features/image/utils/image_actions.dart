@@ -16,6 +16,7 @@ import 'package:tsdm_client/utils/browser_launcher.dart';
 import 'package:tsdm_client/utils/image_file_name.dart';
 import 'package:tsdm_client/utils/platform.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
+import 'package:tsdm_client/utils/zone_identifier.dart';
 
 /// The bytes of the image at [url]: from the cache, fetched when not cached. Null when it can not be had.
 Future<Uint8List?> imageBytesOf(String url) async =>
@@ -56,6 +57,7 @@ Future<String?> saveImageBytes(BuildContext context, Uint8List data, {required S
       return null;
     }
     await File(filePath).writeAsBytes(data, flush: true);
+    await markDownloadedFromInternet(filePath);
   } else {
     // Mobile in one step.
     filePath = await FilePicker.platform.saveFile(dialogTitle: tr.saveImage, fileName: fileName, bytes: data);

@@ -23,6 +23,7 @@ jobs:
   # Each file still runs on its own, exactly as with a plain `flutter test`.
   flutter_test_shard:
     name: Flutter test (${{ matrix.shard }}/${{ strategy.job-total }})
+    # Pinned with every Ubuntu job: on 26.04 tray_manager's app_indicator_new is deprecated and -Werror fails the Linux desktop build; bump all together once tray_manager stops using it.
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
@@ -80,6 +81,7 @@ jobs:
     name: Flutter test
     needs: [flutter_test_shard]
     if: ${{ !cancelled() }}
+    # Pinned with every Ubuntu job: on 26.04 tray_manager's app_indicator_new is deprecated and -Werror fails the Linux desktop build; bump all together once tray_manager stops using it.
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
