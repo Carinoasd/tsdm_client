@@ -18,6 +18,7 @@ import 'package:tsdm_client/features/app_lock/widgets/app_lock_gate.dart';
 import 'package:tsdm_client/features/audio_player/audio_player_init.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/background_sync/background_sync_controller.dart';
+import 'package:tsdm_client/features/boss_key/boss_key_controller.dart';
 import 'package:tsdm_client/features/diagnostics/abnormal_exit.dart';
 import 'package:tsdm_client/features/local_notice/callback.dart';
 import 'package:tsdm_client/features/local_notice/direct_reply_entry.dart';
@@ -126,8 +127,10 @@ Future<void> _boot(List<String> args) async {
     }
   }
   // Windows and macOS: closing the window into the tray, only once turned on; `--no-window-configs` keeps it off.
+  // The boss key (off by default) hides the window as well: kept off the same way.
   if (isDesktop && !cmdArgs.noWindowConfigs) {
     CloseToTray.instance.start();
+    BossKey.instance.start();
   }
 
   // System color.

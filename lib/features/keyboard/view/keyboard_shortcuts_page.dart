@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:tsdm_client/features/keyboard/models/keyboard_shortcut_catalog.dart';
+import 'package:tsdm_client/features/keyboard/widgets/key_caps.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/utils/platform.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
@@ -60,33 +61,12 @@ class KeyboardShortcutsPage extends StatelessWidget {
   }
 
   Widget _buildKeys(BuildContext context, List<List<String>> alternatives) {
-    final colorScheme = Theme.of(context).colorScheme;
-    Widget cap(String label) => DecoratedBox(
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: colorScheme.outlineVariant),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-        child: Text(label, style: Theme.of(context).textTheme.labelMedium),
-      ),
-    );
     return Wrap(
       alignment: WrapAlignment.end,
       spacing: 12,
       runSpacing: 4,
       children: [
-        for (final keys in alternatives)
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              for (var i = 0; i < keys.length; i++) ...[
-                if (i > 0) const SizedBox(width: 4),
-                cap(keyLabel(keys[i], mac: isMacOS || isIOS)),
-              ],
-            ],
-          ),
+        for (final keys in alternatives) KeyCaps([for (final key in keys) keyLabel(key, mac: isMacOS || isIOS)]),
       ],
     );
   }

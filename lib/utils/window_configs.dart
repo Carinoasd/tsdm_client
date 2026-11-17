@@ -6,6 +6,15 @@ import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.d
 import 'package:tsdm_client/utils/platform.dart';
 import 'package:window_manager/window_manager.dart';
 
+/// Show the window, hidden or minimized, and give it the focus: the tray menu and the boss key (`BossKey`).
+Future<void> bringWindowToFront() async {
+  if (await windowManager.isMinimized()) {
+    await windowManager.restore();
+  }
+  await windowManager.show();
+  await windowManager.focus();
+}
+
 /// Update window title according to current using locale.
 ///
 /// Only available on desktop platforms.

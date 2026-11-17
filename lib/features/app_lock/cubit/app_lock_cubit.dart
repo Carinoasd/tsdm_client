@@ -76,6 +76,7 @@ final class AppLockState {
     this.biometricAvailable = false,
     this.checking = false,
     this.wrongPin = false,
+    this.hiddenByApp = false,
   });
 
   /// Saved settings.
@@ -97,6 +98,10 @@ final class AppLockState {
   /// The last PIN entered was wrong.
   final bool wrongPin;
 
+  /// The desktop app hid its window itself (the boss key, [AppLockCubit.windowHidden]) and has not shown it again:
+  /// the lock screen does not ask for the system unlock meanwhile.
+  final bool hiddenByApp;
+
   /// Whether the lock screen is shown.
   bool get covering => locked || verifying;
 
@@ -111,6 +116,7 @@ final class AppLockState {
     bool? biometricAvailable,
     bool? checking,
     bool? wrongPin,
+    bool? hiddenByApp,
   }) => AppLockState(
     config: config ?? this.config,
     locked: locked ?? this.locked,
@@ -118,6 +124,7 @@ final class AppLockState {
     biometricAvailable: biometricAvailable ?? this.biometricAvailable,
     checking: checking ?? this.checking,
     wrongPin: wrongPin ?? this.wrongPin,
+    hiddenByApp: hiddenByApp ?? this.hiddenByApp,
   );
 }
 
@@ -261,6 +268,7 @@ final class AppLockCubit extends Cubit<AppLockState> with LoggerMixin {
 
   bool _authenticating = false;
   AppLifecycleState? _lifecycle;
+
   DateTime? _unlockedAt;
   Completer<bool>? _verification;
 
@@ -311,17 +319,55 @@ final class AppLockCubit extends Cubit<AppLockState> with LoggerMixin {
       return;
     }
     if (leaving) {
-      if (state.locked) {
-        return;
-      }
-      _timer.left(_now(), sinceBoot: _sinceBoot());
-      if (state.config.timing == AppLockTiming.immediately) {
-        // Covered before it is seen again, also in the app switcher where the system takes the picture later.
-        _lock();
-      }
+      _leave();
       return;
     }
-    if (lifecycle == AppLifecycleState.hidden || _timer.leftAt == null) {
+    // A window the app hid itself is not back before [windowShown], whatever the desktop reports meanwhile (losing the
+    // focus as the window goes makes it inactive).
+    if (lifecycle == AppLifecycleState.hidden || state.hiddenByApp) {
+      return;
+    }
+    _return();
+  }
+
+  /// The desktop app hid its window (the boss key): it leaves the screen as on [AppLifecycleState.hidden], whatever
+  /// the desktop reports for a hidden window, and it is not back before [windowShown].
+  void windowHidden() {
+    if (isClosed) {
+      return;
+    }
+    // Before the lock below: the lock screen it brings up must not ask for the system unlock while hidden.
+    emit(state.copyWith(hiddenByApp: true));
+    if (state.config.enabled) {
+      _leave();
+    }
+  }
+
+  /// The window hidden by [windowHidden] is shown again: locks now when it was away for the delay of the lock, before
+  /// the window is shown when called first. Nothing when the window was not hidden by the app.
+  void windowShown() {
+    if (isClosed || !state.hiddenByApp) {
+      return;
+    }
+    emit(state.copyWith(hiddenByApp: false));
+    if (state.config.enabled && !_authenticating) {
+      _return();
+    }
+  }
+
+  void _leave() {
+    if (state.locked) {
+      return;
+    }
+    _timer.left(_now(), sinceBoot: _sinceBoot());
+    if (state.config.timing == AppLockTiming.immediately) {
+      // Covered before it is seen again, also in the app switcher where the system takes the picture later.
+      _lock();
+    }
+  }
+
+  void _return() {
+    if (_timer.leftAt == null) {
       return;
     }
     if (_timer.returned(_now(), state.config.timing, sinceBoot: _sinceBoot()) && !state.locked) {

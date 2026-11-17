@@ -138,6 +138,8 @@ const diagnosticSettingNames = <String>[
   'crossDeviceSyncCustomImages',
   'desktopTrayIcon',
   'closeToTray',
+  'bossKey',
+  'bossKeyCombo',
   'appIcon',
   'enableDebugOperations',
 ];

@@ -51,11 +51,15 @@ class _AppLockScreenState extends State<AppLockScreen> {
   /// resumed again, which must not ask again after the user closed it (the fingerprint button still does).
   bool _autoPromptArmed = true;
 
+  /// [AppLockState.hiddenByApp] as last seen: the window coming back from the boss key is a return too.
+  late bool _hiddenByApp;
+
   AppLockCubit get _cubit => widget.cubit;
 
   @override
   void initState() {
     super.initState();
+    _hiddenByApp = _cubit.state.hiddenByApp;
     // onShow is hidden to inactive, a real return; the prompt only moves between inactive and resumed.
     _lifecycle = AppLifecycleListener(onShow: () => _autoPromptArmed = true, onResume: _autoPrompt);
     _syncTicker();
@@ -75,11 +79,21 @@ class _AppLockScreenState extends State<AppLockScreen> {
   }
 
   void _autoPrompt() {
-    if (!_autoPromptArmed) {
+    // Not while the window is hidden by the boss key (locked as it hid, the app may still be resumed): asked once it is
+    // shown again.
+    if (!_autoPromptArmed || _cubit.state.hiddenByApp) {
       return;
     }
     _autoPromptArmed = false;
     _promptBiometric();
+  }
+
+  /// The window hidden by the boss key is back: ask once, now when the app is in front, else when it is resumed.
+  void _shownByApp() {
+    _autoPromptArmed = true;
+    if (WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _autoPrompt());
+    }
   }
 
   void _promptBiometric() {
@@ -202,8 +216,15 @@ class _AppLockScreenState extends State<AppLockScreen> {
     final colorScheme = Theme.of(context).colorScheme;
     return BlocConsumer<AppLockCubit, AppLockState>(
       bloc: _cubit,
-      listenWhen: (prev, curr) => prev.config.lockedOutUntil != curr.config.lockedOutUntil,
-      listener: (_, _) => _syncTicker(),
+      listenWhen: (prev, curr) =>
+          prev.config.lockedOutUntil != curr.config.lockedOutUntil || prev.hiddenByApp != curr.hiddenByApp,
+      listener: (_, state) {
+        _syncTicker();
+        if (_hiddenByApp && !state.hiddenByApp) {
+          _shownByApp();
+        }
+        _hiddenByApp = state.hiddenByApp;
+      },
       builder: (context, state) {
         final until = _cubit.lockedOutUntil;
         final busy = state.checking || _forgetting;

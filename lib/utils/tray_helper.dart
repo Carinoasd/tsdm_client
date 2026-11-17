@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:tray_manager/tray_manager.dart';
+import 'package:tsdm_client/features/boss_key/boss_key_controller.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
@@ -16,8 +17,8 @@ import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/utils/desktop_tray_policy.dart';
 import 'package:tsdm_client/utils/linux_tray_host.dart';
 import 'package:tsdm_client/utils/logger.dart';
+import 'package:tsdm_client/utils/window_configs.dart';
 import 'package:tsdm_client/widgets/shutdown.dart';
-import 'package:window_manager/window_manager.dart';
 
 /// The desktop has no tray to put the icon in (Linux, [TrayPlatform.probesTrayHost]).
 class TrayUnavailableException implements Exception {
@@ -282,13 +283,10 @@ class TrayHelper with TrayListener, LoggerMixin {
     unawaited(_router.pushNamed(destination!));
   }
 
-  /// 从最小化/后台状态还原窗口并聚焦。
+  /// 从最小化/后台状态还原窗口并聚焦。The boss key is told first: the app lock decides before the window is seen again.
   Future<void> _bringToFront() async {
-    if (await windowManager.isMinimized()) {
-      await windowManager.restore();
-    }
-    await windowManager.show();
-    await windowManager.focus();
+    await BossKey.instance.beforeWindowShown();
+    await bringWindowToFront();
   }
 
   /// Remove the tray, then let the shared shutdown flow close storage before terminating.
