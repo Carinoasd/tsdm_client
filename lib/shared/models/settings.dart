@@ -327,6 +327,15 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
   /// Every thread opens in immersive reading, whatever [immersiveForums] holds.
   immersiveAllForums<bool>(name: 'immersiveAllForums', type: bool, defaultValue: false),
 
+  /// The pinned threads of a forum's first page are folded to one row above its thread list, expanded and collapsed
+  /// by a tap (each forum remembers it on the device, [pinnedThreadsFold]). Off: they only show in the pinned tab.
+  collapsePinnedThreads<bool>(name: 'collapsePinnedThreads', type: bool, defaultValue: false),
+
+  /// The pinned threads section of each forum ([collapsePinnedThreads]): left expanded or not, and the pinned threads
+  /// seen last (a JSON object keyed by fid, the forums saved last), see `decodePinnedFolds`. Tied to the device, not
+  /// synced.
+  pinnedThreadsFold<String>(name: 'pinnedThreadsFold', type: String, defaultValue: ''),
+
   /// On windows at least 840dp wide (Material's expanded class), a list page keeps its threads on the left and opens
   /// the thread tapped on the right, instead of leaving the list. Off: one page at a time at any width.
   twoPaneLayout<bool>(name: 'twoPaneLayout', type: bool, defaultValue: true),

@@ -108,6 +108,8 @@ class SettingsMap with SettingsMapMappable {
     this.threadSwipePaging = false,
     this.immersiveForums = '',
     this.immersiveAllForums = false,
+    this.collapsePinnedThreads = false,
+    this.pinnedThreadsFold = '',
     this.twoPaneLayout = true,
     this.twoPaneListWidth = 0,
     this.postMediaPreview = true,
@@ -284,6 +286,14 @@ class SettingsMap with SettingsMapMappable {
 
   /// Every thread opens in immersive reading. Not required: backups from older versions lack it.
   final bool immersiveAllForums;
+
+  /// The pinned threads of a forum are folded above its thread list. Not required: backups from older versions lack
+  /// it.
+  final bool collapsePinnedThreads;
+
+  /// The pinned threads section of each forum, see `SettingsKeys.pinnedThreadsFold`. Not required: backups from older
+  /// versions lack it.
+  final String pinnedThreadsFold;
 
   /// Wide windows show a list page and the thread opened from it side by side. Not required: backups from older
   /// versions lack it.
@@ -518,6 +528,8 @@ class SettingsMap with SettingsMapMappable {
       SettingsKeys.threadSwipePaging => copyWith(threadSwipePaging: value as bool?),
       SettingsKeys.immersiveForums => copyWith(immersiveForums: value as String?),
       SettingsKeys.immersiveAllForums => copyWith(immersiveAllForums: value as bool?),
+      SettingsKeys.collapsePinnedThreads => copyWith(collapsePinnedThreads: value as bool?),
+      SettingsKeys.pinnedThreadsFold => copyWith(pinnedThreadsFold: value as String?),
       SettingsKeys.twoPaneLayout => copyWith(twoPaneLayout: value as bool?),
       SettingsKeys.twoPaneListWidth => copyWith(twoPaneListWidth: value as double?),
       SettingsKeys.postMediaPreview => copyWith(postMediaPreview: value as bool?),

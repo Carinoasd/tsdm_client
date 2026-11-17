@@ -29,6 +29,7 @@ class ForumState with ForumStateMappable {
     this.status = ForumStatus.initial,
     this.rulesElement,
     this.stickThreadList = const [],
+    this.listStickThreadList = const [],
     this.normalThreadList = const [],
     this.subredditList = const [],
     this.canLoadMore = true,
@@ -98,6 +99,15 @@ class ForumState with ForumStateMappable {
   /// Only load in the first page and never update because other numbers of
   /// pages do not have pinned threads at all.
   final List<StickThread> stickThreadList;
+
+  /// The pinned threads the forum shows above the threads of [normalThreadList]: those of its first page, and of a
+  /// later page loaded after it (the forum lists them first, a long list of them goes on past the first page). Empty
+  /// when the list starts at a later page (a jump) or its first page has none; replaced whenever the list starts over
+  /// (a refresh, another filter: a filtered first page only has the forum's own pinned threads matching the filter).
+  ///
+  /// Unlike [stickThreadList] (the pinned tab, kept while another page or a filtered one has none), this is always the
+  /// list's own.
+  final List<StickThread> listStickThreadList;
 
   /// All normal thread list.
   final List<NormalThread> normalThreadList;

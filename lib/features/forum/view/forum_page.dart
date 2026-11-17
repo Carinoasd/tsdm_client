@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:collection/collection.dart' show ListEquality;
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -20,7 +21,9 @@ import 'package:tsdm_client/features/forum/bloc/forum_bloc.dart';
 import 'package:tsdm_client/features/forum/models/models.dart';
 import 'package:tsdm_client/features/forum/repository/forum_repository.dart';
 import 'package:tsdm_client/features/forum/utils/frequent_forums.dart';
+import 'package:tsdm_client/features/forum/utils/pinned_fold.dart';
 import 'package:tsdm_client/features/forum/widgets/frequent_forums_bar.dart';
+import 'package:tsdm_client/features/forum/widgets/pinned_threads_fold.dart';
 import 'package:tsdm_client/features/forum/widgets/thread_filter_chip.dart';
 import 'package:tsdm_client/features/forum_watch/cubit/forum_watch_cubit.dart';
 import 'package:tsdm_client/features/forum_watch/view/forum_watch_page.dart';
@@ -33,6 +36,7 @@ import 'package:tsdm_client/features/moderate/widgets/moderate_sheet.dart';
 import 'package:tsdm_client/features/moderate/widgets/thread_picking.dart';
 import 'package:tsdm_client/features/need_login/view/need_login_page.dart';
 import 'package:tsdm_client/features/post/models/models.dart';
+import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
 import 'package:tsdm_client/features/share_qr/share_qr_dialog.dart';
 import 'package:tsdm_client/features/shortcuts/models/app_shortcut.dart';
 import 'package:tsdm_client/features/shortcuts/utils/pin_to_home.dart';
@@ -132,6 +136,120 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
   /// The threads picked in the thread tab (tids), null when not picking.
   Set<String>? _picked;
 
+  /// The pinned threads folded above the thread list are shown ([SettingsKeys.collapsePinnedThreads]): as the user
+  /// left them in this forum, or expanded this time for one not seen before. Null until the forum's saved section was
+  /// read.
+  bool? _pinnedExpanded;
+
+  /// The pinned threads this page saved as seen last ([_notePinnedSeen]), null before: what the next list is told
+  /// apart from, the save may still be on its way.
+  Set<int>? _pinnedSeen;
+
+  /// The setting folding the pinned threads above the thread list is on; off without the settings (widget tests of the
+  /// page alone). [watch] rebuilds the caller when it changes, only in a build.
+  bool _foldsPinned(BuildContext context, {bool watch = false}) {
+    if (context.readOrNull<SettingsBloc>() == null) {
+      return false;
+    }
+    return watch
+        ? context.select<SettingsBloc, bool>((bloc) => bloc.state.settingsMap.collapsePinnedThreads)
+        : context.read<SettingsBloc>().state.settingsMap.collapsePinnedThreads;
+  }
+
+  /// [_pinnedExpanded], read from the forum's saved section the first time.
+  bool _pinnedOpen() => _pinnedExpanded ??= switch (int.tryParse(widget.fid)) {
+    final fid? => savedPinnedFold(fid)?.open ?? false,
+    null => false,
+  };
+
+  /// The pinned threads folded above the thread list that show there: those the setting folds there and the list's
+  /// cards show (not hidden as blocked or filtered out). None when the list has no other thread: it shows that it is
+  /// empty, the pinned ones stay in the pinned tab. [watch] (only in a build) rebuilds the caller when they change.
+  List<StickThread> _shownPinned(BuildContext context, ForumState state, {bool watch = false}) {
+    if (state.normalThreadList.isEmpty || !_foldsPinned(context, watch: watch)) {
+      return const [];
+    }
+    final blocks = currentBlockList(context, listen: watch);
+    return state.listStickThreadList
+        .where((e) => !blocks.hidesString(e.author.uid) && !blocks.hidesThread(title: e.title, byForum: false))
+        .toList();
+  }
+
+  /// The threads of the thread tab in their order: the pinned ones above the list when they are folded there and
+  /// expanded ([_shownPinned]), then the others.
+  List<NormalThread> _threadTabThreads(BuildContext context, ForumState state, {bool watch = false}) {
+    final pinned = _shownPinned(context, state, watch: watch);
+    return [if (pinned.isNotEmpty && _pinnedOpen()) ...pinned, ...state.normalThreadList];
+  }
+
+  /// Expand or collapse the pinned threads folded above the thread list, as the forum's section from now on. The
+  /// pinned threads picked are left once they are collapsed.
+  void _togglePinned(ForumState state) {
+    final open = !_pinnedOpen();
+    // The threads the keyboard moves through moved.
+    _keyboardSelection.clear();
+    setState(() {
+      _pinnedExpanded = open;
+      if (!open && _picked != null) {
+        final pinned = {for (final e in state.listStickThreadList) e.threadID};
+        final picked = _picked!.difference(pinned);
+        _picked = picked.isEmpty ? null : picked;
+      }
+    });
+    if (int.tryParse(widget.fid) case final fid?) {
+      unawaited(savePinnedFoldOpen(fid, open: open));
+    }
+  }
+
+  /// The pinned threads above the list of [state] were seen: one not seen before expands them this time, and what was
+  /// seen is saved ([pinnedFoldSeen]). Nothing while they are not folded.
+  void _notePinnedSeen(BuildContext context, ForumState state) {
+    final fid = int.tryParse(widget.fid);
+    if (fid == null || !_foldsPinned(context)) {
+      return;
+    }
+    final open = _pinnedOpen();
+    final saved = savedPinnedFold(fid);
+    // What this page saved last (the save may still be on its way) and what is saved (another page of the forum may
+    // have seen more).
+    final known = _pinnedSeen == null && saved?.seen == null ? null : {...?_pinnedSeen, ...?saved?.seen};
+    final seen = pinnedFoldSeen(
+      PinnedFold(open: saved?.open ?? false, seen: known),
+      state.listStickThreadList.map((e) => int.tryParse(e.threadID)).nonNulls,
+      filtered: state.filterState.isFiltering(),
+    );
+    // Expanded for a fresh one the list shows: one hidden (blocked, filtered out) has nothing new to show.
+    final freshShown =
+        seen.fresh &&
+        known != null &&
+        _shownPinned(context, state).any((e) => !known.contains(int.tryParse(e.threadID)));
+    if (freshShown && !open) {
+      _keyboardSelection.clear();
+      setState(() => _pinnedExpanded = true);
+    }
+    if (seen.save case final save?) {
+      _pinnedSeen = save.seen;
+      unawaited(savePinnedFoldSeen(fid, save.seen));
+    }
+  }
+
+  /// The setting folding the pinned threads was on at the last build of the thread list, null before the first.
+  bool? _foldedAtLastBuild;
+
+  /// The setting was turned on while the list was shown: its pinned threads are seen now ([_notePinnedSeen]), not
+  /// only once the list changes.
+  void _noteFoldTurnedOn(BuildContext context, ForumState state) {
+    final folds = _foldsPinned(context);
+    if (folds && _foldedAtLastBuild == false) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && context.mounted) {
+          _notePinnedSeen(context, state);
+        }
+      });
+    }
+    _foldedAtLastBuild = folds;
+  }
+
   /// Rating the threads picked in a batch (the batch rate plugin, tsdmapp 3.9.0), asked once picking starts; with the
   /// account and forum it was asked for.
   ({String key, BatchRateInfo info})? _batchRate;
@@ -189,9 +307,10 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
     _picked = picked.isEmpty ? null : picked;
   });
 
-  /// The threads of the thread tab a moderator may pick: those shown (not hidden as blocked).
+  /// The threads of the thread tab a moderator may pick: those shown (not hidden as blocked), the pinned ones above
+  /// the list while they are expanded.
   List<NormalThread> _pickable(BuildContext context, ForumState state) =>
-      state.normalThreadList.where((e) => !isBlockedByCurrentUser(context, e.author.uid)).toList();
+      _threadTabThreads(context, state).where((e) => !isBlockedByCurrentUser(context, e.author.uid)).toList();
 
   /// Manage the threads picked together, then show the forum as it is now.
   Future<void> _moderatePicked(BuildContext context, ForumState state) async {
@@ -622,6 +741,11 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
     }
 
     final bloc = context.read<ForumBloc>();
+    // With the setting, the pinned threads of the list's first page are folded to one row above it, counting those
+    // shown; expanded, they are the first threads of the list.
+    final pinnedShown = _shownPinned(context, state, watch: true).length;
+    final threads = _threadTabThreads(context, state);
+    _noteFoldTurnedOn(context, state);
     return EasyRefresh.builder(
       scrollBehaviorBuilder: (physics) => ERScrollBehavior(physics).copyWith(physics: physics, scrollbars: false),
       header: const MaterialHeader(),
@@ -635,16 +759,28 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
           slivers: [
             PinnedHeaderSliver(child: _buildNormalThreadFilterRow(context, state)),
             const SliverPadding(padding: edgeInsetsT8),
+            if (pinnedShown > 0)
+              SliverPadding(
+                padding: side.copyWith(bottom: appSurfaceGapCompact),
+                sliver: SliverToBoxAdapter(
+                  child: PinnedThreadsFold(
+                    count: pinnedShown,
+                    expanded: _pinnedOpen(),
+                    onTap: () => _togglePinned(state),
+                  ),
+                ),
+              ),
             // The end of the list is its last item: built when it comes near, it asks the next page.
             SliverList.separated(
-              itemCount: normalThreadList.length + 1,
-              itemBuilder: (context, index) => index < normalThreadList.length
+              itemCount: threads.length + 1,
+              itemBuilder: (context, index) => index < threads.length
                   ? Padding(
                       padding: side,
                       child: KeyboardSelectable(
                         selection: _keyboardSelection,
                         index: index,
-                        child: _buildThreadCard(context, normalThreadList[index]),
+                        // A context of its own: the card's lookups (the blocked authors) rebuild the card, not the list.
+                        child: Builder(builder: (context) => _buildThreadCard(context, threads[index])),
                       ),
                     )
                   : ListFooter(
@@ -875,17 +1011,18 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
   }
 
   /// The thread of the thread tab the keyboard is on, null when none.
-  NormalThread? _selectedThread(ForumState state) {
+  NormalThread? _selectedThread(BuildContext context, ForumState state) {
     final index = _keyboardSelection.index;
-    if (tabController.index != _threadTabIndex || index == null || index >= state.normalThreadList.length) {
+    final threads = _threadTabThreads(context, state);
+    if (tabController.index != _threadTabIndex || index == null || index >= threads.length) {
       return null;
     }
-    return state.normalThreadList[index];
+    return threads[index];
   }
 
-  void _moveSelection(ForumState state, int delta) {
+  void _moveSelection(BuildContext context, ForumState state, int delta) {
     if (tabController.index == _threadTabIndex) {
-      _keyboardSelection.move(delta, state.normalThreadList.length);
+      _keyboardSelection.move(delta, _threadTabThreads(context, state).length);
     }
   }
 
@@ -959,6 +1096,17 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
               _stopPicking();
             },
           ),
+          // The pinned threads above the list changed (loaded, another filter, another page): folded, one not seen
+          // before expands them this time.
+          BlocListener<ForumBloc, ForumState>(
+            listenWhen: (prev, curr) =>
+                curr.status == ForumStatus.success &&
+                !const ListEquality<String>().equals(
+                  [for (final e in prev.listStickThreadList) e.threadID],
+                  [for (final e in curr.listStickThreadList) e.threadID],
+                ),
+            listener: _notePinnedSeen,
+          ),
           // The forum joins the recently visited ones once it loaded.
           BlocListener<ForumBloc, ForumState>(
             listenWhen: (prev, curr) => prev.status != curr.status && curr.status == ForumStatus.success,
@@ -1009,13 +1157,13 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
                 _keyboardSelection.clear();
                 context.read<ForumBloc>().add(ForumRefreshRequested());
               },
-              onNextItem: () => _moveSelection(state, 1),
-              onPreviousItem: () => _moveSelection(state, -1),
-              canOpenItem: () => _selectedThread(state) != null,
+              onNextItem: () => _moveSelection(context, state, 1),
+              onPreviousItem: () => _moveSelection(context, state, -1),
+              canOpenItem: () => _selectedThread(context, state) != null,
               onOpenItem: () {
-                if (_selectedThread(state) case final thread? when _picked != null) {
+                if (_selectedThread(context, state) case final thread? when _picked != null) {
                   _togglePicked(thread.threadID);
-                } else if (_selectedThread(state) case final thread?) {
+                } else if (_selectedThread(context, state) case final thread?) {
                   unawaited(
                     openThread(context, threadID: thread.threadID, title: thread.title, threadType: thread.threadType),
                   );

@@ -434,6 +434,9 @@
         "title": "版塊卡片顯示捷徑",
         "detail": "在版塊卡片上顯示跳到最新貼文和子版塊的按鈕"
       },
+      "collapsePinnedThreads": {
+        "title": "折疊置頂帖"
+      },
       "twoPaneLayout": {
         "title": "寬螢幕雙欄"
       },
@@ -1142,7 +1145,8 @@
       "threadDigested": "加精",
       "threadRecommended": "推薦",
       "noFilteredThread": "沒有符合篩選條件的貼文",
-      "clearFilter": "清除篩選"
+      "clearFilter": "清除篩選",
+      "pinnedFold": "置頂帖 $count"
     },
     "subredditTab": {
       "title": "子版塊",

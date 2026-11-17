@@ -434,6 +434,9 @@
         "title": "论坛卡片可跳转",
         "detail": "论坛卡片上显示可跳转到最新帖子和子板块的部件"
       },
+      "collapsePinnedThreads": {
+        "title": "折叠置顶帖"
+      },
       "twoPaneLayout": {
         "title": "宽屏双栏"
       },
@@ -1142,7 +1145,8 @@
       "threadDigested": "加精",
       "threadRecommended": "推荐",
       "noFilteredThread": "没有符合筛选条件的帖子",
-      "clearFilter": "清除筛选"
+      "clearFilter": "清除筛选",
+      "pinnedFold": "置顶帖 $count"
     },
     "subredditTab": {
       "title": "子版块",
