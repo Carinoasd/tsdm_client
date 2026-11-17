@@ -462,6 +462,7 @@
         "highlightRecentThread": "突出顯示近期發佈的貼文",
         "highlightAuthorName": "突出顯示貼文作者的使用者名稱",
         "highlightInfoRow": "高亮顯示貼文資訊",
+        "markVisited": "標出看過的貼文",
         "listPreview": {
           "title": "列表預覽",
           "note": "摘要與縮圖由論壇提供；論壇尚未支援時，列表只顯示標題。需要權限才能看的內容不會出現在預覽裡。",

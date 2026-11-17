@@ -62,6 +62,7 @@ class SettingsMap with SettingsMapMappable {
     this.threadCardThumbnailMode = 1,
     this.chineseDisplayMode = 0,
     this.threadCardExternalThumbnails = false,
+    this.threadCardMarkVisited = true,
     this.homeLayout = '',
     this.windowMaximized = false,
     this.desktopTrayIcon = false,
@@ -173,6 +174,9 @@ class SettingsMap with SettingsMapMappable {
   /// Whether the thumbnails of the thread lists load the images of other sites too. Not required: backups from older
   /// versions lack it.
   final bool threadCardExternalThumbnails;
+
+  /// Whether the thread lists mark the threads read before. Not required: backups from older versions lack it.
+  final bool threadCardMarkVisited;
 
   /// Index of a `ChineseDisplayMode`: the script the forum text is shown in. Not required: backups from older versions
   /// lack it.
@@ -472,6 +476,7 @@ class SettingsMap with SettingsMapMappable {
       SettingsKeys.chineseDisplayMode => copyWith(chineseDisplayMode: value as int?),
       SettingsKeys.threadCardThumbnailMode => copyWith(threadCardThumbnailMode: value as int?),
       SettingsKeys.threadCardExternalThumbnails => copyWith(threadCardExternalThumbnails: value as bool?),
+      SettingsKeys.threadCardMarkVisited => copyWith(threadCardMarkVisited: value as bool?),
       SettingsKeys.homeLayout => copyWith(homeLayout: value as String?),
       SettingsKeys.netClientProxy => copyWith(netClientProxy: value as String?),
       SettingsKeys.netClientUseProxy => copyWith(netClientUseProxy: value as bool?),

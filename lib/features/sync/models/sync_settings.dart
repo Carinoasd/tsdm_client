@@ -136,6 +136,7 @@ final syncedSettings = <SyncedSetting<Object>>[
     max: ThreadThumbnailMode.values.length - 1,
   ),
   SyncedSetting._(SettingsKeys.threadCardExternalThumbnails, (s) => s.threadCardExternalThumbnails),
+  SyncedSetting._(SettingsKeys.threadCardMarkVisited, (s) => s.threadCardMarkVisited),
   // Homepage.
   SyncedSetting._(SettingsKeys.homeLayout, (s) => s.homeLayout),
   // Threads.
@@ -185,6 +186,7 @@ const syncedSettingsAddedLater = {
   'editImageBeforeUpload',
   'uploadImageMaxSide',
   'uploadImageQuality',
+  'threadCardMarkVisited',
   'collapsePinnedThreads',
 };
 
