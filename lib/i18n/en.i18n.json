@@ -4131,7 +4131,10 @@
     "cancelled": "Not sent: the forum asks for a captcha or a security question"
   },
   "appShortcuts": {
-    "checkinNotVerified": "The login is not confirmed yet. Check in later"
+    "checkinNotVerified": "The login is not confirmed yet. Check in later",
+    "pinToHome": "Add to home screen",
+    "pinUpdated": "Home screen icon updated",
+    "pinFailed": "Could not add to home screen"
   },
   "twoPane": {
     "tabsFull": "Up to ${count: int} tabs can be open"
