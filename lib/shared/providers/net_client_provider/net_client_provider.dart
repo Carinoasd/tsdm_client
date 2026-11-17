@@ -717,13 +717,14 @@ final class PlainTransportGuard implements HttpClientAdapter {
     return k == 'cookie' || k == 'authorization' || k.startsWith('x-tsdmapp-');
   }
 
-  /// Whether a hop to [hop] of a request asked for [origin] may carry the session headers: the same host and port, or the
-  /// forum's hosts both ([UriOriginExt.isForumHost], `www` or not), and not https turned into http. The rule of the
-  /// Kotlin client of Android (`HttpClient.keepsSession`), which also strips them between the forum's two hosts.
+  /// Whether a hop to [hop] of a request asked for [origin] may carry the session headers: the same port, on the same
+  /// host or on the forum's hosts both ([UriOriginExt.isForumHost], `www` or not), and not https turned into http. The
+  /// rule of the Kotlin client of Android (`HttpClient.keepsSession`), which does not look at the port and strips them
+  /// between the forum's two hosts too.
   @visibleForTesting
   static bool keepsSession(Uri origin, Uri hop) =>
-      ((origin.host.toLowerCase() == hop.host.toLowerCase() && origin.port == hop.port) ||
-          (origin.isForumHost && hop.isForumHost)) &&
+      origin.port == hop.port &&
+      (origin.host.toLowerCase() == hop.host.toLowerCase() || (origin.isForumHost && hop.isForumHost)) &&
       (hop.scheme == 'https' || origin.scheme != 'https');
 
   /// Fetch [options] following its redirects one hop at a time, the way dart:io follows them itself (a GET or HEAD
@@ -760,13 +761,7 @@ final class PlainTransportGuard implements HttpClientAdapter {
       if (!keeps) {
         body.headers.remove(HttpHeaders.setCookieHeader);
       }
-      if (follows && location == null) {
-        unawaited(body.stream.listen(null, onError: (_) {}, cancelOnError: true).cancel());
-        throw RedirectException('Server response has no Location header for redirect', [
-          for (final r in redirects) _Redirect(r),
-        ]);
-      }
-      if (!follows || location == null) {
+      if (!follows) {
         return ResponseBody(
           body.stream,
           status,
@@ -775,6 +770,12 @@ final class PlainTransportGuard implements HttpClientAdapter {
           isRedirect: body.isRedirect || redirects.isNotEmpty,
           redirects: redirects,
         );
+      }
+      if (location == null) {
+        unawaited(body.stream.listen(null, onError: (_) {}, cancelOnError: true).cancel());
+        throw RedirectException('Server response has no Location header for redirect', [
+          for (final r in redirects) _Redirect(r),
+        ]);
       }
       await _drain(body, hop, cancelFuture);
       final target = hop.uri.resolve(location);

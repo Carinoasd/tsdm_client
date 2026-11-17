@@ -243,6 +243,25 @@ void main() {
     expect(seen, hasLength(3));
   });
 
+  test('a redirect without a Location and a redirect loop fail as dart:io fails them', () async {
+    final (noLocation, _) = await _serve((r, _) async {
+      r.response.statusCode = 302;
+      await r.response.close();
+    });
+    final (loop, loopSeen) = await _serve((r, i) => _redirect(r, 302, i.isEven ? '/b' : '/a'));
+
+    final missing = await _client()
+        .get('https://localhost:${noLocation.port}/a', options: Options(headers: {..._session}))
+        .run();
+    final looped = await _client()
+        .get('https://localhost:${loop.port}/a', options: Options(headers: {..._session}, maxRedirects: 10))
+        .run();
+
+    expect(missing.isLeft(), isTrue);
+    expect(looped.isLeft(), isTrue);
+    expect(loopSeen.length, lessThan(5));
+  });
+
   test('the answer of a redirect that never ends is given up at the receive timeout', () async {
     final (forum, seen) = await _serve((r, _) async {
       r.response
@@ -267,7 +286,7 @@ void main() {
     expect(seen, hasLength(1));
   });
 
-  test('which hop keeps the session: the same host or the forum, never https turned into http', () {
+  test('which hop keeps the session: the same host or the forum on the same port, never https turned into http', () {
     bool keeps(String origin, String hop) => PlainTransportGuard.keepsSession(Uri.parse(origin), Uri.parse(hop));
 
     expect(keeps('https://www.tsdm39.com/forum.php', 'https://www.tsdm39.com/next'), isTrue);
@@ -275,7 +294,9 @@ void main() {
     expect(keeps('https://tsdm39.com/forum.php', 'https://WWW.TSDM39.COM/forum.php'), isTrue);
     expect(keeps('https://localhost:1/a', 'https://localhost:1/b'), isTrue);
     expect(keeps('https://localhost:1/a', 'https://localhost:2/b'), isFalse);
-    expect(keeps('http://www.tsdm39.com/forum.php', 'https://www.tsdm39.com/forum.php'), isTrue);
+    // Another port: http asked for is turned into https before it is sent ([PlainTransportGuard.guard]).
+    expect(keeps('http://www.tsdm39.com/forum.php', 'https://www.tsdm39.com/forum.php'), isFalse);
+    expect(keeps('https://www.tsdm39.com/forum.php', 'https://tsdm39.com:8443/forum.php'), isFalse);
     expect(keeps('https://www.tsdm39.com/forum.php', 'http://www.tsdm39.com/forum.php'), isFalse);
     expect(keeps('https://www.tsdm39.com/forum.php', 'http://tsdm39.com/forum.php'), isFalse);
     expect(keeps('https://www.tsdm39.com/forum.php', 'https://www.tsdm39.com.example.test/forum.php'), isFalse);
