@@ -434,7 +434,7 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
             fileName: 'tsdm-forum-${widget.fid}',
           ),
         ),
-        ?pinToHomeMenuItem(context, PinnedForum.tryParse(widget.fid), widget.title ?? state.title),
+        ?pinToHomeMenuItem(context, PinnedForum.tryParse(widget.fid), state.title ?? widget.title),
         MenuCustomItem(
           icon: isForumFavorited(context, fid: widget.fid)
               ? Icons.bookmark_remove_outlined

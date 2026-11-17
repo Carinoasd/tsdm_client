@@ -154,6 +154,8 @@ class PinnedShortcutsTest {
         val request = mapOf("id" to "forum-3", "shortLabel" to "Name", "longLabel" to "Name")
         assertTrue(pins().handle(io.flutter.plugin.common.MethodCall(PinnedShortcuts.REQUEST, request), result))
         assertEquals(PinnedShortcuts.REQUESTED, answer)
+        assertTrue(pins().handle(io.flutter.plugin.common.MethodCall(PinnedShortcuts.REQUEST, "forum-3"), result))
+        assertNull(answer)
         assertFalse(pins().handle(io.flutter.plugin.common.MethodCall(ShortcutsHandler.GET_INITIAL_SHORTCUT, null), result))
     }
 }

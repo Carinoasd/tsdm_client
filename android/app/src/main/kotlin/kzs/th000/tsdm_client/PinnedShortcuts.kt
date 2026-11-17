@@ -69,17 +69,23 @@ class PinnedShortcuts(
         }
     }
 
-    /** Answer a call of the shortcuts channel; false when it is none of [IS_SUPPORTED] and [REQUEST]. */
+    /**
+     * Answer a call of the shortcuts channel; false when it is none of [IS_SUPPORTED] and [REQUEST]. Arguments that are
+     * not a map of strings pin nothing.
+     */
     fun handle(call: MethodCall, result: MethodChannel.Result): Boolean {
         when (call.method) {
             IS_SUPPORTED -> result.success(supported(context))
-            REQUEST -> result.success(
-                request(
-                    call.argument<Any>("id") as? String,
-                    call.argument<Any>("shortLabel") as? String,
-                    call.argument<Any>("longLabel") as? String,
-                ),
-            )
+            REQUEST -> {
+                val arguments = call.arguments as? Map<*, *>
+                result.success(
+                    request(
+                        arguments?.get("id") as? String,
+                        arguments?.get("shortLabel") as? String,
+                        arguments?.get("longLabel") as? String,
+                    ),
+                )
+            }
             else -> return false
         }
         return true

@@ -448,7 +448,7 @@ void main() {
     test('the forum and the thread pages offer it', () {
       expect(
         read('lib/features/forum/view/forum_page.dart'),
-        contains('?pinToHomeMenuItem(context, PinnedForum.tryParse(widget.fid), widget.title ?? state.title)'),
+        contains('?pinToHomeMenuItem(context, PinnedForum.tryParse(widget.fid), state.title ?? widget.title)'),
       );
       expect(
         read('lib/features/thread/v1/view/thread_page.dart'),
