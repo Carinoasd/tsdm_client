@@ -20,7 +20,7 @@ import 'package:tsdm_client/shared/providers/net_client_provider/net_error_saver
 
 import '../network_guard.dart';
 
-/// A self-signed certificate made for these tests only (`localhost` and `127.0.0.1`), with its key: the servers below
+/// A self-signed certificate made for these tests only (the loopback name and address), with its key: the servers below
 /// serve https, as the forum does. A request over plain http to a host that is not the forum never carries the session
 /// in the first place ([PlainTransportGuard.guard]).
 const _cert = '''
@@ -44,6 +44,10 @@ eOTd0OF4sNe2H3odCNqn9FjS7lKhRANCAATMJKZWtqJyxIcRZgr6rWdflM6k9W9K
 bgcuVmpfcjmOLSgheyeMZ9OmYF3eguLec8aGfIaAvqteuBcX43m+YG5F
 -----END PRIVATE KEY-----
 ''';
+
+/// The two names of this machine the servers below are reached by: two hosts for the client.
+const _name = 'localhost';
+final String _address = InternetAddress.loopbackIPv4.address;
 
 /// What a server of the test was sent.
 typedef _Seen = ({String method, String path, Map<String, String> headers, String body});
@@ -120,16 +124,16 @@ void main() {
 
   test('a redirect to another host goes without the session headers, and its cookie is not handed back', () async {
     final (other, otherSeen) = await _serve((r, _) => _page(r, setCookie: 's_auth=foreign'));
-    // Another host name for the same machine: `localhost` asked for, `127.0.0.1` redirected to.
-    final (forum, forumSeen) = await _serve((r, _) => _redirect(r, 302, 'https://127.0.0.1:${other.port}/file'));
+    // Another host for the same machine: the loopback name asked for, the loopback address redirected to.
+    final (forum, forumSeen) = await _serve((r, _) => _redirect(r, 302, 'https://$_address:${other.port}/file'));
 
     final resp = await _client()
-        .get('https://localhost:${forum.port}/forum.php', options: Options(headers: {..._session}))
+        .get('https://$_name:${forum.port}/forum.php', options: Options(headers: {..._session}))
         .run();
     final response = resp.getOrElse((e) => throw e);
 
     expect(response.statusCode, 200);
-    expect(response.realUri.host, '127.0.0.1');
+    expect(response.realUri.host, _address);
     expect(response.redirects, hasLength(1));
     expect(forumSeen.single.headers['x-tsdmapp-device'], 'synthetic-device');
     expect(forumSeen.single.headers['cookie'], contains('s_auth=synthetic'));
@@ -142,14 +146,14 @@ void main() {
 
   test('a hop that left the host does not bring the session back on a later hop to it', () async {
     late final HttpServer forum;
-    final (other, otherSeen) = await _serve((r, _) => _redirect(r, 302, 'https://localhost:${forum.port}/back'));
+    final (other, otherSeen) = await _serve((r, _) => _redirect(r, 302, 'https://$_name:${forum.port}/back'));
     final (server, forumSeen) = await _serve(
-      (r, i) => i == 0 ? _redirect(r, 302, 'https://127.0.0.1:${other.port}/away') : _page(r),
+      (r, i) => i == 0 ? _redirect(r, 302, 'https://$_address:${other.port}/away') : _page(r),
     );
     forum = server;
 
     final resp = await _client()
-        .get('https://localhost:${forum.port}/forum.php', options: Options(headers: {..._session}))
+        .get('https://$_name:${forum.port}/forum.php', options: Options(headers: {..._session}))
         .run();
     expect(resp.getOrElse((e) => throw e).statusCode, 200);
     expect(forumSeen, hasLength(2));
@@ -161,7 +165,7 @@ void main() {
     final (forum, seen) = await _serve((r, i) => i == 0 ? _redirect(r, 302, '/next') : _page(r, setCookie: 's_x=1'));
 
     final resp = await _client()
-        .get('https://localhost:${forum.port}/forum.php', options: Options(headers: {..._session}))
+        .get('https://$_name:${forum.port}/forum.php', options: Options(headers: {..._session}))
         .run();
     final response = resp.getOrElse((e) => throw e);
 
@@ -177,10 +181,10 @@ void main() {
 
   test('a redirect from https to http on the same host goes without the session headers', () async {
     final (plain, plainSeen) = await _serve((r, _) => _page(r), plain: true);
-    final (forum, _) = await _serve((r, _) => _redirect(r, 302, 'http://localhost:${plain.port}/clear'));
+    final (forum, _) = await _serve((r, _) => _redirect(r, 302, 'http://$_name:${plain.port}/clear'));
 
     final resp = await _client()
-        .get('https://localhost:${forum.port}/forum.php', options: Options(headers: {..._session}))
+        .get('https://$_name:${forum.port}/forum.php', options: Options(headers: {..._session}))
         .run();
 
     expect(resp.getOrElse((e) => throw e).statusCode, 200);
@@ -190,11 +194,11 @@ void main() {
 
   test('a form answered 303 is read with a GET without the form, sent once', () async {
     final (other, otherSeen) = await _serve((r, _) => _page(r));
-    final (forum, forumSeen) = await _serve((r, _) => _redirect(r, 303, 'https://127.0.0.1:${other.port}/done'));
+    final (forum, forumSeen) = await _serve((r, _) => _redirect(r, 303, 'https://$_address:${other.port}/done'));
 
     final resp = await _client()
         .postForm(
-          'https://localhost:${forum.port}/plugin.php',
+          'https://$_name:${forum.port}/plugin.php',
           data: {'field': 'value'},
           tsdmAppJson: false,
           headers: {..._session},
@@ -217,7 +221,7 @@ void main() {
 
       final resp = await _client()
           .postForm(
-            'https://localhost:${forum.port}/plugin.php',
+            'https://$_name:${forum.port}/plugin.php',
             data: {'field': 'value'},
             tsdmAppJson: false,
             headers: {..._session},
@@ -234,7 +238,7 @@ void main() {
 
     final resp = await _client()
         .get(
-          'https://localhost:${forum.port}/forum.php',
+          'https://$_name:${forum.port}/forum.php',
           options: Options(headers: {..._session}, maxRedirects: 2),
         )
         .run();
@@ -251,10 +255,10 @@ void main() {
     final (loop, loopSeen) = await _serve((r, i) => _redirect(r, 302, i.isEven ? '/b' : '/a'));
 
     final missing = await _client()
-        .get('https://localhost:${noLocation.port}/a', options: Options(headers: {..._session}))
+        .get('https://$_name:${noLocation.port}/a', options: Options(headers: {..._session}))
         .run();
     final looped = await _client()
-        .get('https://localhost:${loop.port}/a', options: Options(headers: {..._session}, maxRedirects: 10))
+        .get('https://$_name:${loop.port}/a', options: Options(headers: {..._session}, maxRedirects: 10))
         .run();
 
     expect(missing.isLeft(), isTrue);
@@ -276,7 +280,7 @@ void main() {
     final watch = Stopwatch()..start();
     final resp = await _client()
         .get(
-          'https://localhost:${forum.port}/forum.php',
+          'https://$_name:${forum.port}/forum.php',
           options: Options(headers: {..._session}, receiveTimeout: const Duration(milliseconds: 500)),
         )
         .run();
@@ -292,8 +296,8 @@ void main() {
     expect(keeps('https://www.tsdm39.com/forum.php', 'https://www.tsdm39.com/next'), isTrue);
     expect(keeps('https://www.tsdm39.com/forum.php', 'https://tsdm39.com/forum.php'), isTrue);
     expect(keeps('https://tsdm39.com/forum.php', 'https://WWW.TSDM39.COM/forum.php'), isTrue);
-    expect(keeps('https://localhost:1/a', 'https://localhost:1/b'), isTrue);
-    expect(keeps('https://localhost:1/a', 'https://localhost:2/b'), isFalse);
+    expect(keeps('https://$_name:1/a', 'https://$_name:1/b'), isTrue);
+    expect(keeps('https://$_name:1/a', 'https://$_name:2/b'), isFalse);
     // Another port: http asked for is turned into https before it is sent ([PlainTransportGuard.guard]).
     expect(keeps('http://www.tsdm39.com/forum.php', 'https://www.tsdm39.com/forum.php'), isFalse);
     expect(keeps('https://www.tsdm39.com/forum.php', 'https://tsdm39.com:8443/forum.php'), isFalse);
