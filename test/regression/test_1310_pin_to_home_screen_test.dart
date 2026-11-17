@@ -462,6 +462,28 @@ void main() {
       expect(switcher, contains('moveShortcuts: (ComponentName) -> Unit = { PinnedShortcuts.moveTo(context, it) }'));
     });
 
+    // The launcher shortcuts of shortcuts.xml dragged to the home screen are the system's to tie to the new alias: it
+    // is asked for them once the old alias is disabled, which makes it read the manifest again before the launcher
+    // hears of the component gone (the launcher removed the dragged ones with the old alias otherwise).
+    test('the icon switch has the system publish the launcher shortcuts again, the old alias disabled', () {
+      final switcher = read('$kotlin/AppIconSwitcher.kt');
+      final disable = switcher.indexOf('if (alias != chosen) setEnabled(context, manager, alias, false)');
+      final publish = switcher.indexOf('republishShortcuts()\n        return true');
+      expect(disable, greaterThan(0));
+      expect(publish, greaterThan(disable));
+      expect(
+        switcher,
+        contains('republishShortcuts: () -> Unit = { PinnedShortcuts.republishLauncherShortcuts(context) }'),
+      );
+      final pins = read('$kotlin/PinnedShortcuts.kt');
+      expect(pins, contains('context.getSystemService(ShortcutManager::class.java)?.manifestShortcuts?.size ?: 0'));
+      // The four stay shortcuts of the manifest, every alias naming them: the ones pinned keep working.
+      final shortcuts = read('android/app/src/main/res/xml/shortcuts.xml');
+      for (final id in ['checkin', 'notice', 'favorite', 'search']) {
+        expect(shortcuts, contains('android:shortcutId="$id"'));
+      }
+    });
+
     test('the forum and the thread pages offer it', () {
       expect(
         read('lib/features/forum/view/forum_page.dart'),

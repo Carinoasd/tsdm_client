@@ -25,10 +25,17 @@ object AppIconSwitcher {
      * ([PinnedShortcuts.moveTo]). The launcher hears of the aliases switched later (the system sends the change of
      * components enabled without killing the app about a second after), and of the shortcuts updated at once. Nothing
      * is done when the aliases are as wanted already (each start of the app applies the icon it shows).
+     *
+     * The four launcher shortcuts of `shortcuts.xml` dragged to the home screen are the system's, which ties them to
+     * the alias enabled when it reads the manifest again. Left alone it does so when it hears of the components
+     * changed, as the launcher does, which then removes the dragged ones with the old alias. [republishShortcuts] has
+     * the system read the manifest now, once the old alias is disabled ([PinnedShortcuts.republishLauncherShortcuts]):
+     * the launcher hears of the shortcuts tied to the new alias first.
      */
     fun apply(
         context: Context,
         name: String,
+        republishShortcuts: () -> Unit = { PinnedShortcuts.republishLauncherShortcuts(context) },
         moveShortcuts: (ComponentName) -> Unit = { PinnedShortcuts.moveTo(context, it) },
     ): Boolean {
         val chosen = aliases[name] ?: return false
@@ -40,6 +47,7 @@ object AppIconSwitcher {
         for (alias in aliases.values) {
             if (alias != chosen) setEnabled(context, manager, alias, false)
         }
+        republishShortcuts()
         return true
     }
 

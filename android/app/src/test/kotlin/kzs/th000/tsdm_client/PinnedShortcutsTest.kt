@@ -157,6 +157,19 @@ class PinnedShortcutsTest {
         assertEquals(0, PinnedShortcuts.moveTo(app, pink))
     }
 
+    /** The question that has the system read the manifest again: the launcher shortcuts it then has are counted. */
+    @Test
+    fun theSystemIsAskedForTheLauncherShortcutsOfTheManifest() {
+        assertEquals(0, PinnedShortcuts.republishLauncherShortcuts(app))
+        val four = listOf("checkin", "notice", "favorite", "search").map {
+            android.content.pm.ShortcutInfo.Builder(app, it).setShortLabel(it).setIntent(Intent(Intent.ACTION_MAIN)).build()
+        }
+        shadowOf(manager).setManifestShortcuts(four)
+        assertEquals(4, PinnedShortcuts.republishLauncherShortcuts(app))
+        // Before Android 7.1 there is no shortcut manager to ask.
+        assertEquals(0, PinnedShortcuts.republishLauncherShortcuts(app, sdk = Build.VERSION_CODES.N))
+    }
+
     @Test
     fun nothingMovesBeforeAndroid8() {
         launcherPins()
