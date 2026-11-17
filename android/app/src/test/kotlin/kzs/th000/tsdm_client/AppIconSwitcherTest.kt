@@ -71,6 +71,53 @@ class AppIconSwitcherTest {
         assertEquals(PackageManager.COMPONENT_ENABLED_STATE_DISABLED, stateOf("MainActivity"))
     }
 
+    /**
+     * The launcher shortcuts of the manifest are the system's: it is asked to read the manifest again once the old
+     * alias is disabled, so that the launcher hears of the shortcuts tied to the new alias before it hears of the
+     * component gone (it removes the shortcuts dragged to the home screen otherwise).
+     */
+    @Test
+    fun theLauncherShortcutsArePublishedAgainOnceTheOldIconIsDisabled() {
+        val order = mutableListOf<String>()
+        var oldWhenPublished = -1
+        var newWhenPublished = -1
+        assertTrue(AppIconSwitcher.apply(
+            app,
+            "pink",
+            republishShortcuts = {
+                order += "publish"
+                oldWhenPublished = stateOf("MainActivity")
+                newWhenPublished = stateOf("IconPink")
+            },
+        ) { order += "move" })
+        assertEquals(listOf("move", "publish"), order)
+        assertEquals(PackageManager.COMPONENT_ENABLED_STATE_DISABLED, oldWhenPublished)
+        assertEquals(PackageManager.COMPONENT_ENABLED_STATE_ENABLED, newWhenPublished)
+    }
+
+    @Test
+    fun nothingIsPublishedAgainForTheIconShownAlreadyOrAnUnknownOne() {
+        var published = 0
+        assertTrue(AppIconSwitcher.apply(app, "default", republishShortcuts = { published++ }) {})
+        assertFalse(AppIconSwitcher.apply(app, "green", republishShortcuts = { published++ }) {})
+        assertEquals(0, published)
+        assertTrue(AppIconSwitcher.apply(app, "dark", republishShortcuts = { published++ }) {})
+        assertTrue(AppIconSwitcher.apply(app, "dark", republishShortcuts = { published++ }) {})
+        assertEquals(1, published)
+    }
+
+    /**
+     * The default of [AppIconSwitcher.apply] (the system asked itself) breaks nothing where there is no shortcut of a
+     * manifest. That the default is the question to the system is kept by `test_1310` (Dart), which reads the source.
+     */
+    @Test
+    fun theDefaultQuestionToTheSystemBreaksNothingWithoutShortcuts() {
+        assertTrue(AppIconSwitcher.apply(app, "mono"))
+        assertEquals(PackageManager.COMPONENT_ENABLED_STATE_ENABLED, stateOf("IconMono"))
+        assertEquals(0, PinnedShortcuts.republishLauncherShortcuts(app))
+        assertEquals(0, PinnedShortcuts.republishLauncherShortcuts(app, sdk = 24))
+    }
+
     @Test
     fun anUnknownIconChangesNothing() {
         var moved = false

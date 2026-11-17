@@ -83,7 +83,7 @@ class PinnedShortcuts(
          * enabled already (the system takes a main activity only), while the alias they belong to is still enabled.
          * The launcher rebuilds its item of an updated shortcut from the shortcut's activity, so the items moved are
          * not the disabled component's any more when the old alias goes. The shortcuts of `shortcuts.xml` are not the
-         * app's to update; the system publishes them again for the alias enabled.
+         * app's to update; the system publishes them again for the alias enabled ([republishLauncherShortcuts]).
          *
          * Returns how many moved. Never throws: the icon switches all the same. A failure is logged: the launcher then
          * removes the shortcuts with the old alias.
@@ -106,6 +106,34 @@ class PinnedShortcuts(
                 }
             } catch (e: Exception) {
                 Log.w(TAG, "pinned shortcuts not moved to $activity", e)
+                0
+            }
+        }
+
+        /**
+         * Have the system tie the launcher shortcuts of `shortcuts.xml` (check in, messages, favorites, search) to the
+         * alias of the app icon now shown, at once: call it when the alias of the icon before is disabled already.
+         *
+         * Those shortcuts are the system's to publish, not the app's to update: it reads the manifest again when it
+         * hears that the app's components changed, a broadcast sent about a second after the switch, which the
+         * launcher gets too. The launcher then removes what belongs to the disabled alias, the shortcuts the user
+         * dragged to the home screen among it, before or while it learns that they belong to the new alias. Any
+         * question of the app about its shortcuts makes the system check first whether the activities of the published
+         * ones are still enabled, and read the manifest again when one is not: asked here, the launcher is told of the
+         * shortcuts tied to the new alias before the broadcast, and keeps the dragged ones.
+         *
+         * Returns how many launcher shortcuts the system then has, 0 before Android 7.1 and when it does not answer.
+         * Never throws: the icon switches all the same.
+         */
+        fun republishLauncherShortcuts(context: Context, sdk: Int = Build.VERSION.SDK_INT): Int {
+            if (sdk < Build.VERSION_CODES.N_MR1) return 0
+            return try {
+                val published = context.getSystemService(ShortcutManager::class.java)?.manifestShortcuts?.size ?: 0
+                // The four of shortcuts.xml are expected: none tells that the system did not read the manifest.
+                if (published == 0) Log.w(TAG, "no launcher shortcut published after the icon switched")
+                published
+            } catch (e: Exception) {
+                Log.w(TAG, "launcher shortcuts not published again", e)
                 0
             }
         }
