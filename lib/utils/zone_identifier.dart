@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:path/path.dart' as p;
 import 'package:tsdm_client/instance.dart';
 
 /// What goes into the `Zone.Identifier` stream: the file came from the internet (zone 3).
@@ -29,7 +30,12 @@ Future<void> markDownloadedFromInternet(String path, {bool? windows, ZoneIdentif
   }
   try {
     await (writer ?? _write)(zoneIdentifierPathOf(path), zoneIdentifierContent);
+  } on FileSystemException catch (e) {
+    // Only the name and the system's error: the full path (and the exception, which holds it) names the user's folder.
+    talker.warning(
+      'failed to mark ${p.windows.basename(path)} as downloaded from the internet: ${e.osError ?? e.message}',
+    );
   } on Object catch (e) {
-    talker.warning('failed to mark $path as downloaded from the internet: $e');
+    talker.warning('failed to mark ${p.windows.basename(path)} as downloaded from the internet: ${e.runtimeType}');
   }
 }

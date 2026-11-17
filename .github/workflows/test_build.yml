@@ -63,7 +63,7 @@ jobs:
   build-linux:
     name: Build Linux
     if: ${{ github.event_name == 'pull_request' || github.event_name == 'push' || inputs.build_linux }}
-    # Pinned: on ubuntu-26.04 tray_manager's app_indicator_new is deprecated and -Werror fails the Linux build; bump once tray_manager stops using it.
+    # Pinned with every Ubuntu job: on 26.04 tray_manager's app_indicator_new is deprecated and -Werror fails the Linux desktop build; bump all together once tray_manager stops using it.
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -117,7 +117,7 @@ jobs:
   build-android:
     name: Build Android
     if: ${{ github.event_name == 'push' || inputs.build_android }}
-    # Pinned: on ubuntu-26.04 tray_manager's app_indicator_new is deprecated and -Werror fails the Linux build; bump once tray_manager stops using it.
+    # Pinned with every Ubuntu job: on 26.04 tray_manager's app_indicator_new is deprecated and -Werror fails the Linux desktop build; bump all together once tray_manager stops using it.
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4

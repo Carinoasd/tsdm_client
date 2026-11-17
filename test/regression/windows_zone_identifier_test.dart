@@ -6,7 +6,7 @@ import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/utils/zone_identifier.dart';
 
 void main() {
-  setUpAll(() => talker = TalkerFlutter.init(settings: TalkerSettings(enabled: false)));
+  setUpAll(() => talker = TalkerFlutter.init(settings: TalkerSettings(useConsoleLogs: false)));
 
   const file = r'C:\Users\someone\Downloads\tsdm\setup.exe';
 
@@ -40,6 +40,19 @@ void main() {
       markDownloadedFromInternet(file, windows: true, writer: (_, _) async => throw StateError('anything')),
       completes,
     );
+  });
+
+  test('the failure log names the file only, not the folder holding it', () async {
+    talker.cleanHistory();
+    await markDownloadedFromInternet(
+      file,
+      windows: true,
+      writer: (path, _) async => throw FileSystemException('The parameter is incorrect.', path),
+    );
+    final logged = talker.history.map((e) => e.message ?? '').join('\n');
+    expect(logged, contains('setup.exe'));
+    expect(logged, contains('The parameter is incorrect.'));
+    expect(logged, isNot(contains('someone')));
   });
 
   test('the default writer failing (no such folder) does not throw', () async {
