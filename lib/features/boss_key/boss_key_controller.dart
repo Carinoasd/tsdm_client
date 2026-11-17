@@ -13,7 +13,7 @@ import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/platform.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
-import 'package:tsdm_client/utils/tray_helper.dart';
+import 'package:tsdm_client/utils/window_configs.dart';
 import 'package:window_manager/window_manager.dart';
 
 /// The id of the app for the GlobalShortcuts portal of Linux (`linux/CMakeLists.txt`): the basename of its `.desktop`
@@ -33,6 +33,11 @@ Future<bool> _systemWindowOnScreen() async => await windowManager.isVisible() &&
 
 AppLockCubit? get _appLock => getIt.isRegistered<AppLockCubit>() ? getIt.get<AppLockCubit>() : null;
 
+/// One frame for the lock screen the app lock may just have put up, before the window is shown again; bounded, a
+/// hidden window may get no frame.
+Future<void> _systemSettle() =>
+    WidgetsBinding.instance.endOfFrame.timeout(const Duration(milliseconds: 150), onTimeout: () {});
+
 /// The boss key of the desktop app (`SettingsKeys.bossKey`, off by default): a system-wide shortcut
 /// (`SettingsKeys.bossKeyCombo`) hides the window, the next press brings it back with the focus.
 ///
@@ -44,6 +49,10 @@ AppLockCubit? get _appLock => getIt.isRegistered<AppLockCubit>() ? getIt.get<App
 /// off with a snack bar saying why. A platform that can not bind any (Linux without the GlobalShortcuts portal, or a
 /// desktop that does not know the app) makes the switch unavailable for the rest of the run ([available]); nothing is
 /// bound to find out before the user turns it on (GNOME would ask in a dialog).
+///
+/// On Linux the desktop decides the keys ([configuredByDesktop]): the combination of the app is a suggestion for the
+/// first binding, what the desktop bound comes back as [desktopTrigger], and the keys are changed in the desktop's own
+/// settings ([configureInDesktop]).
 class BossKey with WindowListener, LoggerMixin {
   BossKey._({
     required Future<HotKeyResult> Function(HotKey hotKey) register,
@@ -56,6 +65,10 @@ class BossKey with WindowListener, LoggerMixin {
     required void Function() onShown,
     required void Function(HotKeyResult result) report,
     required bool listenWindow,
+    required Stream<Map<String, String>> Function() triggers,
+    required Future<bool> Function() configure,
+    required bool Function() configuredByDesktop,
+    required Future<void> Function() settle,
     void Function()? beforeStart,
   }) : _register = register,
        _unregister = unregister,
@@ -67,6 +80,10 @@ class BossKey with WindowListener, LoggerMixin {
        _onShown = onShown,
        _report = report,
        _listenWindow = listenWindow,
+       _triggers = triggers,
+       _configure = configure,
+       _configuredByDesktop = configuredByDesktop,
+       _settle = settle,
        _beforeStart = beforeStart;
 
   /// Drives a fake system and window in tests.
@@ -81,6 +98,9 @@ class BossKey with WindowListener, LoggerMixin {
     required void Function() onHidden,
     required void Function() onShown,
     required void Function(HotKeyResult result) report,
+    Stream<Map<String, String>> triggers = const Stream.empty(),
+    Future<bool> Function()? configure,
+    bool configuredByDesktop = false,
   }) : this._(
          register: register,
          unregister: unregister,
@@ -92,6 +112,10 @@ class BossKey with WindowListener, LoggerMixin {
          onShown: onShown,
          report: report,
          listenWindow: false,
+         triggers: () => triggers,
+         configure: configure ?? () async => false,
+         configuredByDesktop: () => configuredByDesktop,
+         settle: () async {},
        );
 
   /// The app's.
@@ -106,6 +130,10 @@ class BossKey with WindowListener, LoggerMixin {
     onShown: () => _appLock?.windowShown(),
     report: _reportFailure,
     listenWindow: true,
+    triggers: () => SystemHotkeys.triggers,
+    configure: SystemHotkeys.configure,
+    configuredByDesktop: () => SystemHotkeys.capabilities.configureExternally,
+    settle: _systemSettle,
     beforeStart: () {
       // Before the first shortcut: the portal ties the connection to an app on its first call.
       if (isLinux) {
@@ -124,17 +152,25 @@ class BossKey with WindowListener, LoggerMixin {
   final void Function() _onShown;
   final void Function(HotKeyResult result) _report;
   final bool _listenWindow;
+  final Stream<Map<String, String>> Function() _triggers;
+  final Future<bool> Function() _configure;
+  final bool Function() _configuredByDesktop;
+  final Future<void> Function() _settle;
   final void Function()? _beforeStart;
 
   bool _started = false;
   StreamSubscription<SettingsMap>? _settingsSubscription;
   StreamSubscription<HotKeyEvent>? _eventSubscription;
+  StreamSubscription<Map<String, String>>? _triggerSubscription;
 
   /// The combination bound now, null when none is.
   HotKey? _bound;
 
   /// Set while the shortcut is being recorded ([suspend]): nothing is bound, the keys reach the recorder.
   bool _suspended = false;
+
+  /// Set while the recorder is open ([record]).
+  bool _recording = false;
 
   /// Set while the window is hidden by the boss key, until it is shown again by any means.
   bool _hidden = false;
@@ -150,9 +186,19 @@ class BossKey with WindowListener, LoggerMixin {
   /// Whether the boss key can be used: started, and the platform did not answer that it can bind none.
   ValueListenable<bool> get available => _available;
 
-  /// The combination bound now (tests).
-  @visibleForTesting
+  /// The combination bound now, null when none is.
   HotKey? get bound => _bound;
+
+  final _desktopTrigger = ValueNotifier<String?>(null);
+
+  /// What the desktop says triggers the boss key, in its own words (empty: bound without keys yet), null when it says
+  /// nothing: only where [configuredByDesktop].
+  ValueListenable<String?> get desktopTrigger => _desktopTrigger;
+
+  bool? _desktopDecides;
+
+  /// Whether the desktop, not the app, decides the keys (Linux): the recorded combination is only a suggestion.
+  bool get configuredByDesktop => _desktopDecides ??= _configuredByDesktop();
 
   /// Whether the window is hidden by the boss key (tests).
   @visibleForTesting
@@ -169,6 +215,11 @@ class BossKey with WindowListener, LoggerMixin {
     _beforeStart?.call();
     _available.value = true;
     _eventSubscription = _events().listen(_onEvent, onError: handleRaw);
+    _triggerSubscription = _triggers().listen(
+      // Told while the combination is being bound (before [_bound] is set), and as nothing once it is released.
+      (triggers) => _desktopTrigger.value = triggers[bossKeyId],
+      onError: handleRaw,
+    );
     if (_listenWindow) {
       windowManager.addListener(this);
     }
@@ -247,6 +298,37 @@ class BossKey with WindowListener, LoggerMixin {
     }
   });
 
+  /// Record a new combination with [show] (the recorder, giving the combination to save or null): the shortcut is
+  /// released while it is open ([suspend]) and bound again after ([resume]). Nothing while one is open already.
+  Future<void> record(Future<HotKey?> Function() show) async {
+    if (_recording) {
+      return;
+    }
+    _recording = true;
+    HotKey? hotKey;
+    try {
+      await suspend();
+      hotKey = await show();
+    } finally {
+      await resume(hotKey: hotKey);
+      _recording = false;
+    }
+  }
+
+  /// Open the desktop's settings of the app's shortcuts, where the keys are changed when [configuredByDesktop]: false
+  /// when there are none to open (nothing bound, or a desktop too old for it).
+  Future<bool> configureInDesktop() async {
+    if (!configuredByDesktop || _bound == null) {
+      return false;
+    }
+    try {
+      return await _configure();
+    } on Object catch (e, st) {
+      handleRaw(e, st);
+      return false;
+    }
+  }
+
   Future<HotKeyResult> _bind(HotKey hotKey) async {
     HotKeyResult result;
     try {
@@ -263,6 +345,7 @@ class BossKey with WindowListener, LoggerMixin {
 
   Future<void> _release() async {
     _bound = null;
+    _desktopTrigger.value = null;
     try {
       await _unregister();
     } on Object catch (e, st) {
@@ -271,7 +354,11 @@ class BossKey with WindowListener, LoggerMixin {
   }
 
   /// Nothing is bound after [result]: the switch goes off, and with [HotKeyResult.unsupported] it is unavailable.
+  ///
+  /// Released all the same: the Linux portal keeps a combination it could not bind, to bind it again by itself when
+  /// the portal restarts.
   Future<void> _failed(HotKeyResult result, {bool report = true}) async {
+    await _release();
     if (result == HotKeyResult.unsupported) {
       _available.value = false;
     }
@@ -306,9 +393,18 @@ class BossKey with WindowListener, LoggerMixin {
       }
       return;
     }
-    // The app lock decides before the window is seen.
-    _shownAgain();
+    await beforeWindowShown();
     await _showWindow();
+  }
+
+  /// The window is about to be shown again (the boss key, the tray): with the window hidden by the boss key, the app
+  /// lock decides now and its lock screen gets a frame, before the window is seen.
+  Future<void> beforeWindowShown() async {
+    if (!_hidden) {
+      return;
+    }
+    _shownAgain();
+    await _settle();
   }
 
   void _shownAgain() {
@@ -319,8 +415,8 @@ class BossKey with WindowListener, LoggerMixin {
     _onShown();
   }
 
-  /// Shown again some other way (the tray, the Dock, launching the app again): the app lock counts the time away all
-  /// the same.
+  /// Shown again some other way the app is not told of beforehand (the Dock, launching the app again): the app lock
+  /// counts the time away all the same.
   @override
   void onWindowFocus() => _shownAgain();
 
@@ -338,6 +434,8 @@ class BossKey with WindowListener, LoggerMixin {
     _settingsSubscription = null;
     await _eventSubscription?.cancel();
     _eventSubscription = null;
+    await _triggerSubscription?.cancel();
+    _triggerSubscription = null;
     await _binding;
     await _toggling;
   }

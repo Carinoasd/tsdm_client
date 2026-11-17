@@ -55,6 +55,10 @@ class _BossKeySwitchTileState extends State<BossKeySwitchTile> {
 }
 
 /// The combination of the boss key in the window settings; a tap records another one ([showBossKeyRecorder]).
+///
+/// Where the desktop decides the keys ([BossKey.configuredByDesktop], Linux) and the boss key is bound, the keys shown
+/// are the ones the desktop reports ([BossKey.desktopTrigger], none yet: a dash), and a tap opens the desktop's own
+/// settings of the shortcut; the recorder only where it has none to open.
 class BossKeyShortcutTile extends StatelessWidget {
   /// Constructor.
   const BossKeyShortcutTile({required this.combo, this.controller, super.key});
@@ -65,30 +69,36 @@ class BossKeyShortcutTile extends StatelessWidget {
   /// [BossKey.instance] when null (tests give their own).
   final BossKey? controller;
 
-  Future<void> _record(BuildContext context) async {
-    final controller = this.controller ?? BossKey.instance;
-    await controller.suspend();
-    HotKey? hotKey;
-    try {
-      if (context.mounted) {
-        hotKey = await showBossKeyRecorder(context, bossKeyOf(combo));
-      }
-    } finally {
-      await controller.resume(hotKey: hotKey);
+  Future<void> _onTap(BuildContext context, BossKey controller) async {
+    if (await controller.configureInDesktop() || !context.mounted) {
+      return;
     }
+    await controller.record(() => showBossKeyRecorder(context, bossKeyOf(combo)));
+  }
+
+  List<String> _labels(BossKey controller) {
+    final trigger = controller.desktopTrigger.value;
+    if (controller.configuredByDesktop && trigger != null) {
+      final keys = trigger.split('+').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+      return keys.isEmpty ? const ['—'] : keys;
+    }
+    return bossKeyLabels(bossKeyOf(combo), defaultTargetPlatform);
   }
 
   @override
-  Widget build(BuildContext context) => ValueListenableBuilder<bool>(
-    valueListenable: (controller ?? BossKey.instance).available,
-    builder: (context, available, _) => SectionListTile(
-      leading: const Icon(Icons.keyboard_command_key_outlined),
-      title: Text(context.t.settingsPage.windowSection.bossKeyShortcut),
-      trailing: KeyCaps(bossKeyLabels(bossKeyOf(combo), defaultTargetPlatform)),
-      enabled: available,
-      onTap: () => unawaited(_record(context)),
-    ),
-  );
+  Widget build(BuildContext context) {
+    final controller = this.controller ?? BossKey.instance;
+    return ListenableBuilder(
+      listenable: Listenable.merge([controller.available, controller.desktopTrigger]),
+      builder: (context, _) => SectionListTile(
+        leading: const Icon(Icons.keyboard_command_key_outlined),
+        title: Text(context.t.settingsPage.windowSection.bossKeyShortcut),
+        trailing: KeyCaps(_labels(controller)),
+        enabled: controller.available.value,
+        onTap: () => unawaited(_onTap(context, controller)),
+      ),
+    );
+  }
 }
 
 /// Record a new boss key, starting from [current]: the combination to save, null when cancelled.

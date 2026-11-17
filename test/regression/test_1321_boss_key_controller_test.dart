@@ -38,7 +38,11 @@ void main() {
   late bool throwOnRegister;
   final controllers = <BossKey>[];
 
-  BossKey newBossKey() {
+  BossKey newBossKey({
+    Stream<Map<String, String>> triggers = const Stream.empty(),
+    bool configuredByDesktop = false,
+    bool configureOpens = true,
+  }) {
     final boss = BossKey.forTesting(
       register: (hotKey) async {
         calls.add('register ${encodeBossKey(hotKey)}');
@@ -61,6 +65,12 @@ void main() {
       onHidden: () => calls.add('lock: hidden'),
       onShown: () => calls.add('lock: shown'),
       report: reports.add,
+      triggers: triggers,
+      configuredByDesktop: configuredByDesktop,
+      configure: () async {
+        calls.add('configure');
+        return configureOpens;
+      },
     );
     controllers.add(boss);
     return boss;
@@ -136,7 +146,9 @@ void main() {
         expect(boss.bound, isNull);
         expect(boss.available.value, isTrue);
         expect(reports, [failure]);
+        expect(calls, ['register ctrl+alt+h', 'unregister'], reason: 'released: the portal would bind it again');
         reports.clear();
+        calls.clear();
         await boss.dispose();
       }
     });
@@ -249,6 +261,15 @@ void main() {
       expect(calls, ['lock: hidden', 'hide', 'lock: shown']);
       expect(boss.hidden, isFalse);
     });
+
+    test('brought back from the tray: the lock is told before the window shows, once', () async {
+      final boss = await on();
+      await press();
+      await boss.beforeWindowShown();
+      boss.onWindowFocus();
+      await boss.beforeWindowShown();
+      expect(calls, ['lock: hidden', 'hide', 'lock: shown']);
+    });
   });
 
   group('recording', () {
@@ -313,6 +334,71 @@ void main() {
       );
       await settle();
       expect(settings.currentSettings.bossKeyCombo, 'ctrl+alt+h');
+    });
+  });
+
+  group('recorder open', () {
+    test('records once at a time: a second tap while it is open does nothing', () async {
+      final boss = newBossKey()..start();
+      await boss.setEnabled(enable: true);
+      calls.clear();
+      final dialog = Completer<HotKey?>();
+      var shown = 0;
+      Future<HotKey?> show() {
+        shown++;
+        return dialog.future;
+      }
+
+      final first = boss.record(show);
+      await settle();
+      await boss.record(show);
+      expect(shown, 1);
+      expect(calls, ['unregister']);
+      dialog.complete(_ctrlAltJ);
+      await first;
+      await settle();
+      expect(boss.bound, _ctrlAltJ);
+      expect(settings.currentSettings.bossKeyCombo, 'ctrl+alt+j');
+      await boss.record(() async => null);
+      expect(calls, ['unregister', 'register ctrl+alt+j', 'unregister', 'register ctrl+alt+j']);
+    });
+  });
+
+  group('the desktop decides the keys (Linux)', () {
+    test('what it bound is reported, nothing once released', () async {
+      final triggers = StreamController<Map<String, String>>.broadcast();
+      addTearDown(triggers.close);
+      final boss = newBossKey(triggers: triggers.stream, configuredByDesktop: true)..start();
+      expect(boss.configuredByDesktop, isTrue);
+      await boss.setEnabled(enable: true);
+      triggers.add({bossKeyId: 'Ctrl+Alt+K'});
+      await settle();
+      expect(boss.desktopTrigger.value, 'Ctrl+Alt+K');
+      triggers.add({bossKeyId: ''});
+      await settle();
+      expect(boss.desktopTrigger.value, '', reason: 'bound without keys yet');
+      await boss.setEnabled(enable: false);
+      await settle();
+      expect(boss.desktopTrigger.value, isNull);
+    });
+
+    test('its own settings are opened while bound, the recorder otherwise', () async {
+      final boss = newBossKey(configuredByDesktop: true)..start();
+      await settle();
+      expect(await boss.configureInDesktop(), isFalse, reason: 'nothing bound');
+      await boss.setEnabled(enable: true);
+      calls.clear();
+      expect(await boss.configureInDesktop(), isTrue);
+      expect(calls, ['configure']);
+    });
+
+    test('the desktop decides nothing on Windows and macOS', () async {
+      final boss = newBossKey()..start();
+      await boss.setEnabled(enable: true);
+      calls.clear();
+      expect(boss.configuredByDesktop, isFalse);
+      expect(await boss.configureInDesktop(), isFalse);
+      expect(calls, isEmpty);
     });
   });
 }

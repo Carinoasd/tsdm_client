@@ -3,6 +3,8 @@
 /// bind, says why another combination can not be used, and keeps Esc, Tab, Enter and Space for the dialog.
 library;
 
+import 'dart:async';
+
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -31,20 +33,23 @@ void main() {
   late List<String> calls;
   late HotKeyResult result;
 
-  BossKey newBossKey() => BossKey.forTesting(
-    register: (hotKey) async {
-      calls.add('register ${encodeBossKey(hotKey)}');
-      return result;
-    },
-    unregister: () async => calls.add('unregister'),
-    events: const Stream.empty(),
-    windowOnScreen: () async => true,
-    hideWindow: () async {},
-    showWindow: () async {},
-    onHidden: () {},
-    onShown: () {},
-    report: (_) {},
-  );
+  BossKey newBossKey({Stream<Map<String, String>> triggers = const Stream.empty(), bool configuredByDesktop = false}) =>
+      BossKey.forTesting(
+        register: (hotKey) async {
+          calls.add('register ${encodeBossKey(hotKey)}');
+          return result;
+        },
+        unregister: () async => calls.add('unregister'),
+        events: const Stream.empty(),
+        windowOnScreen: () async => true,
+        hideWindow: () async {},
+        showWindow: () async {},
+        onHidden: () {},
+        onShown: () {},
+        report: (_) {},
+        triggers: triggers,
+        configuredByDesktop: configuredByDesktop,
+      );
 
   setUp(() async {
     db = AppDatabase(NativeDatabase.memory());
@@ -170,10 +175,15 @@ void main() {
 
   group('tiles', () {
     // The controller and the settings database run on real time: started, driven and disposed in `runAsync`.
-    Future<BossKey> started(WidgetTester tester) async {
+    Future<BossKey> started(WidgetTester tester, {Stream<Map<String, String>>? triggers}) async {
       // Made there too: its futures belong to the zone it was made in.
       late final BossKey boss;
-      await tester.runAsync(() async => boss = newBossKey()..start());
+      await tester.runAsync(
+        () async => boss = newBossKey(
+          triggers: triggers ?? const Stream.empty(),
+          configuredByDesktop: triggers != null,
+        )..start(),
+      );
       return boss;
     }
 
@@ -223,5 +233,30 @@ void main() {
       expect(tester.widget<SectionListTile>(find.widgetWithText(SectionListTile, 'Shortcut')).enabled, isTrue);
       await tester.runAsync(boss.dispose);
     }, variant: _windows);
+
+    testWidgets('where the desktop decides the keys, the ones it bound are shown', (tester) async {
+      final triggers = StreamController<Map<String, String>>.broadcast();
+      final boss = await started(tester, triggers: triggers.stream);
+      await tester.runAsync(() => boss.setEnabled(enable: true));
+      await tester.pumpWidget(app(BossKeyShortcutTile(combo: 'ctrl+alt+h', controller: boss)));
+      expect(find.text('H'), findsOneWidget, reason: 'nothing reported yet: the suggestion');
+      await tester.runAsync(() async {
+        triggers.add({bossKeyId: 'Ctrl+Alt+K'});
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+      });
+      await tester.pump();
+      expect(find.text('K'), findsOneWidget);
+      expect(find.text('H'), findsNothing);
+      await tester.runAsync(() async {
+        triggers.add({bossKeyId: ''});
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+      });
+      await tester.pump();
+      expect(find.text('—'), findsOneWidget, reason: 'bound without keys yet');
+      await tester.runAsync(() async {
+        await boss.dispose();
+        await triggers.close();
+      });
+    });
   });
 }

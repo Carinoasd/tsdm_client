@@ -1,10 +1,11 @@
 /// The app lock with a window the app hides itself (the desktop boss key): the time away counts from the moment it is
 /// hidden, whatever the desktop reports for the hidden window, and the lock is decided when it is shown again, before
 /// it is seen; with "every time" it locks as it hides. Reported twice (by the boss key and by the desktop), it still
-/// locks once.
+/// locks once. The lock screen it brings up asks for the system unlock (Windows Hello, Touch ID) only once the window
+/// is shown again, not as it hides.
 library;
 
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 import 'package:tsdm_client/features/app_lock/cubit/app_lock_cubit.dart';
@@ -12,6 +13,8 @@ import 'package:tsdm_client/features/app_lock/models/app_lock_config.dart';
 import 'package:tsdm_client/features/app_lock/repository/app_lock_store.dart';
 import 'package:tsdm_client/features/app_lock/repository/biometric_authenticator.dart';
 import 'package:tsdm_client/features/app_lock/repository/pin_hasher.dart';
+import 'package:tsdm_client/features/app_lock/widgets/app_lock_gate.dart';
+import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 
 final class _NoBiometrics implements BiometricAuthenticator {
@@ -22,8 +25,24 @@ final class _NoBiometrics implements BiometricAuthenticator {
   Future<bool> isAvailable() async => false;
 }
 
+final class _CountingBiometrics implements BiometricAuthenticator {
+  int calls = 0;
+
+  @override
+  Future<bool> authenticate(String reason) async {
+    calls += 1;
+    return false;
+  }
+
+  @override
+  Future<bool> isAvailable() async => true;
+}
+
 void main() {
-  setUpAll(() => talker = TalkerFlutter.init(settings: TalkerSettings(enabled: false)));
+  setUpAll(() async {
+    talker = TalkerFlutter.init(settings: TalkerSettings(enabled: false));
+    await LocaleSettings.setLocale(AppLocale.en);
+  });
 
   const hasher = PinHasher(iterations: 10);
   late DateTime wall;
@@ -153,5 +172,42 @@ void main() {
     cubit.windowShown();
     expect(cubit.state.locked, isFalse);
     await cubit.close();
+  });
+
+  testWidgets('the system unlock is asked once the window is back, not as it hides', (tester) async {
+    const fastHasher = PinHasher(iterations: 10, offUiIsolate: false);
+    final biometrics = _CountingBiometrics();
+    final cubit = AppLockCubit(
+      config: AppLockConfig(
+        method: AppLockMethod.biometric,
+        pin: await fastHasher.hash('1234'),
+        // The default: locked as it hides.
+      ),
+      store: AppLockStore.memory(),
+      biometrics: biometrics,
+      hasher: fastHasher,
+    );
+    addTearDown(cubit.close);
+    await cubit.refreshBiometricAvailability();
+    expect(await cubit.unlockWithPin('1234'), isTrue);
+    await tester.pumpWidget(
+      TranslationProvider(
+        child: MaterialApp(
+          home: const Scaffold(body: Text('content')),
+          builder: (context, child) => AppLockGate(cubit: cubit, forgetAccounts: (_) async => false, child: child!),
+        ),
+      ),
+    );
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+
+    cubit.windowHidden();
+    await tester.pumpAndSettle();
+    expect(cubit.state.locked, isTrue);
+    expect(biometrics.calls, 0, reason: 'the window is going: no system prompt');
+
+    cubit.windowShown();
+    await tester.pumpAndSettle();
+    expect(biometrics.calls, 1);
   });
 }
