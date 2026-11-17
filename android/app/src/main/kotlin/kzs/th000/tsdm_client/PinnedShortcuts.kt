@@ -128,7 +128,10 @@ class PinnedShortcuts(
         fun republishLauncherShortcuts(context: Context, sdk: Int = Build.VERSION.SDK_INT): Int {
             if (sdk < Build.VERSION_CODES.N_MR1) return 0
             return try {
-                context.getSystemService(ShortcutManager::class.java)?.manifestShortcuts?.size ?: 0
+                val published = context.getSystemService(ShortcutManager::class.java)?.manifestShortcuts?.size ?: 0
+                // The four of shortcuts.xml are expected: none tells that the system did not read the manifest.
+                if (published == 0) Log.w(TAG, "no launcher shortcut published after the icon switched")
+                published
             } catch (e: Exception) {
                 Log.w(TAG, "launcher shortcuts not published again", e)
                 0

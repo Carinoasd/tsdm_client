@@ -477,6 +477,7 @@ void main() {
       );
       final pins = read('$kotlin/PinnedShortcuts.kt');
       expect(pins, contains('context.getSystemService(ShortcutManager::class.java)?.manifestShortcuts?.size ?: 0'));
+      expect(pins, contains('no launcher shortcut published after the icon switched'));
       // The four stay shortcuts of the manifest, every alias naming them: the ones pinned keep working.
       final shortcuts = read('android/app/src/main/res/xml/shortcuts.xml');
       for (final id in ['checkin', 'notice', 'favorite', 'search']) {

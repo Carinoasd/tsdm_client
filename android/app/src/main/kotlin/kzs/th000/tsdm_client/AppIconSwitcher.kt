@@ -30,7 +30,8 @@ object AppIconSwitcher {
      * the alias enabled when it reads the manifest again. Left alone it does so when it hears of the components
      * changed, as the launcher does, which then removes the dragged ones with the old alias. [republishShortcuts] has
      * the system read the manifest now, once the old alias is disabled ([PinnedShortcuts.republishLauncherShortcuts]):
-     * the launcher hears of the shortcuts tied to the new alias first.
+     * the launcher hears of the shortcuts tied to the new alias first. ([moveShortcuts] runs before it and stays the
+     * last parameter, for the callers that pass it as a trailing lambda.)
      */
     fun apply(
         context: Context,

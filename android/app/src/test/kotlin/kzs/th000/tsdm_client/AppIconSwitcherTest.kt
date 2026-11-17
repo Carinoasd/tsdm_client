@@ -106,9 +106,12 @@ class AppIconSwitcherTest {
         assertEquals(1, published)
     }
 
-    /** The default of [AppIconSwitcher.apply] asks the system itself: it answers, and nothing breaks without shortcuts. */
+    /**
+     * The default of [AppIconSwitcher.apply] (the system asked itself) breaks nothing where there is no shortcut of a
+     * manifest. That the default is the question to the system is kept by `test_1310` (Dart), which reads the source.
+     */
     @Test
-    fun switchingTheIconAsksTheSystemForItsLauncherShortcuts() {
+    fun theDefaultQuestionToTheSystemBreaksNothingWithoutShortcuts() {
         assertTrue(AppIconSwitcher.apply(app, "mono"))
         assertEquals(PackageManager.COMPONENT_ENABLED_STATE_ENABLED, stateOf("IconMono"))
         assertEquals(0, PinnedShortcuts.republishLauncherShortcuts(app))
