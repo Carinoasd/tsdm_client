@@ -4130,7 +4130,10 @@
     "cancelled": "没有发出：论坛要求填写验证码或回答安全提问"
   },
   "appShortcuts": {
-    "checkinNotVerified": "登录状态尚未确认，请稍后再签到"
+    "checkinNotVerified": "登录状态尚未确认，请稍后再签到",
+    "pinToHome": "添加到桌面",
+    "pinUpdated": "已更新桌面图标",
+    "pinFailed": "无法添加到桌面"
   },
   "twoPane": {
     "tabsFull": "最多同时打开 ${count: int} 个标签页"

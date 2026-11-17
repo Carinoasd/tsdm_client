@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The icon of a thread pinned to the home screen (PinnedShortcuts.kt): shaped by the launcher as the app icon is. -->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/ic_shortcut_background" />
+    <foreground android:drawable="@drawable/ic_shortcut_thread_foreground" />
+    <monochrome android:drawable="@drawable/ic_shortcut_thread_foreground" />
+</adaptive-icon>

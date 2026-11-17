@@ -10,6 +10,7 @@ import 'package:tsdm_client/features/shortcuts/models/app_shortcut.dart';
 import 'package:tsdm_client/features/shortcuts/repository/app_shortcuts_channel.dart';
 import 'package:tsdm_client/features/shortcuts/utils/app_shortcut_action.dart';
 import 'package:tsdm_client/features/shortcuts/utils/checkin_when_verified.dart';
+import 'package:tsdm_client/features/shortcuts/utils/pin_to_home.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/app_routes.dart';
@@ -25,6 +26,10 @@ import 'package:tsdm_client/utils/show_toast.dart';
 /// The account in use decides between the page and the login ([decideAppShortcut]); the stored session counts, as it
 /// does for a notification tap: at a cold start the homepage has its first frame before the login is verified. The
 /// check-in itself waits for that verification ([startCheckinWhenVerified]).
+///
+/// On Android it also keeps [PinToHome.supported] told (forums and threads pinned to the home screen). A pinned one
+/// coming on another platform (a `tsdm://shortcut/thread-…` link a web page opened on iOS) is ignored: no other
+/// platform pins them.
 class AppShortcutsWatcher extends StatefulWidget {
   /// Constructor.
   const AppShortcutsWatcher({super.key});
@@ -42,6 +47,9 @@ class _AppShortcutsWatcherState extends State<AppShortcutsWatcher> with LoggerMi
   /// Whether a check-in shortcut is waiting for the login check: another one meanwhile is the same wish.
   var _checkinWaiting = false;
 
+  /// Asks again whether the launcher pins shortcuts each time the app comes back to the front (Android).
+  AppLifecycleListener? _lifecycle;
+
   @override
   void initState() {
     super.initState();
@@ -49,7 +57,12 @@ class _AppShortcutsWatcherState extends State<AppShortcutsWatcher> with LoggerMi
       return;
     }
     _channel.listenRequests(_run);
+    if (isAndroid) {
+      _lifecycle = AppLifecycleListener(onResume: () => unawaited(PinToHome.refresh(channel: _channel)));
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      // Asked first: answered before the shortcut the app was started with, whose page then knows it.
+      unawaited(PinToHome.refresh(channel: _channel));
       final shortcut = await _channel.initialRequest();
       if (shortcut != null && mounted) {
         _run(shortcut);
@@ -59,6 +72,7 @@ class _AppShortcutsWatcherState extends State<AppShortcutsWatcher> with LoggerMi
 
   @override
   void dispose() {
+    _lifecycle?.dispose();
     if (_supported) {
       _channel.dispose();
     }
@@ -70,6 +84,10 @@ class _AppShortcutsWatcherState extends State<AppShortcutsWatcher> with LoggerMi
       return;
     }
     final (:shortcut, :external) = request;
+    if (shortcut is PinnedShortcut && !isAndroid) {
+      warning('ignored pinned shortcut ${shortcut.id} off Android');
+      return;
+    }
     final loggedIn = context.repo<AuthenticationRepository>().effectiveCurrentUid != null;
     final action = decideAppShortcut(shortcut, loggedIn: loggedIn, external: external);
     info(
