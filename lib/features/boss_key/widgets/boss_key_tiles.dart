@@ -73,14 +73,16 @@ class BossKeyShortcutTile extends StatelessWidget {
     if (await controller.configureInDesktop() || !context.mounted) {
       return;
     }
-    await controller.record(() => showBossKeyRecorder(context, bossKeyOf(combo)));
+    // The page may be gone once the shortcut is released.
+    await controller.record(
+      () async => context.mounted ? showBossKeyRecorder(context, bossKeyOf(combo)) : null,
+    );
   }
 
   List<String> _labels(BossKey controller) {
     final trigger = controller.desktopTrigger.value;
     if (controller.configuredByDesktop && trigger != null) {
-      final keys = trigger.split('+').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
-      return keys.isEmpty ? const ['—'] : keys;
+      return desktopTriggerLabels(trigger);
     }
     return bossKeyLabels(bossKeyOf(combo), defaultTargetPlatform);
   }
@@ -99,6 +101,21 @@ class BossKeyShortcutTile extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The key caps of [trigger], what a desktop says triggers a shortcut in its own words: split at `+` when that gives
+/// clean names (`Ctrl+Alt+H`), else the words as one cap (`Ctrl++`, several combinations); a dash for none yet.
+@visibleForTesting
+List<String> desktopTriggerLabels(String trigger) {
+  final text = trigger.trim();
+  if (text.isEmpty) {
+    return const ['—'];
+  }
+  final keys = text.split('+').map((e) => e.trim()).toList();
+  if (keys.any((e) => e.isEmpty) || text.contains(RegExp('[;,]'))) {
+    return [text];
+  }
+  return keys;
 }
 
 /// Record a new boss key, starting from [current]: the combination to save, null when cancelled.

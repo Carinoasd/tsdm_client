@@ -71,6 +71,16 @@ void main() {
     child: MaterialApp(home: Scaffold(body: child)),
   );
 
+  test("a desktop's own words for the keys: split at + only when that is clean", () {
+    expect(desktopTriggerLabels('Ctrl+Alt+H'), ['Ctrl', 'Alt', 'H']);
+    expect(desktopTriggerLabels(' Ctrl + Alt + H '), ['Ctrl', 'Alt', 'H']);
+    expect(desktopTriggerLabels('Ctrl++'), ['Ctrl++']);
+    expect(desktopTriggerLabels('Ctrl+Alt+H; Meta+H'), ['Ctrl+Alt+H; Meta+H']);
+    expect(desktopTriggerLabels('Press Super'), ['Press Super']);
+    expect(desktopTriggerLabels(''), ['—']);
+    expect(desktopTriggerLabels('  '), ['—']);
+  });
+
   group('recorder', () {
     late HotKey? recorded;
     late bool closed;

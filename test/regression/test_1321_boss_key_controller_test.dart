@@ -6,6 +6,7 @@
 library;
 
 import 'dart:async';
+import 'dart:io';
 
 import 'package:drift/native.dart';
 import 'package:flutter/services.dart';
@@ -42,6 +43,7 @@ void main() {
     Stream<Map<String, String>> triggers = const Stream.empty(),
     bool configuredByDesktop = false,
     bool configureOpens = true,
+    bool recordSettle = false,
   }) {
     final boss = BossKey.forTesting(
       register: (hotKey) async {
@@ -71,6 +73,7 @@ void main() {
         calls.add('configure');
         return configureOpens;
       },
+      settle: recordSettle ? () async => calls.add('frame') : null,
     );
     controllers.add(boss);
     return boss;
@@ -260,6 +263,28 @@ void main() {
         ..onWindowFocus();
       expect(calls, ['lock: hidden', 'hide', 'lock: shown']);
       expect(boss.hidden, isFalse);
+    });
+
+    test('a frame for the lock screen before the window hides, and before it shows again', () async {
+      final boss = newBossKey(recordSettle: true)..start();
+      await boss.setEnabled(enable: true);
+      calls.clear();
+      await press();
+      await press();
+      expect(calls, ['lock: hidden', 'frame', 'hide', 'lock: shown', 'frame', 'show']);
+    });
+
+    test('every way of the app to show the window tells the boss key first', () {
+      final shows = <String>[];
+      for (final file in Directory('lib').listSync(recursive: true).whereType<File>()) {
+        if (!file.path.endsWith('.dart')) continue;
+        final source = file.readAsStringSync();
+        if (source.contains('windowManager.show(')) shows.add(file.path.replaceAll(r'\', '/'));
+        if (source.contains('await bringWindowToFront()') && !file.path.contains('boss_key')) {
+          expect(source, contains('BossKey.instance.beforeWindowShown()'), reason: file.path);
+        }
+      }
+      expect(shows, ['lib/utils/window_configs.dart'], reason: 'one place shows the window: bringWindowToFront');
     });
 
     test('brought back from the tray: the lock is told before the window shows, once', () async {

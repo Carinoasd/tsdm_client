@@ -1,10 +1,11 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:tsdm_client/features/boss_key/boss_key_controller.dart';
 import 'package:tsdm_client/features/local_notice/keys.dart';
 import 'package:tsdm_client/features/local_notice/opt_in_notifications.dart';
 import 'package:tsdm_client/features/local_notice/stream.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/utils/platform.dart';
-import 'package:window_manager/window_manager.dart';
+import 'package:tsdm_client/utils/window_configs.dart';
 
 /// Callback of the user tap on local notification.
 ///
@@ -47,16 +48,14 @@ Future<void> onLocalNotificationOpened(NotificationResponse resp) async {
 
 /// Restore / show / focus the desktop window.
 ///
-/// Same sequence as the tray menu: `restore` only matters when the window is minimized, `show` recovers a window
-/// hidden with `hide()`, and `focus` puts it in front of other windows. Any failure is logged and swallowed: the
-/// route change is still attempted, a lost focus is not worth blocking the notification handler.
+/// Same sequence as the tray menu ([bringWindowToFront]): `restore` only matters when the window is minimized, `show`
+/// recovers a window hidden with `hide()`, and `focus` puts it in front of other windows. The boss key is told first:
+/// with the window hidden by it, the app lock decides before the window is seen. Any failure is logged and swallowed:
+/// the route change is still attempted, a lost focus is not worth blocking the notification handler.
 Future<void> _bringWindowToFront() async {
   try {
-    if (await windowManager.isMinimized()) {
-      await windowManager.restore();
-    }
-    await windowManager.show();
-    await windowManager.focus();
+    await BossKey.instance.beforeWindowShown();
+    await bringWindowToFront();
   } on Exception catch (e, st) {
     talker.handle(e, st, 'bring window to front on notification tap failed: ');
   }

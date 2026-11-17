@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 import 'package:system_hotkeys/system_hotkeys.dart';
 import 'package:system_hotkeys_linux/system_hotkeys_linux.dart';
@@ -33,10 +34,15 @@ Future<bool> _systemWindowOnScreen() async => await windowManager.isVisible() &&
 
 AppLockCubit? get _appLock => getIt.isRegistered<AppLockCubit>() ? getIt.get<AppLockCubit>() : null;
 
-/// One frame for the lock screen the app lock may just have put up, before the window is shown again; bounded, a
-/// hidden window may get no frame.
-Future<void> _systemSettle() =>
-    WidgetsBinding.instance.endOfFrame.timeout(const Duration(milliseconds: 150), onTimeout: () {});
+/// One frame for the lock screen the app lock may just have put up, painted before the window changes. Nothing while
+/// frames are off (the lifecycle is hidden while the window is: the first frame comes once it is shown); bounded all
+/// the same.
+Future<void> _systemSettle() async {
+  if (!SchedulerBinding.instance.framesEnabled) {
+    return;
+  }
+  await WidgetsBinding.instance.endOfFrame.timeout(const Duration(milliseconds: 150), onTimeout: () {});
+}
 
 /// The boss key of the desktop app (`SettingsKeys.bossKey`, off by default): a system-wide shortcut
 /// (`SettingsKeys.bossKeyCombo`) hides the window, the next press brings it back with the focus.
@@ -101,6 +107,7 @@ class BossKey with WindowListener, LoggerMixin {
     Stream<Map<String, String>> triggers = const Stream.empty(),
     Future<bool> Function()? configure,
     bool configuredByDesktop = false,
+    Future<void> Function()? settle,
   }) : this._(
          register: register,
          unregister: unregister,
@@ -115,7 +122,7 @@ class BossKey with WindowListener, LoggerMixin {
          triggers: () => triggers,
          configure: configure ?? () async => false,
          configuredByDesktop: () => configuredByDesktop,
-         settle: () async {},
+         settle: settle ?? () async {},
        );
 
   /// The app's.
@@ -386,6 +393,9 @@ class BossKey with WindowListener, LoggerMixin {
       _hidden = true;
       _onHidden();
       try {
+        // Locked as it hides ("every time"): the lock screen is painted while the window still gets frames, so it is
+        // what the window shows when it comes back (and what the system keeps of it meanwhile).
+        await _settle();
         await _hideWindow();
       } on Object catch (e, st) {
         handleRaw(e, st);
