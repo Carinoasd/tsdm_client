@@ -160,13 +160,25 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
     null => false,
   };
 
+  /// The pinned threads folded above the thread list that show there: those the setting folds there and the list's
+  /// cards show (not hidden as blocked or filtered out). None when the list has no other thread: it shows that it is
+  /// empty, the pinned ones stay in the pinned tab. [watch] (only in a build) rebuilds the caller when they change.
+  List<StickThread> _shownPinned(BuildContext context, ForumState state, {bool watch = false}) {
+    if (state.normalThreadList.isEmpty || !_foldsPinned(context, watch: watch)) {
+      return const [];
+    }
+    final blocks = currentBlockList(context, listen: watch);
+    return state.listStickThreadList
+        .where((e) => !blocks.hidesString(e.author.uid) && !blocks.hidesThread(title: e.title, byForum: false))
+        .toList();
+  }
+
   /// The threads of the thread tab in their order: the pinned ones above the list when they are folded there and
-  /// expanded, then the others. A list without other threads shows that it is empty, the pinned ones stay in the
-  /// pinned tab.
-  List<NormalThread> _threadTabThreads(BuildContext context, ForumState state) => [
-    if (state.normalThreadList.isNotEmpty && _foldsPinned(context) && _pinnedOpen()) ...state.listStickThreadList,
-    ...state.normalThreadList,
-  ];
+  /// expanded ([_shownPinned]), then the others.
+  List<NormalThread> _threadTabThreads(BuildContext context, ForumState state, {bool watch = false}) {
+    final pinned = _shownPinned(context, state, watch: watch);
+    return [if (pinned.isNotEmpty && _pinnedOpen()) ...pinned, ...state.normalThreadList];
+  }
 
   /// Expand or collapse the pinned threads folded above the thread list, as the forum's section from now on. The
   /// pinned threads picked are left once they are collapsed.
@@ -196,12 +208,18 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
     }
     final open = _pinnedOpen();
     final saved = savedPinnedFold(fid);
+    final known = _pinnedSeen ?? saved?.seen;
     final seen = pinnedFoldSeen(
-      _pinnedSeen == null ? saved : PinnedFold(open: saved?.open ?? false, seen: _pinnedSeen),
+      PinnedFold(open: saved?.open ?? false, seen: known),
       state.listStickThreadList.map((e) => int.tryParse(e.threadID)).nonNulls,
       filtered: state.filterState.isFiltering(),
     );
-    if (seen.fresh && !open) {
+    // Expanded for a fresh one the list shows: one hidden (blocked, filtered out) has nothing new to show.
+    final freshShown =
+        seen.fresh &&
+        known != null &&
+        _shownPinned(context, state).any((e) => !known.contains(int.tryParse(e.threadID)));
+    if (freshShown && !open) {
       _keyboardSelection.clear();
       setState(() => _pinnedExpanded = true);
     }
@@ -209,6 +227,23 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
       _pinnedSeen = save.seen;
       unawaited(savePinnedFoldSeen(fid, save.seen));
     }
+  }
+
+  /// The setting folding the pinned threads was on at the last build of the thread list, null before the first.
+  bool? _foldedAtLastBuild;
+
+  /// The setting was turned on while the list was shown: its pinned threads are seen now ([_notePinnedSeen]), not
+  /// only once the list changes.
+  void _noteFoldTurnedOn(BuildContext context, ForumState state) {
+    final folds = _foldsPinned(context);
+    if (folds && _foldedAtLastBuild == false) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && context.mounted) {
+          _notePinnedSeen(context, state);
+        }
+      });
+    }
+    _foldedAtLastBuild = folds;
   }
 
   /// Rating the threads picked in a batch (the batch rate plugin, tsdmapp 3.9.0), asked once picking starts; with the
@@ -703,16 +738,9 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
     final bloc = context.read<ForumBloc>();
     // With the setting, the pinned threads of the list's first page are folded to one row above it, counting those
     // shown; expanded, they are the first threads of the list.
-    final pinnedShown = _foldsPinned(context, watch: true)
-        ? state.listStickThreadList
-              .where(
-                (e) =>
-                    !isBlockedByCurrentUser(context, e.author.uid) &&
-                    !isThreadFilteredOut(context, title: e.title, byForum: false),
-              )
-              .length
-        : 0;
+    final pinnedShown = _shownPinned(context, state, watch: true).length;
     final threads = _threadTabThreads(context, state);
+    _noteFoldTurnedOn(context, state);
     return EasyRefresh.builder(
       scrollBehaviorBuilder: (physics) => ERScrollBehavior(physics).copyWith(physics: physics, scrollbars: false),
       header: const MaterialHeader(),

@@ -14,6 +14,8 @@ import 'package:talker_flutter/talker_flutter.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/authentication/repository/models/models.dart';
+import 'package:tsdm_client/features/blocking/cubit/user_block_cubit.dart';
+import 'package:tsdm_client/features/blocking/repository/user_block_repository.dart';
 import 'package:tsdm_client/features/forum/bloc/forum_bloc.dart';
 import 'package:tsdm_client/features/forum/models/models.dart';
 import 'package:tsdm_client/features/forum/repository/forum_repository.dart';
@@ -127,14 +129,27 @@ final class _Auth extends AuthenticationRepository {
   }
 }
 
+/// Author of the pinned threads but [_ownPinned].
+const _pinnedAuthor = 1002;
+
+/// Author of [_ownPinned].
+const _newPinnedAuthor = 1003;
+
+(int, String) _authorOf(int tid) => switch (tid) {
+  _ownPinned => (_newPinnedAuthor, 'Dave'),
+  _ when _pinned.contains(tid) || tid == 9004 => (_pinnedAuthor, 'Carol'),
+  _ => (1000, 'Alice'),
+};
+
 String _title(int tid) => _pinned.contains(tid) || tid == 9004 ? 'Pinned $tid' : 'Thread $tid';
 
 Map<String, dynamic> _row(int tid, {int displayorder = 0}) => {
   'tid': tid,
   'fid': _fid,
   'subject': _title(tid),
-  'author': 'Alice',
-  'authorid': 1000,
+  // The pinned threads by their own authors: [_pinnedAuthor], [_newPinnedAuthor] for the last one.
+  'author': _authorOf(tid).$2,
+  'authorid': _authorOf(tid).$1,
   'dateline': 1700000000,
   'lastpost': 1700000000,
   'lastposter': 'Bob',
@@ -415,13 +430,28 @@ void main() {
       await tester.pump();
     }
 
-    Future<void> pumpPage(WidgetTester tester, {int? uid}) async {
+    Future<void> pumpPage(WidgetTester tester, {int? uid, List<int> blocked = const []}) async {
       tester.view
         ..physicalSize = const Size(800, 2400)
         ..devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       final auth = _Auth(uid);
       addTearDown(auth.dispose);
+      final storage = getIt.get<StorageProvider>();
+      for (final b in blocked) {
+        await tester.runAsync(() => UserBlockRepository(storage).block(ownerUid: uid, uid: b, username: 'u$b'));
+      }
+      final blocks = UserBlockCubit(
+        repository: UserBlockRepository(storage),
+        currentUid: () => auth.uid,
+        authStatus: auth.status,
+      );
+      addTearDown(blocks.close);
+      await tester.runAsync(() async {
+        for (var i = 0; i < 50 && !blocks.state.isKnown; i++) {
+          await Future<void>.delayed(const Duration(milliseconds: 20));
+        }
+      });
       final router = GoRouter(
         routes: [
           GoRoute(
@@ -443,6 +473,7 @@ void main() {
             ],
             child: MultiBlocProvider(
               providers: [
+                BlocProvider<UserBlockCubit>.value(value: blocks),
                 BlocProvider<SettingsBloc>(
                   create: (ctx) => SettingsBloc(
                     settingsRepository: settings,
@@ -625,6 +656,47 @@ void main() {
       expect(foldText(tester), '置顶帖 3');
       expect(titles(tester).take(3), ['Pinned 9001', 'Pinned 9002', 'Pinned 9003']);
       expect(saved(), const PinnedFold(open: true, seen: {9001, 9002, 9003}));
+    });
+
+    testWidgets('pinned threads hidden (blocked authors) are neither counted nor in the list', (tester) async {
+      await settings.setValue(
+        SettingsKeys.pinnedThreadsFold,
+        encodePinnedFolds({
+          _fid: const PinnedFold(open: true, seen: {9001, 9002, 9003}),
+        }),
+      );
+      await pumpPage(tester, uid: 35, blocked: const [_pinnedAuthor, _newPinnedAuthor]);
+      expect(fold(), findsNothing);
+      // The hidden ones are not in the list either (a card hiding itself would still be one of its items).
+      expect(titles(tester), ['Thread 101', 'Thread 102', 'Thread 103', 'Thread 104']);
+    });
+
+    testWidgets('a fresh pinned thread hidden (blocked author) does not expand them, it is seen', (tester) async {
+      await settings.setValue(
+        SettingsKeys.pinnedThreadsFold,
+        encodePinnedFolds({
+          _fid: const PinnedFold(seen: {9001, 9002}),
+        }),
+      );
+      await pumpPage(tester, uid: 35, blocked: const [_newPinnedAuthor]);
+      expect(foldText(tester), '置顶帖 2');
+      expect(titles(tester).first, 'Thread 101');
+      expect(saved(), const PinnedFold(seen: {9001, 9002, 9003}));
+      // Expanded: the ones shown, the hidden one not among them.
+      await tester.tap(fold());
+      await pumpFrames(tester);
+      expect(titles(tester).take(3), ['Pinned 9001', 'Pinned 9002', 'Thread 101']);
+    });
+
+    testWidgets('turned on while the forum is open: its pinned threads are seen at once', (tester) async {
+      await settings.setValue(SettingsKeys.collapsePinnedThreads, false);
+      await pumpPage(tester);
+      expect(fold(), findsNothing);
+
+      await tester.runAsync(() => settings.setValue(SettingsKeys.collapsePinnedThreads, true));
+      await pumpFrames(tester);
+      expect(foldText(tester), '置顶帖 3');
+      expect(saved(), const PinnedFold(seen: {9001, 9002, 9003}));
     });
 
     testWidgets('a moderator picks the pinned threads while they are expanded', (tester) async {
