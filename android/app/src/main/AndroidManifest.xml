@@ -180,10 +180,11 @@
                 android:exported="false" />
         <!-- Text, links and images shared from other apps: this invisible activity forwards the share to MainActivityImpl
              in the app's own task (see ShareActivity.kt), which hands it to Dart over the shareReceive channel. -->
-        <!-- The target of the launcher shortcuts (res/xml/shortcuts.xml): not exported, it hands the shortcut to
-             MainActivityImpl with the app's ShortcutKey, so a tsdm://shortcut intent another app sends to the exported
-             activity only opens a page (ShortcutActivity.kt). Not excludeFromRecents: a shortcut starts it as the root of
-             the app's task (NEW_TASK | CLEAR_TASK), and the task must stay in the recent apps. -->
+        <!-- The target of the launcher shortcuts (res/xml/shortcuts.xml) and of the forums and threads pinned to the
+             home screen (PinnedShortcuts.kt): not exported, it hands the shortcut to MainActivityImpl with the app's
+             ShortcutKey, so a tsdm://shortcut intent another app sends to the exported activity only opens a page
+             (ShortcutActivity.kt). Not excludeFromRecents: a shortcut may start it as the root of the app's task (a
+             launcher shortcut with NEW_TASK | CLEAR_TASK), and the task must stay in the recent apps. -->
         <activity
                 android:name=".ShortcutActivity"
                 android:exported="false"

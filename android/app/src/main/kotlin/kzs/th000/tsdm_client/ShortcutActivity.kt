@@ -31,13 +31,16 @@ object ShortcutKey {
 }
 
 /**
- * The target of the launcher shortcuts (`res/xml/shortcuts.xml`), not exported: only the launcher starts it, on the
- * app's behalf. It shows nothing, hands the shortcut to [MainActivityImpl] with [ShortcutKey] (`NEW_TASK`,
- * `CLEAR_TOP`, `SINGLE_TOP`, as the widget's taps go) and finishes at once.
+ * The target of the launcher shortcuts (`res/xml/shortcuts.xml`) and of the forums and threads pinned to the home
+ * screen ([PinnedShortcuts]), not exported: only the launcher starts it, on the app's behalf. It shows nothing, hands
+ * the shortcut to [MainActivityImpl] with [ShortcutKey] (`NEW_TASK`, `CLEAR_TOP`, `SINGLE_TOP`, as the widget's taps
+ * go) and finishes at once.
  *
- * A shortcut starts it as the root of the app's task (`NEW_TASK | CLEAR_TASK`, as it started [MainActivityImpl]
- * before), so the task keeps its intent: started again from the recent apps (the task emptied), it opens the app
- * without running the shortcut a second time.
+ * A launcher shortcut starts it as the root of the app's task (`NEW_TASK | CLEAR_TASK`, as it started
+ * [MainActivityImpl] before), so the task keeps its intent: started again from the recent apps (the task emptied), it
+ * opens the app without running the shortcut a second time. A pinned one starts it with `NEW_TASK` alone: on top of
+ * the app's task when there is one, whose [MainActivityImpl] gets the shortcut as a new intent, else as the root of a
+ * new one, as above.
  */
 class ShortcutActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {

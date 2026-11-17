@@ -56,6 +56,8 @@ import 'package:tsdm_client/features/root/view/root_page.dart';
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/features/share_qr/share_qr_dialog.dart';
+import 'package:tsdm_client/features/shortcuts/models/app_shortcut.dart';
+import 'package:tsdm_client/features/shortcuts/utils/pin_to_home.dart';
 import 'package:tsdm_client/features/thread/v1/bloc/thread_bloc.dart';
 import 'package:tsdm_client/features/thread/v1/models/multi_quote_selection.dart';
 import 'package:tsdm_client/features/thread/v1/models/thread_reply_prefill.dart';
@@ -2878,6 +2880,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
                             ),
                           ),
                         ),
+                        ?pinToHomeMenuItem(context, PinnedThread.tryParse(state.tid), state.title ?? widget.title),
                         // Put aside on this device for the account in use: offline floors can be too.
                         if (context.readOrNull<ReadLaterCubit>() != null &&
                             context.select<ReadLaterCubit, int?>((cubit) => cubit.state.uid) != null)

@@ -6,7 +6,8 @@ import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.MethodChannel
 
 /**
- * The launcher shortcuts of the app icon (`res/xml/shortcuts.xml`): each starts [ShortcutActivity], which starts
+ * The launcher shortcuts of the app icon (`res/xml/shortcuts.xml`) and the forums and threads pinned to the home screen
+ * ([PinnedShortcuts], `forum-<fid>`, `thread-<tid>`): each starts [ShortcutActivity], which starts
  * [MainActivityImpl] with `tsdm://shortcut/<id>` as data and [ShortcutKey]; the id is handed to Dart, which navigates.
  * The same intent without the key (another app starting the exported activity) is handed over as the link: Dart then
  * only opens the page ([shortcutIdOf]).
@@ -67,8 +68,9 @@ class ShortcutsHandler(private val keyOf: () -> String? = { null }) {
     /**
      * Listen on [messenger]. [listening]: Dart runs since an activity before and listens already (it asks for the
      * initial shortcut once, at its start): the shortcut this activity was launched with is pushed by [pushPending].
+     * [pins] answers Dart's questions to pin a forum or a thread to the home screen ([PinnedShortcuts]).
      */
-    fun attach(messenger: BinaryMessenger, listening: Boolean = false) {
+    fun attach(messenger: BinaryMessenger, listening: Boolean = false, pins: PinnedShortcuts? = null) {
         dartListening = listening
         channel = MethodChannel(messenger, CHANNEL).also {
             it.setMethodCallHandler { call, result ->
@@ -76,7 +78,7 @@ class ShortcutsHandler(private val keyOf: () -> String? = { null }) {
                     dartListening = true
                     result.success(pending)
                     pending = null
-                } else {
+                } else if (pins == null || !pins.handle(call, result)) {
                     result.notImplemented()
                 }
             }
