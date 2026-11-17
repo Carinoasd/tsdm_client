@@ -188,6 +188,9 @@ class BossKey with WindowListener, LoggerMixin {
   /// Hiding and showing one after the other: a second press waits for the first to finish.
   Future<void> _toggling = Future<void>.value();
 
+  /// The tasks of [_toggling] not done yet.
+  int _togglingPending = 0;
+
   final _available = ValueNotifier<bool>(false);
 
   /// Whether the boss key can be used: started, and the platform did not answer that it can bind none.
@@ -386,7 +389,13 @@ class BossKey with WindowListener, LoggerMixin {
   ///
   /// On the screen means shown and not minimized, focused or not: a window seen behind another one goes too. A
   /// minimized window comes back, the next press hides it.
-  Future<void> toggle() => _toggling = _toggling.then((_) => _toggle()).catchError(handleRaw);
+  Future<void> toggle() => _queueToggling(_toggle);
+
+  /// Run [task] after the presses before it, counted in [_togglingPending] until it is done.
+  Future<void> _queueToggling(Future<void> Function() task) {
+    _togglingPending++;
+    return _toggling = _toggling.then((_) => task()).catchError(handleRaw).whenComplete(() => _togglingPending--);
+  }
 
   Future<void> _toggle() async {
     if (await _windowOnScreen()) {
@@ -410,7 +419,15 @@ class BossKey with WindowListener, LoggerMixin {
   /// The window is about to be shown again by the app (the tray, a notification): with the window hidden by the boss
   /// key, the app lock decides now and its lock screen gets a frame, before the window is seen. After a press of the
   /// boss key being handled: a window still on its way out is not taken for one coming back.
-  Future<void> beforeWindowShown() => _toggling = _toggling.then((_) => _beforeWindowShown()).catchError(handleRaw);
+  ///
+  /// Nothing to wait for (no press being handled, the window not hidden by the boss key, as always on the platforms
+  /// without it): done at once, without touching the queue.
+  Future<void> beforeWindowShown() {
+    if (!_hidden && _togglingPending == 0) {
+      return Future<void>.value();
+    }
+    return _queueToggling(_beforeWindowShown);
+  }
 
   Future<void> _beforeWindowShown() async {
     if (!_hidden) {
