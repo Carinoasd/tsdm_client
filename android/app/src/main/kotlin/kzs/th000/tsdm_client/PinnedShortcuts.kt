@@ -7,6 +7,7 @@ import android.content.pm.ShortcutInfo
 import android.content.pm.ShortcutManager
 import android.net.Uri
 import android.os.Build
+import android.util.Log
 import androidx.core.content.pm.ShortcutInfoCompat
 import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.graphics.drawable.IconCompat
@@ -30,8 +31,9 @@ import io.flutter.plugin.common.MethodChannel
  * of the app icon then shown. Switching the app icon disables that alias, and the launcher removes the items of a
  * component disabled: [AppIconSwitcher] moves the shortcuts to the new alias first ([moveTo]).
  *
- * [iconOf] gives the icon of a shortcut id (tests replace the app's drawables, which they do not have). [pinnedIds] and
- * [askToPin] are the system's: the ids pinned on any launcher, and the request to the default launcher.
+ * [iconOf] gives the icon of a shortcut id (tests replace the app's drawables, which they do not have). [pinnedIds],
+ * [update] and [askToPin] are the system's: the ids pinned on any launcher, the update of a shortcut, and the request to
+ * the default launcher.
  */
 class PinnedShortcuts(
     private val context: Context,
@@ -39,6 +41,7 @@ class PinnedShortcuts(
     private val pinnedIds: () -> Set<String> = {
         ShortcutManagerCompat.getShortcuts(context, ShortcutManagerCompat.FLAG_MATCH_PINNED).map { it.id }.toSet()
     },
+    private val update: (ShortcutInfoCompat) -> Boolean = { ShortcutManagerCompat.updateShortcuts(context, listOf(it)) },
     private val askToPin: (ShortcutInfoCompat) -> Boolean = { ShortcutManagerCompat.requestPinShortcut(context, it, null) },
 ) {
     companion object {
@@ -56,6 +59,8 @@ class PinnedShortcuts(
 
         /** The longest label kept. Dart cuts them shorter already: this only bounds what is passed on. */
         private const val MAX_LABEL = 100
+
+        private const val TAG = "PINNED_SHORTCUTS"
 
         /** Whether [id] is the id of a forum or a thread to pin. */
         fun isPinnableId(id: String?): Boolean = id != null && ID.matches(id)
@@ -80,7 +85,8 @@ class PinnedShortcuts(
          * not the disabled component's any more when the old alias goes. The shortcuts of `shortcuts.xml` are not the
          * app's to update; the system publishes them again for the alias enabled.
          *
-         * Returns how many moved. Never throws: the icon switches all the same.
+         * Returns how many moved. Never throws: the icon switches all the same. A failure is logged: the launcher then
+         * removes the shortcuts with the old alias.
          */
         fun moveTo(context: Context, activity: ComponentName, sdk: Int = Build.VERSION.SDK_INT): Int {
             if (sdk < Build.VERSION_CODES.O) return 0
@@ -90,8 +96,16 @@ class PinnedShortcuts(
                 val moved = manager.pinnedShortcuts
                     .filter { isPinnableId(it.id) && it.activity != activity }
                     .map { ShortcutInfo.Builder(context, it.id).setActivity(activity).build() }
-                if (moved.isNotEmpty() && manager.updateShortcuts(moved)) moved.size else 0
-            } catch (_: Exception) {
+                when {
+                    moved.isEmpty() -> 0
+                    manager.updateShortcuts(moved) -> moved.size
+                    else -> {
+                        Log.w(TAG, "pinned shortcuts not moved to $activity: update refused")
+                        0
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "pinned shortcuts not moved to $activity", e)
                 0
             }
         }
@@ -152,7 +166,7 @@ class PinnedShortcuts(
                 .setIntent(intentOf(context, id))
                 .build()
             when {
-                id in pinnedIds() -> if (ShortcutManagerCompat.updateShortcuts(context, listOf(info))) UPDATED else null
+                id in pinnedIds() -> if (update(info)) UPDATED else null
                 askToPin(info) -> REQUESTED
                 else -> null
             }

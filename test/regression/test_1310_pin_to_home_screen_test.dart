@@ -451,10 +451,7 @@ void main() {
     // the app icon moves the pinned shortcuts to the new alias before the old one is disabled.
     test('pinning again only updates; the icon switch moves the pinned shortcuts first', () {
       final pins = read('$kotlin/PinnedShortcuts.kt');
-      expect(
-        pins,
-        contains('id in pinnedIds() -> if (ShortcutManagerCompat.updateShortcuts(context, listOf(info))) UPDATED'),
-      );
+      expect(pins, contains('id in pinnedIds() -> if (update(info)) UPDATED else null'));
       final switcher = read('$kotlin/AppIconSwitcher.kt');
       final enable = switcher.indexOf('setEnabled(context, manager, chosen, true)');
       final move = switcher.indexOf('moveShortcuts(ComponentName(context,');

@@ -57,6 +57,20 @@ class AppIconSwitcherTest {
         assertEquals(alias("MainActivity"), manager.pinnedShortcuts.single().activity)
     }
 
+    /** Each start of the app applies the icon shown: nothing to switch, nothing to move. */
+    @Test
+    fun theIconShownAlreadyMovesNothing() {
+        var moved = 0
+        assertTrue(AppIconSwitcher.apply(app, "default") { moved++ })
+        assertEquals(0, moved)
+        assertTrue(AppIconSwitcher.apply(app, "mono") { moved++ })
+        assertEquals(1, moved)
+        assertTrue(AppIconSwitcher.apply(app, "mono") { moved++ })
+        assertEquals(1, moved)
+        assertEquals(PackageManager.COMPONENT_ENABLED_STATE_ENABLED, stateOf("IconMono"))
+        assertEquals(PackageManager.COMPONENT_ENABLED_STATE_DISABLED, stateOf("MainActivity"))
+    }
+
     @Test
     fun anUnknownIconChangesNothing() {
         var moved = false

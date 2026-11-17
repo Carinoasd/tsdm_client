@@ -114,6 +114,24 @@ class PinnedShortcutsTest {
         assertEquals(2, asked)
     }
 
+    /** The update of one pinned refused (the system limits the calls of an app in the background): no answer, no request. */
+    @Test
+    fun aRefusedUpdateIsNoUpdate() {
+        launcherPins()
+        var asked = 0
+        var updated: String? = null
+        val pins = PinnedShortcuts(app, icon, pinnedIds = { setOf("forum-7") }, update = {
+            updated = it.shortLabel.toString()
+            false
+        }, askToPin = {
+            asked++
+            true
+        })
+        assertNull(pins.request("forum-7", "Name", "Name"))
+        assertEquals("Name", updated)
+        assertEquals(0, asked)
+    }
+
     /** A launcher that refuses: nothing is reported pinned. */
     @Test
     fun aRefusedRequestIsNoPin() {
