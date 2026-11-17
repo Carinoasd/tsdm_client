@@ -658,6 +658,25 @@ void main() {
       expect(saved(), const PinnedFold(open: true, seen: {9001, 9002, 9003}));
     });
 
+    testWidgets('a pinned thread another page of the forum saw meanwhile is not fresh here', (tester) async {
+      await pumpPage(tester);
+      expect(saved(), const PinnedFold(seen: {9001, 9002, 9003}));
+      // Another page of the same forum (opened from a link) saw one more.
+      await tester.runAsync(
+        () => settings.setValue(
+          SettingsKeys.pinnedThreadsFold,
+          encodePinnedFolds({
+            _fid: const PinnedFold(seen: {9001, 9002, 9003, 9004}),
+          }),
+        ),
+      );
+      forum.pinned = const [9001, 9002, 9003, 9004];
+      forumBloc(tester).add(ForumRefreshRequested());
+      await pumpFrames(tester);
+      expect(foldText(tester), '置顶帖 4');
+      expect(titles(tester).first, 'Thread 101');
+    });
+
     testWidgets('pinned threads hidden (blocked authors) are neither counted nor in the list', (tester) async {
       await settings.setValue(
         SettingsKeys.pinnedThreadsFold,

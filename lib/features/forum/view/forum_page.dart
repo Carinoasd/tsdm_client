@@ -208,7 +208,9 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
     }
     final open = _pinnedOpen();
     final saved = savedPinnedFold(fid);
-    final known = _pinnedSeen ?? saved?.seen;
+    // What this page saved last (the save may still be on its way) and what is saved (another page of the forum may
+    // have seen more).
+    final known = _pinnedSeen == null && saved?.seen == null ? null : {...?_pinnedSeen, ...?saved?.seen};
     final seen = pinnedFoldSeen(
       PinnedFold(open: saved?.open ?? false, seen: known),
       state.listStickThreadList.map((e) => int.tryParse(e.threadID)).nonNulls,

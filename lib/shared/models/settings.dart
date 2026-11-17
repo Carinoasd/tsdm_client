@@ -325,7 +325,7 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
   collapsePinnedThreads<bool>(name: 'collapsePinnedThreads', type: bool, defaultValue: false),
 
   /// The pinned threads section of each forum ([collapsePinnedThreads]): left expanded or not, and the pinned threads
-  /// seen last (a JSON object keyed by fid, the latest forums), see `decodePinnedFolds`. Tied to the device, not
+  /// seen last (a JSON object keyed by fid, the forums saved last), see `decodePinnedFolds`. Tied to the device, not
   /// synced.
   pinnedThreadsFold<String>(name: 'pinnedThreadsFold', type: String, defaultValue: ''),
 

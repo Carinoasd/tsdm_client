@@ -5,7 +5,8 @@ import 'package:tsdm_client/features/settings/repositories/settings_repository.d
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 
-/// Most forums whose pinned threads section is remembered ([SettingsKeys.pinnedThreadsFold]), the latest ones.
+/// Most forums whose pinned threads section is remembered ([SettingsKeys.pinnedThreadsFold]): those saved last (a
+/// section is saved when what it shows changes or it is expanded or collapsed, not at every visit).
 const pinnedFoldForumsMax = 100;
 
 /// Most pinned threads remembered as seen in one forum.
