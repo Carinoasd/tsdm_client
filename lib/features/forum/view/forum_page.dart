@@ -38,6 +38,8 @@ import 'package:tsdm_client/features/need_login/view/need_login_page.dart';
 import 'package:tsdm_client/features/post/models/models.dart';
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
 import 'package:tsdm_client/features/share_qr/share_qr_dialog.dart';
+import 'package:tsdm_client/features/shortcuts/models/app_shortcut.dart';
+import 'package:tsdm_client/features/shortcuts/utils/pin_to_home.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
@@ -551,6 +553,7 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
             fileName: 'tsdm-forum-${widget.fid}',
           ),
         ),
+        ?pinToHomeMenuItem(context, PinnedForum.tryParse(widget.fid), state.title ?? widget.title),
         MenuCustomItem(
           icon: isForumFavorited(context, fid: widget.fid)
               ? Icons.bookmark_remove_outlined

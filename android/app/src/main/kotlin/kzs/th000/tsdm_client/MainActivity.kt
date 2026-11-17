@@ -212,7 +212,7 @@ class MainActivityImpl: AudioServiceFragmentActivity() {
                 }
             }
         windowChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, WINDOW_CHANNEL)
-        shortcuts.attach(flutterEngine.dartExecutor.binaryMessenger, listening = dartRunning)
+        shortcuts.attach(flutterEngine.dartExecutor.binaryMessenger, listening = dartRunning, pins = PinnedShortcuts(this))
         homeWidget.attach(flutterEngine.dartExecutor.binaryMessenger, this)
 
         // 处理 Flutter 端对深度链接的查询
