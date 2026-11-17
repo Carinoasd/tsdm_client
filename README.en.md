@@ -16,15 +16,17 @@
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/Carinoasd/tsdm_client" alt="license"/></a>
 </p>
 
-## Latest update: 1.58.0 (2026-11-16)
+## Latest update: 1.59.0 (2026-11-17)
 
-- Security hardening: the session only goes to the forum over https; Android system backup is off; imported backups are checked; the app lock wait no longer follows the system clock; image downloads and decoding have size limits.
-- New emoji groups of the forum show up on their own: the emoji list is refreshed in the background when the panel opens, and emoji images come from the forum itself with the image host as a fallback.
-- Moderators: tap the "warned" mark of a floor to see the warning records; select several threads in search results, a member's threads and the latest threads to moderate them together; "Recommended threads" in the moderator panel.
-- The in-app browser title bar shows the domain; on desktop, "Open" on a program-like attachment selects it in the file manager instead of running it.
-- The Android build number is 174 and installs over earlier releases and test builds.
+- Android: "Add to home screen" in the menu of a forum or a thread opens it straight from the launcher; shortcuts on the home screen no longer vanish when the app icon is changed.
+- "Other threads of the author" in the floor menu, with a switch between this forum and all forums.
+- New setting "Collapse pinned threads": the pinned threads above a forum list fold into one row.
+- Desktop: a boss key, a global shortcut that hides and restores the window (Ctrl+Alt+H by default).
+- Threads already read go back to the normal title and show +N when they get new replies; the marking can be turned off in settings.
+- Windows: downloaded attachments carry the "from the internet" mark; on iOS and desktop, redirects to another host no longer carry the app's own request headers.
+- The Android build number is 175 and installs over earlier releases and test builds.
 
-[Download 1.58.0](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.58.0) · [Full changelog](./CHANGELOG.md)
+[Download 1.59.0](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.59.0) · [Full changelog](./CHANGELOG.md)
 
 ## What it is
 
