@@ -441,8 +441,25 @@ void main() {
       }
     });
 
-    test('the Kotlin test runs in the Test build', () {
-      expect(read('.github/workflows/test_build.yml'), contains('--tests kzs.th000.tsdm_client.PinnedShortcutsTest'));
+    test('the Kotlin tests run in the Test build', () {
+      final workflow = read('.github/workflows/test_build.yml');
+      expect(workflow, contains('--tests kzs.th000.tsdm_client.PinnedShortcutsTest'));
+      expect(workflow, contains('--tests kzs.th000.tsdm_client.AppIconSwitcherTest'));
+    });
+
+    // Pinned already: only updated, the launcher is not asked again (Pixel Launcher would add a second icon). Switching
+    // the app icon moves the pinned shortcuts to the new alias before the old one is disabled.
+    test('pinning again only updates; the icon switch moves the pinned shortcuts first', () {
+      final pins = read('$kotlin/PinnedShortcuts.kt');
+      expect(pins, contains('id in pinnedIds() -> if (update(info)) UPDATED else null'));
+      final switcher = read('$kotlin/AppIconSwitcher.kt');
+      final enable = switcher.indexOf('setEnabled(context, manager, chosen, true)');
+      final move = switcher.indexOf('moveShortcuts(ComponentName(context,');
+      final disable = switcher.indexOf('if (alias != chosen) setEnabled(context, manager, alias, false)');
+      expect(enable, greaterThan(0));
+      expect(move, greaterThan(enable));
+      expect(disable, greaterThan(move));
+      expect(switcher, contains('moveShortcuts: (ComponentName) -> Unit = { PinnedShortcuts.moveTo(context, it) }'));
     });
 
     test('the forum and the thread pages offer it', () {
