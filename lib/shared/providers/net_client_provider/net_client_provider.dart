@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
+import 'package:dio/io.dart';
 import 'package:dio_brotli_transformer/dio_brotli_transformer.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 import 'package:flutter/foundation.dart' show visibleForTesting;
@@ -12,6 +13,7 @@ import 'package:tsdm_client/constants/constants.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/extensions/map.dart';
+import 'package:tsdm_client/extensions/uri.dart';
 import 'package:tsdm_client/features/login_device/login_device_identity.dart';
 import 'package:tsdm_client/features/points/stream.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
@@ -678,6 +680,8 @@ final class _IdentityGuard extends Interceptor with LoggerMixin {
 ///   served over https ([baseUrl]; a build pointed at a test forum over http keeps http). The host is kept: the cookie
 ///   was read for it.
 /// * To any other host it goes without `Cookie` and without the app's `X-Tsdmapp-*` headers.
+/// * A redirect dart:io would follow is followed here one hop at a time ([_fetchFollowing]): a hop to another host,
+///   or from https to http, goes without the session headers ([keepsSession]), as on Android.
 ///
 /// The entries that fetch with the session (attachments, images, audio) already ask for the canonical https url; this
 /// catches whatever still names `http`. The answer is held to the size the request takes, when it says one ([responseMaxBytesKey]). An adapter, not one more interceptor: each interceptor is one more turn of the
@@ -695,12 +699,100 @@ final class PlainTransportGuard implements HttpClientAdapter {
     Future<void>? cancelFuture,
   ) async {
     guard(options);
+    final body = options.followRedirects && _inner is IOHttpClientAdapter && options.headers.keys.any(_isSessionHeader)
+        ? await _fetchFollowing(options, requestStream, cancelFuture)
+        : await _inner.fetch(options, requestStream, cancelFuture);
     // Held to the size the request takes (an image), on every platform.
-    return limitResponseBody(options, await _inner.fetch(options, requestStream, cancelFuture));
+    return limitResponseBody(options, body);
   }
 
   @override
   void close({bool force = false}) => _inner.close(force: force);
+
+  /// The headers that carry the account or the app's credentials: the cookie, an `Authorization`, the app's
+  /// `X-Tsdmapp-*` (the device id, the admin token).
+  static bool _isSessionHeader(String key) {
+    final k = key.toLowerCase();
+    return k == 'cookie' || k == 'authorization' || k.startsWith('x-tsdmapp-');
+  }
+
+  /// Whether a hop to [hop] of a request asked for [origin] may carry the session headers: the same host, or the
+  /// forum's hosts both ([UriOriginExt.isForumHost], `www` or not), and not https turned into http. The rule of the
+  /// Kotlin client of Android (`HttpClient.keepsSession`), which also strips them between the forum's two hosts.
+  @visibleForTesting
+  static bool keepsSession(Uri origin, Uri hop) =>
+      (origin.host.toLowerCase() == hop.host.toLowerCase() || (origin.isForumHost && hop.isForumHost)) &&
+      (hop.scheme == 'https' || origin.scheme != 'https');
+
+  /// Fetch [options] following its redirects one hop at a time, the way dart:io follows them itself (a GET or HEAD
+  /// on 301, 302, 303, 307 and 308; a POST only on 303, read with a GET; at most [RequestOptions.maxRedirects] hops),
+  /// but a hop that [keepsSession] refuses, and every hop after it, goes without the session headers and the
+  /// `Set-Cookie` of its answer is dropped.
+  ///
+  /// dart:io copies every header to the next hop, `Cookie` and `Authorization` only to the same host (or a parent
+  /// domain of it) on the same scheme and port: the app's `X-Tsdmapp-*` went to any host a redirect named, in clear
+  /// text over http too. Nothing is sent twice: the body only goes with the first hop, a POST answered otherwise than
+  /// 303 is the answer, and a request that must not be repeated follows no redirect at all.
+  Future<ResponseBody> _fetchFollowing(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    final origin = options.uri;
+    final redirects = <RedirectRecord>[];
+    var hop = options.copyWith(followRedirects: false);
+    var stream = requestStream;
+    var keeps = true;
+    while (true) {
+      final body = await _inner.fetch(hop, stream, cancelFuture);
+      final status = body.statusCode;
+      final method = hop.method.toUpperCase();
+      final location = body.headers[HttpHeaders.locationHeader]?.firstOrNull;
+      final follows = switch (method) {
+        'GET' || 'HEAD' => const {301, 302, 303, 307, 308}.contains(status),
+        'POST' => status == HttpStatus.seeOther,
+        _ => false,
+      };
+      if (!keeps) {
+        body.headers.remove(HttpHeaders.setCookieHeader);
+      }
+      if (!follows || location == null) {
+        return ResponseBody(
+          body.stream,
+          status,
+          headers: body.headers,
+          statusMessage: body.statusMessage,
+          isRedirect: body.isRedirect || redirects.isNotEmpty,
+          redirects: redirects,
+        );
+      }
+      // The answer of a redirect is not read; its connection goes back to the client.
+      await body.stream.drain<void>();
+      final target = hop.uri.resolve(location);
+      final nextMethod = status == HttpStatus.seeOther && method == 'POST' ? 'GET' : method;
+      if (redirects.length >= options.maxRedirects) {
+        throw RedirectException('Redirect limit exceeded', [for (final r in redirects) _Redirect(r)]);
+      }
+      if (redirects.any((r) => r.location == target)) {
+        throw RedirectException('Redirect loop detected', [for (final r in redirects) _Redirect(r)]);
+      }
+      hop = hop.copyWith(path: '$target', method: nextMethod, queryParameters: <String, dynamic>{});
+      // No body goes with a later hop, as dart:io sends it (`contentLength = 0`): a length left here would have the
+      // server wait for a body that never comes.
+      hop.headers.removeWhere((key, _) {
+        final k = key.toLowerCase();
+        return k == HttpHeaders.contentLengthHeader || k == HttpHeaders.transferEncodingHeader;
+      });
+      stream = null;
+      // The forum over http goes over https here too: the session is judged on the url sent.
+      guard(hop);
+      keeps = keeps && keepsSession(origin, hop.uri);
+      if (!keeps) {
+        hop.headers.removeWhere((key, _) => _isSessionHeader(key));
+      }
+      redirects.add(RedirectRecord(status, nextMethod, hop.uri));
+    }
+  }
 
   /// Apply the rules to [options] in place.
   @visibleForTesting
@@ -724,6 +816,22 @@ final class PlainTransportGuard implements HttpClientAdapter {
       return k == 'cookie' || k.startsWith('x-tsdmapp-');
     });
   }
+}
+
+/// A hop of [RedirectException] ([PlainTransportGuard]), as dart:io names its hops.
+final class _Redirect implements RedirectInfo {
+  const _Redirect(this._record);
+
+  final RedirectRecord _record;
+
+  @override
+  int get statusCode => _record.statusCode;
+
+  @override
+  String get method => _record.method;
+
+  @override
+  Uri get location => _record.location;
 }
 
 /// Handle exceptions during web request.
