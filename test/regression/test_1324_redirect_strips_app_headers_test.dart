@@ -243,13 +243,38 @@ void main() {
     expect(seen, hasLength(3));
   });
 
+  test('the answer of a redirect that never ends is given up at the receive timeout', () async {
+    final (forum, seen) = await _serve((r, _) async {
+      r.response
+        ..statusCode = 302
+        ..headers.set(HttpHeaders.locationHeader, '/next')
+        ..contentLength = 1000
+        ..add(List.filled(10, 0x20));
+      await r.response.flush();
+      // The rest of the body never comes.
+    });
+
+    final watch = Stopwatch()..start();
+    final resp = await _client()
+        .get(
+          'https://localhost:${forum.port}/forum.php',
+          options: Options(headers: {..._session}, receiveTimeout: const Duration(milliseconds: 500)),
+        )
+        .run();
+
+    expect(resp.isLeft(), isTrue);
+    expect(watch.elapsed, lessThan(const Duration(seconds: 10)));
+    expect(seen, hasLength(1));
+  });
+
   test('which hop keeps the session: the same host or the forum, never https turned into http', () {
     bool keeps(String origin, String hop) => PlainTransportGuard.keepsSession(Uri.parse(origin), Uri.parse(hop));
 
     expect(keeps('https://www.tsdm39.com/forum.php', 'https://www.tsdm39.com/next'), isTrue);
     expect(keeps('https://www.tsdm39.com/forum.php', 'https://tsdm39.com/forum.php'), isTrue);
     expect(keeps('https://tsdm39.com/forum.php', 'https://WWW.TSDM39.COM/forum.php'), isTrue);
-    expect(keeps('https://localhost:1/a', 'https://localhost:2/b'), isTrue);
+    expect(keeps('https://localhost:1/a', 'https://localhost:1/b'), isTrue);
+    expect(keeps('https://localhost:1/a', 'https://localhost:2/b'), isFalse);
     expect(keeps('http://www.tsdm39.com/forum.php', 'https://www.tsdm39.com/forum.php'), isTrue);
     expect(keeps('https://www.tsdm39.com/forum.php', 'http://www.tsdm39.com/forum.php'), isFalse);
     expect(keeps('https://www.tsdm39.com/forum.php', 'http://tsdm39.com/forum.php'), isFalse);

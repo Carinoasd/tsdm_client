@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io' if (dart.libaray.js) 'package:web/web.dart';
 import 'dart:typed_data';
@@ -716,12 +717,13 @@ final class PlainTransportGuard implements HttpClientAdapter {
     return k == 'cookie' || k == 'authorization' || k.startsWith('x-tsdmapp-');
   }
 
-  /// Whether a hop to [hop] of a request asked for [origin] may carry the session headers: the same host, or the
+  /// Whether a hop to [hop] of a request asked for [origin] may carry the session headers: the same host and port, or the
   /// forum's hosts both ([UriOriginExt.isForumHost], `www` or not), and not https turned into http. The rule of the
   /// Kotlin client of Android (`HttpClient.keepsSession`), which also strips them between the forum's two hosts.
   @visibleForTesting
   static bool keepsSession(Uri origin, Uri hop) =>
-      (origin.host.toLowerCase() == hop.host.toLowerCase() || (origin.isForumHost && hop.isForumHost)) &&
+      ((origin.host.toLowerCase() == hop.host.toLowerCase() && origin.port == hop.port) ||
+          (origin.isForumHost && hop.isForumHost)) &&
       (hop.scheme == 'https' || origin.scheme != 'https');
 
   /// Fetch [options] following its redirects one hop at a time, the way dart:io follows them itself (a GET or HEAD
@@ -733,6 +735,8 @@ final class PlainTransportGuard implements HttpClientAdapter {
   /// domain of it) on the same scheme and port: the app's `X-Tsdmapp-*` went to any host a redirect named, in clear
   /// text over http too. Nothing is sent twice: the body only goes with the first hop, a POST answered otherwise than
   /// 303 is the answer, and a request that must not be repeated follows no redirect at all.
+  ///
+  /// The time limits of [options] hold for each hop, where dart:io held them for the whole chain.
   Future<ResponseBody> _fetchFollowing(
     RequestOptions options,
     Stream<Uint8List>? requestStream,
@@ -756,6 +760,12 @@ final class PlainTransportGuard implements HttpClientAdapter {
       if (!keeps) {
         body.headers.remove(HttpHeaders.setCookieHeader);
       }
+      if (follows && location == null) {
+        unawaited(body.stream.listen(null, onError: (_) {}, cancelOnError: true).cancel());
+        throw RedirectException('Server response has no Location header for redirect', [
+          for (final r in redirects) _Redirect(r),
+        ]);
+      }
       if (!follows || location == null) {
         return ResponseBody(
           body.stream,
@@ -766,15 +776,11 @@ final class PlainTransportGuard implements HttpClientAdapter {
           redirects: redirects,
         );
       }
-      // The answer of a redirect is not read; its connection goes back to the client.
-      await body.stream.drain<void>();
+      await _drain(body, hop, cancelFuture);
       final target = hop.uri.resolve(location);
       final nextMethod = status == HttpStatus.seeOther && method == 'POST' ? 'GET' : method;
       if (redirects.length >= options.maxRedirects) {
         throw RedirectException('Redirect limit exceeded', [for (final r in redirects) _Redirect(r)]);
-      }
-      if (redirects.any((r) => r.location == target)) {
-        throw RedirectException('Redirect loop detected', [for (final r in redirects) _Redirect(r)]);
       }
       hop = hop.copyWith(path: '$target', method: nextMethod, queryParameters: <String, dynamic>{});
       // No body goes with a later hop, as dart:io sends it (`contentLength = 0`): a length left here would have the
@@ -786,12 +792,49 @@ final class PlainTransportGuard implements HttpClientAdapter {
       stream = null;
       // The forum over http goes over https here too: the session is judged on the url sent.
       guard(hop);
+      if (redirects.any((r) => r.location == hop.uri)) {
+        throw RedirectException('Redirect loop detected', [for (final r in redirects) _Redirect(r)]);
+      }
       keeps = keeps && keepsSession(origin, hop.uri);
       if (!keeps) {
         hop.headers.removeWhere((key, _) => _isSessionHeader(key));
       }
       redirects.add(RedirectRecord(status, nextMethod, hop.uri));
     }
+  }
+
+  /// Read the answer of a redirect to its end, so its connection goes back to the client, within the receive timeout
+  /// of [options]; the rest of it is not read once the request is cancelled.
+  static Future<void> _drain(ResponseBody body, RequestOptions options, Future<void>? cancelFuture) {
+    final done = Completer<void>();
+    late final StreamSubscription<Uint8List> sub;
+    Timer? timer;
+    void finish([Object? error]) {
+      if (done.isCompleted) {
+        return;
+      }
+      timer?.cancel();
+      if (error == null) {
+        done.complete();
+      } else {
+        unawaited(sub.cancel());
+        done.completeError(error);
+      }
+    }
+
+    sub = body.stream.listen(null, onError: finish, onDone: finish, cancelOnError: true);
+    final timeout = options.receiveTimeout;
+    if (timeout != null && timeout > Duration.zero) {
+      timer = Timer(timeout, () => finish(DioException.receiveTimeout(timeout: timeout, requestOptions: options)));
+    }
+    if (cancelFuture != null) {
+      unawaited(
+        cancelFuture.whenComplete(
+          () => finish(DioException.requestCancelled(requestOptions: options, reason: 'cancelled')),
+        ),
+      );
+    }
+    return done.future;
   }
 
   /// Apply the rules to [options] in place.
