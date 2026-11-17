@@ -139,6 +139,10 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
   /// read.
   bool? _pinnedExpanded;
 
+  /// The pinned threads this page saved as seen last ([_notePinnedSeen]), null before: what the next list is told
+  /// apart from, the save may still be on its way.
+  Set<int>? _pinnedSeen;
+
   /// The setting folding the pinned threads above the thread list is on; off without the settings (widget tests of the
   /// page alone). [watch] rebuilds the caller when it changes, only in a build.
   bool _foldsPinned(BuildContext context, {bool watch = false}) {
@@ -191,8 +195,9 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
       return;
     }
     final open = _pinnedOpen();
+    final saved = savedPinnedFold(fid);
     final seen = pinnedFoldSeen(
-      savedPinnedFold(fid),
+      _pinnedSeen == null ? saved : PinnedFold(open: saved?.open ?? false, seen: _pinnedSeen),
       state.listStickThreadList.map((e) => int.tryParse(e.threadID)).nonNulls,
       filtered: state.filterState.isFiltering(),
     );
@@ -201,6 +206,7 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
       setState(() => _pinnedExpanded = true);
     }
     if (seen.save case final save?) {
+      _pinnedSeen = save.seen;
       unawaited(savePinnedFoldSeen(fid, save.seen));
     }
   }
