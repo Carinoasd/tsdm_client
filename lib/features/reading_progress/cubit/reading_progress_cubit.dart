@@ -6,6 +6,8 @@ import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/reading_progress/models/reading_progress.dart';
 import 'package:tsdm_client/features/reading_progress/repository/reading_progress_store.dart';
+import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
+import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/utils/logger.dart';
 
 /// The threads the current account read, with where it stopped reading them (by tid).
@@ -119,4 +121,16 @@ ReadingProgress? readingProgressOf(BuildContext context, String? tid) {
     return null;
   }
   return context.select<ReadingProgressCubit, ReadingProgress?>((cubit) => cubit.state.of(id));
+}
+
+/// Where the current account stopped reading thread [tid], for a thread list to mark it as read
+/// ([SettingsKeys.threadCardMarkVisited]): as [readingProgressOf], null as well while that setting is off.
+///
+/// Rebuilds the caller when the setting or the record of that thread changes. Reads the progress of the thread out of
+/// the records the [ReadingProgressCubit] holds in memory: a card asks nothing of the database.
+ReadingProgress? visitMarkOf(BuildContext context, String? tid) {
+  final mark =
+      context.readOrNull<SettingsBloc>() == null ||
+      context.select<SettingsBloc, bool>((bloc) => bloc.state.settingsMap.threadCardMarkVisited);
+  return mark ? readingProgressOf(context, tid) : null;
 }

@@ -6,10 +6,12 @@ import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/date_time.dart';
 import 'package:tsdm_client/features/read_later/cubit/read_later_cubit.dart';
+import 'package:tsdm_client/features/reading_progress/cubit/reading_progress_cubit.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/utils/show_dialog.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
+import 'package:tsdm_client/widgets/card/thread_card/thread_card.dart';
 import 'package:tsdm_client/widgets/indicator.dart';
 
 /// Page of the threads the current account put aside to read later.
@@ -68,9 +70,16 @@ class ReadLaterPage extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    item.title,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                  // A thread read before is dimmed, as in the thread lists; the item rebuilds on its own mark only.
+                  Builder(
+                    builder: (context) => Text(
+                      item.title,
+                      style: visitedTitleStyle(
+                        context,
+                        Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                        visited: visitMarkOf(context, '${item.tid}') != null,
+                      ),
+                    ),
                   ),
                   sizedBoxW8H8,
                   Wrap(

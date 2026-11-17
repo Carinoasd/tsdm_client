@@ -459,6 +459,7 @@
         "highlightRecentThread": "高亮显示近期发布的帖子",
         "highlightAuthorName": "高亮帖子作者的用户名",
         "highlightInfoRow": "高亮显示帖子信息",
+        "markVisited": "标出看过的帖子",
         "listPreview": {
           "title": "列表预览",
           "note": "摘要与缩略图由论坛提供；论坛尚未支持时，列表只显示标题。需要权限才能看的内容不会出现在预览里。",
