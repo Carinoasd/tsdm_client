@@ -403,10 +403,10 @@ packages:
     dependency: "direct main"
     description:
       name: dbus
-      sha256: d0c98dcd4f5169878b6cf8f6e0a52403a9dff371a3e2f019697accbf6f44a270
+      sha256: a48d5da28e89bd02196e80d81ed8d7954923d00a0f4a68cc20b575038f023383
       url: "https://pub.dev"
     source: hosted
-    version: "0.7.12"
+    version: "0.7.15"
   desktop_drop:
     dependency: "direct main"
     description:
@@ -2133,6 +2133,46 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.4.0"
+  system_hotkeys:
+    dependency: "direct main"
+    description:
+      name: system_hotkeys
+      sha256: "1b9e81cc28986f500ae2ddf10696825a70d45f964542d66a036fdcffc83e0d04"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.2.0"
+  system_hotkeys_linux:
+    dependency: "direct main"
+    description:
+      name: system_hotkeys_linux
+      sha256: "9503fd4e9a903573c9b4cd95f6e31ce36f49a97ca528d2109bf7be834a7ebc46"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.2.1"
+  system_hotkeys_macos:
+    dependency: transitive
+    description:
+      name: system_hotkeys_macos
+      sha256: "6fd6d2f9dc6c793bfa6dd4f42f72b89b3f6d279f98b5fe35b26d46605eff0253"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.2.0"
+  system_hotkeys_platform_interface:
+    dependency: transitive
+    description:
+      name: system_hotkeys_platform_interface
+      sha256: "495b003705658097120b55cd0f6c9e6b6bf41d3fb236058ca05983d1ff833610"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.2.0"
+  system_hotkeys_windows:
+    dependency: transitive
+    description:
+      name: system_hotkeys_windows
+      sha256: a85b8d79e961cbba1d1b8a18d5fdddc751cff1800d2a5d82bed2832f4d18400f
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.2.0"
   system_network_proxy:
     dependency: "direct main"
     description:

@@ -605,7 +605,15 @@
       "closeToTray": "关闭窗口时最小化到托盘",
       "closeToMenuBar": "关闭窗口时保留在菜单栏",
       "trayUnavailable": "此桌面环境没有托盘",
-      "trayFailed": "托盘图标无法显示"
+      "trayFailed": "托盘图标无法显示",
+      "bossKey": "老板键",
+      "bossKeyShortcut": "快捷键",
+      "bossKeyNeedsModifiers": "至少按住两个修饰键，其中一个是 Ctrl 或 $meta",
+      "bossKeyUnsupportedKey": "只能用字母、数字、F1–F12 或空格",
+      "bossKeyUsedInApp": "与应用内的快捷键冲突",
+      "bossKeyConflict": "这个快捷键已被其他程序占用",
+      "bossKeyDeclined": "系统没有允许这个快捷键",
+      "bossKeyUnavailable": "此桌面环境不支持全局快捷键"
     },
     "behaviorSection": {
       "title": "行为",

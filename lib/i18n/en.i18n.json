@@ -605,7 +605,15 @@
       "closeToTray": "Close to tray",
       "closeToMenuBar": "Keep in menu bar when closed",
       "trayUnavailable": "This desktop has no tray",
-      "trayFailed": "The tray icon could not be shown"
+      "trayFailed": "The tray icon could not be shown",
+      "bossKey": "Boss key",
+      "bossKeyShortcut": "Shortcut",
+      "bossKeyNeedsModifiers": "Hold two modifier keys or more, one of them Ctrl or $meta",
+      "bossKeyUnsupportedKey": "Use a letter, a digit, F1–F12 or Space",
+      "bossKeyUsedInApp": "Already a shortcut of the app",
+      "bossKeyConflict": "Another app already uses this shortcut",
+      "bossKeyDeclined": "The system did not allow this shortcut",
+      "bossKeyUnavailable": "This desktop does not support global shortcuts"
     },
     "behaviorSection": {
       "title": "Behavior",
