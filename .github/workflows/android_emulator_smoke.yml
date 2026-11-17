@@ -12,6 +12,7 @@ permissions:
 
 jobs:
   emulator:
+    # Pinned: on ubuntu-26.04 tray_manager's app_indicator_new is deprecated and -Werror fails the Linux build; bump once tray_manager stops using it.
     runs-on: ubuntu-24.04
     timeout-minutes: 65
     steps:

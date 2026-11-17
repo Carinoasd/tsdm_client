@@ -12,6 +12,7 @@ env:
 jobs:
   release:
     name: Create release
+    # Pinned: on ubuntu-26.04 tray_manager's app_indicator_new is deprecated and -Werror fails the Linux build; bump once tray_manager stops using it.
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -40,6 +41,7 @@ jobs:
   build-linux:
     name: Build Linux
     needs: [release]
+    # Pinned: on ubuntu-26.04 tray_manager's app_indicator_new is deprecated and -Werror fails the Linux build; bump once tray_manager stops using it.
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -93,6 +95,7 @@ jobs:
   build-android:
     name: Build Android
     needs: [release]
+    # Pinned: on ubuntu-26.04 tray_manager's app_indicator_new is deprecated and -Werror fails the Linux build; bump once tray_manager stops using it.
     runs-on: ubuntu-24.04
     permissions:
       contents: write

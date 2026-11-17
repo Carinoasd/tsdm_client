@@ -10,6 +10,7 @@ import 'package:tsdm_client/features/settings/repositories/settings_repository.d
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/utils/method_channel.dart';
 import 'package:tsdm_client/utils/platform.dart';
+import 'package:tsdm_client/utils/zone_identifier.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 /// The name of the folder of the downloads in the app's own directory (Android, iOS).
@@ -266,6 +267,7 @@ Future<String?> saveDownloadedFileAs(String path, String name) async {
       return null;
     }
     await file.copy(target);
+    await markDownloadedFromInternet(target);
     return target;
   }
   // Android and iOS write the bytes themselves (the storage access framework, the files app).

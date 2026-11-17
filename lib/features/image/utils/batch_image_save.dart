@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as path;
 import 'package:tsdm_client/features/image/models/gallery_image.dart';
 import 'package:tsdm_client/utils/image_file_name.dart';
+import 'package:tsdm_client/utils/zone_identifier.dart';
 
 /// Fetches the bytes of the image at a url: from the cache, downloaded when not cached. Null when it can not be had.
 typedef ImageFetcher = Future<Uint8List?> Function(String url);
@@ -168,6 +169,7 @@ final class FolderImageSink implements ImageSaveSink {
       throw FileSystemException('refuse to write an image outside its folder', fileName);
     }
     await File(target).writeAsBytes(data, flush: true);
+    await markDownloadedFromInternet(target);
     savedPaths.add(target);
   }
 }
