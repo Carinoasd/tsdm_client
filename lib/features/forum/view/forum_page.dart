@@ -822,10 +822,11 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
     } else {
       return TabBarView(
         controller: tabController,
+        // Kept while another tab shows: a tab switched away from keeps where it was scrolled to (GitHub #458).
         children: [
-          _buildStickThreadTab(context, state),
-          _buildNormalThreadTab(context, state.normalThreadList, state),
-          _buildSubredditTab(context, state.subredditList),
+          _KeepAliveTab(child: _buildStickThreadTab(context, state)),
+          _KeepAliveTab(child: _buildNormalThreadTab(context, state.normalThreadList, state)),
+          _KeepAliveTab(child: _buildSubredditTab(context, state.subredditList)),
         ],
       );
     }
@@ -966,6 +967,19 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
     );
   }
 
+  /// Scroll the tabs not shown to their top.
+  void _hiddenTabsToTop() {
+    for (final (index, controller) in [
+      (_pinnedTabIndex, _pinnedScrollController),
+      (_threadTabIndex, _threadScrollController),
+      (_subredditTabIndex, _subredditScrollController),
+    ]) {
+      if (index != tabController.index && controller.hasClients) {
+        controller.jumpTo(0);
+      }
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -1096,6 +1110,11 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
               _stopPicking();
             },
           ),
+          // A refresh replaced the lists: the tabs not shown open at their top, as they did before they were kept.
+          BlocListener<ForumBloc, ForumState>(
+            listenWhen: (prev, curr) => prev.refreshing && !curr.refreshing && curr.failure == null,
+            listener: (context, state) => _hiddenTabsToTop(),
+          ),
           // The pinned threads above the list changed (loaded, another filter, another page): folded, one not seen
           // before expands them this time.
           BlocListener<ForumBloc, ForumState>(
@@ -1196,6 +1215,27 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
         ),
       ),
     );
+  }
+}
+
+/// A tab of the forum page kept while another tab shows, with where it was scrolled to.
+class _KeepAliveTab extends StatefulWidget {
+  const _KeepAliveTab({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_KeepAliveTab> createState() => _KeepAliveTabState();
+}
+
+class _KeepAliveTabState extends State<_KeepAliveTab> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
   }
 }
 
