@@ -94,8 +94,8 @@ final class ImeCompositionGuard {
     _reopenScheduled = true;
     // Not at once where it is up to the guard (a drag, a key, a button): the editor's per-frame updates of the old
     // connection stop at the frame in between, and whatever the input method still sends for its cancel finds no
-    // client, so it cannot touch the new selection. After a tap the editor has opened it again by then, with a
-    // collapsed selection; opening is a no-op then.
+    // client, so it cannot touch the new selection. After a tap the editor has opened it again by then (with a
+    // collapsed selection, or an extended one for a shift click), and it is left as it is.
     SchedulerBinding.instance
       ..addPostFrameCallback((_) {
         _reopenScheduled = false;
