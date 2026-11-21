@@ -16,17 +16,14 @@
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/Carinoasd/tsdm_client" alt="license"/></a>
 </p>
 
-## 最新更新：1.59.0（2026-11-17）
+## 最新更新：1.60.0（2026-11-21）
 
-- Android：版塊頁與帖子頁的選單可「添加到桌面」，點桌面圖示直接打開；更換 App 圖示後，桌面上的捷徑不再消失。
-- 帖子樓層選單新增「作者的其他主題」，列表可用「本版」切換只看本版或全部。
-- 新設定「摺疊置頂帖」：版塊列表上方的置頂帖收成一行，點一下展開。
-- 電腦版新增「老闆鍵」：全域快捷鍵隱藏與恢復視窗（預設 Ctrl+Alt+H）。
-- 列表裡看過的帖子在有新回覆時標題恢復正常並顯示 +N，可在設定裡關閉。
-- Windows 下載的附件帶上「來自網際網路」標記；iOS 與電腦版轉址到其他主機時不再帶上 App 專用請求標頭。
-- Android 構建編號為 175，可直接覆蓋之前的正式版與測試版。
+- Windows：輸入法組字尚未確認時選取文字，再按 Ctrl+C 或 Delete，文字不會再重複一份。
+- 版塊頁在「帖子」「置頂」「子版塊」之間切換後，帖子列表保留原來的位置。
+- 升級 Flutter 至 3.41.9，包含圖片解碼的安全修正。
+- Android 構建編號為 176，可直接覆蓋之前的正式版與測試版。
 
-[下載 1.59.0](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.59.0) · [完整更新日誌](./CHANGELOG.md)
+[下載 1.60.0](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.60.0) · [完整更新日誌](./CHANGELOG.md)
 
 ## 這是什麼
 

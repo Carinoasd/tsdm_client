@@ -16,17 +16,14 @@
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/Carinoasd/tsdm_client" alt="license"/></a>
 </p>
 
-## Latest update: 1.59.0 (2026-11-17)
+## Latest update: 1.60.0 (2026-11-21)
 
-- Android: "Add to home screen" in the menu of a forum or a thread opens it straight from the launcher; shortcuts on the home screen no longer vanish when the app icon is changed.
-- "Other threads of the author" in the floor menu, with a switch between this forum and all forums.
-- New setting "Collapse pinned threads": the pinned threads above a forum list fold into one row.
-- Desktop: a boss key, a global shortcut that hides and restores the window (Ctrl+Alt+H by default).
-- Threads already read go back to the normal title and show +N when they get new replies; the marking can be turned off in settings.
-- Windows: downloaded attachments carry the "from the internet" mark; on iOS and desktop, redirects to another host no longer carry the app's own request headers.
-- The Android build number is 175 and installs over earlier releases and test builds.
+- Windows: selecting text while an IME composition is still pending and then pressing Ctrl+C or Delete no longer duplicates the text.
+- The thread list of a forum keeps its position when switching between the threads, pinned and subforum tabs.
+- Flutter is upgraded to 3.41.9, which includes a security fix in image decoding.
+- The Android build number is 176 and installs over earlier releases and test builds.
 
-[Download 1.59.0](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.59.0) · [Full changelog](./CHANGELOG.md)
+[Download 1.60.0](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.60.0) · [Full changelog](./CHANGELOG.md)
 
 ## What it is
 
