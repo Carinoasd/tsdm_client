@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [1.60.0] - 2026-11-21
+
+### Changed
+
+- 升级 Flutter 至 3.41.9，包含图片解码的安全修正。
+
+### Fixed
+
+- Windows：输入法组字尚未确认时用鼠标选取文字，再按 Ctrl+C 或 Delete，文字不会再重复一份（回复框、私信、发帖与编辑页、签名编辑均适用）。
+- 版块页在「帖子」标签往下滑后切到「置顶」或「子版块」再切回来，帖子列表不再回到顶部。
+
 ## [1.59.0] - 2026-11-17
 
 ### Added
