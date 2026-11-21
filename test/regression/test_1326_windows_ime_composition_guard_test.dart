@@ -8,7 +8,8 @@
 ///    leave the connection alone; a selection over the composing text closes it at once and opens it again after
 ///    the frame with the selection and no composing range, the text stays; typing goes on afterwards;
 /// 2. Windows, composing: a caret put elsewhere (inside the composing text as well) and text inserted by a button
-///    close it too; without focus it does not open again;
+///    close it too; without focus it does not open again; with the mouse, a click has flutter_quill open it again
+///    within its tap (closed first), a drag opens it after the frame;
 /// 3. Windows, not composing (confirmed): a selection does nothing;
 /// 4. the other platforms: nothing, composing or not.
 ///
@@ -20,6 +21,7 @@ library;
 
 import 'package:dio/dio.dart';
 import 'package:drift/native.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bbcode_editor/flutter_bbcode_editor.dart';
@@ -226,6 +228,67 @@ void main() {
       expect(states(tester).last['selectionBase'], 1);
       expect(controller.document.toPlainText(), '你好ab你好\n');
 
+      await tester.pumpWidget(const SizedBox());
+    }, variant: _windows);
+
+    testWidgets('the mouse: a click reopens within the tap of the editor, a drag after the frame', (tester) async {
+      final controller = await pumpEditor(tester);
+      tester.testTextInput.updateEditingValue(_ime('ab', caret: 2));
+      await tester.pump();
+      tester.testTextInput.updateEditingValue(_ime('ab你好', caret: 4, composing: const TextRange(start: 2, end: 4)));
+      await tester.pump();
+      tester.testTextInput.log.clear();
+      final editor = tester.getRect(find.byType(BBCodeEditor));
+      final lineStart = editor.topLeft + const Offset(2, 12);
+
+      // A click at the start of the line: the selection closes the connection, and flutter_quill asks for the
+      // keyboard at the end of its tap, which opens it again before the frame.
+      await tester.tapAt(lineStart, kind: PointerDeviceKind.mouse);
+      expect(controller.selection, const TextSelection.collapsed(offset: 0));
+      final afterTap = calls(tester);
+      expect(afterTap.where((e) => e == 'TextInput.clearClient'), hasLength(1));
+      expect(afterTap.where((e) => e == 'TextInput.setClient'), hasLength(1));
+      expect(
+        afterTap.indexOf('TextInput.clearClient'),
+        lessThan(afterTap.indexOf('TextInput.setClient')),
+        reason: 'closed first, then opened',
+      );
+      expect(states(tester).last['selectionBase'], 0);
+      expect(states(tester).last['composingBase'], -1);
+      await tester.pump();
+      await tester.pump();
+      expect(count(tester, 'TextInput.clearClient'), 1);
+      expect(count(tester, 'TextInput.setClient'), 1, reason: 'the frame does not open a second one');
+      expect(controller.document.toPlainText(), 'ab你好\n');
+      // The double click of the next tap is not wanted.
+      await tester.pump(kDoubleTapTimeout);
+
+      // Composing again at the start, then a drag over the line.
+      tester.testTextInput.log.clear();
+      tester.testTextInput.updateEditingValue(_ime('你好ab你好', caret: 2, composing: const TextRange(start: 0, end: 2)));
+      await tester.pump();
+      final gesture = await tester.startGesture(lineStart, kind: PointerDeviceKind.mouse);
+      await gesture.moveBy(const Offset(20, 0));
+      // The start of the drag puts the caret there, out of the composing text.
+      expect(controller.selection, const TextSelection.collapsed(offset: 0));
+      expect(count(tester, 'TextInput.clearClient'), 1);
+      expect(calls(tester), isNot(contains('TextInput.setClient')), reason: 'not opened before the frame');
+      await tester.pump();
+      expect(count(tester, 'TextInput.setClient'), 1);
+      await gesture.moveBy(const Offset(20, 0));
+      // flutter_quill throttles the updates of a drag.
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(controller.selection.isCollapsed, isFalse, reason: 'the drag selects');
+      expect(states(tester).last['selectionBase'], controller.selection.baseOffset);
+      expect(states(tester).last['selectionExtent'], controller.selection.extentOffset);
+      expect(states(tester).last['composingBase'], -1);
+      await gesture.up();
+      await tester.pump();
+      expect(count(tester, 'TextInput.clearClient'), 1);
+      expect(count(tester, 'TextInput.setClient'), 1);
+      expect(controller.document.toPlainText(), '你好ab你好\n');
+
+      await tester.pump(kDoubleTapTimeout);
       await tester.pumpWidget(const SizedBox());
     }, variant: _windows);
 

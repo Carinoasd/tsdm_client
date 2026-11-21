@@ -13,8 +13,9 @@ import 'package:flutter_quill/flutter_quill.dart' show QuillRawEditorState;
 /// method takes makes it send the whole string again, and the editor inserts it as new text: the text is there twice.
 ///
 /// The engine only tells the input method to drop its composition when the input connection closes. So that is what
-/// happens here: the connection is closed at once and opened again after the frame. The composed text stays in the
-/// document as typed, like on a loss of focus.
+/// happens here: the connection is closed at once and opened again after the frame, unless the editor opens it by
+/// itself before that (a tap asks for the keyboard when it is done). The composed text stays in the document as
+/// typed, like on a loss of focus.
 ///
 /// Watches the controller. The input method's own updates reach the controller as well; they are told apart by the
 /// editor's record of what the input method knows, which then already agrees with the controller.
@@ -91,15 +92,20 @@ final class ImeCompositionGuard {
       return;
     }
     _reopenScheduled = true;
-    // Not at once: the editor's per-frame updates of the old connection stop at the frame in between, and the input
-    // method gets the time to finish its cancel before there is a client to hear of it.
+    // Not at once where it is up to the guard (a drag, a key, a button): the editor's per-frame updates of the old
+    // connection stop at the frame in between, and whatever the input method still sends for its cancel finds no
+    // client, so it cannot touch the new selection. After a tap the editor has opened it again by then, with a
+    // collapsed selection; opening is a no-op then.
     SchedulerBinding.instance
       ..addPostFrameCallback((_) {
         _reopenScheduled = false;
         if (!_attached || !focusNode.hasFocus) {
           return;
         }
-        _editorState?.openConnectionIfNeeded();
+        final state = _editorState;
+        if (state != null && !state.hasConnection) {
+          state.openConnectionIfNeeded();
+        }
       })
       ..ensureVisualUpdate();
   }
