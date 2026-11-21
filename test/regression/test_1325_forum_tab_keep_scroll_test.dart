@@ -329,11 +329,14 @@ void main() {
     await tester.pump();
 
     await openTab(tester, '置顶');
+    shownListView(tester).jumpTo(500);
+    await tester.pump();
     forum.failing = true;
     forumBloc(tester).add(ForumRefreshRequested());
     await pumpFrames(tester);
     expect(forum.asked, hasLength(2), reason: 'refreshed');
     expect(forumBloc(tester).state.failure, isNotNull);
+    expect(shownListView(tester).offset, 500);
 
     await openTab(tester, '帖子');
     expect(threadList(tester).offset, _scrolled);
