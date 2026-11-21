@@ -6,7 +6,7 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:fpdart/fpdart.dart' show right;
+import 'package:fpdart/fpdart.dart' show left, right;
 import 'package:go_router/go_router.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
@@ -117,12 +117,18 @@ Map<String, dynamic> _answer() => {
 final class _Forum implements ForumRepository {
   final asked = <(int, FilterState)>[];
 
+  /// The next answers fail.
+  bool failing = false;
+
   @override
   AsyncEither<ForumPageData> fetchForum({required String fid, required FilterState filterState, int pageNumber = 1}) {
     asked.add((pageNumber, filterState));
     // Answered a moment later, as over the network: the page shows its loading state meanwhile.
     return AsyncEither(() async {
       await Future<void>.delayed(const Duration(milliseconds: 50));
+      if (failing) {
+        return left(HttpRequestFailedException(500));
+      }
       return right(forumPageFromApi(_answer(), fid));
     });
   }
@@ -315,6 +321,22 @@ void main() {
 
     await openTab(tester, '帖子');
     expect(threadList(tester).offset, 0);
+  });
+
+  testWidgets('a refresh that failed leaves every tab where it was: the lists were not replaced', (tester) async {
+    await pumpPage(tester);
+    threadList(tester).jumpTo(_scrolled);
+    await tester.pump();
+
+    await openTab(tester, '置顶');
+    forum.failing = true;
+    forumBloc(tester).add(ForumRefreshRequested());
+    await pumpFrames(tester);
+    expect(forum.asked, hasLength(2), reason: 'refreshed');
+    expect(forumBloc(tester).state.failure, isNotNull);
+
+    await openTab(tester, '帖子');
+    expect(threadList(tester).offset, _scrolled);
   });
 
   testWidgets('another filter opens every tab at its top', (tester) async {

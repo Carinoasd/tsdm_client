@@ -1112,7 +1112,8 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
           ),
           // A refresh replaced the lists: the tabs not shown open at their top, as they did before they were kept.
           BlocListener<ForumBloc, ForumState>(
-            listenWhen: (prev, curr) => prev.refreshing && !curr.refreshing && curr.failure == null,
+            listenWhen: (prev, curr) =>
+                prev.refreshing && !curr.refreshing && curr.failure == null && curr.status == ForumStatus.success,
             listener: (context, state) => _hiddenTabsToTop(),
           ),
           // The pinned threads above the list changed (loaded, another filter, another page): folded, one not seen
