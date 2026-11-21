@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
-  CI_FLUTTER_VERSION: "3.41.5"
+  CI_FLUTTER_VERSION: "3.41.9"
   # Number of reports the aggregate job expects; a shard job fails when the matrix has a different size.
   CI_TEST_SHARDS: "4"
 
