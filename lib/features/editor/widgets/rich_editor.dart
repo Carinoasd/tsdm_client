@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bbcode_editor/flutter_bbcode_editor.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
+import 'package:tsdm_client/features/editor/utils/ime_composition_guard.dart';
 import 'package:tsdm_client/features/editor/utils/mention_suggester.dart';
 import 'package:tsdm_client/features/editor/utils/mention_suggestions.dart';
 import 'package:tsdm_client/features/editor/utils/mention_trigger.dart';
@@ -81,6 +82,7 @@ class RichEditor extends StatefulWidget {
 }
 
 class _RichEditorState extends State<RichEditor> {
+  ImeCompositionGuard? _imeGuard;
   MentionTrigger? _trigger;
   MentionSuggester? _suggester;
 
@@ -102,6 +104,7 @@ class _RichEditorState extends State<RichEditor> {
   @override
   void initState() {
     super.initState();
+    _attachImeGuard();
     _attachTrigger();
     _suggestionPortal.show();
   }
@@ -119,15 +122,35 @@ class _RichEditorState extends State<RichEditor> {
   void didUpdateWidget(RichEditor oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.controller != widget.controller || oldWidget.editorFocusNode != widget.editorFocusNode) {
+      final guard = _imeGuard;
+      final focusNode = widget.editorFocusNode;
+      if (oldWidget.controller == widget.controller && guard != null && focusNode != null) {
+        // Same controller: the guard keeps its place ahead of the editor's own listener.
+        guard.focusNode = focusNode;
+      } else {
+        _attachImeGuard();
+      }
       _attachTrigger();
     }
   }
 
   @override
   void dispose() {
+    _imeGuard?.dispose();
     _trigger?.dispose();
     _suggester?.dispose();
     super.dispose();
+  }
+
+  /// Here, before the editor is built on the controller, so the guard hears of a change first.
+  void _attachImeGuard() {
+    _imeGuard?.dispose();
+    _imeGuard = null;
+    final focusNode = widget.editorFocusNode;
+    if (widget.controller.readOnly || focusNode == null) {
+      return;
+    }
+    _imeGuard = ImeCompositionGuard(controller: widget.controller, focusNode: focusNode)..attach();
   }
 
   void _attachTrigger() {
