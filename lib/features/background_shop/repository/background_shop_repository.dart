@@ -8,6 +8,12 @@ import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:tsdm_client/features/tsdmapp/v4.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
 
+/// A write got no answer at all (a timeout, no network): the forum may still be carrying it out.
+final class BackgroundShopNoAnswer implements Exception {
+  /// Constructor.
+  const BackgroundShopNoAnswer();
+}
+
 /// The forum asked to log in: the session of the account ended.
 final class BackgroundShopLoginRequired implements Exception {
   /// Constructor.
@@ -36,12 +42,12 @@ class BackgroundShopRepository {
     ask: (action, query) => TsdmAppApi.askWaiting(client, action, query),
     post: (url, data) async => switch (await postTsdmAppV4(client, url, data).run()) {
       Right(:final value) => value,
-      // The forum's HTTP 503 page of a stale form hash, a timeout: nothing is known, the page is read again.
-      Left() => null,
+      // The forum's HTTP 503 page of a stale form hash is an answer (not JSON); a timeout is none.
+      Left() => throw const BackgroundShopNoAnswer(),
     },
     get: (url) async => switch (await getTsdmAppV4Write(client, url).run()) {
       Right(:final value) => value,
-      Left() => null,
+      Left() => throw const BackgroundShopNoAnswer(),
     },
     // The page of a background plugin switched off is not JSON either: what `status` says is asked again (the "me"
     // tab's entry follows it).
@@ -54,13 +60,15 @@ class BackgroundShopRepository {
   /// Ask an action of the app API with the query given; null when it can not answer.
   final Future<Map<String, dynamic>?> Function(String action, Map<String, String> query) ask;
 
-  /// POST a form once with `tsdmapp=json&tsdmv=4`; the answer as it came, null for none.
+  /// POST a form once with `tsdmapp=json&tsdmv=4`; the answer as it came; [BackgroundShopNoAnswer] for none.
   final Future<Object?> Function(String url, Map<String, String> data) post;
 
-  /// Send a GET that writes once with `tsdmapp=json&tsdmv=4`; the answer as it came, null for none.
+  /// Send a GET that writes once with `tsdmapp=json&tsdmv=4`; the answer as it came; [BackgroundShopNoAnswer] for
+  /// none.
   final Future<Object?> Function(String url) get;
 
-  /// Told when a write was answered with something that is not a write result ([BackgroundShopUnknown]).
+  /// Told when a write was answered with something that is not a write result ([BackgroundShopUnknown]); not for a
+  /// write without an answer ([BackgroundShopNoAnswer]), which tells nothing of the plugin.
   final void Function()? onUnknown;
 
   final int Function() _currentUid;

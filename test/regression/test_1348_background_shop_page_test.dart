@@ -9,6 +9,7 @@
 ///   and, done, shows the storeroom.
 library;
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -83,7 +84,8 @@ void main() {
     },
     post: (url, data) async {
       posted.add((url, data));
-      return reply();
+      final r = reply();
+      return r is Future<Object?> ? await r : r;
     },
     get: (url) async {
       got.add(url);
@@ -229,7 +231,7 @@ void main() {
     await tab(tester, 'store');
     reply = () {
       store = () => {..._fixture('bg_store_v75'), 'backgrounds': <Object>[]};
-      throw const SocketException('timed out');
+      throw const BackgroundShopNoAnswer();
     };
     await buySecond(tester);
     expect(posted.length, 1);
@@ -240,6 +242,30 @@ void main() {
     expect(asked, contains('bgstore'));
     expect(posted.length, 1, reason: 'never sent again');
     await clearSnackBar(tester);
+  });
+
+  testWidgets('no answer and nothing changed: still not known, not "not done"', (tester) async {
+    await pump(tester);
+    await tab(tester, 'store');
+    reply = () => throw const BackgroundShopNoAnswer();
+    await buySecond(tester);
+    expect(posted.length, 1);
+    expect(find.text(tr.backgroundShop.unknown), findsOneWidget);
+    expect(find.text(tr.backgroundShop.notDone), findsNothing);
+    await clearSnackBar(tester);
+  });
+
+  testWidgets('leaving the page while a write is on its way', (tester) async {
+    await pump(tester);
+    final pending = Completer<Object?>();
+    reply = () => pending.future;
+    await tester.tap(find.byKey(const ValueKey('bgshop-content-save')));
+    await tester.pump();
+    await tester.pumpWidget(const SizedBox());
+    pending.complete(_result('bgshop_style_saved', ok: 1));
+    await tester.pumpAndSettle();
+    expect(posted.length, 1);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('a known failure shows the forum words', (tester) async {

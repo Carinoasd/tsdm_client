@@ -277,6 +277,15 @@ void main() {
         expect(posted.length, 1, reason: 'never sent again');
         expect(unknowns, 1);
       }
+      // No answer at all tells nothing of the plugin: `status` is not asked for it either.
+      posted.clear();
+      unknowns = 0;
+      reply = () => throw const BackgroundShopNoAnswer();
+      await expectLater(
+        repo().buy(31, store.buy!, item, BackgroundPosition.sidebar, item.offers.first, 1),
+        throwsA(isA<BackgroundShopNoAnswer>()),
+      );
+      expect((posted.length, unknowns), (1, 0));
       // `bgshop_unknown` is an answer of the plugin: `status` is not asked for it.
       posted.clear();
       unknowns = 0;

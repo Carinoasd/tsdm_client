@@ -93,6 +93,9 @@ void main() {
         'plugin.php?id=background:memcp&ac=my&p=0&uid=1',
         'forum.php?id=background:memcp&ac=my',
         '//evil.test/plugin.php?id=background:memcp&ac=my',
+        'mailto:x',
+        'javascript:alert(1)',
+        'https://user@www.tsdm39.com/plugin.php?id=background:memcp&ac=my&p=0',
       ]) {
         final json = _fixture('bg_mine_v74');
         (((json['backgrounds'] as Map)['content'] as Map)['form'] as Map)['url'] = url;
@@ -173,6 +176,8 @@ void main() {
         (b) => b['query'] = {'bgid': 'id', 'position': 'p'},
         (b) => b['query'] = {'bgid': 'bgid', 'position': 'bgid'},
         (b) => b['plan_field'] = 'plan[]',
+        (b) => b['months_field'] = b['plan_field'],
+        (b) => b['url'] = 'data:text/plain,x',
         (b) => b['method'] = 'GET',
       ]) {
         final json = _fixture('bg_store_v75');

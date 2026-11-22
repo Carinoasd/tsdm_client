@@ -26,6 +26,8 @@ Uri? _formUri(String raw, {required String plugin, Set<String> acs = const {}, S
   final uri = Uri.parse('$baseUrl/').resolveUri(relative);
   final query = uri.queryParameters;
   final ac = query['ac'];
+  // `origin` throws for a scheme other than http(s).
+  if (!{'http', 'https'}.contains(uri.scheme) || uri.userInfo.isNotEmpty) return null;
   if (uri.origin != Uri.parse(baseUrl).origin ||
       uri.path != '/plugin.php' ||
       uri.fragment.isNotEmpty ||
@@ -107,6 +109,9 @@ abstract final class BackgroundStyleFields {
   /// Stretched to the width (`1`), only sent when checked.
   static const stretch = 'background_size';
 
+  /// The value of [stretch] when checked, the only one the plugin takes.
+  static const stretchOn = '1';
+
   /// The fields sent every time, in that order: one left out is set to the plugin's default.
   static const List<String> always = [display, repeat, alignX, alignY];
 }
@@ -146,7 +151,8 @@ final class BackgroundStyleForm {
   Map<String, String> body(Map<String, String> values) => {
     ...fields,
     for (final name in BackgroundStyleFields.always) name: values[name] ?? this.values[name] ?? '',
-    if (values[BackgroundStyleFields.stretch] == '1') BackgroundStyleFields.stretch: '1',
+    if (values[BackgroundStyleFields.stretch] == BackgroundStyleFields.stretchOn)
+      BackgroundStyleFields.stretch: BackgroundStyleFields.stretchOn,
   };
 }
 
@@ -399,7 +405,7 @@ final class BackgroundBuyForm {
     if (uri == null ||
         fields == null ||
         !_names([idParam, positionParam, planField, monthsField]) ||
-        {'id', 'ac', idParam}.length != 3 ||
+        planField == monthsField ||
         {'id', 'ac', idParam, positionParam}.length != 4 ||
         !_fieldValue.hasMatch(content) ||
         !_fieldValue.hasMatch(sidebar) ||
@@ -960,7 +966,8 @@ bool? backgroundStyleSaved(BackgroundInUse? after, Map<String, String> sent) {
   for (final name in BackgroundStyleFields.always) {
     if ((values[name] ?? '') != (sent[name] ?? '')) return false;
   }
-  return (values[BackgroundStyleFields.stretch] == '1') == (sent[BackgroundStyleFields.stretch] == '1');
+  return (values[BackgroundStyleFields.stretch] == BackgroundStyleFields.stretchOn) ==
+      (sent[BackgroundStyleFields.stretch] == BackgroundStyleFields.stretchOn);
 }
 
 /// Whether the purchase of [before] (as shown, with [balanceBefore] of the credit paid with) with [offer]
