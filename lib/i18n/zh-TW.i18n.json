@@ -286,7 +286,11 @@
       "visitors": "最近訪客",
       "siteStats": "站點統計",
       "followFeed": "動態",
-      "doings": "記錄"
+      "doings": "記錄",
+      "gameCenter": "遊戲中心",
+      "court": "天使裁判所",
+      "cpSystem": "CP 系統",
+      "partTimeJob": "打工"
     }
   },
   "home": {

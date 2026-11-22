@@ -85,6 +85,10 @@ import 'package:universal_html/parsing.dart';
 /// told it ([ensureStatus], `v4.dart`). `notify` also reads the unread notices page by page (`limit`, `before`,
 /// `notify_paging: 1`): the notification fetch reads every page before it marks them read (GitHub #156).
 ///
+/// Plugin 4.1.0 adds to `status` whether some other plugins of the forum are switched on (`site_plugins`, each 0 or
+/// 1): the "me" tab hides the entry of one the forum switched off ([sitePluginOff]). Nothing is asked for it; an
+/// older plugin's `status` leaves it out and every entry stays.
+///
 /// The actions of a plugin older than [tsdmAppMinimumVersion] (3.5.0, the version the forum ran the longest) are not
 /// used: a `status` or `notify` answer naming such a version (or a `notify` naming none, before 1.9.0) is dropped and
 /// the API treated as missing for [unavailableFor] ([knownTooOld]), so every caller takes its web page path. Only
@@ -181,6 +185,7 @@ abstract final class TsdmAppApi {
       preview: known.preview,
       device: known.device,
       admin: known.admin,
+      sitePluginsOff: known.sitePluginsOff,
     );
   }
 
@@ -253,6 +258,11 @@ abstract final class TsdmAppApi {
   /// account may use them: that is `action=admin`'s answer.
   static bool? get knowsAdmin => pluginInfo.value?.admin;
 
+  /// Whether the last `status` said the forum's plugin [id] (`gamecenter`, `tsdm_court`, `tsdmcp`, `np_cliworkdz`) is
+  /// switched off (`site_plugins.<id>: 0`, plugin 4.1.0). False when it does not say so: an older plugin, no `status`
+  /// asked yet, the id left out or any other value.
+  static bool sitePluginOff(String id) => pluginInfo.value?.sitePluginsOff?.contains(id) ?? false;
+
   /// Keep what an answer [json] of an action tells about the plugin ([pluginInfo]): an answer without a `version`
   /// (an older action's, or a message such as `login`) tells nothing and changes nothing. Only `status` names
   /// `nodoc` and `preview`, and not every answer names `api`: what is known of the version holds through the answers
@@ -273,6 +283,7 @@ abstract final class TsdmAppApi {
         device: info.device ?? known.device,
         admin: info.admin ?? known.admin,
         v4: info.v4 ?? known.v4,
+        sitePluginsOff: info.sitePluginsOff ?? known.sitePluginsOff,
       );
     }
     if (info != known) {
@@ -568,6 +579,7 @@ final class TsdmAppPluginInfo {
     this.device,
     this.admin,
     this.v4,
+    this.sitePluginsOff,
   });
 
   /// The info of an action answer [json], null when it names no `version` (or `plugin_version`, which comes first).
@@ -602,6 +614,14 @@ final class TsdmAppPluginInfo {
       // `status` of 4.0.0 names what it answers with `tsdmv=4`; a `status` without `v4` is a plugin that answers none
       // of it (an empty [TsdmAppV4Flags]); another action tells nothing.
       v4: json['actions'] is List ? TsdmAppV4Flags.fromStatus(json) : null,
+      // `status` of 4.1.0 names each of the forum's plugins it tells about, 0 for one switched off.
+      sitePluginsOff: switch (json['site_plugins']) {
+        final Map<dynamic, dynamic> plugins => {
+          for (final MapEntry(:key, :value) in plugins.entries)
+            if (key is String && (value == 0 || value == '0')) key,
+        },
+        _ => null,
+      },
     );
   }
 
@@ -632,6 +652,10 @@ final class TsdmAppPluginInfo {
   /// action's answer, or none asked yet: [TsdmAppApi.ensureStatus]).
   final TsdmAppV4Flags? v4;
 
+  /// The forum's plugins the last `status` said are switched off (`site_plugins`, plugin 4.1.0: the ids whose value is
+  /// 0), null when the answer does not tell (an older plugin's `status`, another action).
+  final Set<String>? sitePluginsOff;
+
   /// Whether [version] is older than [expectedTsdmAppVersion]: some pages are then parsed from the web page.
   bool get olderThanExpected => compareTsdmAppVersions(version, expectedTsdmAppVersion) < 0;
 
@@ -648,15 +672,25 @@ final class TsdmAppPluginInfo {
       other.preview == preview &&
       other.device == device &&
       other.admin == admin &&
-      other.v4 == v4;
+      other.v4 == v4 &&
+      setEquals(other.sitePluginsOff, sitePluginsOff);
 
   @override
-  int get hashCode => Object.hash(version, api, nodoc, preview, device, admin, v4);
+  int get hashCode => Object.hash(
+    version,
+    api,
+    nodoc,
+    preview,
+    device,
+    admin,
+    v4,
+    sitePluginsOff == null ? null : Object.hashAllUnordered(sitePluginsOff!),
+  );
 
   @override
   String toString() =>
       'TsdmAppPluginInfo(version: $version, api: $api, nodoc: $nodoc, preview: $preview, device: $device, '
-      'admin: $admin, v4: $v4)';
+      'admin: $admin, v4: $v4, sitePluginsOff: $sitePluginsOff)';
 }
 
 /// Compare two dotted versions [a] and [b] (`2.3.0`, `2.10.1`) part by part as numbers, a missing part as 0, a part
