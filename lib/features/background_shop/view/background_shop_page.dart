@@ -663,14 +663,21 @@ class _StoreTabState extends _TabState<_StoreTab, BackgroundStore> {
       () => scope.repository.buy(page.uid, form, item, choice.position, choice.offer, choice.months),
       // The same page again: the balance and what is owned, against what was shown.
       verifies: _Part.store,
-      verify: () async => switch (await readAndShow()) {
-        BackgroundShopLoaded(page: final after) => backgroundPurchaseDone(
-          before: item,
-          balanceBefore: page.balanceOf(choice.offer.creditId),
-          after: after,
-          offer: choice.offer,
-        ),
-        BackgroundShopUnavailable() => null,
+      verify: () async {
+        // The page the purchase was sent from, even when another was asked for meanwhile (still on its way).
+        _mode = page.mode;
+        _keyword = page.keyword;
+        _search.text = page.keyword;
+        _pageNo = page.paging.page;
+        return switch (await readAndShow()) {
+          BackgroundShopLoaded(page: final after) => backgroundPurchaseDone(
+            before: item,
+            balanceBefore: page.balanceOf(choice.offer.creditId),
+            after: after,
+            offer: choice.offer,
+          ),
+          BackgroundShopUnavailable() => null,
+        };
       },
     );
   }
