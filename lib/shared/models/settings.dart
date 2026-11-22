@@ -444,6 +444,10 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
   /// author, forum, replies and views, time), asked when the card comes into view.
   threadLinkCard<bool>(name: 'threadLinkCard', type: bool, defaultValue: true),
 
+  /// Draw the backgrounds the authors of the floors set for their floors (the forum's background shop, plugin 4.1.0)
+  /// behind them, as the web page does. Off: the thread page is asked and drawn as before.
+  showPostBackgrounds<bool>(name: 'showPostBackgrounds', type: bool, defaultValue: true),
+
   /// Widest the floors of the thread page grow, in logical pixels (600 to 1200); 0: as the app lays them out
   /// (`appReadingMaxWidth`, the content at most `htmlContentMaxWidth`). Only a window wider than it shows a difference.
   /// Tied to the screen: not synced.

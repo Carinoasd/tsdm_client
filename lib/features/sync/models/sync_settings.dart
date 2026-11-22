@@ -113,6 +113,7 @@ final syncedSettings = <SyncedSetting<Object>>[
   ),
   SyncedSetting._(SettingsKeys.threadContentSplitLongParagraphs, (s) => s.threadContentSplitLongParagraphs),
   SyncedSetting._(SettingsKeys.threadLinkCard, (s) => s.threadLinkCard),
+  SyncedSetting._(SettingsKeys.showPostBackgrounds, (s) => s.showPostBackgrounds),
   SyncedSetting._(SettingsKeys.postMediaPreview, (s) => s.postMediaPreview),
   SyncedSetting._(
     SettingsKeys.chineseDisplayMode,

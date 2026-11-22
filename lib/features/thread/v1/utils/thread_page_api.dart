@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/features/forum/models/models.dart';
 import 'package:tsdm_client/features/moderate/models/thread_perms.dart';
+import 'package:tsdm_client/features/post_background/models/post_background.dart';
 import 'package:tsdm_client/features/thread/v1/models/models.dart';
 import 'package:tsdm_client/features/thread/v1/utils/parse_thread_document.dart';
 import 'package:tsdm_client/features/thread/v1/utils/special_block.dart';
@@ -81,6 +82,10 @@ Map<String, dynamic>? threadApiAnswerOf(Object? data) {
 ///   [ThreadRecommend.fromApi], kept on the first floor as [Post.recommend], where the web page prints it), and each
 ///   floor tells whether it is a reply stuck under the first floor (`stick`). An older answer carries no evaluation
 ///   (none is shown), and its stuck replies are told by the order of the first page ([markStuckReplies]).
+/// * since plugin 4.1.0 (asked with `tsdmv=4`, `schema: 78`) `backgrounds` are the backgrounds of the page's authors
+///   by uid ([PostBackground.mapFromApi]) and each floor names whose it draws (`background`, 0 for none): kept on the
+///   floor ([Post.background]) unless the app draws none there ([_drawsBackground]). An answer without the key (plugin
+///   4.0.x, `schema: 23`) gives no floor one.
 ///
 /// The forum's message (`ok` 0): `login` 1 is the login prompt of a guest (`needLogin`), 0 a member without
 /// permission (`havePermission` false, the message text as the denied message, as the page's `#messagetext p`);
@@ -150,6 +155,8 @@ ThreadPageInfo threadPageFromApi(Map<String, dynamic> json, int pageNumber) {
     viewerUid: uid,
     formHash: _text(json['formhash']),
   );
+  // The backgrounds of the floors' authors (plugin 4.1.0, `schema` 78), drawn behind the floors that name them.
+  final backgrounds = PostBackground.mapFromApi(json);
   final floors = _list(json['posts']).where((p) => _int(p['deleted']) != 1).toList();
   // Plugin 3.8.0 tells the stuck replies with each floor (`stick`); an older answer does not.
   final tellsStuck = floors.any((p) => p['stick'] is num);
@@ -171,6 +178,9 @@ ThreadPageInfo threadPageFromApi(Map<String, dynamic> json, int pageNumber) {
     post = _withSpecial(post, special, first: first);
     if (first && recommend != null) {
       post = post.copyWith(recommend: recommend);
+    }
+    if (backgrounds[_int(p['background'])] case final background? when _drawsBackground(p, post)) {
+      post = post.copyWith(background: background);
     }
     post = _withDebateVote(
       post,
@@ -287,6 +297,20 @@ ThreadPageInfo threadPageFromApi(Map<String, dynamic> json, int pageNumber) {
     perms: ThreadPerms.fromApi(json['perms']),
   );
 }
+
+/// Whether the app draws a background on the floor [p] built as [post]: not on an anonymous floor (the plugin names
+/// none there already: the background would tell the author), nor on a floor the forum blocks (one blocked by itself or
+/// of a banned author, `message_reason: banned`; its avatar blocked; an author in a banned group, which a moderator
+/// sees the content of), which the web page still draws one on, nor on a floor the app has nothing of
+/// ([Post.isSpoofed]). A floor blocked by itself tells a moderator nothing of it (its content is shown, no field says
+/// so): that one keeps its background.
+bool _drawsBackground(Map<String, dynamic> p, Post post) =>
+    _int(p['anonymous']) != 1 &&
+    post.author.uid != null &&
+    post.messageReason != 'banned' &&
+    !post.avatarBlocked &&
+    !post.authorBanned &&
+    !post.isSpoofed;
 
 /// [post] with what the page's [special] block gives it: the [first] floor the block itself, its content without the
 /// forum's html of the block; a floor the account may accept as the answer of a bounty the request doing it.
