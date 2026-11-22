@@ -126,8 +126,12 @@ final class _ShopScope extends ChangeNotifier {
 
   bool _disposed = false;
 
-  void _stale(Set<_Part> parts) {
+  /// Whether the last [_stale] was the member's own refresh (a failure to read is told then, not after a write).
+  bool staleByMember = false;
+
+  void _stale(Set<_Part> parts, {bool byMember = false}) {
     if (_disposed) return;
+    staleByMember = byMember;
     for (final p in parts) {
       _stamps[p] = _stamps[p]! + 1;
     }
@@ -158,7 +162,9 @@ final class _ShopScope extends ChangeNotifier {
   }) async {
     if (writing.value) return false;
     writing.value = true;
+    // Taken before anything is awaited: the page may be gone by the time the forum answers.
     final tr = context.t.backgroundShop;
+    final needLogin = context.t.general.needLogin;
     final success = switch (write) {
       BackgroundShopWrite.style => tr.saved,
       BackgroundShopWrite.buy => tr.bought,
@@ -177,7 +183,7 @@ final class _ShopScope extends ChangeNotifier {
             done = true;
             message = success;
           case final BackgroundShopRefused refused:
-            message = _refusalText(context, refused);
+            message = _refusalText(tr, needLogin, refused);
           case BackgroundShopUnknown():
             unknown = true;
             message = tr.unknown;
@@ -216,7 +222,9 @@ final class _ShopScope extends ChangeNotifier {
         context: context,
         message: message,
         clearPrevious: true,
-        action: done == null ? SnackBarAction(label: tr.refresh, onPressed: () => _stale(_Part.values.toSet())) : null,
+        action: done == null
+            ? SnackBarAction(label: tr.refresh, onPressed: () => _stale(_Part.values.toSet(), byMember: true))
+            : null,
       );
     }
     // Not known whether it was done: the balance, what is owned and the storeroom are read again too, so the page
@@ -231,9 +239,8 @@ final class _ShopScope extends ChangeNotifier {
   }
 }
 
-String _refusalText(BuildContext context, BackgroundShopRefused refused) {
-  final tr = context.t.backgroundShop;
-  if (refused.login) return context.t.general.needLogin;
+String _refusalText(TranslationsBackgroundShopEn tr, String needLogin, BackgroundShopRefused refused) {
+  if (refused.login) return needLogin;
   // The plugin's words of these are codes (`err_not_enough_medals`) or about the forum, not the member.
   final own = switch (refused.key) {
     'bgshop_bg_illegal' => tr.bgIllegal,
@@ -296,7 +303,7 @@ abstract class _TabState<W extends StatefulWidget, T> extends State<W> with Auto
     final stamp = scope.stampOf(part);
     if (stamp != _stamp) {
       _stamp = stamp;
-      unawaited(load());
+      unawaited(load(byMember: scope.staleByMember));
     }
   }
 
@@ -312,7 +319,10 @@ abstract class _TabState<W extends StatefulWidget, T> extends State<W> with Auto
     }
   }
 
-  Future<void> load() async {
+  /// Read the page again; a failure while a page is shown is told only for a read the member asked for
+  /// ([byMember]: pulling, the refresh of a write not known), not one that follows a write (which said what it came
+  /// to already).
+  Future<void> load({bool byMember = false}) async {
     final generation = ++_generation;
     setState(() => failed = false);
     try {
@@ -325,7 +335,7 @@ abstract class _TabState<W extends StatefulWidget, T> extends State<W> with Auto
       if (!mounted || generation != _generation) return;
       setState(() => failed = true);
       // The page read before stays: tell it is not the latest.
-      if (page != null) {
+      if (page != null && byMember) {
         showSnackBar(context: context, message: context.t.general.failedToLoad, clearPrevious: true);
       }
     }
@@ -449,7 +459,7 @@ class _MineTabState extends _TabState<_MineTab, BackgroundMine> {
   Widget buildPage(BuildContext context, BackgroundMine page) {
     final inUse = [page.content, page.sidebar].nonNulls.toList();
     return ToolsBody(
-      onRefresh: load,
+      onRefresh: () => load(byMember: true),
       children: [
         if (inUse.isEmpty)
           AppStateView(message: context.t.backgroundShop.noBackground, scrollable: false)
@@ -721,7 +731,7 @@ class _StoreTabState extends _TabState<_StoreTab, BackgroundStore> {
   Widget buildPage(BuildContext context, BackgroundStore page) {
     final tr = context.t.backgroundShop;
     return ToolsBody(
-      onRefresh: load,
+      onRefresh: () => load(byMember: true),
       children: [
         if (_specialOn) ...[
           SegmentedButton<BackgroundStoreMode>(
@@ -735,13 +745,15 @@ class _StoreTabState extends _TabState<_StoreTab, BackgroundStore> {
             ],
             selected: {page.mode},
             showSelectedIcon: false,
-            onSelectionChanged: (v) => _go(mode: v.first),
+            // Not while a write is on its way: what it came to is read from the page it was sent from.
+            onSelectionChanged: scope.writing.value ? null : (v) => _go(mode: v.first),
           ),
           sizedBoxW8H8,
         ],
         TextField(
           key: const ValueKey('bgshop-search'),
           controller: _search,
+          enabled: !scope.writing.value,
           textInputAction: TextInputAction.search,
           maxLength: 50,
           maxLengthEnforcement: MaxLengthEnforcement.enforced,
@@ -1009,7 +1021,7 @@ class _SlotTabState extends _TabState<_SlotTab, BackgroundSlots> {
 
   @override
   Widget buildPage(BuildContext context, BackgroundSlots page) => ToolsBody(
-    onRefresh: load,
+    onRefresh: () => load(byMember: true),
     children: [
       if (page.slots.isEmpty)
         AppStateView(message: context.t.backgroundShop.slotEmpty, scrollable: false)
@@ -1150,7 +1162,7 @@ class _ExchangeTabState extends _TabState<_ExchangeTab, BackgroundExchange> {
     // An event without a background to choose offers nothing to do (the website's page of it is empty too).
     final campaigns = page.campaigns.where((c) => c.backgrounds.isNotEmpty).toList();
     return ToolsBody(
-      onRefresh: load,
+      onRefresh: () => load(byMember: true),
       children: [
         if (campaigns.isEmpty)
           AppStateView(message: context.t.backgroundShop.exchangeEmpty, scrollable: false)

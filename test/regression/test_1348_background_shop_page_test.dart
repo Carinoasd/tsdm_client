@@ -57,6 +57,7 @@ void main() {
   late List<String> got;
   late Object? Function() reply;
   late Map<String, dynamic> Function() store;
+  late bool readsFail;
 
   setUpAll(() async {
     talker = TalkerFlutter.init(settings: TalkerSettings(enabled: false));
@@ -69,11 +70,13 @@ void main() {
     got = [];
     reply = () => _result('');
     store = () => _fixture('bg_store_v75');
+    readsFail = false;
   });
 
   BackgroundShopRepository repo() => BackgroundShopRepository(
     ask: (action, query) async {
       asked.add(action);
+      if (readsFail) return null;
       return switch (action) {
         'bgmine' => _fixture('bg_mine_v74'),
         'bgstore' => store(),
@@ -253,6 +256,40 @@ void main() {
     expect(find.text(tr.backgroundShop.unknown), findsOneWidget);
     expect(find.text(tr.backgroundShop.notDone), findsNothing);
     await clearSnackBar(tester);
+  });
+
+  testWidgets('offline: the reads after a write not known fail quietly, the message and its refresh stay', (
+    tester,
+  ) async {
+    await pump(tester);
+    await tab(tester, 'slot');
+    await tab(tester, 'store');
+    reply = () {
+      readsFail = true;
+      throw const BackgroundShopNoAnswer();
+    };
+    await buySecond(tester);
+    expect(find.text(tr.backgroundShop.unknown), findsOneWidget);
+    expect(find.text(tr.backgroundShop.refresh), findsOneWidget);
+    expect(find.text(tr.general.failedToLoad), findsNothing);
+    // The member's own refresh does tell its failure.
+    await tester.tap(find.text(tr.backgroundShop.refresh));
+    await tester.pumpAndSettle();
+    expect(find.text(tr.general.failedToLoad), findsOneWidget);
+    await clearSnackBar(tester);
+  });
+
+  testWidgets('leaving the page while a refused write is on its way', (tester) async {
+    await pump(tester);
+    final pending = Completer<Object?>();
+    reply = () => pending.future;
+    await tester.tap(find.byKey(const ValueKey('bgshop-content-save')));
+    await tester.pump();
+    await tester.pumpWidget(const SizedBox());
+    pending.complete(_result('submit_invalid'));
+    await tester.pumpAndSettle();
+    expect(posted.length, 1);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('leaving the page while a write is on its way', (tester) async {
