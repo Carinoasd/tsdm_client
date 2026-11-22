@@ -1,0 +1,391 @@
+{
+ "ok": 1,
+ "api": 1,
+ "time": 1700000000,
+ "uid": 31,
+ "formhash": "f1f2f3f4",
+ "checknewpm": "",
+ "timeoffset": 8,
+ "type": "credit_base",
+ "schema": 52,
+ "tabs": [
+  {
+   "op": "base",
+   "url": "home.php?mod=spacecp&ac=credit&op=base"
+  },
+  {
+   "op": "transfer",
+   "url": "home.php?mod=spacecp&ac=credit&op=transfer"
+  },
+  {
+   "op": "exchange",
+   "url": "home.php?mod=spacecp&ac=credit&op=exchange"
+  },
+  {
+   "op": "log",
+   "url": "home.php?mod=spacecp&ac=credit&op=log"
+  },
+  {
+   "op": "rule",
+   "url": "home.php?mod=spacecp&ac=credit&op=rule"
+  }
+ ],
+ "plugin_tabs": [],
+ "credits": [
+  {
+   "id": 2,
+   "title": "天使币",
+   "unit": "",
+   "icon": "",
+   "value": 1564,
+   "trans": 1,
+   "buy_url": ""
+  },
+  {
+   "id": 1,
+   "title": "威望",
+   "unit": "",
+   "icon": "",
+   "value": 151,
+   "trans": 0,
+   "buy_url": ""
+  },
+  {
+   "id": 3,
+   "title": "宣传",
+   "unit": "",
+   "icon": "",
+   "value": 10,
+   "trans": 0,
+   "buy_url": ""
+  },
+  {
+   "id": 4,
+   "title": "腹黑",
+   "unit": "",
+   "icon": "",
+   "value": 0,
+   "trans": 0,
+   "buy_url": ""
+  },
+  {
+   "id": 5,
+   "title": "天然",
+   "unit": "",
+   "icon": "",
+   "value": 0,
+   "trans": 0,
+   "buy_url": ""
+  },
+  {
+   "id": 6,
+   "title": "精灵",
+   "unit": "",
+   "icon": "",
+   "value": 4,
+   "trans": 0,
+   "buy_url": ""
+  }
+ ],
+ "total": {
+  "value": 2542,
+  "formula": "总积分=发帖数+精华帖数×5+威望×2+天使币+宣传"
+ },
+ "upgroup": null,
+ "logs": [
+  {
+   "logid": 8787,
+   "operation": "积分兑换",
+   "optype": "CEC",
+   "filter_url": "home.php?mod=spacecp&ac=credit&op=log&optype=CEC",
+   "relatedid": 33,
+   "changes": [
+    {
+     "id": 1,
+     "title": "威望",
+     "value": -1,
+     "text": "威望 -1"
+    },
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 1,
+     "text": "天使币 +1"
+    }
+   ],
+   "after": [
+    {
+     "id": 1,
+     "title": "威望",
+     "value": 151
+    },
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 1564
+    }
+   ],
+   "type": "mixed",
+   "detail": "执行积分对兑换操作,将 威望 兑换成 天使币",
+   "url": "",
+   "dateline": 1795365121
+  },
+  {
+   "logid": 8785,
+   "operation": "转账转出",
+   "optype": "TFR",
+   "filter_url": "home.php?mod=spacecp&ac=credit&op=log&optype=TFR",
+   "relatedid": 38,
+   "changes": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": -2,
+     "text": "天使币 -2"
+    }
+   ],
+   "after": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 1563
+    }
+   ],
+   "type": "expense",
+   "detail": "向 测试会员 进行积分转账",
+   "url": "home.php?mod=space&uid=38",
+   "dateline": 1795365110
+  },
+  {
+   "logid": 8771,
+   "operation": "转账转出",
+   "optype": "TFR",
+   "filter_url": "home.php?mod=spacecp&ac=credit&op=log&optype=TFR",
+   "relatedid": 37,
+   "changes": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": -2,
+     "text": "天使币 -2"
+    }
+   ],
+   "after": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 1565
+    }
+   ],
+   "type": "expense",
+   "detail": "向 测试会员 进行积分转账",
+   "url": "home.php?mod=space&uid=37",
+   "dateline": 1795364336
+  },
+  {
+   "logid": 8770,
+   "operation": "转账转出",
+   "optype": "TFR",
+   "filter_url": "home.php?mod=spacecp&ac=credit&op=log&optype=TFR",
+   "relatedid": 37,
+   "changes": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": -2,
+     "text": "天使币 -2"
+    }
+   ],
+   "after": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 1567
+    }
+   ],
+   "type": "expense",
+   "detail": "向 测试会员 进行积分转账",
+   "url": "home.php?mod=space&uid=37",
+   "dateline": 1795364336
+  },
+  {
+   "logid": 8769,
+   "operation": "积分兑换",
+   "optype": "CEC",
+   "filter_url": "home.php?mod=spacecp&ac=credit&op=log&optype=CEC",
+   "relatedid": 33,
+   "changes": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": -2,
+     "text": "天使币 -2"
+    },
+    {
+     "id": 6,
+     "title": "精灵",
+     "value": 1,
+     "text": "精灵 +1"
+    }
+   ],
+   "after": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 1569
+    },
+    {
+     "id": 6,
+     "title": "精灵",
+     "value": 4
+    }
+   ],
+   "type": "mixed",
+   "detail": "执行积分对兑换操作,将 天使币 兑换成 精灵",
+   "url": "",
+   "dateline": 1795364324
+  },
+  {
+   "logid": 8768,
+   "operation": "积分兑换",
+   "optype": "CEC",
+   "filter_url": "home.php?mod=spacecp&ac=credit&op=log&optype=CEC",
+   "relatedid": 33,
+   "changes": [
+    {
+     "id": 1,
+     "title": "威望",
+     "value": -2,
+     "text": "威望 -2"
+    },
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 5,
+     "text": "天使币 +5"
+    }
+   ],
+   "after": [
+    {
+     "id": 1,
+     "title": "威望",
+     "value": 152
+    },
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 1571
+    }
+   ],
+   "type": "mixed",
+   "detail": "执行积分对兑换操作,将 威望 兑换成 天使币",
+   "url": "",
+   "dateline": 1795364322
+  },
+  {
+   "logid": 8766,
+   "operation": "转账转出",
+   "optype": "TFR",
+   "filter_url": "home.php?mod=spacecp&ac=credit&op=log&optype=TFR",
+   "relatedid": 37,
+   "changes": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": -10,
+     "text": "天使币 -10"
+    }
+   ],
+   "after": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 1566
+    }
+   ],
+   "type": "expense",
+   "detail": "向 测试会员 进行积分转账",
+   "url": "home.php?mod=space&uid=37",
+   "dateline": 1795364280
+  },
+  {
+   "logid": 8720,
+   "operation": "积分规则",
+   "optype": "RUL",
+   "filter_url": "home.php?mod=spacecp&ac=credit&op=log&optype=RUL",
+   "relatedid": 15,
+   "changes": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 2,
+     "text": "天使币 +2"
+    }
+   ],
+   "after": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 1576
+    }
+   ],
+   "type": "income",
+   "detail": "每天登录",
+   "url": "",
+   "dateline": 1795362304
+  },
+  {
+   "logid": 8550,
+   "operation": "积分规则",
+   "optype": "RUL",
+   "filter_url": "home.php?mod=spacecp&ac=credit&op=log&optype=RUL",
+   "relatedid": 15,
+   "changes": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 2,
+     "text": "天使币 +2"
+    }
+   ],
+   "after": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 1574
+    }
+   ],
+   "type": "income",
+   "detail": "每天登录",
+   "url": "",
+   "dateline": 1794993683
+  },
+  {
+   "logid": 8527,
+   "operation": "积分规则",
+   "optype": "RUL",
+   "filter_url": "home.php?mod=spacecp&ac=credit&op=log&optype=RUL",
+   "relatedid": 1,
+   "changes": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 2,
+     "text": "天使币 +2"
+    }
+   ],
+   "after": [
+    {
+     "id": 2,
+     "title": "天使币",
+     "value": 1572
+    }
+   ],
+   "type": "income",
+   "detail": "发表主题(fid:8)",
+   "url": "",
+   "dateline": 1794900022
+  }
+ ],
+ "log_url": "home.php?mod=spacecp&ac=credit&op=log"
+}

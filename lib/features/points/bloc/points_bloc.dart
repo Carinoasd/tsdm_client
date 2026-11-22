@@ -2,6 +2,7 @@ import 'package:bloc/bloc.dart';
 import 'package:dart_mappable/dart_mappable.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:tsdm_client/extensions/universal_html.dart';
+import 'package:tsdm_client/features/points/models/credit_forms.dart';
 import 'package:tsdm_client/features/points/models/models.dart';
 import 'package:tsdm_client/features/points/repository/model/models.dart';
 import 'package:tsdm_client/features/points/repository/points_repository.dart';
@@ -69,6 +70,8 @@ final class PointsStatisticsBloc extends Bloc<PointsStatisticsEvent, PointsStati
                     status: PointsStatus.success,
                     pointsMap: value.points,
                     recentChangelog: value.changes,
+                    canTransfer: value.forms.contains(CreditFormKind.transfer),
+                    canExchange: value.forms.contains(CreditFormKind.exchange),
                     refreshing: false,
                     failure: null,
                   ),

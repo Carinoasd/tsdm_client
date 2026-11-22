@@ -1,0 +1,141 @@
+{
+ "ok": 1,
+ "api": 1,
+ "time": 1700000000,
+ "uid": 31,
+ "formhash": "f1f2f3f4",
+ "checknewpm": "",
+ "timeoffset": 8,
+ "type": "credit_exchange",
+ "schema": 73,
+ "tabs": [
+  {
+   "op": "base",
+   "url": "home.php?mod=spacecp&ac=credit&op=base"
+  },
+  {
+   "op": "transfer",
+   "url": "home.php?mod=spacecp&ac=credit&op=transfer"
+  },
+  {
+   "op": "exchange",
+   "url": "home.php?mod=spacecp&ac=credit&op=exchange"
+  },
+  {
+   "op": "log",
+   "url": "home.php?mod=spacecp&ac=credit&op=log"
+  },
+  {
+   "op": "rule",
+   "url": "home.php?mod=spacecp&ac=credit&op=rule"
+  }
+ ],
+ "plugin_tabs": [],
+ "credits": [
+  {
+   "id": 1,
+   "title": "威望",
+   "unit": "",
+   "icon": "",
+   "value": 151
+  },
+  {
+   "id": 2,
+   "title": "天使币",
+   "unit": "",
+   "icon": "",
+   "value": 1564
+  },
+  {
+   "id": 3,
+   "title": "宣传",
+   "unit": "",
+   "icon": "",
+   "value": 10
+  },
+  {
+   "id": 4,
+   "title": "腹黑",
+   "unit": "",
+   "icon": "",
+   "value": 0
+  },
+  {
+   "id": 5,
+   "title": "天然",
+   "unit": "",
+   "icon": "",
+   "value": 0
+  },
+  {
+   "id": 6,
+   "title": "精灵",
+   "unit": "",
+   "icon": "",
+   "value": 4
+  }
+ ],
+ "to": [
+  {
+   "id": 2,
+   "title": "天使币",
+   "unit": "",
+   "ratio": 1
+  },
+  {
+   "id": 6,
+   "title": "精灵",
+   "unit": "",
+   "ratio": 2
+  }
+ ],
+ "from": [
+  {
+   "id": 1,
+   "title": "威望",
+   "unit": "",
+   "ratio": 5
+  },
+  {
+   "id": 2,
+   "title": "天使币",
+   "unit": "",
+   "ratio": 1
+  },
+  {
+   "id": 6,
+   "title": "精灵",
+   "unit": "",
+   "ratio": 2
+  }
+ ],
+ "out": [],
+ "min_balance": 100,
+ "tax": 0.2,
+ "tax_percent": "20.00%",
+ "submit": {
+  "url": "home.php?mod=spacecp&ac=credit&op=exchange&handlekey=credit",
+  "method": "POST",
+  "enctype": "application/x-www-form-urlencoded",
+  "fields": {
+   "formhash": "f1f2f3f4",
+   "operation": "exchange",
+   "exchangesubmit": "true",
+   "outi": ""
+  }
+ },
+ "amount": {
+  "name": "exchangeamount",
+  "type": "text",
+  "value": "0",
+  "required": 1
+ },
+ "to_field": "tocredits",
+ "from_field": "fromcredits",
+ "password": {
+  "name": "password",
+  "type": "password",
+  "value": "",
+  "required": 1
+ }
+}

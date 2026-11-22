@@ -74,6 +74,7 @@ final class TsdmAppV4Flags {
     this.announce = false,
     this.notifyPaging = false,
     this.achievement = false,
+    this.creditForms = false,
     this.lists = const {},
   });
 
@@ -87,6 +88,7 @@ final class TsdmAppV4Flags {
       announce: json['announce'] == 1,
       notifyPaging: json['notify_paging'] == 1,
       achievement: json['achievement'] == 1,
+      creditForms: json['credit_forms'] == 1,
       lists: {
         for (final group in TsdmAppV4Group.values)
           if (json[group.key] case final List<dynamic> names) group: {...names.whereType<String>()},
@@ -110,6 +112,11 @@ final class TsdmAppV4Flags {
   /// `achievement: 1`: the forum runs the achievements of the titles plugin (its page, `schema` 68).
   final bool achievement;
 
+  /// `credit_forms: 1` (plugin 4.1.0): the transfer and the exchange pages of the credits are answered as fields
+  /// (`credit_transfer`, `schema` 72; `credit_exchange`, `schema` 73). Whether the forum lets the account use them is
+  /// told by those pages (and the tabs of `credit_base`).
+  final bool creditForms;
+
   /// The names of each list of `status` ([TsdmAppV4Group]).
   final Map<TsdmAppV4Group, Set<String>> lists;
 
@@ -123,16 +130,18 @@ final class TsdmAppV4Flags {
       other.announce == announce &&
       other.notifyPaging == notifyPaging &&
       other.achievement == achievement &&
+      other.creditForms == creditForms &&
       other.lists.length == lists.length &&
       lists.entries.every((e) => setEquals(other.lists[e.key], e.value));
 
   @override
-  int get hashCode => Object.hash(on, announce, notifyPaging, achievement, Object.hashAllUnordered(lists.keys));
+  int get hashCode =>
+      Object.hash(on, announce, notifyPaging, achievement, creditForms, Object.hashAllUnordered(lists.keys));
 
   @override
   String toString() =>
       'TsdmAppV4Flags(on: $on, announce: $announce, notifyPaging: $notifyPaging, achievement: $achievement, '
-      'lists: ${lists.map((k, v) => MapEntry(k.key, v.length))})';
+      'creditForms: $creditForms, lists: ${lists.map((k, v) => MapEntry(k.key, v.length))})';
 }
 
 /// What the app may ask of the forum's plugin with [tsdmAppV4Query] now: what the last `status` said
@@ -160,6 +169,9 @@ abstract final class TsdmAppV4 {
 
   /// The achievements page is answered ([TsdmAppV4Flags.achievement]).
   static bool get achievement => flags?.achievement ?? false;
+
+  /// The transfer and the exchange pages of the credits are answered ([TsdmAppV4Flags.creditForms]).
+  static bool get creditForms => flags?.creditForms ?? false;
 
   /// [name] of [group] is answered with [tsdmAppV4Query] ([TsdmAppV4Flags.has]).
   static bool has(TsdmAppV4Group group, String name) => flags?.has(group, name) ?? false;

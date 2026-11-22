@@ -1,6 +1,7 @@
 import 'package:fpdart/fpdart.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
+import 'package:tsdm_client/features/points/models/credit_forms.dart';
 import 'package:tsdm_client/features/points/models/models.dart';
 import 'package:tsdm_client/features/points/repository/model/models.dart';
 import 'package:tsdm_client/features/points/utils/changelog_range.dart';
@@ -59,7 +60,11 @@ final class PointsRepository with LoggerMixin {
     }
     return fetchStatisticsPage().map((document) {
       if (parseStatisticsDocument(document) case (final points, final changes)) {
-        return right<String, PointsStatistics>((points: points, changes: changes));
+        return right<String, PointsStatistics>((
+          points: points,
+          changes: changes,
+          forms: creditFormsOfDocument(document),
+        ));
       }
       // The forum's page without the points: its message (a guest, a closed forum) when it has one.
       return left<String, PointsStatistics>(document.querySelector('div#messagetext > p')?.innerText.trim() ?? '');
