@@ -286,7 +286,11 @@
       "visitors": "Recent visitors",
       "siteStats": "Site statistics",
       "followFeed": "Feed",
-      "doings": "Records"
+      "doings": "Records",
+      "gameCenter": "Game center",
+      "court": "Court",
+      "cpSystem": "CP system",
+      "partTimeJob": "Part-time job"
     }
   },
   "home": {

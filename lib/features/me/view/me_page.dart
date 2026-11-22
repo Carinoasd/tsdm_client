@@ -13,6 +13,7 @@ import 'package:tsdm_client/features/checkin/widgets/checkin_button.dart';
 import 'package:tsdm_client/features/home/cubit/home_cubit.dart';
 import 'package:tsdm_client/features/home/widgets/widgets.dart';
 import 'package:tsdm_client/features/homepage/utils/homepage_api.dart';
+import 'package:tsdm_client/features/in_app_browser/utils/open_forum_page.dart';
 import 'package:tsdm_client/features/multi_user/widgets/account_switch_dialog.dart';
 import 'package:tsdm_client/features/multi_user/widgets/current_account_avatar.dart';
 import 'package:tsdm_client/features/notification/utils/notice_page_tab.dart';
@@ -22,10 +23,12 @@ import 'package:tsdm_client/features/profile/utils/management_group.dart';
 import 'package:tsdm_client/features/profile/utils/profile_page_api.dart';
 import 'package:tsdm_client/features/root/stream/scroll_to_top_stream.dart';
 import 'package:tsdm_client/features/space/utils/space_switches.dart';
+import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/repositories/forum_home_repository/forum_home_repository.dart';
+import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/heroes.dart';
 import 'package:tsdm_client/widgets/section_list_tile.dart';
@@ -45,7 +48,8 @@ typedef _MeEntry = ({Key key, IconData icon, String label, VoidCallback onTap});
 /// account of a management group), then its pages in three grids: content (threads, favorites, bookmarks, history, the
 /// drafts kept on this device and the forum's drafts box), social (private messages, friends, visitors) and stats
 /// (points, check-ins, reading, ratings); then the services of the forum in the same grid (tasks, magic, bank,
-/// ranklist, activities, medals and titles, achievements, pokemon center) and the list of the app itself (accounts,
+/// ranklist, activities, medals and titles, achievements, pokemon center, and the pages of the forum's other plugins
+/// opened in a browser: game center, court, CP system, part-time job) and the list of the app itself (accounts,
 /// settings, about).
 ///
 /// The settings were a tab of their own before; the whole settings page is one tap away here, nothing in it moved. The
@@ -73,11 +77,13 @@ class _MePageState extends State<MePage> {
         unawaited(_scrollController.animateTo(0, duration: duration200, curve: Curves.easeInOut));
       }
     });
-    spaceModulesOff.addListener(_onSpaceModulesChanged);
+    spaceModulesOff.addListener(_onSwitchesChanged);
+    TsdmAppApi.pluginInfo.addListener(_onSwitchesChanged);
   }
 
-  /// A module of the space was found switched off: its entry goes.
-  void _onSpaceModulesChanged() {
+  /// A module of the space, or a plugin of the forum ([TsdmAppApi.sitePluginOff]), was found switched off: its entry
+  /// goes.
+  void _onSwitchesChanged() {
     if (mounted) setState(() {});
   }
 
@@ -100,7 +106,8 @@ class _MePageState extends State<MePage> {
 
   @override
   void dispose() {
-    spaceModulesOff.removeListener(_onSpaceModulesChanged);
+    spaceModulesOff.removeListener(_onSwitchesChanged);
+    TsdmAppApi.pluginInfo.removeListener(_onSwitchesChanged);
     unawaited(_scrollToTopSub.cancel());
     unawaited(_homePageSub?.cancel());
     _scrollController.dispose();
@@ -337,7 +344,30 @@ class _MePageState extends State<MePage> {
         ScreenPaths.achievements,
       ),
       service(const ValueKey('me-pokemon'), Icons.catching_pokemon, t.pokemon.title, ScreenPaths.pokemon),
+      for (final (id, page, icon, label, needLogin) in [
+        ('gamecenter', 'gamecenter', Icons.sports_esports_outlined, t.mePage.entries.gameCenter, false),
+        ('tsdm_court', 'tsdm_court:court', Icons.gavel_outlined, t.mePage.entries.court, true),
+        ('tsdmcp', 'tsdmcp', Icons.favorite_border, t.mePage.entries.cpSystem, true),
+        ('np_cliworkdz', 'np_cliworkdz:work', Icons.work_outline, t.mePage.entries.partTimeJob, true),
+      ])
+        // Offered until the forum's app API says the plugin is switched off.
+        if (!TsdmAppApi.sitePluginOff(id))
+          (
+            key: ValueKey('me-plugin-$id'),
+            icon: icon,
+            label: label,
+            onTap: () => needLogin && !loggedIn
+                ? _open(ScreenPaths.login)
+                : unawaited(_openPluginPage('$baseUrl/plugin.php?id=$page')),
+          ),
     ];
+  }
+
+  /// Open the page of one of the forum's plugins in a browser, signed in with the account in use.
+  Future<void> _openPluginPage(String url) async {
+    if (!await openForumPageInBrowser(GoRouter.of(context), url) && mounted) {
+      showSnackBar(context: context, message: context.t.openInAppPage.browserLaunchFailed, clearPrevious: true);
+    }
   }
 
   /// A row of the app's list.
