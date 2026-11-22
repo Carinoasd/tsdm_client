@@ -183,6 +183,10 @@ class _PostBackgroundPaintState extends State<PostBackgroundPaint> {
         final url = layer.imageUrl;
         // A veil the picture would not show through (the platform's high contrast in some themes): none asked.
         final drawn = enabled && veil.a < 1 && !PostBackgroundFailures.failed(url, cacheOnly: !fetches);
+        if (drawn && fetches) {
+          // Fetched now: in the cache once it loads, shown from there when the pictures are held back again.
+          PostBackgroundFailures.fetching(url);
+        }
         return DecoratedBox(
           key: const ValueKey('post-background-image'),
           decoration: BoxDecoration(
@@ -250,6 +254,9 @@ abstract final class PostBackgroundFailures {
     }
     set.add(url);
   }
+
+  /// [url] is fetched from the network: it is in the cache once it loads (a failure is told by [add] again).
+  static void fetching(String url) => _notCached.remove(url);
 
   /// Whether [url] asked so ([cacheOnly]) failed before: one that failed from the network fails from the cache too.
   static bool failed(String url, {required bool cacheOnly}) =>

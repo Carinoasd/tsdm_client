@@ -403,6 +403,37 @@ void main() {
       expect(PostBackgroundFailures.failed(_both.sidebar!.imageUrl, cacheOnly: false), isFalse);
     });
 
+    testWidgets('not cached while held back, fetched later: shown from the cache when held back again', (tester) async {
+      Future<void> autoLoad(int index) async {
+        bloc.add(SettingsValueChanged(SettingsKeys.postImageAutoLoad, index));
+        await tester.runAsync(() => bloc.stream.firstWhere((s) => s.settingsMap.postImageAutoLoad == index));
+      }
+
+      DecorationImage? content() =>
+          (tester.widget<DecoratedBox>(find.byKey(const ValueKey('post-background-image')).last).decoration
+                  as BoxDecoration)
+              .image;
+      final url = _both.content!.imageUrl;
+
+      await autoLoad(2);
+      await pumpCard(tester, _floor(background: _both));
+      await settle(tester);
+      expect(content(), isNull, reason: 'not cached');
+      expect(images.requested, isEmpty);
+
+      await autoLoad(0);
+      await settle(tester);
+      expect(content()!.image, postBackgroundImage(url));
+      expect(images.requested, contains(url));
+      expect(PostBackgroundFailures.failed(url, cacheOnly: true), isFalse);
+
+      await autoLoad(2);
+      await settle(tester);
+      expect(content()!.image, postBackgroundImage(url, cacheOnly: true));
+      expect(PostBackgroundFailures.failed(url, cacheOnly: true), isFalse, reason: 'found in the cache');
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('a picture that failed is not asked again, however often the floor paints', (tester) async {
       await pumpCard(tester, _floor(background: _failing));
       await settle(tester);
