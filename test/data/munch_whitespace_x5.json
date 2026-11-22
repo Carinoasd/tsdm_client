@@ -512,6 +512,12 @@
   "test/data/tsdmapp_380/thread_comment_scores.json#3029": "«BU thread區 TB 附件回覆 B（1789158946626）\n￼bu_thread_attach.png (1003 Bytes, 下载次数: 0)\n[img]»\n",
   "test/data/tsdmapp_380/thread_comment_scores.json#3030": "«￼»\n«本帖为密码帖 ，请输入密码»\n",
   "test/data/tsdmapp_380/thread_comment_scores.json#3031": "«BU thread區 TB C 的回覆（1789158946626）»\n",
-  "test/data/tsdmapp_390/thread_viewip.json#15505": "«￼\n\n\ntsdmapp390 reward first»\n«Bounty»\n«Open»\n«5 angel coins»\n"
+  "test/data/tsdmapp_390/thread_viewip.json#15505": "«￼\n\n\ntsdmapp390 reward first»\n«Bounty»\n«Open»\n«5 angel coins»\n",
+  "test/data/tsdmapp_410/thread_v23_same_thread.json#24607": "«1 楼 ag_t16：正文背景 1209-5（700×500）重复、左上；边栏背景 1209-1（200×1000）不重复、右中。\n\n第二段文字，用来看遮罩下的可读性。天使动漫论坛的第三方 App 帖子背景实测。»\n",
+  "test/data/tsdmapp_410/thread_v23_same_thread.json#24608": "«ag_t17：正文背景 a1（700×500）不重复、右下；没有边栏背景。\n\n这一段是正文，第二行文字。天使动漫论坛的第三方 App 帖子背景实测：遮罩之下的字要清楚，长一点的句子也要能换行读完，不会因为背景而看不清楚。»\n",
+  "test/data/tsdmapp_410/thread_v23_same_thread.json#24609": "«ag_t18：正文背景 BB1（730×700）宽屏拉伸、居中顶部；边栏背景 1209-2（200×1000）重复、居中。\n\n这一段是正文，第二行文字。天使动漫论坛的第三方 App 帖子背景实测：遮罩之下的字要清楚，长一点的句子也要能换行读完，不会因为背景而看不清楚。»\n",
+  "test/data/tsdmapp_410/thread_v23_same_thread.json#24610": "«ag_t19：只有边栏背景 BB2（700×500）不重复、居中。\n\n这一段是正文，第二行文字。天使动漫论坛的第三方 App 帖子背景实测：遮罩之下的字要清楚，长一点的句子也要能换行读完，不会因为背景而看不清楚。»\n",
+  "test/data/tsdmapp_410/thread_v23_same_thread.json#24611": "«ag_t20：正文背景设成不显（不画）；边栏背景 1209-4（200×1000）重复、居中底部。\n\n这一段是正文，第二行文字。天使动漫论坛的第三方 App 帖子背景实测：遮罩之下的字要清楚，长一点的句子也要能换行读完，不会因为背景而看不清楚。»\n",
+  "test/data/tsdmapp_410/thread_v23_same_thread.json#24612": "«ag_t16 第二楼：同一作者再出现，背景只给一份。\n\n这一段是正文，第二行文字。天使动漫论坛的第三方 App 帖子背景实测：遮罩之下的字要清楚，长一点的句子也要能换行读完，不会因为背景而看不清楚。\n\n这一段是正文，第二行文字。天使动漫论坛的第三方 App 帖子背景实测：遮罩之下的字要清楚，长一点的句子也要能换行读完，不会因为背景而看不清楚。\n\n这一段是正文，第二行文字。天使动漫论坛的第三方 App 帖子背景实测：遮罩之下的字要清楚，长一点的句子也要能换行读完，不会因为背景而看不清楚。»\n"
  }
 }
