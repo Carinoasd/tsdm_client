@@ -293,6 +293,16 @@ void main() {
       expect(layers.first.alignment, Alignment.centerRight, reason: 'the author row first');
       expect(layers.first.fit, BoxFit.none, reason: "the picture's own size");
       expect(layers.last.repeat, ImageRepeat.repeat);
+      // Blended onto the floor's own color, the color the veil is of.
+      final theme = Theme.of(tester.element(find.byType(PostCard)));
+      for (final box in tester.widgetList<DecoratedBox>(find.byKey(const ValueKey('post-background-image')))) {
+        final decoration = box.decoration as BoxDecoration;
+        expect(decoration.color, postBackgroundSurface(theme));
+        expect(decoration.image!.colorFilter, postBackgroundBlend(postBackgroundSurface(theme)));
+      }
+      for (final veil in veils(tester)) {
+        expect((veil.decoration as BoxDecoration).color!.withValues(alpha: 1), postBackgroundSurface(theme));
+      }
       expect(veils(tester), hasLength(2));
       for (final veil in veils(tester)) {
         final color = (veil.decoration as BoxDecoration).color!;

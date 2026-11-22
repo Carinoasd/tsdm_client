@@ -31,6 +31,16 @@ final Uint8List _white = base64Decode(
   'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAGUlEQVR4nGP8//8/AymAiSTVoxpGNQwpDQBVbQMdPVIhQwAAAABJRU5ErkJggg==',
 );
 
+/// 16 by 16, fully transparent.
+final Uint8List _transparent = base64Decode(
+  'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAEklEQVR4nGNgGAWjYBSMAggAAAQQAAFVN1rQAAAAAElFTkSuQmCC',
+);
+
+/// 16 by 16, cyan (0, 255, 255).
+final Uint8List _cyan = base64Decode(
+  'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAGUlEQVR4nGNk+P+fgRTARJLqUQ2jGoaUBgBJTwIeepoB6wAAAABJRU5ErkJggg==',
+);
+
 /// 16 by 16: the left half red (220, 30, 30), the top right quarter near black (20, 20, 20), the rest white.
 final Uint8List _drawing = base64Decode(
   'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAKklEQVR4nGO8IyfHgA1YfPuGVZwJqygeMKqBGMCCS+L169fUsWFUAzEAANW5Bh/hb0'
@@ -183,7 +193,27 @@ void main() {
     }
   });
 
-  test('the veil is the one of before: the pixels still run within black and white', () {
+  for (final MapEntry(key: name, value: theme) in _themes.entries) {
+    testWidgets('$name: a saturated color and a transparent picture stay within black and white, the text reads', (
+      tester,
+    ) async {
+      final surface = postBackgroundSurface(theme);
+      final card = [_channel(surface.r), _channel(surface.g), _channel(surface.b)];
+      const layer = PostBackgroundLayer(imageUrl: 'https://cdn.example/x.png', repeat: PostBackgroundRepeat.both);
+      // Transparent: the floor color the same painter laid first.
+      final clear = await _paint(tester, theme, layer, _transparent);
+      expect(_at(clear, 32, 32), card);
+      // Cyan: its red channel turns past black on a dark floor (clamped), still between black and white.
+      final cyan = await _paint(tester, theme, layer, _cyan);
+      final pixel = _at(cyan, 32, 32);
+      final color = Color.fromARGB(255, pixel[0], pixel[1], pixel[2]);
+      final scheme = theme.colorScheme;
+      final needed = min(postBackgroundBodyContrast, contrastRatio(scheme.onSurface, surface));
+      expect(contrastRatio(scheme.onSurface, color), greaterThanOrEqualTo(needed - 0.01), reason: '$color');
+    });
+  }
+
+  test('the veil is the one of before: at least the least opacity', () {
     for (final theme in _themes.values) {
       expect(postBackgroundVeil(theme).a, greaterThanOrEqualTo(postBackgroundMinVeilOpacity));
     }

@@ -67,7 +67,7 @@ double postBackgroundVeilOpacity(Color surface, List<(Color, double)> texts) {
 /// secondary text (`outline`).
 Color postBackgroundVeil(ThemeData theme, {bool highContrast = false}) {
   final scheme = theme.colorScheme;
-  final surface = theme.cardTheme.color ?? scheme.surfaceContainerLow;
+  final surface = postBackgroundSurface(theme);
   final body = highContrast ? 7.0 : postBackgroundBodyContrast;
   final secondary = highContrast ? readableContrast : postBackgroundSecondaryContrast;
   final key = (surface, scheme.onSurface, scheme.primary, scheme.outline, highContrast);
