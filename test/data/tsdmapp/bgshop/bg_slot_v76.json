@@ -1,0 +1,58 @@
+{
+ "ok": 1,
+ "api": 1,
+ "time": 1700000000,
+ "uid": 31,
+ "formhash": "f1f2f3f4",
+ "installed": 1,
+ "type": "bg_slot",
+ "schema": 76,
+ "timeoffset": 8,
+ "supported": 1,
+ "page": 1,
+ "perpage": 10,
+ "count": 2,
+ "pages": 1,
+ "slots": [
+  {
+   "sid": 143,
+   "image": "https://forum.test/source/plugin/background/background/1209-2.jpg",
+   "bgid": 2,
+   "name": "樱花雨",
+   "dateline": 1795364784,
+   "expiration": 1797956784,
+   "permanent": 0,
+   "in_use": {
+    "content": 0,
+    "sidebar": 0
+   }
+  },
+  {
+   "sid": 142,
+   "image": "https://forum.test/source/plugin/background/background/1209-1.jpg",
+   "bgid": 1,
+   "name": "樱花小道",
+   "dateline": 1795364709,
+   "expiration": 1797956709,
+   "permanent": 0,
+   "in_use": {
+    "content": 1,
+    "sidebar": 1
+   }
+  }
+ ],
+ "set": {
+  "url": "plugin.php?id=background:memcp&ac=slot",
+  "method": "GET",
+  "fields": {
+   "formhash": "f1f2f3f4"
+  },
+  "sid_field": "changesid",
+  "side_field": "bgside",
+  "sides": {
+   "content": "0",
+   "sidebar": "1"
+  },
+  "page_field": "page"
+ }
+}

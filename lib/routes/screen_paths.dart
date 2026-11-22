@@ -147,6 +147,9 @@ class ScreenPaths {
   /// Query parameters: `uid`, the member the list starts with.
   static const String backgroundGrant = '/backgroundGrant';
 
+  /// The member's background shop (app API `bgmine`, `bgstore`, `bgslot`, `bgexchange`, plugin 4.1.0).
+  static const String backgroundShop = '/backgroundShop';
+
   /// Community bank balances, records and current-account transactions.
   static const String bank = '/bank';
 

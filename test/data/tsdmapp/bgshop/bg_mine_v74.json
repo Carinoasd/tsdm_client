@@ -1,0 +1,128 @@
+{
+ "ok": 1,
+ "api": 1,
+ "time": 1700000000,
+ "uid": 31,
+ "formhash": "f1f2f3f4",
+ "installed": 1,
+ "type": "bg_mine",
+ "schema": 74,
+ "timeoffset": 8,
+ "supported": 1,
+ "backgrounds": {
+  "content": {
+   "image": "https://forum.test/source/plugin/background/background/1209-1.jpg",
+   "expiration": 1797956709,
+   "permanent": 0,
+   "display": 1,
+   "style": {
+    "repeat": "none",
+    "align_x": "center",
+    "align_y": "center",
+    "size": "natural"
+   },
+   "form": {
+    "url": "plugin.php?id=background:memcp&ac=my&p=0",
+    "method": "POST",
+    "enctype": "application/x-www-form-urlencoded",
+    "fields": {
+     "formhash": "f1f2f3f4",
+     "bgconeditsubmit": "true"
+    },
+    "values": {
+     "dipbg": "1",
+     "background_repeat": "1",
+     "background_positionh": "1",
+     "background_positionv": "1",
+     "background_size": ""
+    }
+   }
+  },
+  "sidebar": {
+   "image": "https://forum.test/source/plugin/background/background/1209-1.jpg",
+   "expiration": 1797956709,
+   "permanent": 0,
+   "display": 1,
+   "style": {
+    "repeat": "none",
+    "align_x": "center",
+    "align_y": "center",
+    "size": "natural"
+   },
+   "form": {
+    "url": "plugin.php?id=background:memcp&ac=my&p=1",
+    "method": "POST",
+    "enctype": "application/x-www-form-urlencoded",
+    "fields": {
+     "formhash": "f1f2f3f4",
+     "bgmemeditsubmit": "true"
+    },
+    "values": {
+     "dipbg": "1",
+     "background_repeat": "1",
+     "background_positionh": "1",
+     "background_positionv": "1",
+     "background_size": ""
+    }
+   }
+  }
+ },
+ "choices": {
+  "dipbg": [
+   {
+    "value": "1",
+    "label": "显示"
+   },
+   {
+    "value": "0",
+    "label": "不显"
+   }
+  ],
+  "background_repeat": [
+   {
+    "value": "0",
+    "label": "重复"
+   },
+   {
+    "value": "1",
+    "label": "不重"
+   }
+  ],
+  "background_positionh": [
+   {
+    "value": "0",
+    "label": "向左"
+   },
+   {
+    "value": "1",
+    "label": "居中"
+   },
+   {
+    "value": "2",
+    "label": "向右"
+   }
+  ],
+  "background_positionv": [
+   {
+    "value": "0",
+    "label": "顶部"
+   },
+   {
+    "value": "1",
+    "label": "居中"
+   },
+   {
+    "value": "2",
+    "label": "底部"
+   }
+  ],
+  "background_size": [
+   {
+    "value": "1",
+    "label": "宽屏背景拉伸（慎用）"
+   }
+  ]
+ },
+ "store_url": "plugin.php?id=background:memcp&ac=shop",
+ "slot_url": "plugin.php?id=background:memcp&ac=slot"
+}

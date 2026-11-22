@@ -1,0 +1,151 @@
+{
+ "ok": 1,
+ "api": 1,
+ "time": 1700000000,
+ "uid": 31,
+ "formhash": "f1f2f3f4",
+ "installed": 1,
+ "type": "bg_store",
+ "schema": 75,
+ "timeoffset": 8,
+ "supported": 1,
+ "mode": "shop",
+ "special_on": 1,
+ "special_title": "活动商店",
+ "keyword": "",
+ "page": 1,
+ "perpage": 20,
+ "count": 31,
+ "pages": 2,
+ "credits": [
+  {
+   "id": 1,
+   "title": "威望",
+   "unit": "",
+   "balance": 0
+  },
+  {
+   "id": 2,
+   "title": "天使币",
+   "unit": "",
+   "balance": 134
+  },
+  {
+   "id": 6,
+   "title": "精灵",
+   "unit": "",
+   "balance": 100
+  }
+ ],
+ "backgrounds": [
+  {
+   "id": 1,
+   "name": "樱花小道",
+   "image": "https://forum.test/source/plugin/background/background/1209-1.jpg",
+   "buys": 9,
+   "special": 0,
+   "nonsale": 0,
+   "offers": [
+    {
+     "plan": "c2",
+     "credit": {
+      "id": 2,
+      "title": "天使币",
+      "unit": ""
+     },
+     "price": 10,
+     "kind": "month",
+     "max_months": 100000000
+    },
+    {
+     "plan": "c6",
+     "credit": {
+      "id": 6,
+      "title": "精灵",
+      "unit": ""
+     },
+     "price": 5,
+     "kind": "month",
+     "max_months": 100000000
+    },
+    {
+     "plan": "c1",
+     "credit": {
+      "id": 1,
+      "title": "威望",
+      "unit": ""
+     },
+     "price": 3,
+     "kind": "month",
+     "max_months": 100000000
+    }
+   ],
+   "owned": null
+  },
+  {
+   "id": 2,
+   "name": "樱花雨",
+   "image": "https://forum.test/source/plugin/background/background/1209-2.jpg",
+   "buys": 3,
+   "special": 0,
+   "nonsale": 0,
+   "offers": [
+    {
+     "plan": "c2",
+     "credit": {
+      "id": 2,
+      "title": "天使币",
+      "unit": ""
+     },
+     "price": 11,
+     "kind": "month",
+     "max_months": 100000000
+    }
+   ],
+   "owned": null
+  },
+  {
+   "id": 3,
+   "name": "夜空星河",
+   "image": "https://forum.test/source/plugin/background/background/1209-3.jpg",
+   "buys": 0,
+   "special": 0,
+   "nonsale": 0,
+   "offers": [
+    {
+     "plan": "c2",
+     "credit": {
+      "id": 2,
+      "title": "天使币",
+      "unit": ""
+     },
+     "price": 12,
+     "kind": "month",
+     "max_months": 100000000
+    }
+   ],
+   "owned": null
+  }
+ ],
+ "buy": {
+  "url": "plugin.php?id=background:memcp&ac=buybg",
+  "method": "POST",
+  "enctype": "application/x-www-form-urlencoded",
+  "fields": {
+   "formhash": "f1f2f3f4",
+   "buysubmit": "true"
+  },
+  "query": {
+   "bgid": "bgid",
+   "position": "p"
+  },
+  "positions": {
+   "content": "0",
+   "sidebar": "1"
+  },
+  "plan_field": "plan",
+  "months_field": "buynum",
+  "month_seconds": 2592000,
+  "year_seconds": 31536000
+ }
+}
