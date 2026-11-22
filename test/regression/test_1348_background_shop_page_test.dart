@@ -58,6 +58,8 @@ void main() {
   late Object? Function() reply;
   late Map<String, dynamic> Function() store;
   late bool readsFail;
+  late List<Map<String, String>> storeQueries;
+  Completer<void>? holdSpecial;
 
   setUpAll(() async {
     talker = TalkerFlutter.init(settings: TalkerSettings(enabled: false));
@@ -71,12 +73,21 @@ void main() {
     reply = () => _result('');
     store = () => _fixture('bg_store_v75');
     readsFail = false;
+    storeQueries = [];
+    holdSpecial = null;
   });
 
   BackgroundShopRepository repo() => BackgroundShopRepository(
     ask: (action, query) async {
       asked.add(action);
       if (readsFail) return null;
+      if (action == 'bgstore') {
+        storeQueries.add(query);
+        if (query['mode'] == 'special') {
+          await holdSpecial?.future;
+          return _fixture('bg_store_v75_special');
+        }
+      }
       return switch (action) {
         'bgmine' => _fixture('bg_mine_v74'),
         'bgstore' => store(),
@@ -303,6 +314,26 @@ void main() {
     await tester.pumpAndSettle();
     expect(posted.length, 1);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a purchase not known while another list is on its way: compared on the page it was sent from', (
+    tester,
+  ) async {
+    await pump(tester);
+    await tab(tester, 'store');
+    holdSpecial = Completer<void>();
+    await tester.tap(find.text('活动商店'));
+    await tester.pump();
+    reply = () => _result('bgshop_unknown');
+    await buySecond(tester);
+    expect(storeQueries.last, isEmpty, reason: 'the shop, page 1, no keyword');
+    expect(find.text(tr.backgroundShop.notDone), findsOneWidget);
+    holdSpecial!.complete();
+    await tester.pumpAndSettle();
+    // The event shop that came back late does not replace the page compared.
+    expect(find.byKey(const ValueKey('bgshop-store-2')), findsOneWidget);
+    expect(find.byKey(const ValueKey('bgshop-store-29')), findsNothing);
+    await clearSnackBar(tester);
   });
 
   testWidgets('a known failure shows the forum words', (tester) async {

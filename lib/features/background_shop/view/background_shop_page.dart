@@ -667,7 +667,7 @@ class _StoreTabState extends _TabState<_StoreTab, BackgroundStore> {
         // The page the purchase was sent from, even when another was asked for meanwhile (still on its way).
         _mode = page.mode;
         _keyword = page.keyword;
-        _search.text = page.keyword;
+        if (mounted) _search.text = page.keyword;
         _pageNo = page.paging.page;
         return switch (await readAndShow()) {
           BackgroundShopLoaded(page: final after) => backgroundPurchaseDone(
