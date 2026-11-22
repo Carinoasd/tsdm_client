@@ -1056,7 +1056,10 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
                     : null,
               ),
               Expanded(
-                child: IgnorePointer(ignoring: picking, child: _buildCard(context)),
+                child: IgnorePointer(
+                  ignoring: picking,
+                  child: _buildCard(context, picking: picking),
+                ),
               ),
             ],
           ),
@@ -1065,7 +1068,8 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
     );
   }
 
-  Widget _buildCard(BuildContext context) {
+  /// The floor's card; while floors are [picking] to be quoted it sits beside a checkbox, its backgrounds not drawn.
+  Widget _buildCard(BuildContext context, {bool picking = false}) {
     final author = _buildAuthorRow(context);
     final rest = <Widget>[
       // Last edit status.
@@ -1134,10 +1138,16 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        PostBackgroundPaint(layer: background.sidebar, part: PostBackgroundPart.top, child: author),
+        PostBackgroundPaint(
+          layer: background.sidebar,
+          part: PostBackgroundPart.top,
+          enabled: !picking,
+          child: author,
+        ),
         PostBackgroundPaint(
           layer: background.content,
           part: PostBackgroundPart.bottom,
+          enabled: !picking,
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: rest),
         ),
       ],

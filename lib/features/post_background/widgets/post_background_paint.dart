@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -105,10 +106,20 @@ enum PostBackgroundPart {
 ///
 /// The picture is fetched when the floor's pictures load by themselves (the data saver, the auto load setting: as the
 /// pictures of the content); held back, a picture already cached still shows, as theirs. It is decoded at most
-/// [postBackgroundMaxDecodeSide] on a side, a still of its first frame ([StillImage]).
-class PostBackgroundPaint extends StatelessWidget {
+/// [postBackgroundMaxDecodeSide] on a side, a still of its first frame ([StillImage]). A picture that failed is not
+/// asked again in this run ([PostBackgroundFailures]): a painted [DecorationImage] asks its picture on every paint.
+///
+/// Not [enabled] (the floor's card moved aside while floors are picked to be quoted), nothing is drawn: the same
+/// widgets, so [child] keeps its state.
+class PostBackgroundPaint extends StatefulWidget {
   /// Constructor.
-  const PostBackgroundPaint({required this.layer, required this.part, required this.child, super.key});
+  const PostBackgroundPaint({
+    required this.layer,
+    required this.part,
+    required this.child,
+    this.enabled = true,
+    super.key,
+  });
 
   /// The background; null: [child] alone.
   final PostBackgroundLayer? layer;
@@ -116,14 +127,33 @@ class PostBackgroundPaint extends StatelessWidget {
   /// Where in the floor [child] is.
   final PostBackgroundPart part;
 
+  /// Whether the background is drawn now.
+  final bool enabled;
+
   /// What the background is behind.
   final Widget child;
 
   @override
+  State<PostBackgroundPaint> createState() => _PostBackgroundPaintState();
+}
+
+class _PostBackgroundPaintState extends State<PostBackgroundPaint> {
+  /// The picture [url] failed (or, [cacheOnly], was not cached): not asked again, drawn without it once built again.
+  /// Told while painting maybe: built again after the frame.
+  void _failed(String url, {required bool cacheOnly}) {
+    PostBackgroundFailures.add(url, cacheOnly: cacheOnly);
+    scheduleMicrotask(() {
+      if (mounted) {
+        setState(() {});
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final layer = this.layer;
+    final layer = widget.layer;
     if (layer == null) {
-      return child;
+      return widget.child;
     }
     final autoLoad = PostImageAutoLoad.fromIndex(
       context.select<SettingsBloc, int>((e) => e.state.settingsMap.postImageAutoLoad),
@@ -133,13 +163,14 @@ class PostBackgroundPaint extends StatelessWidget {
     );
     final theme = Theme.of(context);
     final veil = postBackgroundVeil(theme, highContrast: MediaQuery.maybeHighContrastOf(context) ?? false);
-    final corners = switch (part) {
+    final corners = switch (widget.part) {
       PostBackgroundPart.top => const BorderRadius.vertical(top: Radius.circular(appSurfaceRadius)),
       PostBackgroundPart.bottom => const BorderRadius.vertical(bottom: Radius.circular(appSurfaceRadius)),
     };
+    final enabled = widget.enabled;
     return ValueListenableBuilder<bool?>(
       valueListenable: NetworkUsage.unmetered,
-      child: child,
+      child: widget.child,
       builder: (context, unmetered, child) {
         final fetches = switch (DataSaver.holdsBack(context, dataSaver)) {
           true || null => false,
@@ -149,15 +180,17 @@ class PostBackgroundPaint extends StatelessWidget {
             PostImageAutoLoad.wifiOnly => unmetered ?? false,
           },
         };
+        final url = layer.imageUrl;
+        // A veil the picture would not show through (the platform's high contrast in some themes): none asked.
+        final drawn = enabled && veil.a < 1 && !PostBackgroundFailures.failed(url, cacheOnly: !fetches);
         return DecoratedBox(
           key: const ValueKey('post-background-image'),
           decoration: BoxDecoration(
             borderRadius: corners,
-            // A veil the picture would not show through (the platform's high contrast in some themes): none asked.
-            image: veil.a >= 1
+            image: !drawn
                 ? null
                 : DecorationImage(
-                    image: postBackgroundImage(layer.imageUrl, cacheOnly: !fetches),
+                    image: postBackgroundImage(url, cacheOnly: !fetches),
                     repeat: switch (layer.repeat) {
                       PostBackgroundRepeat.both => ImageRepeat.repeat,
                       PostBackgroundRepeat.none => ImageRepeat.noRepeat,
@@ -183,13 +216,13 @@ class PostBackgroundPaint extends StatelessWidget {
                       PostBackgroundSize.cover => BoxFit.cover,
                       PostBackgroundSize.contain => BoxFit.contain,
                     },
-                    // A picture that fails is no background: nothing drawn, nothing reported.
-                    onError: _ignoreError,
+                    // A picture that fails is no background: nothing drawn, nothing reported, not asked again.
+                    onError: (_, _) => _failed(url, cacheOnly: !fetches),
                   ),
           ),
           child: DecoratedBox(
             key: const ValueKey('post-background-veil'),
-            decoration: BoxDecoration(color: veil, borderRadius: corners),
+            decoration: BoxDecoration(color: enabled ? veil : null, borderRadius: corners),
             child: child,
           ),
         );
@@ -198,7 +231,37 @@ class PostBackgroundPaint extends StatelessWidget {
   }
 }
 
-void _ignoreError(Object error, StackTrace? stackTrace) {}
+/// The pictures of the floors' backgrounds that failed in this run: never asked again (a painted [DecorationImage]
+/// asks its picture on every paint, and a failed one is out of the image cache). Those that failed from the network,
+/// and apart those not in the cache when only the cache was asked (the data saver): they are fetched once the pictures
+/// load by themselves again. At most [max] of each, the oldest forgotten first.
+abstract final class PostBackgroundFailures {
+  /// The most pictures remembered, of each kind.
+  static const max = 256;
+
+  static final _fetched = <String>{};
+  static final _notCached = <String>{};
+
+  /// Remember [url] failed, asked from the cache only with [cacheOnly].
+  static void add(String url, {required bool cacheOnly}) {
+    final set = (cacheOnly ? _notCached : _fetched)..remove(url);
+    if (set.length >= max) {
+      set.remove(set.first);
+    }
+    set.add(url);
+  }
+
+  /// Whether [url] asked so ([cacheOnly]) failed before: one that failed from the network fails from the cache too.
+  static bool failed(String url, {required bool cacheOnly}) =>
+      _fetched.contains(url) || (cacheOnly && _notCached.contains(url));
+
+  /// Forget them all (for tests).
+  @visibleForTesting
+  static void clear() {
+    _fetched.clear();
+    _notCached.clear();
+  }
+}
 
 /// The picture of a floor's background at [url] as it is painted: cached as the pictures of the posts, decoded within
 /// [postBackgroundMaxDecodeSide], still ([StillImage]); from the cache only with [cacheOnly].

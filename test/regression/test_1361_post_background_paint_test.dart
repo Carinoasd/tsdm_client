@@ -230,6 +230,7 @@ void main() {
         );
       await settings.init();
       bloc = SettingsBloc(settingsRepository: settings, fragmentsRepository: FragmentsRepository());
+      PostBackgroundFailures.clear();
       PaintingBinding.instance.imageCache
         ..clear()
         ..clearLiveImages();
@@ -389,14 +390,67 @@ void main() {
       await tester.runAsync(() => bloc.stream.firstWhere((s) => s.settingsMap.postImageAutoLoad == 2));
       expect(PostImageAutoLoad.fromIndex(2), PostImageAutoLoad.never);
       await pumpCard(tester, _floor(background: _both));
+      DecorationImage? sidebar() =>
+          (tester.widget<DecoratedBox>(find.byKey(const ValueKey('post-background-image')).first).decoration
+                  as BoxDecoration)
+              .image;
       await settle(tester);
       expect(images.requested, isEmpty);
       expect(tester.takeException(), isNull);
-      final layer = tester.widget<DecoratedBox>(find.byKey(const ValueKey('post-background-image')).first);
+      // Not in the cache: not asked again while held back, fetched once the pictures load by themselves.
+      expect(sidebar(), isNull);
+      expect(PostBackgroundFailures.failed(_both.sidebar!.imageUrl, cacheOnly: true), isTrue);
+      expect(PostBackgroundFailures.failed(_both.sidebar!.imageUrl, cacheOnly: false), isFalse);
+    });
+
+    testWidgets('a picture that failed is not asked again, however often the floor paints', (tester) async {
+      await pumpCard(tester, _floor(background: _failing));
+      await settle(tester);
+      final asked = images.requested.length;
+      expect(asked, greaterThan(0));
       expect(
-        (layer.decoration as BoxDecoration).image!.image,
-        postBackgroundImage(_both.sidebar!.imageUrl, cacheOnly: true),
+        tester
+            .widgetList<DecoratedBox>(find.byKey(const ValueKey('post-background-image')))
+            .map(
+              (e) => (e.decoration as BoxDecoration).image,
+            ),
+        everyElement(isNull),
       );
+      for (var i = 0; i < 5; i++) {
+        for (final box in find.byKey(const ValueKey('post-background-image')).evaluate()) {
+          box.renderObject!.markNeedsPaint();
+        }
+        await tester.pump();
+        await settle(tester);
+      }
+      expect(images.requested, hasLength(asked));
+      // Another floor of the same author, built later: nothing asked either.
+      await pumpCard(tester, _floor(background: _failing));
+      await settle(tester);
+      expect(images.requested, hasLength(asked));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('floors picked to be quoted: nothing drawn, the same widgets', (tester) async {
+      Widget paint({required bool enabled}) => MaterialApp(
+        home: BlocProvider<SettingsBloc>.value(
+          value: bloc,
+          child: PostBackgroundPaint(
+            layer: _both.content,
+            part: PostBackgroundPart.bottom,
+            enabled: enabled,
+            child: const SizedBox(key: ValueKey('child'), height: 40),
+          ),
+        ),
+      );
+      await tester.pumpWidget(paint(enabled: true));
+      final child = tester.element(find.byKey(const ValueKey('child')));
+      await tester.pumpWidget(paint(enabled: false));
+      expect((veils(tester).single.decoration as BoxDecoration).color, isNull);
+      final layer = tester.widget<DecoratedBox>(find.byKey(const ValueKey('post-background-image')));
+      expect((layer.decoration as BoxDecoration).image, isNull);
+      expect(tester.element(find.byKey(const ValueKey('child'))), same(child));
+      await settle(tester);
     });
   });
 
