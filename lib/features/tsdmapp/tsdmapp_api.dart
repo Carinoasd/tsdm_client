@@ -653,7 +653,8 @@ final class TsdmAppPluginInfo {
   final TsdmAppV4Flags? v4;
 
   /// The forum's plugins the last `status` said are switched off (`site_plugins`, plugin 4.1.0: the ids whose value is
-  /// 0), null when the answer does not tell (an older plugin's `status`, another action).
+  /// the number 0 or the text `'0'`), null when the answer does not tell (an older plugin's `status`, another action).
+  /// A `status` of the same version without `site_plugins` keeps what an earlier one told.
   final Set<String>? sitePluginsOff;
 
   /// Whether [version] is older than [expectedTsdmAppVersion]: some pages are then parsed from the web page.
