@@ -3,18 +3,25 @@ import 'dart:async';
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/list.dart';
+import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
+import 'package:tsdm_client/features/in_app_browser/utils/open_forum_page.dart';
 import 'package:tsdm_client/features/points/bloc/points_bloc.dart';
 import 'package:tsdm_client/features/points/bloc/points_trend_cubit.dart';
+import 'package:tsdm_client/features/points/models/credit_forms.dart';
 import 'package:tsdm_client/features/points/repository/model/models.dart';
 import 'package:tsdm_client/features/points/repository/points_repository.dart';
+import 'package:tsdm_client/features/points/views/credit_form_page.dart';
 import 'package:tsdm_client/features/points/widgets/points_card.dart';
 import 'package:tsdm_client/features/points/widgets/points_query_form.dart';
 import 'package:tsdm_client/features/points/widgets/points_trend_tab.dart';
+import 'package:tsdm_client/features/tsdmapp/v4.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
+import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/failure_view.dart';
 import 'package:tsdm_client/widgets/indicator.dart';
@@ -35,6 +42,63 @@ class _PointsPageState extends State<PointsPage> with SingleTickerProviderStateM
   late final ScrollController _statisticsScrollController;
   late final EasyRefreshController _changelogRefreshController;
   late final ScrollController _changelogScrollController;
+
+  /// Open form [kind]: natively when the forum's plugin answers it as fields ([TsdmAppV4.creditForms], plugin
+  /// 4.1.0), its web page otherwise. The statistics and the log are read again once the credits may have changed.
+  Future<void> _openCreditForm(BuildContext context, CreditFormKind kind) async {
+    final statistics = context.read<PointsStatisticsBloc>();
+    final changelog = context.read<PointsChangelogBloc>();
+    final router = GoRouter.of(context);
+    final selfUsername = context.read<AuthenticationRepository?>()?.effectiveCurrentUser?.username;
+    var web = !TsdmAppV4.creditForms;
+    if (!web) {
+      final exit = await Navigator.of(context).push(
+        MaterialPageRoute<CreditFormExit>(
+          builder: (_) => CreditFormPage(
+            kind: kind,
+            selfUsername: selfUsername,
+            onWritten: () {
+              if (!statistics.isClosed) {
+                statistics.add(PointsStatisticsRefreshRequested());
+              }
+              if (!changelog.isClosed) {
+                changelog.add(PointsChangelogRefreshRequested());
+              }
+            },
+          ),
+        ),
+      );
+      web = exit == CreditFormExit.web;
+    }
+    if (web && !await openForumPageInBrowser(router, kind.pageUrl) && context.mounted) {
+      showSnackBar(context: context, message: context.t.openInAppPage.browserLaunchFailed, clearPrevious: true);
+    }
+  }
+
+  /// The forms the statistics page offers ([PointsStatisticsState.canTransfer], [PointsStatisticsState.canExchange]).
+  Widget? _creditFormButtons(BuildContext context, PointsStatisticsState state) {
+    final tr = context.t.pointsPage.creditForms;
+    final buttons = [
+      if (state.canTransfer)
+        TextButton.icon(
+          onPressed: () => _openCreditForm(context, CreditFormKind.transfer),
+          icon: const Icon(Icons.send_outlined),
+          label: Text(tr.transfer),
+        ),
+      if (state.canExchange)
+        TextButton.icon(
+          onPressed: () => _openCreditForm(context, CreditFormKind.exchange),
+          icon: const Icon(Icons.swap_horiz_outlined),
+          label: Text(tr.exchange),
+        ),
+    ];
+    // Beside the title while there is room, wrapped below one another with large fonts.
+    return buttons.isEmpty
+        ? null
+        : Flexible(
+            child: Wrap(alignment: WrapAlignment.end, children: buttons),
+          );
+  }
 
   Widget _buildStatisticsTab(BuildContext context, PointsStatisticsState state) {
     if (state.status == PointsStatus.initial || state.status == PointsStatus.loading) {
@@ -85,6 +149,7 @@ class _PointsPageState extends State<PointsPage> with SingleTickerProviderStateM
                           context.t.pointsPage.statisticsTab.title,
                           icon: Icons.bar_chart_outlined,
                           padding: const EdgeInsets.only(bottom: 8),
+                          trailing: _creditFormButtons(context, state),
                         ),
                         for (var row = 0; row < rows; row++)
                           Padding(

@@ -1,0 +1,8 @@
+{
+ "ok": 0,
+ "error": "message",
+ "message": "抱歉，站点尚未开启此功能或此功能已被管理员禁止",
+ "login": 0,
+ "uid": 31,
+ "message_key": "action_closed"
+}

@@ -28,7 +28,15 @@ final class PointsStatisticsState with PointsStatisticsStateMappable {
     this.recentChangelog = const [],
     this.refreshing = false,
     this.failure,
+    this.canTransfer = false,
+    this.canExchange = false,
   });
+
+  /// The page offers the transfer of credits to another member (its `transfer` tab).
+  final bool canTransfer;
+
+  /// The page offers the exchange between the account's credits (its `exchange` tab).
+  final bool canExchange;
 
   /// The page is asked again while the points shown stay; they stay when it fails.
   final bool refreshing;

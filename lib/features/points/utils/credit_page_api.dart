@@ -1,3 +1,4 @@
+import 'package:tsdm_client/features/points/models/credit_forms.dart';
 import 'package:tsdm_client/features/points/models/models.dart';
 import 'package:tsdm_client/features/points/repository/model/models.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
@@ -115,13 +116,14 @@ String _valueOf(Map<String, dynamic> option) => switch (option['value']) {
 };
 
 /// The statistics page of the credits: each credit with its value as the page prints it, then the total, and the
-/// latest changes, newest first.
-typedef PointsStatistics = ({Map<String, String> points, List<PointsChange> changes});
+/// latest changes, newest first; and the forms its tabs offer the account (transfer, exchange).
+typedef PointsStatistics = ({Map<String, String> points, List<PointsChange> changes, List<CreditFormKind> forms});
 
 /// The statistics page of plugin 4.0.0 [json] (`type: credit_base`, `schema` 52) as `parseStatisticsDocument` reads the
 /// web page: `credits` in the page's order, each its title and its value with the unit the page prints after it; then
 /// the total (the forum names it with the word of its language pack, the app with its own), and the total of a special
-/// upgrade group when the account is in one; `logs` as the rows of the credit log ([PointsChange.fromApi]).
+/// upgrade group when the account is in one; `logs` as the rows of the credit log ([PointsChange.fromApi]); the forms
+/// of `tabs` ([creditFormsOfTabs]).
 PointsStatistics pointsStatisticsFromApi(Map<String, dynamic> json) {
   final credits = t.profilePage.statistics.credits;
   final timeOffset = tsdmAppTimeOffset(json);
@@ -136,6 +138,7 @@ PointsStatistics pointsStatisticsFromApi(Map<String, dynamic> json) {
       if (upgroup.isNotEmpty) '${tsdmAppText(upgroup['name']).trim()}$credits': _number(upgroup['value']),
     },
     changes: tsdmAppList(json['logs']).map((e) => PointsChange.fromApi(e, timeOffset: timeOffset)).nonNulls.toList(),
+    forms: creditFormsOfTabs(json['tabs']),
   );
 }
 
