@@ -177,7 +177,7 @@ void main() {
       final r = repo();
       await r.mine();
       await r.store();
-      await r.store(mode: BackgroundStoreMode.special, keyword: '樱花', page: 2);
+      await r.store(mode: BackgroundStoreMode.special, keyword: '春日', page: 2);
       await r.slots(page: 3);
       await r.exchange();
       expect(asked.map((a) => [a.$1, a.$2]), [
@@ -185,7 +185,7 @@ void main() {
         ['bgstore', <String, String>{}],
         [
           'bgstore',
-          {'mode': 'special', 'kw': '樱花', 'page': '2'},
+          {'mode': 'special', 'kw': '春日', 'page': '2'},
         ],
         [
           'bgslot',

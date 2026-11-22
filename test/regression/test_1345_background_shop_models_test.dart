@@ -117,7 +117,7 @@ void main() {
       expect(store.balanceOf(2), 134);
       expect(store.balanceOf(99), isNull);
       final first = store.items.first;
-      expect(first.name, '樱花小道');
+      expect(first.name, '春日小道');
       expect(first.offers.map((o) => o.plan), ['c2', 'c6', 'c1']);
       expect(first.offers.first.kind, BackgroundPlanKind.month);
       expect(first.offers.first.cost(3), 30);

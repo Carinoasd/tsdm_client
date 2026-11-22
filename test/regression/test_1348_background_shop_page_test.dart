@@ -339,7 +339,7 @@ void main() {
   testWidgets('leaving the page after a search while a purchase is on its way, answered with nothing', (tester) async {
     await pump(tester);
     await tab(tester, 'store');
-    await tester.enterText(find.byKey(const ValueKey('bgshop-search')), '樱花');
+    await tester.enterText(find.byKey(const ValueKey('bgshop-search')), '春日');
     await tester.testTextInput.receiveAction(TextInputAction.search);
     await tester.pumpAndSettle();
     final pending = Completer<Object?>();

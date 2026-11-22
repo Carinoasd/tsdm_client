@@ -40,7 +40,7 @@
  "backgrounds": [
   {
    "id": 1,
-   "name": "樱花小道",
+   "name": "春日小道",
    "image": "https://forum.test/source/plugin/background/background/1209-1.jpg",
    "buys": 9,
    "special": 0,
@@ -84,7 +84,7 @@
   },
   {
    "id": 2,
-   "name": "樱花雨",
+   "name": "春日细雨",
    "image": "https://forum.test/source/plugin/background/background/1209-2.jpg",
    "buys": 3,
    "special": 0,
