@@ -264,6 +264,44 @@ void main() {
     }
   });
 
+  group('exchange after a 503', () {
+    Map<String, dynamic> page({required String hash, bool dropSource = false}) {
+      final json = v4Json('credit_exchange_v73.json');
+      ((json['submit'] as Map)['fields'] as Map)['formhash'] = hash;
+      if (dropSource) {
+        (json['from'] as List).removeWhere((e) => (e as Map)['id'] == 1);
+      }
+      return json;
+    }
+
+    for (final (name, second, expired) in [
+      ('a new formhash: expired', page(hash: 'a1a2a3a4'), true),
+      ('the source gone from the menu: unknown', page(hash: 'a1a2a3a4', dropSource: true), false),
+    ]) {
+      testWidgets(name, (tester) async {
+        var written = 0;
+        var gets = 0;
+        final forum = V4Forum(
+          (o) => o.method == 'POST'
+              ? const V4Reply('<html>System Error</html>', status: 503)
+              : V4Reply(gets++ == 0 ? page(hash: 'f1f2f3f4') : second),
+        );
+        await _open(tester, CreditFormKind.exchange, forum, onWritten: () => written++);
+        await tester.enterText(_field(tr.amount), '5');
+        await tester.pump();
+        await tester.tap(_button(tr.exchange));
+        await tester.pumpAndSettle();
+        await tester.enterText(find.descendant(of: find.byType(AlertDialog), matching: find.byType(TextField)), 'pw');
+        await tester.pump();
+        await tester.tap(find.descendant(of: find.byType(AlertDialog), matching: find.byType(FilledButton)));
+        await tester.pumpAndSettle();
+        expect([for (final r in forum.requests) r.method], ['GET', 'POST', 'GET']);
+        expect(written, expired ? 0 : 1);
+        expect(find.text(expired ? tr.expired : tr.unknown), findsOneWidget);
+      });
+    }
+  });
+
   testWidgets('not left while the write is on its way; its outcome told also so', (tester) async {
     var written = 0;
     final held = _HeldPosts(_forum(CreditFormKind.transfer, V4Reply(_result('transfer_succeed'))));

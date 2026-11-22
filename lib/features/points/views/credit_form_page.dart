@@ -341,6 +341,7 @@ class _CreditFormPageState extends State<CreditFormPage> {
         // 503 may be of something in between, after the write (the form not read again, the same formhash, a lower
         // balance): unknown.
         final sentHash = _formHash;
+        final sentSource = _sourceId;
         final before = _spentBalance;
         await _load();
         if (!mounted) {
@@ -349,7 +350,13 @@ class _CreditFormPageState extends State<CreditFormPage> {
         final after = _spentBalance;
         final hash = _formHash;
         final renewed =
-            _failure == null && hash != null && hash != sentHash && before != null && after != null && after >= before;
+            _failure == null &&
+            hash != null &&
+            hash != sentHash &&
+            _sourceId == sentSource &&
+            before != null &&
+            after != null &&
+            after >= before;
         if (!renewed) {
           widget.onWritten();
           _amount.clear();
