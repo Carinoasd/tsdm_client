@@ -208,10 +208,36 @@ void main() {
       final pixel = _at(cyan, 32, 32);
       final color = Color.fromARGB(255, pixel[0], pixel[1], pixel[2]);
       final scheme = theme.colorScheme;
-      final needed = min(postBackgroundBodyContrast, contrastRatio(scheme.onSurface, surface));
-      expect(contrastRatio(scheme.onSurface, color), greaterThanOrEqualTo(needed - 0.01), reason: '$color');
+      for (final (text, contrast) in [
+        (scheme.onSurface, postBackgroundBodyContrast),
+        (scheme.primary, postBackgroundBodyContrast),
+        (scheme.outline, postBackgroundSecondaryContrast),
+      ]) {
+        final needed = min(contrast, contrastRatio(text, surface));
+        expect(contrastRatio(text, color), greaterThanOrEqualTo(needed - 0.01), reason: '$text on $color');
+      }
     });
   }
+
+  testWidgets(
+    'a picture already dark: lighter than the floor on a dark floor (the lightness turned over, on purpose)',
+    (
+      tester,
+    ) async {
+      final theme = _themes['dark']!;
+      final surface = postBackgroundSurface(theme);
+      final card = [_channel(surface.r), _channel(surface.g), _channel(surface.b)];
+      // The near black quarter of the drawing, tiled: a dark plate of a picture turns light.
+      final pixels = await _paint(
+        tester,
+        theme,
+        const PostBackgroundLayer(imageUrl: 'https://cdn.example/d.png', size: PostBackgroundSize.cover),
+        _drawing,
+      );
+      final line = _at(pixels, 56, 8);
+      expect(line.reduce((a, b) => a + b), greaterThan(card.reduce((a, b) => a + b)));
+    },
+  );
 
   test('the veil is the one of before: at least the least opacity', () {
     for (final theme in _themes.values) {
