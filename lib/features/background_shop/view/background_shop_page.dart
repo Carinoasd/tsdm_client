@@ -334,27 +334,18 @@ abstract class _TabState<W extends StatefulWidget, T> extends State<W> with Auto
     try {
       final answer = await read();
       if (!mounted || generation != _generation) return;
-      setState(() {
-        loading = false;
-        _apply(answer);
-      });
+      setState(() => _apply(answer));
     } on BackgroundShopLoginRequired {
-      if (mounted && generation == _generation) {
-        setState(() {
-          loading = false;
-          loginRequired = true;
-        });
-      }
+      if (mounted && generation == _generation) setState(() => loginRequired = true);
     } on Exception {
       if (!mounted || generation != _generation) return;
-      setState(() {
-        loading = false;
-        failed = true;
-      });
+      setState(() => failed = true);
       // The page read before stays: tell it is not the latest.
       if (page != null && byMember) {
         showSnackBar(context: context, message: context.t.general.failedToLoad, clearPrevious: true);
       }
+    } finally {
+      if (mounted && generation == _generation) setState(() => loading = false);
     }
   }
 
@@ -395,6 +386,7 @@ abstract class _TabState<W extends StatefulWidget, T> extends State<W> with Auto
     }
     // The page read before stays while the next is on its way, under a thin bar.
     return Stack(
+      fit: StackFit.expand,
       children: [
         ValueListenableBuilder(valueListenable: scope.writing, builder: (context, _, _) => buildPage(context, page)),
         if (loading)

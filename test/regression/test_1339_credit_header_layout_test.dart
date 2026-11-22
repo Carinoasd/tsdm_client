@@ -85,6 +85,11 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(_centerY(tester, find.byKey(_transfer)), _centerY(tester, find.byKey(_exchange)));
       final header = tester.getRect(find.byKey(const ValueKey('header')));
+      expect(
+        tester.getRect(find.byKey(_transfer)).top,
+        greaterThanOrEqualTo(tester.getRect(find.text(title)).bottom - 0.5),
+        reason: 'under the title',
+      );
       for (final key in [_transfer, _exchange]) {
         final rect = tester.getRect(find.byKey(key));
         expect(rect.left >= header.left - 0.5 && rect.right <= header.right + 0.5, isTrue, reason: '$key inside');
