@@ -48,9 +48,9 @@ typedef _MeEntry = ({Key key, IconData icon, String label, VoidCallback onTap});
 /// account of a management group), then its pages in three grids: content (threads, favorites, bookmarks, history, the
 /// drafts kept on this device and the forum's drafts box), social (private messages, friends, visitors) and stats
 /// (points, check-ins, reading, ratings); then the services of the forum in the same grid (tasks, magic, bank,
-/// ranklist, activities, medals and titles, achievements, pokemon center, and the pages of the forum's other plugins
-/// opened in a browser: game center, court, CP system, part-time job) and the list of the app itself (accounts,
-/// settings, about).
+/// ranklist, activities, medals and titles, achievements, pokemon center, the background shop, and the pages of the
+/// forum's other plugins opened in a browser: game center, court, CP system, part-time job) and the list of the app
+/// itself (accounts, settings, about).
 ///
 /// The settings were a tab of their own before; the whole settings page is one tap away here, nothing in it moved. The
 /// pages the side navigation of wide windows listed besides its tabs are entries here as well.
@@ -344,6 +344,18 @@ class _MePageState extends State<MePage> {
         ScreenPaths.achievements,
       ),
       service(const ValueKey('me-pokemon'), Icons.catching_pokemon, t.pokemon.title, ScreenPaths.pokemon),
+      // The background shop: the app's own pages with plugin 4.1.0, the website's before (`status`; none asked here).
+      if (TsdmAppApi.backgroundShop case final shop? when shop != TsdmAppBackgroundShop.none)
+        (
+          key: const ValueKey('me-background-shop'),
+          icon: Icons.wallpaper_outlined,
+          label: t.backgroundShop.title,
+          onTap: () => !loggedIn
+              ? _open(ScreenPaths.login)
+              : shop == TsdmAppBackgroundShop.native
+              ? _open(ScreenPaths.backgroundShop)
+              : unawaited(_openPluginPage('$baseUrl/plugin.php?id=background:memcp')),
+        ),
       for (final (id, page, icon, label, needLogin) in [
         ('gamecenter', 'gamecenter', Icons.sports_esports_outlined, t.mePage.entries.gameCenter, false),
         ('tsdm_court', 'tsdm_court:court', Icons.gavel_outlined, t.mePage.entries.court, true),

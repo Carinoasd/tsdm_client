@@ -1,0 +1,60 @@
+{
+ "ok": 1,
+ "api": 1,
+ "time": 1700000000,
+ "uid": 31,
+ "formhash": "f1f2f3f4",
+ "installed": 1,
+ "type": "bg_exchange",
+ "schema": 77,
+ "timeoffset": 8,
+ "supported": 1,
+ "enabled": 1,
+ "campaigns": [
+  {
+   "id": "get20210501_1",
+   "type": 8,
+   "min_medals": 2,
+   "days": 365,
+   "expiration_seconds": 31536000,
+   "medals": [],
+   "owned_medals": 0,
+   "exchanged": 0,
+   "eligible": 0,
+   "backgrounds": []
+  },
+  {
+   "id": "get20200501_1",
+   "type": 8,
+   "min_medals": 2,
+   "days": 365,
+   "expiration_seconds": 31536000,
+   "medals": [],
+   "owned_medals": 0,
+   "exchanged": 0,
+   "eligible": 0,
+   "backgrounds": []
+  },
+  {
+   "id": "get20190521_1",
+   "type": 8,
+   "min_medals": 2,
+   "days": 365,
+   "expiration_seconds": 31536000,
+   "medals": [],
+   "owned_medals": 0,
+   "exchanged": 0,
+   "eligible": 0,
+   "backgrounds": []
+  }
+ ],
+ "form": {
+  "url": "plugin.php?id=background:sp",
+  "method": "GET",
+  "fields": {
+   "formhash": "f1f2f3f4"
+  },
+  "action_field": "action",
+  "bg_field": "getbgid"
+ }
+}

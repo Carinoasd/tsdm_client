@@ -1,0 +1,87 @@
+{
+ "ok": 1,
+ "api": 1,
+ "time": 1700000000,
+ "uid": 31,
+ "formhash": "f1f2f3f4",
+ "installed": 1,
+ "type": "bg_store",
+ "schema": 75,
+ "timeoffset": 8,
+ "supported": 1,
+ "mode": "special",
+ "special_on": 1,
+ "special_title": "活动商店",
+ "keyword": "",
+ "page": 1,
+ "perpage": 20,
+ "count": 1,
+ "pages": 1,
+ "credits": [
+  {
+   "id": 6,
+   "title": "精灵",
+   "unit": "",
+   "balance": 100
+  }
+ ],
+ "backgrounds": [
+  {
+   "id": 29,
+   "name": "双通道h5fm",
+   "image": "https://forum.test/source/plugin/background/background/cs.jpg",
+   "buys": 4,
+   "special": 1,
+   "nonsale": 0,
+   "offers": [
+    {
+     "plan": "sy",
+     "credit": {
+      "id": 6,
+      "title": "精灵",
+      "unit": ""
+     },
+     "price": 30,
+     "kind": "year",
+     "max_months": 1
+    },
+    {
+     "plan": "sf",
+     "credit": {
+      "id": 6,
+      "title": "精灵",
+      "unit": ""
+     },
+     "price": 100,
+     "kind": "forever",
+     "max_months": 1
+    }
+   ],
+   "owned": {
+    "expiration": 0,
+    "permanent": 1
+   }
+  }
+ ],
+ "buy": {
+  "url": "plugin.php?id=background:memcp&ac=buybg",
+  "method": "POST",
+  "enctype": "application/x-www-form-urlencoded",
+  "fields": {
+   "formhash": "f1f2f3f4",
+   "buysubmit": "true"
+  },
+  "query": {
+   "bgid": "bgid",
+   "position": "p"
+  },
+  "positions": {
+   "content": "0",
+   "sidebar": "1"
+  },
+  "plan_field": "plan",
+  "months_field": "buynum",
+  "month_seconds": 2592000,
+  "year_seconds": 31536000
+ }
+}

@@ -87,7 +87,9 @@ import 'package:universal_html/parsing.dart';
 ///
 /// Plugin 4.1.0 adds to `status` whether some other plugins of the forum are switched on (`site_plugins`, each 0 or
 /// 1): the "me" tab hides the entry of one the forum switched off ([sitePluginOff]). Nothing is asked for it; an
-/// older plugin's `status` leaves it out and every entry stays.
+/// older plugin's `status` leaves it out and every entry stays. It also tells whether the member's pages of the
+/// background shop are answered (`bgshop`, the actions `bgmine`, `bgstore`, `bgslot`, `bgexchange`;
+/// [backgroundShop], `background_shop` feature).
 ///
 /// The actions of a plugin older than [tsdmAppMinimumVersion] (3.5.0, the version the forum ran the longest) are not
 /// used: a `status` or `notify` answer naming such a version (or a `notify` naming none, before 1.9.0) is dropped and
@@ -186,6 +188,7 @@ abstract final class TsdmAppApi {
       device: known.device,
       admin: known.admin,
       sitePluginsOff: known.sitePluginsOff,
+      backgroundShop: known.backgroundShop,
     );
   }
 
@@ -263,6 +266,10 @@ abstract final class TsdmAppApi {
   /// asked yet, the id left out or any other value.
   static bool sitePluginOff(String id) => pluginInfo.value?.sitePluginsOff?.contains(id) ?? false;
 
+  /// How the background shop of the forum is offered, as the last `status` told ([TsdmAppBackgroundShop]); null when
+  /// no `status` told it yet.
+  static TsdmAppBackgroundShop? get backgroundShop => pluginInfo.value?.backgroundShop;
+
   /// Keep what an answer [json] of an action tells about the plugin ([pluginInfo]): an answer without a `version`
   /// (an older action's, or a message such as `login`) tells nothing and changes nothing. Only `status` names
   /// `nodoc` and `preview`, and not every answer names `api`: what is known of the version holds through the answers
@@ -284,6 +291,7 @@ abstract final class TsdmAppApi {
         admin: info.admin ?? known.admin,
         v4: info.v4 ?? known.v4,
         sitePluginsOff: info.sitePluginsOff ?? known.sitePluginsOff,
+        backgroundShop: info.backgroundShop ?? known.backgroundShop,
       );
     }
     if (info != known) {
@@ -580,6 +588,7 @@ final class TsdmAppPluginInfo {
     this.admin,
     this.v4,
     this.sitePluginsOff,
+    this.backgroundShop,
   });
 
   /// The info of an action answer [json], null when it names no `version` (or `plugin_version`, which comes first).
@@ -622,6 +631,17 @@ final class TsdmAppPluginInfo {
         },
         _ => null,
       },
+      // Only `status` lists its actions; it names `bggrant` since 3.9.0 and `bgshop` since 4.1.0 (a `status` naming
+      // neither tells nothing: no entry either way).
+      backgroundShop: json['actions'] is! List
+          ? null
+          : json['bgshop'] == 1
+          ? TsdmAppBackgroundShop.native
+          : json['bggrant'] == 1
+          ? TsdmAppBackgroundShop.web
+          : json.containsKey('bgshop') || json.containsKey('bggrant')
+          ? TsdmAppBackgroundShop.none
+          : null,
     );
   }
 
@@ -657,6 +677,10 @@ final class TsdmAppPluginInfo {
   /// A `status` of the same version without `site_plugins` keeps what an earlier one told.
   final Set<String>? sitePluginsOff;
 
+  /// How the forum's background shop is offered, as the last `status` told ([TsdmAppBackgroundShop]); null when the
+  /// answer is not a `status`.
+  final TsdmAppBackgroundShop? backgroundShop;
+
   /// Whether [version] is older than [expectedTsdmAppVersion]: some pages are then parsed from the web page.
   bool get olderThanExpected => compareTsdmAppVersions(version, expectedTsdmAppVersion) < 0;
 
@@ -674,7 +698,8 @@ final class TsdmAppPluginInfo {
       other.device == device &&
       other.admin == admin &&
       other.v4 == v4 &&
-      setEquals(other.sitePluginsOff, sitePluginsOff);
+      setEquals(other.sitePluginsOff, sitePluginsOff) &&
+      other.backgroundShop == backgroundShop;
 
   @override
   int get hashCode => Object.hash(
@@ -686,12 +711,28 @@ final class TsdmAppPluginInfo {
     admin,
     v4,
     sitePluginsOff == null ? null : Object.hashAllUnordered(sitePluginsOff!),
+    backgroundShop,
   );
 
   @override
   String toString() =>
       'TsdmAppPluginInfo(version: $version, api: $api, nodoc: $nodoc, preview: $preview, device: $device, '
-      'admin: $admin, v4: $v4, sitePluginsOff: $sitePluginsOff)';
+      'admin: $admin, v4: $v4, sitePluginsOff: $sitePluginsOff, backgroundShop: $backgroundShop)';
+}
+
+/// How the forum's background shop (the background plugin, `plugin.php?id=background:memcp`) is offered to a member,
+/// from a `status` of the app API.
+enum TsdmAppBackgroundShop {
+  /// `bgshop: 1` (plugin 4.1.0): the member's pages of the shop are answered as fields (`bgmine`, `bgstore`,
+  /// `bgslot`, `bgexchange`), the app shows them itself.
+  native,
+
+  /// No `bgshop: 1` but `bggrant: 1` (plugin 3.9.0 to 4.0.x, or a background plugin too old for 4.1.0): the background
+  /// plugin is on, its page is opened in a browser.
+  web,
+
+  /// Neither: the forum runs no background plugin (or a plugin before 3.9.0, which does not tell).
+  none,
 }
 
 /// Compare two dotted versions [a] and [b] (`2.3.0`, `2.10.1`) part by part as numbers, a missing part as 0, a part
