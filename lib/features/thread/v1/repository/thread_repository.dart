@@ -8,6 +8,7 @@ import 'package:tsdm_client/extensions/fp.dart';
 import 'package:tsdm_client/features/authentication/utils/logged_user_parser.dart';
 import 'package:tsdm_client/features/offline_thread/repository/offline_thread_repository.dart';
 import 'package:tsdm_client/features/offline_thread/utils/thread_refusal.dart';
+import 'package:tsdm_client/features/post_background/utils/post_background_query.dart';
 import 'package:tsdm_client/features/thread/v1/models/models.dart';
 import 'package:tsdm_client/features/thread/v1/utils/parse_thread_document.dart';
 import 'package:tsdm_client/features/thread/v1/utils/thread_page_api.dart';
@@ -408,7 +409,8 @@ class ThreadRepository {
     final respEither = await getIt
         .get<NetClientProvider>()
         .get(
-          withTsdmAppJson(_threadUrl!),
+          // With the floors' backgrounds when they are drawn (plugin 4.1.0, `tsdmv=4`), not in the url kept.
+          withPostBackgroundsQuery(withTsdmAppJson(_threadUrl!)),
           options: onNotFound == null
               ? null
               : Options(validateStatus: (s) => s != null && ((s >= 200 && s < 300) || s == HttpStatus.notFound)),

@@ -216,6 +216,7 @@ final class SettingsRepository with LoggerMixin {
       threadContentParagraphSpacing: s.extract(_SK.threadContentParagraphSpacing),
       threadContentSplitLongParagraphs: s.extract(_SK.threadContentSplitLongParagraphs),
       threadLinkCard: s.extract(_SK.threadLinkCard),
+      showPostBackgrounds: s.extract(_SK.showPostBackgrounds),
       threadContentMaxWidth: s.extract(_SK.threadContentMaxWidth),
       highRefreshRate: s.extract(_SK.highRefreshRate),
       appIcon: s.extract(_SK.appIcon),

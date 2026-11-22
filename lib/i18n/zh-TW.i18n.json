@@ -580,6 +580,9 @@
       "threadLinkCard": {
         "title": "帖子連結顯示預覽卡"
       },
+      "showPostBackgrounds": {
+        "title": "顯示帖子背景"
+      },
       "threadContentLayout": {
         "title": "閱讀排版",
         "dialogTitle": "閱讀排版",

@@ -619,6 +619,13 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
           value: state.settingsMap.threadLinkCard,
           onChanged: (v) => context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.threadLinkCard, v)),
         ),
+        SectionSwitchListTile(
+          key: const ValueKey('settings-show-post-backgrounds'),
+          secondary: const Icon(Icons.wallpaper_outlined),
+          title: Text(tr.showPostBackgrounds.title),
+          value: state.settingsMap.showPostBackgrounds,
+          onChanged: (v) => context.read<SettingsBloc>().add(SettingsValueChanged(SettingsKeys.showPostBackgrounds, v)),
+        ),
         SectionListTile(
           key: const ValueKey('settings-immersive-forums'),
           leading: const Icon(Icons.chrome_reader_mode_outlined),

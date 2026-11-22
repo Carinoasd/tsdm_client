@@ -30,6 +30,8 @@ import 'package:tsdm_client/features/netdisk/models/netdisk_link.dart';
 import 'package:tsdm_client/features/netdisk/utils/netdisk_parser.dart';
 import 'package:tsdm_client/features/post/models/models.dart';
 import 'package:tsdm_client/features/post/utils/edit_attachments.dart';
+import 'package:tsdm_client/features/post_background/models/post_background.dart';
+import 'package:tsdm_client/features/post_background/widgets/post_background_paint.dart';
 import 'package:tsdm_client/features/post_comment/widgets/post_comment_widgets.dart';
 import 'package:tsdm_client/features/post_report/view/post_report_dialog.dart';
 import 'package:tsdm_client/features/profile/widgets/secondary_title_badge.dart';
@@ -1064,19 +1066,28 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
   }
 
   Widget _buildCard(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Post author user info.
-        _buildAuthorRow(context),
-        // Last edit status.
-        if (widget.post.lastEditUsername != null && widget.post.lastEditTime != null) _buildLastEditInfoRow(context),
-        // Post body
-        sizedBoxW12H12,
-        InteractivePostEntry(data: widget.post.data, postId: widget.post.postID),
-        // The special block of the thread (plugin 2.8.0), where the web page prints it: the bounty and the activity
-        // before the content, the poll, the goods and the debate after it. Its html is cut out of the content.
-        if (widget.post.special case final special? when SpecialThreadCard.aboveContent(special))
+    final author = _buildAuthorRow(context);
+    final rest = <Widget>[
+      // Last edit status.
+      if (widget.post.lastEditUsername != null && widget.post.lastEditTime != null) _buildLastEditInfoRow(context),
+      // Post body
+      sizedBoxW12H12,
+      InteractivePostEntry(data: widget.post.data, postId: widget.post.postID),
+      // The special block of the thread (plugin 2.8.0), where the web page prints it: the bounty and the activity
+      // before the content, the poll, the goods and the debate after it. Its html is cut out of the content.
+      if (widget.post.special case final special? when SpecialThreadCard.aboveContent(special))
+        SpecialThreadCard(
+          special,
+          pid: widget.post.postID,
+          onReload: _specialReload(context),
+          onJoinDebate: isOfflineFloor(context) ? null : widget.onJoinDebate,
+          webUrl: widget.post.shareLink,
+        ),
+      _buildPostBody(context),
+      // 红包 if any.
+      if (widget.post.locked.isNotEmpty) ...widget.post.locked.where((e) => e.isValid()).map(LockedCard.new),
+      if (widget.post.special case final special?) ...[
+        if (!SpecialThreadCard.aboveContent(special))
           SpecialThreadCard(
             special,
             pid: widget.post.postID,
@@ -1084,49 +1095,61 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
             onJoinDebate: isOfflineFloor(context) ? null : widget.onJoinDebate,
             webUrl: widget.post.shareLink,
           ),
-        _buildPostBody(context),
-        // 红包 if any.
-        if (widget.post.locked.isNotEmpty) ...widget.post.locked.where((e) => e.isValid()).map(LockedCard.new),
-        if (widget.post.special case final special?) ...[
-          if (!SpecialThreadCard.aboveContent(special))
-            SpecialThreadCard(
-              special,
-              pid: widget.post.postID,
-              onReload: _specialReload(context),
-              onJoinDebate: isOfflineFloor(context) ? null : widget.onJoinDebate,
-              webUrl: widget.post.shareLink,
-            ),
-        ] else if (widget.post.poll case final poll?)
-          PollCard(widget.post.postID, fromPage: poll),
-        if (widget.post.packetUrl != null) ...[
-          sizedBoxW12H12,
-          PacketCard(widget.post.packetUrl!, allTaken: widget.post.packetAllTaken),
-        ],
-        // The floor's comments, before the rates as on the web page; nothing without any.
-        if (widget.post.comments.isNotEmpty) ...[
-          sizedBoxW12H12,
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 712),
-            child: PostCommentSection(
-              widget.post,
-              // Read back from an offline copy: the comments it holds, nothing asked from the forum.
-              tid: isOfflineFloor(context) ? null : context.readOrNull<ThreadBloc>()?.state.tid,
-              onReload: _specialReload(context),
-            ),
+      ] else if (widget.post.poll case final poll?)
+        PollCard(widget.post.postID, fromPage: poll),
+      if (widget.post.packetUrl != null) ...[
+        sizedBoxW12H12,
+        PacketCard(widget.post.packetUrl!, allTaken: widget.post.packetAllTaken),
+      ],
+      // The floor's comments, before the rates as on the web page; nothing without any.
+      if (widget.post.comments.isNotEmpty) ...[
+        sizedBoxW12H12,
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 712),
+          child: PostCommentSection(
+            widget.post,
+            // Read back from an offline copy: the comments it holds, nothing asked from the forum.
+            tid: isOfflineFloor(context) ? null : context.readOrNull<ThreadBloc>()?.state.tid,
+            onReload: _specialReload(context),
           ),
-        ],
-        // Rate status if any.
-        if (widget.post.rate != null) ...[
-          sizedBoxW12H12,
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 712),
-            child: RateCard(widget.post.rate!, widget.post.postID),
-          ),
-        ],
-        // Context menu.
-        _buildContextMenuRow(context),
+        ),
+      ],
+      // Rate status if any.
+      if (widget.post.rate != null) ...[
+        sizedBoxW12H12,
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 712),
+          child: RateCard(widget.post.rate!, widget.post.postID),
+        ),
+      ],
+      // Context menu.
+      _buildContextMenuRow(context),
+    ];
+    // The backgrounds the author set for their floors (plugin 4.1.0): the author column's behind the author row, the
+    // content's behind the rest, as the web page's `td.pls` and `td.plc`. Without one the card is as it always was.
+    final background = _backgroundOf(context);
+    if (background == null) {
+      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [author, ...rest]);
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        PostBackgroundPaint(layer: background.sidebar, part: PostBackgroundPart.top, child: author),
+        PostBackgroundPaint(
+          layer: background.content,
+          part: PostBackgroundPart.bottom,
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: rest),
+        ),
       ],
     );
+  }
+
+  /// The backgrounds drawn on this floor: those of [Post.background] while the setting shows them, none on a floor read
+  /// back from an offline copy.
+  PostBackground? _backgroundOf(BuildContext context) {
+    final shown = context.select<SettingsBloc, bool>((e) => e.state.settingsMap.showPostBackgrounds);
+    final background = widget.post.background;
+    return shown && background != null && !isOfflineFloor(context) ? background : null;
   }
 }
 
