@@ -4579,6 +4579,8 @@
     "perYear": "${price} ${credit}／年",
     "forGood": "${price} ${credit}／永久",
     "position": "位置",
+    "positionContent": "正文",
+    "positionSidebar": "边栏",
     "plan": "支付方式",
     "months": "月数",
     "cost": "花费",

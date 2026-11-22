@@ -277,6 +277,9 @@ abstract class _TabState<W extends StatefulWidget, T> extends State<W> with Auto
   bool failed = false;
   bool unavailable = false;
   bool loginRequired = false;
+
+  /// A read is on its way (one asked too soon waits for the plugin's `retry_after` first).
+  bool loading = false;
   int _generation = 0;
   int _stamp = 0;
 
@@ -324,7 +327,10 @@ abstract class _TabState<W extends StatefulWidget, T> extends State<W> with Auto
   /// to already).
   Future<void> load({bool byMember = false}) async {
     final generation = ++_generation;
-    setState(() => failed = false);
+    setState(() {
+      failed = false;
+      loading = true;
+    });
     try {
       final answer = await read();
       if (!mounted || generation != _generation) return;
@@ -338,6 +344,8 @@ abstract class _TabState<W extends StatefulWidget, T> extends State<W> with Auto
       if (page != null && byMember) {
         showSnackBar(context: context, message: context.t.general.failedToLoad, clearPrevious: true);
       }
+    } finally {
+      if (mounted && generation == _generation) setState(() => loading = false);
     }
   }
 
@@ -345,9 +353,14 @@ abstract class _TabState<W extends StatefulWidget, T> extends State<W> with Auto
   /// could not be read.
   Future<BackgroundShopAnswer<T>> readAndShow() async {
     final generation = ++_generation;
-    final answer = await read();
-    if (mounted && generation == _generation) setState(() => _apply(answer));
-    return answer;
+    if (mounted) setState(() => loading = true);
+    try {
+      final answer = await read();
+      if (mounted && generation == _generation) setState(() => _apply(answer));
+      return answer;
+    } finally {
+      if (mounted && generation == _generation) setState(() => loading = false);
+    }
   }
 
   /// The page, or what is shown without one.
@@ -371,7 +384,20 @@ abstract class _TabState<W extends StatefulWidget, T> extends State<W> with Auto
         webUrl: unavailable ? _webUrl : null,
       );
     }
-    return ValueListenableBuilder(valueListenable: scope.writing, builder: (context, _, _) => buildPage(context, page));
+    // The page read before stays while the next is on its way, under a thin bar.
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        ValueListenableBuilder(valueListenable: scope.writing, builder: (context, _, _) => buildPage(context, page)),
+        if (loading)
+          const Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: LinearProgressIndicator(key: ValueKey('bgshop-loading'), minHeight: 2),
+          ),
+      ],
+    );
   }
 }
 
@@ -869,7 +895,21 @@ class _BuyDialogState extends State<_BuyDialog> {
               key: const ValueKey('bgshop-buy-position'),
               segments: [
                 for (final p in BackgroundPosition.values)
-                  ButtonSegment(value: p, label: Text(_positionLabel(context, p))),
+                  // The row says it is the position: the short word, kept on one line.
+                  ButtonSegment(
+                    value: p,
+                    label: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        p == BackgroundPosition.content
+                            ? context.t.backgroundShop.positionContent
+                            : context.t.backgroundShop.positionSidebar,
+                        key: ValueKey('bgshop-buy-position-${p.name}'),
+                        maxLines: 1,
+                        softWrap: false,
+                      ),
+                    ),
+                  ),
               ],
               selected: {_position},
               showSelectedIcon: false,
