@@ -270,6 +270,12 @@ void main() {
       ((json['submit'] as Map)['fields'] as Map)['formhash'] = hash;
       if (dropSource) {
         (json['from'] as List).removeWhere((e) => (e as Map)['id'] == 1);
+        // The source taken instead has no less than the one gone: only the comparison of the sources tells.
+        for (final credit in json['credits'] as List) {
+          if ((credit as Map)['id'] == 6) {
+            credit['value'] = 200;
+          }
+        }
       }
       return json;
     }
