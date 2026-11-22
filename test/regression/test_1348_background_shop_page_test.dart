@@ -336,6 +336,25 @@ void main() {
     await clearSnackBar(tester);
   });
 
+  testWidgets('leaving the page after a search while a purchase is on its way, answered with nothing', (tester) async {
+    await pump(tester);
+    await tab(tester, 'store');
+    await tester.enterText(find.byKey(const ValueKey('bgshop-search')), '樱花');
+    await tester.testTextInput.receiveAction(TextInputAction.search);
+    await tester.pumpAndSettle();
+    final pending = Completer<Object?>();
+    reply = () => pending.future;
+    await tester.tap(find.byKey(const ValueKey('bgshop-buy-2')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('bgshop-buy-confirm')));
+    await tester.pump();
+    await tester.pumpWidget(const SizedBox());
+    pending.completeError(const BackgroundShopNoAnswer());
+    await tester.pumpAndSettle();
+    expect(posted.length, 1);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('a known failure shows the forum words', (tester) async {
     await pump(tester);
     await tab(tester, 'store');
