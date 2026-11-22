@@ -305,4 +305,43 @@ void main() {
       expect(got.length, 1);
     });
   });
+
+  group('telling a write whose answer told nothing', () {
+    test('a purchase: had longer is done, nothing changed is not, gone is not known', () {
+      final before = _page(BackgroundStore.fromJson(_fixture('bg_store_v75')));
+      final item = before.items[1];
+      final offer = item.offers.first;
+      BackgroundStore after(void Function(Map<String, dynamic>) change) {
+        final json = _fixture('bg_store_v75');
+        change(json);
+        return _page(BackgroundStore.fromJson(json));
+      }
+
+      bool? done(BackgroundStore a) =>
+          backgroundPurchaseDone(before: item, balanceBefore: before.balanceOf(offer.creditId), after: a, offer: offer);
+      expect(done(after((_) {})), isFalse);
+      expect(done(after((j) => ((j['backgrounds'] as List)[1] as Map)['owned'] = {'expiration': 1800000000})), isTrue);
+      expect(
+        done(after((j) => ((j['backgrounds'] as List)[1] as Map)['owned'] = {'expiration': 0, 'permanent': 1})),
+        isTrue,
+      );
+      expect(done(after((j) => j['backgrounds'] = <Object>[])), isNull);
+      // The balance moved and nothing is owned: something else happened meanwhile.
+      expect(done(after((j) => ((j['credits'] as List)[1] as Map)['balance'] = 1)), isNull);
+    });
+
+    test('a slot, an exchange, the display form', () {
+      final slots = _page(BackgroundSlots.fromJson(_fixture('bg_slot_v76')));
+      expect(backgroundSlotInUse(slots, 142, BackgroundPosition.sidebar), isTrue);
+      expect(backgroundSlotInUse(slots, 143, BackgroundPosition.content), isFalse);
+      expect(backgroundSlotInUse(slots, 1, BackgroundPosition.content), isNull);
+      final exchange = _page(BackgroundExchange.fromJson(_fixture('bg_exchange_v77')));
+      expect(backgroundExchanged(exchange, 'get20210501_1'), isFalse);
+      expect(backgroundExchanged(exchange, 'nope'), isNull);
+      final content = _page(BackgroundMine.fromJson(_fixture('bg_mine_v74'))).content!;
+      expect(backgroundStyleSaved(content, content.form!.values), isTrue);
+      expect(backgroundStyleSaved(content, {...content.form!.values, 'dipbg': '0'}), isFalse);
+      expect(backgroundStyleSaved(null, const {}), isNull);
+    });
+  });
 }

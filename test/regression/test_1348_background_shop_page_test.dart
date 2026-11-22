@@ -55,6 +55,7 @@ void main() {
   late List<(String, Map<String, String>)> posted;
   late List<String> got;
   late Object? Function() reply;
+  late Map<String, dynamic> Function() store;
 
   setUpAll(() async {
     talker = TalkerFlutter.init(settings: TalkerSettings(enabled: false));
@@ -66,6 +67,7 @@ void main() {
     posted = [];
     got = [];
     reply = () => _result('');
+    store = () => _fixture('bg_store_v75');
   });
 
   BackgroundShopRepository repo() => BackgroundShopRepository(
@@ -73,7 +75,7 @@ void main() {
       asked.add(action);
       return switch (action) {
         'bgmine' => _fixture('bg_mine_v74'),
-        'bgstore' => _fixture('bg_store_v75'),
+        'bgstore' => store(),
         'bgslot' => _fixture('bg_slot_v76'),
         'bgexchange' => _exchange(),
         _ => null,
@@ -183,19 +185,60 @@ void main() {
     await clearSnackBar(tester);
   });
 
-  testWidgets("an answer that tells nothing: not known, sent once, the shop's state read again", (tester) async {
+  Future<void> buySecond(WidgetTester tester) async {
+    await tester.tap(find.byKey(const ValueKey('bgshop-buy-2')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('bgshop-buy-confirm')));
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('an answer that tells nothing, nothing changed: not done, sent once', (tester) async {
     await pump(tester);
     await tab(tester, 'slot');
     await tab(tester, 'store');
     asked.clear();
     reply = () => '<html><body>Discuz! System Error</body></html>';
-    await tester.tap(find.byKey(const ValueKey('bgshop-buy-2')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('bgshop-buy-confirm')));
-    await tester.pumpAndSettle();
+    await buySecond(tester);
+    expect(posted.length, 1);
+    expect(find.text(tr.backgroundShop.notDone), findsOneWidget);
+    // Read once to compare, then the pages it changes.
+    expect(asked.first, 'bgstore');
+    expect(asked.toSet(), {'bgmine', 'bgstore', 'bgslot'});
+    await clearSnackBar(tester);
+  });
+
+  testWidgets('bgshop_unknown, the background owned now: bought', (tester) async {
+    await pump(tester);
+    await tab(tester, 'store');
+    reply = () {
+      store = () {
+        final json = _fixture('bg_store_v75');
+        ((json['backgrounds'] as List)[1] as Map)['owned'] = {'expiration': 1800000000, 'permanent': 0};
+        return json;
+      };
+      return _result('bgshop_unknown');
+    };
+    await buySecond(tester);
+    expect(posted.length, 1);
+    expect(find.text(tr.backgroundShop.bought), findsOneWidget);
+    await clearSnackBar(tester);
+  });
+
+  testWidgets('no answer and the page can not tell: asked to check, with a refresh', (tester) async {
+    await pump(tester);
+    await tab(tester, 'store');
+    reply = () {
+      store = () => {..._fixture('bg_store_v75'), 'backgrounds': <Object>[]};
+      throw const SocketException('timed out');
+    };
+    await buySecond(tester);
     expect(posted.length, 1);
     expect(find.text(tr.backgroundShop.unknown), findsOneWidget);
-    expect(asked.toSet(), {'bgmine', 'bgstore', 'bgslot'});
+    asked.clear();
+    await tester.tap(find.text(tr.backgroundShop.refresh));
+    await tester.pumpAndSettle();
+    expect(asked, contains('bgstore'));
+    expect(posted.length, 1, reason: 'never sent again');
     await clearSnackBar(tester);
   });
 

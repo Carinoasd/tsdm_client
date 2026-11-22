@@ -4559,7 +4559,7 @@
     "bought": "购买成功",
     "slotSet": "已设置",
     "exchangeDone": "兑换成功，背景已放进仓库",
-    "unknown": "无法确认结果，已重新读取",
+    "unknown": "无法确认结果，请刷新后确认",
     "failed": "操作失败",
     "bgIllegal": "这个活动不能选这个背景",
     "medalsInsufficient": "勋章不够",
@@ -4568,7 +4568,9 @@
     "exchangeClosed": "兑换活动已关闭",
     "medalsMissing": "论坛缺少勋章数据",
     "creditInvalid": "论坛的购买积分设置有误",
-    "formExpired": "页面已过期，请重新读取"
+    "formExpired": "页面已过期，请重新读取",
+    "notDone": "没有完成，可以再试一次",
+    "refresh": "刷新"
   },
   "reportHandling": {
     "title": "举报处理",

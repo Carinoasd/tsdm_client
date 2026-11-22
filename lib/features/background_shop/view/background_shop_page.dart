@@ -138,51 +138,81 @@ final class _ShopScope extends ChangeNotifier {
   }
 
   /// Send one write the user asked for, tell what it came to, and read again what it changed (whatever it came to:
-  /// a refused form may be a stale form hash, an unknown answer a write done or not).
+  /// a refused form may be a stale form hash).
+  ///
+  /// When the answer tells nothing (`bgshop_unknown`, a timeout, a page that is not JSON) nothing is sent again:
+  /// [verify] reads the forum again and compares with the page shown before the write (true: done, false: not done,
+  /// null: still not known); when it can not tell, the member is asked to check, with a refresh at hand.
   Future<bool> send(
     BuildContext context,
     BackgroundShopWrite write,
-    Future<BackgroundShopOutcome> Function() run,
-  ) async {
+    Future<BackgroundShopOutcome> Function() run, {
+    required Future<bool?> Function() verify,
+  }) async {
     if (writing.value) return false;
     writing.value = true;
     final tr = context.t.backgroundShop;
+    final success = switch (write) {
+      BackgroundShopWrite.style => tr.saved,
+      BackgroundShopWrite.buy => tr.bought,
+      BackgroundShopWrite.slot => tr.slotSet,
+      BackgroundShopWrite.exchange => tr.exchangeDone,
+    };
     String message;
-    var done = false;
-    var unknown = false;
+    bool? done = false;
     try {
-      switch (await run()) {
-        case BackgroundShopDone():
-          done = true;
-          message = switch (write) {
-            BackgroundShopWrite.style => tr.saved,
-            BackgroundShopWrite.buy => tr.bought,
-            BackgroundShopWrite.slot => tr.slotSet,
-            BackgroundShopWrite.exchange => tr.exchangeDone,
-          };
-        case final BackgroundShopRefused refused:
-          message = _refusalText(context, refused);
-        case BackgroundShopUnknown():
-          unknown = true;
-          message = tr.unknown;
+      var unknown = false;
+      try {
+        switch (await run()) {
+          case BackgroundShopDone():
+            done = true;
+            message = success;
+          case final BackgroundShopRefused refused:
+            message = _refusalText(context, refused);
+          case BackgroundShopUnknown():
+            unknown = true;
+            message = tr.unknown;
+        }
+      } on IdentityChangedException {
+        rethrow;
+      } on Exception {
+        // A timeout or a failed request after sending: as unknown as an answer that is not a result.
+        unknown = true;
+        message = tr.unknown;
+      }
+      if (unknown) {
+        try {
+          done = await verify();
+        } on Exception {
+          done = null;
+        }
+        message = switch (done) {
+          true => success,
+          false => tr.notDone,
+          null => tr.unknown,
+        };
       }
     } on IdentityChangedException {
+      done = false;
       message = tr.failed;
-    } on Exception {
-      // A timeout or a failed request after sending: as unknown as an answer that is not a result.
-      unknown = true;
-      message = tr.unknown;
     } finally {
       writing.value = false;
     }
-    if (context.mounted) showSnackBar(context: context, message: message, clearPrevious: true);
+    if (context.mounted) {
+      showSnackBar(
+        context: context,
+        message: message,
+        clearPrevious: true,
+        action: done == null ? SnackBarAction(label: tr.refresh, onPressed: () => _stale(_Part.values.toSet())) : null,
+      );
+    }
     // Not known whether it was done: the balance, what is owned and the storeroom are read again too, so the page
-    // shows what is true and the member decides whether to try again.
+    // shows what is true.
     _stale({
       ..._staleAfter[write]!,
-      if (unknown) ...{_Part.store, _Part.slot},
+      if (done == null) ...{_Part.store, _Part.slot},
     });
-    return done;
+    return done ?? false;
   }
 }
 
@@ -404,6 +434,13 @@ class _MineTabState extends _TabState<_MineTab, BackgroundMine> {
                 context,
                 BackgroundShopWrite.style,
                 () => scope.repository.saveStyle(page.uid, background.form!, values),
+                verify: () async => switch (await scope.repository.mine()) {
+                  BackgroundShopLoaded(:final page) => backgroundStyleSaved(
+                    background.position == BackgroundPosition.content ? page.content : page.sidebar,
+                    values,
+                  ),
+                  BackgroundShopUnavailable() => null,
+                },
               ),
             ),
             const SizedBox(height: appSurfaceGap),
@@ -576,6 +613,17 @@ class _StoreTabState extends _TabState<_StoreTab, BackgroundStore> {
       context,
       BackgroundShopWrite.buy,
       () => scope.repository.buy(page.uid, form, item, choice.position, choice.offer, choice.months),
+      // The same page again: the balance and what is owned, against what was shown.
+      verify: () async =>
+          switch (await scope.repository.store(mode: page.mode, keyword: page.keyword, page: page.paging.page)) {
+            BackgroundShopLoaded(page: final after) => backgroundPurchaseDone(
+              before: item,
+              balanceBefore: page.balanceOf(choice.offer.creditId),
+              after: after,
+              offer: choice.offer,
+            ),
+            BackgroundShopUnavailable() => null,
+          },
     );
   }
 
@@ -897,6 +945,14 @@ class _SlotTabState extends _TabState<_SlotTab, BackgroundSlots> {
                               context,
                               BackgroundShopWrite.slot,
                               () => scope.repository.useSlot(page.uid, form, slot, position, page.paging.page),
+                              verify: () async => switch (await scope.repository.slots(page: page.paging.page)) {
+                                BackgroundShopLoaded(page: final after) => backgroundSlotInUse(
+                                  after,
+                                  slot.sid,
+                                  position,
+                                ),
+                                BackgroundShopUnavailable() => null,
+                              },
                             ),
                           )
                         : null,
@@ -974,6 +1030,10 @@ class _ExchangeTabState extends _TabState<_ExchangeTab, BackgroundExchange> {
       context,
       BackgroundShopWrite.exchange,
       () => scope.repository.exchangeFor(page.uid, form, campaign, choice.id),
+      verify: () async => switch (await scope.repository.exchange()) {
+        BackgroundShopLoaded(page: final after) => backgroundExchanged(after, campaign.id),
+        BackgroundShopUnavailable() => null,
+      },
     );
     if (done) scope.showSlots();
   }

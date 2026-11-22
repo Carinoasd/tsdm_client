@@ -4559,7 +4559,7 @@
     "bought": "Bought",
     "slotSet": "Set",
     "exchangeDone": "Exchanged; the background is in the storeroom",
-    "unknown": "The result could not be confirmed; reloaded",
+    "unknown": "The result could not be confirmed; refresh to check",
     "failed": "Failed",
     "bgIllegal": "This event does not offer this background",
     "medalsInsufficient": "Not enough medals",
@@ -4568,7 +4568,9 @@
     "exchangeClosed": "The exchange is closed",
     "medalsMissing": "The forum has no medal data",
     "creditInvalid": "The forum's purchase credits are set wrong",
-    "formExpired": "The page expired; reload it"
+    "formExpired": "The page expired; reload it",
+    "notDone": "Not done; you can try again",
+    "refresh": "Refresh"
   },
   "reportHandling": {
     "title": "Reports",

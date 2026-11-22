@@ -949,3 +949,49 @@ BackgroundShopOutcome? backgroundShopOutcomeOf(Object? data, BackgroundShopWrite
   }
   return BackgroundShopRefused(key: result.messageKey, message: result.message, login: result.login);
 }
+
+// ---------------------------------------------------------------- telling a write whose answer told nothing
+
+/// Whether the display form sent with [sent] is what [after] (the position read again) stores: true when every field
+/// shown matches, false when one does not, null when the position is gone.
+bool? backgroundStyleSaved(BackgroundInUse? after, Map<String, String> sent) {
+  final values = after?.form?.values;
+  if (values == null) return null;
+  for (final name in BackgroundStyleFields.always) {
+    if ((values[name] ?? '') != (sent[name] ?? '')) return false;
+  }
+  return (values[BackgroundStyleFields.stretch] == '1') == (sent[BackgroundStyleFields.stretch] == '1');
+}
+
+/// Whether the purchase of [before] (as shown, with [balanceBefore] of the credit paid with) with [offer]
+/// was done, from the same page read again ([after]): true when the background is had longer (or for good), false
+/// when neither it nor the balance changed, null otherwise (the background not on the page any more, the balance
+/// changed by something else).
+bool? backgroundPurchaseDone({
+  required BackgroundStoreItem before,
+  required int? balanceBefore,
+  required BackgroundStore after,
+  required BackgroundOffer offer,
+}) {
+  final item = after.items.where((i) => i.id == before.id).firstOrNull;
+  if (item == null) return null;
+  if (item.ownedForever && !before.ownedForever) return true;
+  if (!item.ownedForever && (item.ownedUntil ?? 0) > (before.ownedUntil ?? 0)) return true;
+  final balanceAfter = after.balanceOf(offer.creditId);
+  if (item.ownedForever == before.ownedForever &&
+      item.ownedUntil == before.ownedUntil &&
+      balanceBefore != null &&
+      balanceAfter == balanceBefore) {
+    return false;
+  }
+  return null;
+}
+
+/// Whether slot [sid] is in use at [position] on the storeroom page read again ([after]); null when the page does not
+/// list it.
+bool? backgroundSlotInUse(BackgroundSlots after, int sid, BackgroundPosition position) =>
+    after.slots.where((s) => s.sid == sid).firstOrNull?.inUse(position);
+
+/// Whether campaign [id] is exchanged on the exchange page read again ([after]); null when it is not listed.
+bool? backgroundExchanged(BackgroundExchange after, String id) =>
+    after.campaigns.where((c) => c.id == id).firstOrNull?.exchanged;
