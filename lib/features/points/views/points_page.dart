@@ -18,6 +18,7 @@ import 'package:tsdm_client/features/points/views/credit_form_page.dart';
 import 'package:tsdm_client/features/points/widgets/points_card.dart';
 import 'package:tsdm_client/features/points/widgets/points_query_form.dart';
 import 'package:tsdm_client/features/points/widgets/points_trend_tab.dart';
+import 'package:tsdm_client/features/points/widgets/section_header_with_actions.dart';
 import 'package:tsdm_client/features/tsdmapp/v4.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
@@ -92,12 +93,10 @@ class _PointsPageState extends State<PointsPage> with SingleTickerProviderStateM
           label: Text(tr.exchange),
         ),
     ];
-    // Beside the title while there is room, wrapped below one another with large fonts.
+    // In one row; the row as a whole goes under the title when it does not fit beside it ([SectionHeaderWithActions]).
     return buttons.isEmpty
         ? null
-        : Flexible(
-            child: Wrap(alignment: WrapAlignment.end, children: buttons),
-          );
+        : Row(key: const ValueKey('points-credit-forms'), mainAxisSize: MainAxisSize.min, children: buttons);
   }
 
   Widget _buildStatisticsTab(BuildContext context, PointsStatisticsState state) {
@@ -145,12 +144,18 @@ class _PointsPageState extends State<PointsPage> with SingleTickerProviderStateM
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        AppSectionHeader(
-                          context.t.pointsPage.statisticsTab.title,
-                          icon: Icons.bar_chart_outlined,
-                          padding: const EdgeInsets.only(bottom: 8),
-                          trailing: _creditFormButtons(context, state),
-                        ),
+                        if (_creditFormButtons(context, state) case final actions?)
+                          SectionHeaderWithActions(
+                            title: context.t.pointsPage.statisticsTab.title,
+                            icon: Icons.bar_chart_outlined,
+                            actions: actions,
+                          )
+                        else
+                          AppSectionHeader(
+                            context.t.pointsPage.statisticsTab.title,
+                            icon: Icons.bar_chart_outlined,
+                            padding: const EdgeInsets.only(bottom: 8),
+                          ),
                         for (var row = 0; row < rows; row++)
                           Padding(
                             padding: EdgeInsets.only(top: row == 0 ? 0 : 8),

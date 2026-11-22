@@ -14,6 +14,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 import 'package:tsdm_client/features/background_shop/models/background_shop.dart';
@@ -60,6 +61,7 @@ void main() {
   late bool readsFail;
   late List<Map<String, String>> storeQueries;
   Completer<void>? holdSpecial;
+  Completer<void>? holdStore;
 
   setUpAll(() async {
     talker = TalkerFlutter.init(settings: TalkerSettings(enabled: false));
@@ -75,6 +77,7 @@ void main() {
     readsFail = false;
     storeQueries = [];
     holdSpecial = null;
+    holdStore = null;
   });
 
   BackgroundShopRepository repo() => BackgroundShopRepository(
@@ -83,6 +86,7 @@ void main() {
       if (readsFail) return null;
       if (action == 'bgstore') {
         storeQueries.add(query);
+        await holdStore?.future;
         if (query['mode'] == 'special') {
           await holdSpecial?.future;
           return _fixture('bg_store_v75_special');
@@ -108,14 +112,18 @@ void main() {
     currentUid: () => 31,
   );
 
-  Future<void> pump(WidgetTester tester) async {
-    tester.view.physicalSize = const Size(900, 2600);
+  Future<void> pump(WidgetTester tester, {Size size = const Size(900, 2600), double textScale = 1}) async {
+    tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       TranslationProvider(
         child: MaterialApp(
           scaffoldMessengerKey: snackbarKey,
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(textScale)),
+            child: child!,
+          ),
           home: BackgroundShopPage(repository: repo(), dataSaver: DataSaverMode.always),
         ),
       ),
@@ -184,7 +192,7 @@ void main() {
     await tester.tap(
       find.descendant(
         of: find.byKey(const ValueKey('bgshop-buy-position')),
-        matching: find.text(tr.backgroundShop.sidebar),
+        matching: find.text(tr.backgroundShop.positionSidebar),
       ),
     );
     await tester.pumpAndSettle();
@@ -325,7 +333,17 @@ void main() {
     await tester.tap(find.text('活动商店'));
     await tester.pump();
     reply = () => _result('bgshop_unknown');
-    await buySecond(tester);
+    // The thin bar of the list on its way keeps animating: pumped by time, not settled.
+    Future<void> pumpAWhile() async {
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+    }
+
+    await tester.tap(find.byKey(const ValueKey('bgshop-buy-2')));
+    await pumpAWhile();
+    await tester.tap(find.byKey(const ValueKey('bgshop-buy-confirm')));
+    await pumpAWhile();
     expect(storeQueries.last, isEmpty, reason: 'the shop, page 1, no keyword');
     expect(find.text(tr.backgroundShop.notDone), findsOneWidget);
     holdSpecial!.complete();
@@ -410,6 +428,45 @@ void main() {
     expect(find.text(tr.backgroundShop.exchangeDone), findsOneWidget);
     expect(find.byKey(const ValueKey('bgshop-slot-143')), findsOneWidget, reason: 'the storeroom is shown');
     await clearSnackBar(tester);
+  });
+
+  for (final locale in [AppLocale.zhCn, AppLocale.zhTw, AppLocale.en]) {
+    testWidgets('${locale.languageTag}: the position of the purchase fits on one line, phone width, text 1.3', (
+      tester,
+    ) async {
+      await tester.runAsync(() => LocaleSettings.setLocale(locale));
+      addTearDown(() => LocaleSettings.setLocale(AppLocale.zhCn));
+      await pump(tester, size: const Size(360, 800), textScale: 1.3);
+      await tab(tester, 'store');
+      await tester.tap(find.byKey(const ValueKey('bgshop-buy-1')));
+      await tester.pumpAndSettle();
+      expect(find.text(tr.backgroundShop.positionContent), findsOneWidget);
+      for (final name in ['content', 'sidebar']) {
+        final label = find.byKey(ValueKey('bgshop-buy-position-$name'));
+        final paragraph = tester.renderObject<RenderParagraph>(
+          find.descendant(of: label, matching: find.byType(RichText)).first,
+        );
+        expect(paragraph.didExceedMaxLines, isFalse, reason: name);
+        // One line: as high as the text of one line at this scale.
+        expect(tester.getSize(label).height, lessThan(14 * 1.3 * 2), reason: name);
+      }
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('a read on its way (a wait for retry_after) shows the thin bar over the page shown', (tester) async {
+    await pump(tester);
+    await tab(tester, 'store');
+    expect(find.byKey(const ValueKey('bgshop-loading')), findsNothing);
+    holdStore = Completer<void>();
+    await tester.tap(find.byIcon(Icons.chevron_right));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.byKey(const ValueKey('bgshop-loading')), findsOneWidget);
+    expect(find.byKey(const ValueKey('bgshop-store-1')), findsOneWidget, reason: 'the page read before stays');
+    holdStore!.complete();
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('bgshop-loading')), findsNothing);
   });
 
   test('what each write makes stale', () {

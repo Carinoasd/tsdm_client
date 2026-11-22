@@ -4579,6 +4579,8 @@
     "perYear": "${price} ${credit} / year",
     "forGood": "${price} ${credit} for good",
     "position": "Position",
+    "positionContent": "Content",
+    "positionSidebar": "Sidebar",
     "plan": "Pay with",
     "months": "Months",
     "cost": "Cost",
