@@ -12,14 +12,20 @@
 /// Fixtures: the answers of the test forum (cleaned).
 library;
 
+import 'dart:async';
+import 'dart:typed_data';
+
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/features/points/models/credit_forms.dart';
 import 'package:tsdm_client/features/points/repository/credit_forms_repository.dart';
 import 'package:tsdm_client/features/points/views/credit_form_page.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
+import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
 
 import 'tsdmapp_v4_fake.dart';
 
@@ -34,8 +40,66 @@ V4Forum _forum(CreditFormKind kind, V4Reply post) => V4Forum(
       : V4Reply(v4Json(kind == CreditFormKind.transfer ? 'credit_transfer_v72.json' : 'credit_exchange_v73.json')),
 );
 
+/// The transfer page answered as recorded, with formhash [hash] and the balance lowered by [spent].
+Map<String, dynamic> _transferPage({String hash = 'f1f2f3f4', int spent = 0}) {
+  final json = v4Json('credit_transfer_v72.json');
+  ((json['submit'] as Map)['fields'] as Map)['formhash'] = hash;
+  json['balance'] = (json['balance'] as int) - spent;
+  return json;
+}
+
+/// [forum], with the POSTs held until [release] completes.
+final class _HeldPosts implements HttpClientAdapter {
+  _HeldPosts(this.forum);
+
+  final V4Forum forum;
+  final release = Completer<void>();
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    if (options.method == 'POST') {
+      await release.future;
+    }
+    return forum.fetch(options, requestStream, cancelFuture);
+  }
+
+  @override
+  void close({bool force = false}) {}
+}
+
+/// Type a transfer of 10 to a member, confirm it with a password.
+Future<void> _sendTransfer(WidgetTester tester, {bool settle = true}) async {
+  final tr = t.pointsPage.creditForms;
+  await tester.enterText(_field(tr.to), '测试会员');
+  await tester.enterText(_field(tr.amount), '10');
+  await tester.pump();
+  await tester.tap(_button(tr.transfer));
+  await tester.pumpAndSettle();
+  await tester.enterText(find.descendant(of: find.byType(AlertDialog), matching: find.byType(TextField)), 'pw');
+  await tester.pump();
+  await tester.tap(find.descendant(of: find.byType(AlertDialog), matching: find.byType(FilledButton)));
+  if (settle) {
+    await tester.pumpAndSettle();
+  } else {
+    // The confirmation closed, the answer held.
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.byType(AlertDialog), findsNothing);
+  }
+}
+
 /// Open the page of [kind] on [forum] from a first page; returns how it was left (set once it closes).
-Future<List<Object?>> _open(WidgetTester tester, CreditFormKind kind, V4Forum forum, {VoidCallback? onWritten}) async {
+Future<List<Object?>> _open(
+  WidgetTester tester,
+  CreditFormKind kind,
+  V4Forum forum, {
+  VoidCallback? onWritten,
+  HttpClientAdapter? adapter,
+}) async {
   tester.view.physicalSize = const Size(900, 1800);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
@@ -54,7 +118,14 @@ Future<List<Object?>> _open(WidgetTester tester, CreditFormKind kind, V4Forum fo
                       kind: kind,
                       selfUsername: 'me',
                       onWritten: onWritten ?? () {},
-                      repository: CreditFormsRepository(client: v4Client(forum), currentUid: () => _uid),
+                      repository: CreditFormsRepository(
+                        client: adapter == null
+                            ? v4Client(forum)
+                            : NetClientProvider.buildNoCookie(
+                                dio: Dio(BaseOptions(baseUrl: baseUrl))..httpClientAdapter = adapter,
+                              ),
+                        currentUid: () => _uid,
+                      ),
                     ),
                   ),
                 ),
@@ -151,17 +222,14 @@ void main() {
 
   testWidgets('an expired form: read again, nothing sent again', (tester) async {
     var written = 0;
-    final forum = _forum(CreditFormKind.transfer, const V4Reply('<html>System Error</html>', status: 503));
+    var gets = 0;
+    final forum = V4Forum(
+      (o) => o.method == 'POST'
+          ? const V4Reply('<html>System Error</html>', status: 503)
+          : V4Reply(_transferPage(hash: gets++ == 0 ? 'f1f2f3f4' : 'a1a2a3a4')),
+    );
     await _open(tester, CreditFormKind.transfer, forum, onWritten: () => written++);
-    await tester.enterText(_field(tr.to), '测试会员');
-    await tester.enterText(_field(tr.amount), '10');
-    await tester.pump();
-    await tester.tap(_button(tr.transfer));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.descendant(of: find.byType(AlertDialog), matching: find.byType(TextField)), 'pw');
-    await tester.pump();
-    await tester.tap(find.descendant(of: find.byType(AlertDialog), matching: find.byType(FilledButton)));
-    await tester.pumpAndSettle();
+    await _sendTransfer(tester);
 
     expect([for (final r in forum.requests) r.method], ['GET', 'POST', 'GET']);
     expect(written, 0);
@@ -170,33 +238,55 @@ void main() {
     expect(find.text('测试会员'), findsOneWidget);
   });
 
-  testWidgets('a 503, but the balance went down meanwhile: unknown, not expired', (tester) async {
+  group('a 503 that may not be of the formhash: unknown, not sent again', () {
+    for (final (name, second) in [
+      ('the balance went down', V4Reply(_transferPage(hash: 'a1a2a3a4', spent: 10))),
+      ('the same formhash', V4Reply(_transferPage())),
+      ('the form not read again', v4Offline),
+      ("the forum's message instead", V4Reply(v4Json('credit_transfer_guest.json'))),
+    ]) {
+      testWidgets(name, (tester) async {
+        var written = 0;
+        var gets = 0;
+        final forum = V4Forum((o) {
+          if (o.method == 'POST') {
+            return const V4Reply('<html>Service Unavailable</html>', status: 503);
+          }
+          return gets++ == 0 ? V4Reply(_transferPage()) : second;
+        });
+        await _open(tester, CreditFormKind.transfer, forum, onWritten: () => written++);
+        await _sendTransfer(tester);
+        expect([for (final r in forum.requests) r.method], ['GET', 'POST', 'GET']);
+        expect(written, 1);
+        expect(find.text(tr.unknown), findsOneWidget);
+        expect(find.text(tr.expired), findsNothing);
+      });
+    }
+  });
+
+  testWidgets('not left while the write is on its way; its outcome told also so', (tester) async {
     var written = 0;
-    var gets = 0;
-    final forum = V4Forum((o) {
-      if (o.method == 'POST') {
-        return const V4Reply('<html>Service Unavailable</html>', status: 503);
-      }
-      final json = v4Json('credit_transfer_v72.json');
-      if (gets++ > 0) {
-        json['balance'] = (json['balance'] as int) - 10;
-      }
-      return V4Reply(json);
-    });
-    await _open(tester, CreditFormKind.transfer, forum, onWritten: () => written++);
-    await tester.enterText(_field(tr.to), '测试会员');
-    await tester.enterText(_field(tr.amount), '10');
-    await tester.pump();
-    await tester.tap(_button(tr.transfer));
+    final held = _HeldPosts(_forum(CreditFormKind.transfer, V4Reply(_result('transfer_succeed'))));
+    final exits = await _open(
+      tester,
+      CreditFormKind.transfer,
+      held.forum,
+      onWritten: () => written++,
+      adapter: held,
+    );
+    await _sendTransfer(tester, settle: false);
+    await tester.binding.handlePopRoute();
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.byType(CreditFormPage), findsOneWidget, reason: 'back held while sending');
+    expect(exits, isEmpty);
+    expect(_enabled(tester, _button(tr.transfer)), isFalse);
+    expect(tester.widget<TextField>(_field(tr.amount)).enabled, isFalse);
+    held.release.complete();
     await tester.pumpAndSettle();
-    await tester.enterText(find.descendant(of: find.byType(AlertDialog), matching: find.byType(TextField)), 'pw');
-    await tester.pump();
-    await tester.tap(find.descendant(of: find.byType(AlertDialog), matching: find.byType(FilledButton)));
-    await tester.pumpAndSettle();
-    expect([for (final r in forum.requests) r.method], ['GET', 'POST', 'GET']);
     expect(written, 1);
-    expect(find.text(tr.unknown), findsOneWidget);
-    expect(_enabled(tester, _button(tr.transfer)), isFalse, reason: 'the amount cleared');
+    expect(exits, [null]);
+    expect(held.forum.requests.where((r) => r.method == 'POST'), hasLength(1));
   });
 
   testWidgets('a refusal: its text, the page stays', (tester) async {

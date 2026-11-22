@@ -57,7 +57,8 @@ String creditFormRefusalText(
 /// The transfer or the exchange of credits ([kind]) as a native form (plugin 4.1.0): the form read from the forum,
 /// what the amount gives and leaves shown as it is typed, a confirmation with the login password, then one request.
 ///
-/// [onWritten] is called when the credits may have changed (a done write, or one whose result is unknown). Pops with
+/// [onWritten] is called as soon as the credits may have changed (a done write, one whose result is unknown, an answer
+/// of another account), also when the page is gone. The page is not left while a write is on its way. Pops with
 /// [CreditFormExit.web] when the forum has no form as fields.
 class CreditFormPage extends StatefulWidget {
   /// Constructor.
@@ -102,6 +103,9 @@ class _CreditFormPageState extends State<CreditFormPage> {
 
   /// A confirmation is open or a write is on its way: nothing else is sent.
   bool _busy = false;
+
+  /// A write is on its way, or its answer is being dealt with: the page is not left before its outcome is known.
+  bool _sending = false;
 
   @override
   void initState() {
@@ -226,6 +230,7 @@ class _CreditFormPageState extends State<CreditFormPage> {
       if (password == null || !mounted) {
         return;
       }
+      setState(() => _sending = true);
       final outcome = await _repository.transfer(
         form,
         to: to,
@@ -233,12 +238,13 @@ class _CreditFormPageState extends State<CreditFormPage> {
         message: _message.text.trim(),
         password: password,
       );
+      _noteWritten(outcome);
       if (mounted) {
         await _settle(outcome, credit: form.credit.title, minBalance: form.minBalance);
       }
     } finally {
       if (mounted) {
-        setState(() => _busy = false);
+        setState(() => _busy = _sending = false);
       }
     }
   }
@@ -264,6 +270,7 @@ class _CreditFormPageState extends State<CreditFormPage> {
       if (password == null || !mounted) {
         return;
       }
+      setState(() => _sending = true);
       final outcome = await _repository.exchange(
         form,
         target: target,
@@ -271,15 +278,31 @@ class _CreditFormPageState extends State<CreditFormPage> {
         amount: amount,
         password: password,
       );
+      _noteWritten(outcome);
       if (mounted) {
         await _settle(outcome, credit: source.title, minBalance: form.minBalance, target: target.title);
       }
     } finally {
       if (mounted) {
-        setState(() => _busy = false);
+        setState(() => _busy = _sending = false);
       }
     }
   }
+
+  /// Tell [CreditFormPage.onWritten] at once when [outcome] may have changed the credits, also when the page is gone:
+  /// all but a refusal and an expired form (which [_settle] tells apart from an unknown outcome).
+  void _noteWritten(CreditFormOutcome outcome) {
+    if (outcome is! CreditFormRefused && outcome is! CreditFormExpired) {
+      widget.onWritten();
+    }
+  }
+
+  /// The formhash of the form shown.
+  String? get _formHash => switch ((_transfer, _exchange)) {
+    (final form?, _) => form.fields['formhash'],
+    (_, final form?) => form.fields['formhash'],
+    _ => null,
+  };
 
   Future<void> _settle(
     CreditFormOutcome outcome, {
@@ -290,7 +313,6 @@ class _CreditFormPageState extends State<CreditFormPage> {
     final tr = context.t.pointsPage.creditForms;
     switch (outcome) {
       case CreditFormDone():
-        widget.onWritten();
         showSnackBar(
           context: context,
           message: widget.kind == CreditFormKind.transfer ? tr.transferDone : tr.exchangeDone,
@@ -314,15 +336,21 @@ class _CreditFormPageState extends State<CreditFormPage> {
           await _load();
         }
       case CreditFormExpired():
-        // Nothing was taken (the forum refuses a wrong formhash first): a new formhash, and the user sends again. A
-        // balance lower than before says otherwise (a 503 of something in between, after the write).
+        // The forum refuses a wrong formhash first, before it takes anything: a new formhash, and the user sends
+        // again. Only when the form came back with another formhash and the balance did not go down; otherwise the
+        // 503 may be of something in between, after the write (the form not read again, the same formhash, a lower
+        // balance): unknown.
+        final sentHash = _formHash;
         final before = _spentBalance;
         await _load();
-        final after = _spentBalance;
         if (!mounted) {
           return;
         }
-        if (before != null && after != null && after < before) {
+        final after = _spentBalance;
+        final hash = _formHash;
+        final renewed =
+            _failure == null && hash != null && hash != sentHash && before != null && after != null && after >= before;
+        if (!renewed) {
           widget.onWritten();
           _amount.clear();
           showSnackBar(context: context, message: tr.unknown, clearPrevious: true);
@@ -334,7 +362,6 @@ class _CreditFormPageState extends State<CreditFormPage> {
         Navigator.of(context).pop();
       case CreditFormUnknown():
         // It may have been carried out: never sent again by itself, the balances read again.
-        widget.onWritten();
         _amount.clear();
         await _load();
         if (mounted) {
@@ -365,14 +392,17 @@ class _CreditFormPageState extends State<CreditFormPage> {
         ),
       );
     }
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.kind == CreditFormKind.transfer ? tr.transfer : tr.exchange),
-        bottom: _loading && (_transfer != null || _exchange != null)
-            ? const PreferredSize(preferredSize: Size.fromHeight(4), child: LinearProgressIndicator())
-            : null,
+    return PopScope(
+      canPop: !_sending,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(widget.kind == CreditFormKind.transfer ? tr.transfer : tr.exchange),
+          bottom: _loading && (_transfer != null || _exchange != null)
+              ? const PreferredSize(preferredSize: Size.fromHeight(4), child: LinearProgressIndicator())
+              : null,
+        ),
+        body: SafeArea(bottom: false, child: body),
       ),
-      body: SafeArea(bottom: false, child: body),
     );
   }
 
@@ -386,6 +416,7 @@ class _CreditFormPageState extends State<CreditFormPage> {
 
   Widget _amountField(String? error) => TextField(
     controller: _amount,
+    enabled: !_busy,
     keyboardType: TextInputType.number,
     inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(9)],
     decoration: _decoration(context.t.pointsPage.creditForms.amount, error: error),
@@ -413,6 +444,7 @@ class _CreditFormPageState extends State<CreditFormPage> {
         sizedBoxW12H12,
         TextField(
           controller: _to,
+          enabled: !_busy,
           textInputAction: TextInputAction.next,
           decoration: _decoration(
             tr.to,
@@ -420,7 +452,7 @@ class _CreditFormPageState extends State<CreditFormPage> {
             suffix: IconButton(
               tooltip: tr.pickUser,
               icon: const Icon(Icons.alternate_email_outlined),
-              onPressed: _pickUser,
+              onPressed: _busy ? null : _pickUser,
             ),
           ),
         ),
@@ -445,6 +477,7 @@ class _CreditFormPageState extends State<CreditFormPage> {
         sizedBoxW12H12,
         TextField(
           controller: _message,
+          enabled: !_busy,
           minLines: 1,
           maxLines: 4,
           decoration: _decoration(tr.message),
@@ -480,14 +513,14 @@ class _CreditFormPageState extends State<CreditFormPage> {
         DropdownButtonFormField<int>(
           initialValue: target.id,
           items: [for (final credit in form.to) item(credit)],
-          onChanged: (id) => setState(() => _targetId = id),
+          onChanged: _busy ? null : (id) => setState(() => _targetId = id),
           decoration: _decoration(tr.target),
         ),
         sizedBoxW12H12,
         DropdownButtonFormField<int>(
           initialValue: source.id,
           items: [for (final credit in form.from) item(credit)],
-          onChanged: (id) => setState(() => _sourceId = id),
+          onChanged: _busy ? null : (id) => setState(() => _sourceId = id),
           decoration: _decoration(tr.source, error: problem == CreditExchangeProblem.same ? tr.sameCredit : null),
         ),
         sizedBoxW12H12,
