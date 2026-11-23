@@ -41,6 +41,11 @@ final Uint8List _cyan = base64Decode(
   'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAGUlEQVR4nGNk+P+fgRTARJLqUQ2jGoaUBgBJTwIeepoB6wAAAABJRU5ErkJggg==',
 );
 
+/// 16 by 16, dark gray (26, 26, 26), about the color of a dark floor.
+final Uint8List _dark = base64Decode(
+  'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAFElEQVR42mOQIhEwjGoY1TB8NQAAeglOAUat07wAAAAASUVORK5CYII=',
+);
+
 /// 16 by 16: the left half red (220, 30, 30), the top right quarter near black (20, 20, 20), the rest white.
 final Uint8List _drawing = base64Decode(
   'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAKklEQVR4nGO8IyfHgA1YfPuGVZwJqygeMKqBGMCCS+L169fUsWFUAzEAANW5Bh/hb0'
@@ -59,8 +64,14 @@ final Map<String, ThemeData> _themes = {
 const _box = Size(64, 64);
 
 /// The pixels (RGBA) of the floor's area [_box] painted as the floor paints it: the background [layer] of [bytes]
-/// (none when null) under the veil of [theme].
-Future<Uint8List> _paint(WidgetTester tester, ThemeData theme, PostBackgroundLayer? layer, Uint8List? bytes) async {
+/// (none when null) under the veil of [theme], over [behind] (the floor's color by default).
+Future<Uint8List> _paint(
+  WidgetTester tester,
+  ThemeData theme,
+  PostBackgroundLayer? layer,
+  Uint8List? bytes, {
+  Color? behind,
+}) async {
   final key = GlobalKey();
   final surface = postBackgroundSurface(theme);
   final image = bytes == null ? null : MemoryImage(bytes);
@@ -73,7 +84,7 @@ Future<Uint8List> _paint(WidgetTester tester, ThemeData theme, PostBackgroundLay
           key: key,
           // The floor: its card color, then (with a background) the picture and the veil, as PostBackgroundPaint.
           child: ColoredBox(
-            color: surface,
+            color: behind ?? surface,
             child: SizedBox.fromSize(
               size: _box,
               child: image == null
@@ -200,8 +211,9 @@ void main() {
       final surface = postBackgroundSurface(theme);
       final card = [_channel(surface.r), _channel(surface.g), _channel(surface.b)];
       const layer = PostBackgroundLayer(imageUrl: 'https://cdn.example/x.png', repeat: PostBackgroundRepeat.both);
-      // Transparent: the floor color the same painter laid first.
-      final clear = await _paint(tester, theme, layer, _transparent);
+      // Transparent over a contrasting ground behind it: still the floor color, laid by the same painter (not what is
+      // behind it, and not turned white by the dark matrix's offset).
+      final clear = await _paint(tester, theme, layer, _transparent, behind: const Color(0xFF00FF00));
       expect(_at(clear, 32, 32), card);
       // Cyan: its red channel turns past black on a dark floor (clamped), still between black and white.
       final cyan = await _paint(tester, theme, layer, _cyan);
@@ -227,15 +239,15 @@ void main() {
       final theme = _themes['dark']!;
       final surface = postBackgroundSurface(theme);
       final card = [_channel(surface.r), _channel(surface.g), _channel(surface.b)];
-      // The near black quarter of the drawing, tiled: a dark plate of a picture turns light.
+      // A solid dark plate tiled over the floor: turns light under the dark-theme inversion.
       final pixels = await _paint(
         tester,
         theme,
-        const PostBackgroundLayer(imageUrl: 'https://cdn.example/d.png', size: PostBackgroundSize.cover),
-        _drawing,
+        const PostBackgroundLayer(imageUrl: 'https://cdn.example/dark.png', repeat: PostBackgroundRepeat.both),
+        _dark,
       );
-      final line = _at(pixels, 56, 8);
-      expect(line.reduce((a, b) => a + b), greaterThan(card.reduce((a, b) => a + b)));
+      final plate = _at(pixels, 32, 32);
+      expect(plate.reduce((a, b) => a + b), greaterThan(card.reduce((a, b) => a + b)));
     },
   );
 

@@ -170,7 +170,9 @@ class _PostBackgroundPaintState extends State<PostBackgroundPaint> {
     final enabled = widget.enabled;
     return ValueListenableBuilder<bool?>(
       valueListenable: NetworkUsage.unmetered,
-      child: widget.child,
+      // Transparent Material above the opaque background and veil so ink splashes of child controls (e.g.
+      // WarnedFloorMark) paint on top instead of being hidden on the outer Card's Material.
+      child: Material(type: MaterialType.transparency, child: widget.child),
       builder: (context, unmetered, child) {
         final fetches = switch (DataSaver.holdsBack(context, dataSaver)) {
           true || null => false,

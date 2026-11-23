@@ -183,7 +183,7 @@ void main() {
       for (final highContrast in [false, true]) {
         test('$name${highContrast ? ', high contrast' : ''}: at least the least opacity, every text reads', () {
           final veil = postBackgroundVeil(theme, highContrast: highContrast);
-          final surface = theme.cardTheme.color ?? theme.colorScheme.surfaceContainerLow;
+          final surface = postBackgroundSurface(theme);
           expect(veil.a, greaterThanOrEqualTo(postBackgroundMinVeilOpacity));
           expect(veil.withValues(alpha: 1), surface.withValues(alpha: 1), reason: "the floor's own color");
           final scheme = theme.colorScheme;
@@ -302,6 +302,7 @@ void main() {
       }
       for (final veil in veils(tester)) {
         expect((veil.decoration as BoxDecoration).color!.withValues(alpha: 1), postBackgroundSurface(theme));
+        expect((veil.child! as Material).type, MaterialType.transparency);
       }
       expect(veils(tester), hasLength(2));
       for (final veil in veils(tester)) {
