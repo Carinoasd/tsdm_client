@@ -16,14 +16,16 @@
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/Carinoasd/tsdm_client" alt="license"/></a>
 </p>
 
-## 最新更新：1.60.0（2026-11-21）
+## 最新更新：1.61.0（2026-11-24）
 
-- Windows：輸入法組字尚未確認時選取文字，再按 Ctrl+C 或 Delete，文字不會再重複一份。
-- 版塊頁在「帖子」「置頂」「子版塊」之間切換後，帖子列表保留原來的位置。
-- 升級 Flutter 至 3.41.9，包含圖片解碼的安全修正。
-- Android 構建編號為 176，可直接覆蓋之前的正式版與測試版。
+- 「我的 → 論壇服務」新增背景商店：我的背景、購買背景與活動商店、背景倉庫、背景兌換。
+- 帖子裡顯示會員在背景商店設定的正文背景與邊欄背景，可在「設定 → 外觀」關閉。
+- 「我的積分」新增轉帳、兌換。
+- 「論壇服務」新增遊戲中心、天使裁判所、CP 系統、打工入口。
+- 背景商店、帖子背景與 App 內的轉帳、兌換需要論壇接口插件 4.1.0，插件較舊時改為打開網頁。
+- Android 構建編號為 177，可直接覆蓋之前的正式版與測試版。
 
-[下載 1.60.0](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.60.0) · [完整更新日誌](./CHANGELOG.md)
+[下載 1.61.0](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.61.0) · [完整更新日誌](./CHANGELOG.md)
 
 ## 這是什麼
 

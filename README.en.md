@@ -16,14 +16,16 @@
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/Carinoasd/tsdm_client" alt="license"/></a>
 </p>
 
-## Latest update: 1.60.0 (2026-11-21)
+## Latest update: 1.61.0 (2026-11-24)
 
-- Windows: selecting text while an IME composition is still pending and then pressing Ctrl+C or Delete no longer duplicates the text.
-- The thread list of a forum keeps its position when switching between the threads, pinned and subforum tabs.
-- Flutter is upgraded to 3.41.9, which includes a security fix in image decoding.
-- The Android build number is 176 and installs over earlier releases and test builds.
+- Background shop under Me → Forum services: my backgrounds, the store and the event store, the warehouse and the exchange.
+- Threads show the content and sidebar backgrounds members set in the background shop; it can be turned off in Settings → Appearance.
+- My credits gains transfer and exchange.
+- Forum services gains entries for the game center, the court, the CP system and part-time jobs.
+- The background shop, post backgrounds and the in-app transfer and exchange forms need the forum API plugin 4.1.0; with an older plugin the app opens the web page instead.
+- The Android build number is 177 and installs over earlier releases and test builds.
 
-[Download 1.60.0](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.60.0) · [Full changelog](./CHANGELOG.md)
+[Download 1.61.0](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.61.0) · [Full changelog](./CHANGELOG.md)
 
 ## What it is
 
