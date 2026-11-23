@@ -22,7 +22,7 @@
 - Threads show the content and sidebar backgrounds members set in the background shop; it can be turned off in Settings → Appearance.
 - My credits gains transfer and exchange.
 - Forum services gains entries for the game center, the court, the CP system and part-time jobs.
-- The background shop, post backgrounds and the in-app transfer and exchange forms need the forum API plugin 4.1.0; with an older plugin the app opens the web page instead.
+- The background shop and the in-app transfer and exchange forms need the forum API plugin 4.1.0; with an older plugin the app opens the web page instead. Post backgrounds are shown from 4.1.0 on as well.
 - The Android build number is 177 and installs over earlier releases and test builds.
 
 [Download 1.61.0](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.61.0) · [Full changelog](./CHANGELOG.md)
