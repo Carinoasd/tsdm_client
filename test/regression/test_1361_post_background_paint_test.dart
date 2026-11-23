@@ -183,7 +183,7 @@ void main() {
       for (final highContrast in [false, true]) {
         test('$name${highContrast ? ', high contrast' : ''}: at least the least opacity, every text reads', () {
           final veil = postBackgroundVeil(theme, highContrast: highContrast);
-          final surface = theme.cardTheme.color ?? theme.colorScheme.surfaceContainerLow;
+          final surface = postBackgroundSurface(theme);
           expect(veil.a, greaterThanOrEqualTo(postBackgroundMinVeilOpacity));
           expect(veil.withValues(alpha: 1), surface.withValues(alpha: 1), reason: "the floor's own color");
           final scheme = theme.colorScheme;
@@ -293,6 +293,17 @@ void main() {
       expect(layers.first.alignment, Alignment.centerRight, reason: 'the author row first');
       expect(layers.first.fit, BoxFit.none, reason: "the picture's own size");
       expect(layers.last.repeat, ImageRepeat.repeat);
+      // Blended onto the floor's own color, the color the veil is of.
+      final theme = Theme.of(tester.element(find.byType(PostCard)));
+      for (final box in tester.widgetList<DecoratedBox>(find.byKey(const ValueKey('post-background-image')))) {
+        final decoration = box.decoration as BoxDecoration;
+        expect(decoration.color, postBackgroundSurface(theme));
+        expect(decoration.image!.colorFilter, postBackgroundBlend(postBackgroundSurface(theme)));
+      }
+      for (final veil in veils(tester)) {
+        expect((veil.decoration as BoxDecoration).color!.withValues(alpha: 1), postBackgroundSurface(theme));
+        expect((veil.child! as Material).type, MaterialType.transparency);
+      }
       expect(veils(tester), hasLength(2));
       for (final veil in veils(tester)) {
         final color = (veil.decoration as BoxDecoration).color!;

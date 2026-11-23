@@ -22,7 +22,7 @@ const postBackgroundMinVeilOpacity = 0.7;
 const postBackgroundMaxDecodeSide = 2048;
 
 /// Contrast the body text keeps on the veiled background (on its darkest or lightest pixel): WCAG AA, AAA with the
-/// platform's high contrast.
+/// platform's high contrast where Flutter tells it (iOS, the web; Flutter on Android never reports it).
 const double postBackgroundBodyContrast = readableContrast;
 
 /// Contrast the secondary text (the time, the user group: the theme's `outline`) keeps there, more with the platform's
@@ -67,7 +67,7 @@ double postBackgroundVeilOpacity(Color surface, List<(Color, double)> texts) {
 /// secondary text (`outline`).
 Color postBackgroundVeil(ThemeData theme, {bool highContrast = false}) {
   final scheme = theme.colorScheme;
-  final surface = theme.cardTheme.color ?? scheme.surfaceContainerLow;
+  final surface = postBackgroundSurface(theme);
   final body = highContrast ? 7.0 : postBackgroundBodyContrast;
   final secondary = highContrast ? readableContrast : postBackgroundSecondaryContrast;
   final key = (surface, scheme.onSurface, scheme.primary, scheme.outline, highContrast);
@@ -170,7 +170,9 @@ class _PostBackgroundPaintState extends State<PostBackgroundPaint> {
     final enabled = widget.enabled;
     return ValueListenableBuilder<bool?>(
       valueListenable: NetworkUsage.unmetered,
-      child: widget.child,
+      // Transparent Material above the opaque background and veil so ink splashes of child controls (e.g.
+      // WarnedFloorMark) paint on top instead of being hidden on the outer Card's Material.
+      child: Material(type: MaterialType.transparency, child: widget.child),
       builder: (context, unmetered, child) {
         final fetches = switch (DataSaver.holdsBack(context, dataSaver)) {
           true || null => false,
@@ -181,7 +183,8 @@ class _PostBackgroundPaintState extends State<PostBackgroundPaint> {
           },
         };
         final url = layer.imageUrl;
-        // A veil the picture would not show through (the platform's high contrast in some themes): none asked.
+        // A veil the picture would not show through (the platform's high contrast in some themes, where Flutter tells
+        // it: not on Android): none asked.
         final drawn = enabled && veil.a < 1 && !PostBackgroundFailures.failed(url, cacheOnly: !fetches);
         if (drawn && fetches) {
           // Fetched now: in the cache once it loads, shown from there when the pictures are held back again.
@@ -189,41 +192,16 @@ class _PostBackgroundPaintState extends State<PostBackgroundPaint> {
         }
         return DecoratedBox(
           key: const ValueKey('post-background-image'),
-          decoration: BoxDecoration(
-            borderRadius: corners,
-            image: !drawn
-                ? null
-                : DecorationImage(
-                    image: postBackgroundImage(url, cacheOnly: !fetches),
-                    repeat: switch (layer.repeat) {
-                      PostBackgroundRepeat.both => ImageRepeat.repeat,
-                      PostBackgroundRepeat.none => ImageRepeat.noRepeat,
-                      PostBackgroundRepeat.x => ImageRepeat.repeatX,
-                      PostBackgroundRepeat.y => ImageRepeat.repeatY,
-                    },
-                    alignment: Alignment(
-                      switch (layer.alignX) {
-                        PostBackgroundAlignX.left => -1,
-                        PostBackgroundAlignX.center => 0,
-                        PostBackgroundAlignX.right => 1,
-                      },
-                      switch (layer.alignY) {
-                        PostBackgroundAlignY.top => -1,
-                        PostBackgroundAlignY.center => 0,
-                        PostBackgroundAlignY.bottom => 1,
-                      },
-                    ),
-                    fit: switch (layer.size) {
-                      // The picture's own size, as the web page's `background-size: auto` (not scaled down to fit).
-                      PostBackgroundSize.natural => BoxFit.none,
-                      PostBackgroundSize.fitWidth => BoxFit.fitWidth,
-                      PostBackgroundSize.cover => BoxFit.cover,
-                      PostBackgroundSize.contain => BoxFit.contain,
-                    },
-                    // A picture that fails is no background: nothing drawn, nothing reported, not asked again.
-                    onError: (_, _) => _failed(url, cacheOnly: !fetches),
-                  ),
-          ),
+          decoration: drawn
+              ? postBackgroundDecoration(
+                  layer,
+                  postBackgroundImage(url, cacheOnly: !fetches),
+                  surface: postBackgroundSurface(theme),
+                  borderRadius: corners,
+                  // A picture that fails is no background: nothing drawn, nothing reported, not asked again.
+                  onError: (_, _) => _failed(url, cacheOnly: !fetches),
+                )
+              : BoxDecoration(borderRadius: corners),
           child: DecoratedBox(
             key: const ValueKey('post-background-veil'),
             decoration: BoxDecoration(color: enabled ? veil : null, borderRadius: corners),
@@ -233,6 +211,104 @@ class _PostBackgroundPaintState extends State<PostBackgroundPaint> {
       },
     );
   }
+}
+
+/// The color of the floor a background is on: the theme's [Card].
+Color postBackgroundSurface(ThemeData theme) => theme.cardTheme.color ?? theme.colorScheme.surfaceContainerLow;
+
+/// The picture [image] of the floor's background [layer] as it is painted on a floor of [surface]: the floor's color
+/// first, the picture over it through [postBackgroundBlend] (its white the floor's own color: no plate, no edge), in
+/// one painter; the veil goes over it. [borderRadius] clips both to the floor's corners.
+BoxDecoration postBackgroundDecoration(
+  PostBackgroundLayer layer,
+  ImageProvider image, {
+  required Color surface,
+  BorderRadius? borderRadius,
+  ImageErrorListener? onError,
+}) => BoxDecoration(
+  color: surface,
+  borderRadius: borderRadius,
+  image: DecorationImage(
+    image: image,
+    colorFilter: postBackgroundBlend(surface),
+    repeat: switch (layer.repeat) {
+      PostBackgroundRepeat.both => ImageRepeat.repeat,
+      PostBackgroundRepeat.none => ImageRepeat.noRepeat,
+      PostBackgroundRepeat.x => ImageRepeat.repeatX,
+      PostBackgroundRepeat.y => ImageRepeat.repeatY,
+    },
+    alignment: Alignment(
+      switch (layer.alignX) {
+        PostBackgroundAlignX.left => -1,
+        PostBackgroundAlignX.center => 0,
+        PostBackgroundAlignX.right => 1,
+      },
+      switch (layer.alignY) {
+        PostBackgroundAlignY.top => -1,
+        PostBackgroundAlignY.center => 0,
+        PostBackgroundAlignY.bottom => 1,
+      },
+    ),
+    fit: switch (layer.size) {
+      // The picture's own size, as the web page's `background-size: auto` (not scaled down to fit).
+      PostBackgroundSize.natural => BoxFit.none,
+      PostBackgroundSize.fitWidth => BoxFit.fitWidth,
+      PostBackgroundSize.cover => BoxFit.cover,
+      PostBackgroundSize.contain => BoxFit.contain,
+    },
+    onError: onError,
+  ),
+);
+
+/// The luminance of a floor's color from which it is light ([postBackgroundBlend]): where black and white text have
+/// the same contrast on it.
+const postBackgroundLightSurface = 0.179;
+
+/// CSS `hue-rotate(180deg)`, rows of the red, green and blue out of red, green and blue: each row sums to 1 (grays
+/// stay).
+const _hueRotate180 = [
+  [-0.574, 1.430, 0.144],
+  [0.426, 0.430, 0.144],
+  [0.426, 1.430, -0.856],
+];
+
+/// How a floor's background is blended onto the floor's color [surface], as one color matrix on the picture (no blend
+/// mode, no layer: the picture is drawn opaque, whatever is below it):
+///
+/// * a light [surface] (luminance at least [postBackgroundLightSurface]): multiply, `surface × picture` per channel:
+///   white is the floor's color, black stays black, a pale color tints it;
+/// * a dark one: the picture's lightness turned over with its hue kept (CSS `invert(1) hue-rotate(180deg)`: white
+///   black, black lines light, red still red) and then screen, `surface + (1 − surface) × turned`: black is the floor's
+///   color, white stays white.
+///
+/// So the picture's pixels still run from black to white at most (light: black to [surface]; dark: [surface] to
+/// white, or a little darker where a saturated color turns past black): the veil's contrast holds as before
+/// ([postBackgroundVeilOpacity]).
+ColorFilter postBackgroundBlend(Color surface) {
+  final channels = [surface.r, surface.g, surface.b];
+  if (relativeLuminance(surface) >= postBackgroundLightSurface) {
+    return ColorFilter.matrix([
+      for (var row = 0; row < 3; row++) ...[for (var col = 0; col < 3; col++) row == col ? channels[row] : 0, 0, 0],
+      0,
+      0,
+      0,
+      1,
+      0,
+    ]);
+  }
+  // turned = 1 − H·picture (H keeps white white); out = s + (1 − s) × turned = 1 − (1 − s) × H·picture.
+  return ColorFilter.matrix([
+    for (var row = 0; row < 3; row++) ...[
+      for (var col = 0; col < 3; col++) -(1 - channels[row]) * _hueRotate180[row][col],
+      0,
+      255,
+    ],
+    0,
+    0,
+    0,
+    1,
+    0,
+  ]);
 }
 
 /// The pictures of the floors' backgrounds that failed in this run: never asked again (a painted [DecorationImage]
