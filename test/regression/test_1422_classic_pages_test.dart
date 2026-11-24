@@ -379,6 +379,10 @@ void main() {
           );
           await tester.pump();
           expect(tester.takeException(), isNull, reason: 'nothing overflows');
+          expect(
+            MediaQuery.textScalerOf(tester.element(find.byType(PinSection))).scale(14),
+            closeTo(14 * scale, 0.01),
+          );
           final cards = find.descendant(of: find.byType(PinSection), matching: find.byType(Card));
           expect(cards, findsNWidgets(4));
           // The title of a row is one line, under the author.

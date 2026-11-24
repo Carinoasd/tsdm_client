@@ -230,9 +230,11 @@ void main() {
 
     tearDown(() => db.close());
 
+    /// A start of the app: the settings loaded, then the reset (`main`).
     Future<SettingsRepository> start() async {
       final settings = SettingsRepository(storage);
       await settings.init();
+      await settings.resetFormerDefaultsOnce();
       addTearDown(settings.dispose);
       return settings;
     }
@@ -248,6 +250,13 @@ void main() {
       expect(await storage.getDouble(_lineHeight), isNull);
       expect(await storage.getDouble(_spacing), isNull);
       expect(await storage.getBool(SettingsRepository.formerDefaultsResetKey), isTrue);
+    });
+
+    test('loading the settings stores nothing: a new install still tells itself from an update', () async {
+      final settings = SettingsRepository(storage);
+      await settings.init();
+      addTearDown(settings.dispose);
+      expect(await storage.getAllSettings(), isEmpty);
     });
 
     test('once: the pair set after it stays', () async {

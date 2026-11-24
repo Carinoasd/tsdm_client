@@ -85,7 +85,7 @@ final class SettingsRepository with LoggerMixin {
   /// Current settings.
   late SettingsMap _state;
 
-  /// Stored name of the mark that [_resetFormerDefaults] ran on this device.
+  /// Stored name of the mark that [resetFormerDefaultsOnce] ran on this device.
   static const formerDefaultsResetKey = 'settings.formerDefaultsReset';
 
   /// Once on a device: settings stored at a group of former defaults ([syncedSettingsFormerDefaults], the post
@@ -94,7 +94,10 @@ final class SettingsRepository with LoggerMixin {
   /// Such values were seldom chosen: a version before 1.62.0 stored the 1.62.0 defaults another device synced (it
   /// applied whatever differed from its own), and 1.62.0 stored them when the layout dialog was confirmed unchanged.
   /// Kept they would stay for good, and go to the other devices with each sync. Values set after it are left alone.
-  Future<void> _resetFormerDefaults() async {
+  ///
+  /// Called by the app once the settings are loaded ([init]) and it read whether anything was stored before this start
+  /// (the mark is stored here: a new install would look like an update).
+  Future<void> resetFormerDefaultsOnce() async {
     try {
       if (await _storage.getBool(formerDefaultsResetKey) ?? false) {
         return;
@@ -113,6 +116,7 @@ final class SettingsRepository with LoggerMixin {
       if (reset) {
         // Read again: what was deleted reads as its default.
         _state = await _initMap();
+        _controller.add(_state);
       }
       await _storage.saveBool(formerDefaultsResetKey, value: true);
     } on Object catch (e, st) {
@@ -124,7 +128,6 @@ final class SettingsRepository with LoggerMixin {
   /// Init initial settings.
   Future<void> init() async {
     _state = await _initMap();
-    await _resetFormerDefaults();
     _controller.add(_state);
     if (!_state.offlineThreads) {
       // Offline thread copies only exist while their setting is on: drop what an imported backup, an older run or any
