@@ -440,10 +440,11 @@ void main() {
 
   bool selected(WidgetTester tester, String title) => tester.widget<HomeCardTab>(tab(title)).selected;
 
-  /// Second lines of the rows of the card (thread titles, the welcome text of new members), top to bottom.
+  /// Titles of the rows of the card (thread titles, the welcome text of new members), top to bottom.
   List<String?> rowTitles(WidgetTester tester) => tester
       .widgetList<ListTile>(find.descendant(of: find.byType(PinTabSection), matching: find.byType(ListTile)))
-      .map((e) => (e.subtitle as Text?)?.data)
+      // Beautify v2: the thread title leads the row, the author is the meta line under it.
+      .map((e) => (e.title is Text) ? (e.title! as Text).data : null)
       .toList();
 
   Future<void> selectTab(WidgetTester tester, String title) async {

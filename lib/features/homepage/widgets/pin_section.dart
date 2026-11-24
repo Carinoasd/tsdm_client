@@ -23,17 +23,31 @@ class PinnedThreadList extends StatelessWidget with LoggerMixin {
       threadTitle = pinnedThread.threadTitle;
     }
 
+    Future<void> openAuthor() async => context.pushNamed(ScreenPaths.profile, queryParameters: {'username': username});
+    // The name is read as a link and opens the same page as the avatar.
+    final author = GestureDetector(
+      onTap: openAuthor,
+      child: Semantics(
+        link: true,
+        child: Row(children: [SingleLineText(username)]),
+      ),
+    );
+    final textTheme = Theme.of(context).textTheme;
+    final surfaces = AppSurfaces.of(context);
     return ListTile(
       // 72 is the height when thread title is not null.
       // Set this value to make every group of section has the same height.
       minTileHeight: 72,
+      // Flat on the page: the rows start where the section title does.
+      contentPadding: EdgeInsets.zero,
       // The avatar is a 48 wide tap target around the 40 wide circle, named after the user (the circle itself has
       // nothing to read): the circle stays at the start, the target grows towards the title, and the title gap gives
-      // the 8 back so the texts stay where they were. The name opens the same page and is read as a link.
+      // the 8 back so the texts stay where they were.
       horizontalTitleGap: 2,
       leading: GestureDetector(
         // The whole box takes the tap, not only the circle.
         behavior: HitTestBehavior.opaque,
+        onTap: openAuthor,
         child: Semantics(
           button: true,
           label: username,
@@ -46,16 +60,22 @@ class PinnedThreadList extends StatelessWidget with LoggerMixin {
             ),
           ),
         ),
-        onTap: () async => context.pushNamed(ScreenPaths.profile, queryParameters: {'username': username}),
       ),
-      title: GestureDetector(
-        child: Semantics(
-          link: true,
-          child: Row(children: [SingleLineText(username)]),
-        ),
-        onTap: () async => context.pushNamed(ScreenPaths.profile, queryParameters: {'username': username}),
-      ),
-      subtitle: isRank ? null : SingleLineText(threadTitle, overflow: TextOverflow.ellipsis),
+      // A thread leads with its title, its author is the meta line under it; the rank lists members with their count.
+      title: isRank
+          ? author
+          : Text(
+              threadTitle,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: textTheme.bodyLarge?.copyWith(fontSize: 15.5, height: 1.5, fontWeight: FontWeight.w700),
+            ),
+      subtitle: isRank
+          ? null
+          : DefaultTextStyle.merge(
+              style: textTheme.bodySmall?.copyWith(fontSize: 12.5, color: surfaces.muted),
+              child: author,
+            ),
       trailing: isRank ? SingleLineText(threadTitle) : null,
       onTap: () async {
         final target = pinnedThread.threadUrl.parseUrlToRoute();
@@ -168,7 +188,7 @@ class PinSection extends StatelessWidget {
 }
 
 /// Horizontal padding of the tab row of [PinTabSection], inside its scroll view.
-const _pinTabRowPadding = 8.0;
+const _pinTabRowPadding = 0.0;
 
 /// All pinned thread groups in one card of the phone homepage (compact layout): a row of tabs, the rows of the
 /// selected group under it.
@@ -259,7 +279,6 @@ class _PinTabSectionState extends State<PinTabSection> {
     if (groups.isEmpty) {
       return sizedBoxEmpty;
     }
-    final colorScheme = Theme.of(context).colorScheme;
     final stored = context.select<SettingsBloc, String>((bloc) => bloc.state.settingsMap.homepagePinnedGroup);
     final wanted = _chosen ?? stored;
     _shown = math.max(0, groups.indexWhere((e) => e.title == wanted));
@@ -274,52 +293,39 @@ class _PinTabSectionState extends State<PinTabSection> {
       _tabKeys.add(GlobalKey());
     }
 
-    return Card(
-      margin: EdgeInsets.zero,
-      clipBehavior: Clip.antiAlias,
-      shape: homeCardShape(context),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (groups.length > 1)
-            SingleChildScrollView(
-              controller: _tabsController,
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: _pinTabRowPadding),
-              child: Row(
-                children: [
-                  for (final (i, group) in groups.indexed)
-                    HomeCardTab(
-                      key: _tabKeys[i],
-                      label: group.title,
-                      selected: i == _shown,
-                      onTap: () => _select(group),
-                    ),
+    // Read row by row like the forum guide: on the page itself, no panel around it.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (groups.length > 1)
+          SingleChildScrollView(
+            controller: _tabsController,
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                for (final (i, group) in groups.indexed) ...[
+                  if (i > 0) const SizedBox(width: homeTabGap),
+                  HomeCardTab(key: _tabKeys[i], label: group.title, selected: i == _shown, onTap: () => _select(group)),
                 ],
-              ),
-            )
-          else
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-              child: Text(
-                selected.title,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-              ),
+              ],
             ),
-          Divider(height: 1, color: colorScheme.outlineVariant),
-          // The card grows or shrinks smoothly to the rows of the new group; the page offset is left alone.
-          AnimatedSize(
-            duration: duration200,
-            curve: Curves.easeInOut,
-            alignment: Alignment.topCenter,
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: PinnedThreadList(selected, key: ValueKey(_shown)),
-            ),
+          )
+        else
+          Padding(
+            padding: const EdgeInsets.only(top: 4, bottom: 12),
+            child: Text(selected.title, style: homeSectionTitleStyle(context)),
           ),
-        ],
-      ),
+        Divider(height: 1, thickness: 1, color: AppSurfaces.of(context).line),
+        // The section grows or shrinks smoothly to the rows of the new group; the page offset is left alone.
+        AnimatedSize(
+          duration: duration200,
+          curve: Curves.easeInOut,
+          alignment: Alignment.topCenter,
+          child: PinnedThreadList(selected, key: ValueKey(_shown)),
+        ),
+      ],
     );
   }
 }

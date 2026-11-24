@@ -31,12 +31,16 @@ class DailyRedPacketButton extends StatefulWidget {
     this.repository = const RedPacketRepository(),
     this.claim,
     this.labeled = false,
+    this.look = AppDayActionLook.button,
     this.onClaimed,
     super.key,
   });
 
   /// Show a tonal button with a label instead of an icon button, e.g. on the homepage greeting card.
   final bool labeled;
+
+  /// How the [labeled] button is drawn.
+  final AppDayActionLook look;
 
   /// Called with the `dateflag` of the packet once the server answered "claimed" or "already claimed".
   final void Function(String dateFlag)? onClaimed;
@@ -106,13 +110,15 @@ class _DailyRedPacketButtonState extends State<DailyRedPacketButton> with Logger
   Widget build(BuildContext context) {
     final tooltip = context.t.redPacket.daily.tooltip;
     if (_claimed) {
-      return widget.labeled ? const DailyRedPacketClaimedButton() : sizedBoxEmpty;
+      return widget.labeled ? DailyRedPacketClaimedButton(look: widget.look) : sizedBoxEmpty;
     }
     if (widget.labeled) {
-      return FilledButton.icon(
-        style: appHeroActionStyle(context, height: 44),
+      return appDayAction(
+        context,
+        look: widget.look,
+        height: 44,
         icon: _claiming ? sizedCircularProgressIndicator : const Icon(Icons.redeem_outlined),
-        label: Text(tooltip),
+        label: tooltip,
         onPressed: _claiming ? null : _claim,
       );
     }
@@ -128,17 +134,22 @@ class _DailyRedPacketButtonState extends State<DailyRedPacketButton> with Logger
 /// Looks done, not unavailable ([appHeroActionStyle]): a full color label and a filled check.
 class DailyRedPacketClaimedButton extends StatelessWidget {
   /// Constructor.
-  const DailyRedPacketClaimedButton({this.hint, super.key});
+  const DailyRedPacketClaimedButton({this.hint, this.look = AppDayActionLook.button, super.key});
 
   /// Where the claimed state comes from, when it is not the answer of this run.
   final String? hint;
 
+  /// How the button is drawn.
+  final AppDayActionLook look;
+
   @override
   Widget build(BuildContext context) {
-    final button = FilledButton.icon(
-      style: appHeroActionStyle(context, height: 44),
+    final button = appDayAction(
+      context,
+      look: look,
+      height: 44,
       icon: const Icon(Icons.check_circle),
-      label: Text(context.t.redPacket.daily.claimedToday),
+      label: context.t.redPacket.daily.claimedToday,
       onPressed: null,
     );
     final hint = this.hint;
@@ -168,8 +179,12 @@ class DailyRedPacketEntry extends StatefulWidget {
     required this.onCheck,
     this.checking = false,
     this.claim,
+    this.look = AppDayActionLook.button,
     super.key,
   });
+
+  /// How the entry is drawn: a tile among the actions of the phone greeting, a button elsewhere.
+  final AppDayActionLook look;
 
   /// Logged in account, null without one.
   final int? uid;
@@ -247,10 +262,12 @@ class _DailyRedPacketEntryState extends State<DailyRedPacketEntry> {
     final config = widget.config;
     final formHash = widget.formHash;
     if (uid == null) {
-      return FilledButton.icon(
-        style: appHeroActionStyle(context, height: 44),
+      return appDayAction(
+        context,
+        look: widget.look,
+        height: 44,
         icon: const Icon(Icons.login_outlined),
-        label: Text(tr.needLogin),
+        label: tr.needLogin,
         onPressed: () async => context.pushNamed(ScreenPaths.login),
       );
     }
@@ -262,18 +279,25 @@ class _DailyRedPacketEntryState extends State<DailyRedPacketEntry> {
         formHash: formHash,
         claim: widget.claim,
         labeled: true,
+        look: widget.look,
         onClaimed: _onClaimed,
       );
     }
     if (_recordUid == uid && dailyRedPacketClaimedToday(_claimedDateFlag)) {
-      return DailyRedPacketClaimedButton(key: const ValueKey('dailyRedPacket-recorded'), hint: tr.claimedRecordedHint);
+      return DailyRedPacketClaimedButton(
+        key: const ValueKey('dailyRedPacket-recorded'),
+        hint: tr.claimedRecordedHint,
+        look: widget.look,
+      );
     }
     return Tooltip(
       message: tr.unavailableHint,
-      child: FilledButton.icon(
-        style: appHeroActionStyle(context, height: 44),
+      child: appDayAction(
+        context,
+        look: widget.look,
+        height: 44,
         icon: widget.checking ? sizedCircularProgressIndicator : const Icon(Icons.redeem_outlined),
-        label: Text(tr.unavailable),
+        label: tr.unavailable,
         onPressed: widget.checking ? null : widget.onCheck,
       ),
     );
