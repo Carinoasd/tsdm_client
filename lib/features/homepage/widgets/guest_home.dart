@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/features/forum/utils/group.dart';
@@ -72,13 +73,13 @@ class HomeGuestCard extends StatelessWidget {
                 FilledButton.icon(
                   key: const ValueKey('homepage-guest-login'),
                   style: FilledButton.styleFrom(minimumSize: const Size(0, 48)),
-                  icon: const Icon(Icons.login_outlined),
+                  icon: const Icon(Symbols.login_rounded),
                   label: Text(context.t.loginPage.login),
                   onPressed: () async => context.pushNamed(ScreenPaths.login),
                 ),
                 FilledButton.icon(
                   style: appHeroActionStyle(context),
-                  icon: const Icon(Icons.topic_outlined),
+                  icon: const Icon(Symbols.topic_rounded),
                   label: Text(tr.allForums),
                   onPressed: () => showHomeTab(context, HomeTab.topic),
                 ),
@@ -180,7 +181,7 @@ class _HomeForumEntriesCardState extends State<HomeForumEntriesCard> {
             padding: const EdgeInsets.fromLTRB(16, 8, 4, 0),
             child: Row(
               children: [
-                Icon(Icons.topic_outlined, size: 20, color: colorScheme.primary),
+                Icon(Symbols.topic_rounded, size: 20, color: colorScheme.primary),
                 sizedBoxW8H8,
                 Expanded(
                   child: Text(
@@ -257,7 +258,7 @@ class _ForumEntry extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.forum_outlined, size: 18, color: colorScheme.primary),
+                  Icon(Symbols.forum_rounded, size: 18, color: colorScheme.primary),
                   sizedBoxW8H8,
                   Flexible(
                     child: Text(forum.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: textTheme.labelLarge),

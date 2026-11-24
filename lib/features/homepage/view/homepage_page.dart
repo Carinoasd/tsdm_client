@@ -5,6 +5,7 @@ import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
@@ -155,7 +156,7 @@ class _HomepagePageState extends State<HomepagePage> {
     }
     return FloatingActionButton(
       onPressed: () async => _scrollController.animateTo(0, duration: duration200, curve: Curves.easeInOut),
-      child: const Icon(Icons.arrow_upward_outlined),
+      child: const Icon(Symbols.arrow_upward_rounded),
     );
   }
 
@@ -411,7 +412,7 @@ class _HomepagePageState extends State<HomepagePage> {
     final showDailyActionsInBar = state.status == HomepageStatus.failure;
 
     final activities = (
-      icon: Icons.event_outlined,
+      icon: Symbols.event_rounded,
       label: context.t.activitiesPage.title,
       onPressed: () async => context.pushNamed<void>(ScreenPaths.activities),
     );
@@ -421,7 +422,7 @@ class _HomepagePageState extends State<HomepagePage> {
       onPressed: () async => context.pushNamed<void>(ScreenPaths.pokemon),
     );
     final support = (
-      icon: Icons.favorite_border,
+      icon: Symbols.favorite_rounded,
       label: context.t.aboutPage.supportDevelopment,
       onPressed: () async => showDialog<void>(context: context, builder: (_) => const SupportDevelopmentDialog()),
     );
@@ -440,7 +441,7 @@ class _HomepagePageState extends State<HomepagePage> {
     return [
       if (showDailyActionsInBar) ?button(activities),
       IconButton(
-        icon: const Icon(Icons.search_outlined),
+        icon: const Icon(Symbols.search_rounded),
         tooltip: context.t.searchPage.title,
         onPressed: () async => context.pushNamed(ScreenPaths.search),
       ),
@@ -694,7 +695,7 @@ class _SavedPageNote extends StatelessWidget {
       child: Row(
         children: [
           Icon(
-            failed ? Icons.sync_problem_outlined : Icons.sync_outlined,
+            failed ? Symbols.sync_problem_rounded : Symbols.sync_rounded,
             size: 16,
             color: colorScheme.onSurfaceVariant,
           ),

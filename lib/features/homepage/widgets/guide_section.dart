@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
@@ -91,7 +92,7 @@ class _GuideFeedCardState extends State<_GuideFeedCard> {
 
     final Widget body;
     final retry = ListTile(
-      leading: const Icon(Icons.refresh_outlined),
+      leading: const Icon(Symbols.refresh_rounded),
       title: Text(tr.failed),
       onTap: () async => context.read<GuideIndexCubit>().load(),
     );
@@ -146,7 +147,7 @@ class _GuideFeedCardState extends State<_GuideFeedCard> {
                   side: BorderSide(color: AppSurfaces.of(context).lineStrong),
                   textStyle: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w400),
                 ),
-                icon: const Icon(Icons.weekend_outlined, size: 18),
+                icon: const Icon(Symbols.weekend_rounded, size: 18),
                 label: Text(tr.sofa),
                 onPressed: () async => _openGuideList(context, guideUrl('sofa'), tr.sofa),
               ),
@@ -157,7 +158,7 @@ class _GuideFeedCardState extends State<_GuideFeedCard> {
                     textStyle: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
                   ),
                   onPressed: () async => _openGuideList(context, selected.moreUrl, selected.title),
-                  icon: const Icon(Icons.chevron_right_outlined),
+                  icon: const Icon(Symbols.chevron_right_rounded),
                   iconAlignment: IconAlignment.end,
                   label: Text(tr.more),
                 ),
@@ -266,7 +267,7 @@ class _GuideItemTile extends StatelessWidget {
     );
     final repliedMark = Tooltip(
       message: context.t.threadCard.replied,
-      child: Icon(Icons.reply_outlined, size: 16, color: colorScheme.tertiary),
+      child: Icon(Symbols.reply_rounded, size: 16, color: colorScheme.tertiary),
     );
     final extraText = extra == null
         ? null

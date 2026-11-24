@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/features/checkin/bloc/checkin_bloc.dart';
 import 'package:tsdm_client/features/checkin/models/models.dart';
@@ -89,7 +90,7 @@ class CheckinButton extends StatelessWidget {
           }
 
           if (useIcon) {
-            return const Icon(Icons.domain_verification_outlined);
+            return const Icon(Symbols.domain_verification_rounded);
           }
 
           // Checked in today: recorded by this app (this run, an earlier run or the auto check-in). A check-in made
@@ -108,32 +109,36 @@ class CheckinButton extends StatelessWidget {
                 child: appDayAction(
                   context,
                   look: look,
-                  icon: const Icon(Icons.check_circle),
+                  icon: const Icon(Symbols.check_circle_rounded, fill: 1),
                   label: checkedTr.checkedIn,
                   onPressed: null,
                 ),
               );
             }
-            return IconButton(icon: const Icon(Icons.task_alt_outlined), tooltip: checkedTr.checkedIn, onPressed: null);
+            return IconButton(
+              icon: const Icon(Symbols.task_alt_rounded),
+              tooltip: checkedTr.checkedIn,
+              onPressed: null,
+            );
           }
 
           if (state is CheckinStateNeedLogin) {
             if (label != null) {
-              return _buildLabeled(context, icon: const Icon(Icons.domain_verification_outlined), onPressed: null);
+              return _buildLabeled(context, icon: const Icon(Symbols.domain_verification_rounded), onPressed: null);
             }
-            return IconButton(icon: const Icon(Icons.domain_verification_outlined), tooltip: tooltip, onPressed: null);
+            return IconButton(icon: const Icon(Symbols.domain_verification_rounded), tooltip: tooltip, onPressed: null);
           }
 
           if (label != null) {
             return _buildLabeled(
               context,
-              icon: const Icon(Icons.domain_verification_outlined),
+              icon: const Icon(Symbols.domain_verification_rounded),
               onPressed: () => context.read<CheckinBloc>().add(const CheckinRequested()),
             );
           }
 
           return IconButton(
-            icon: const Icon(Icons.domain_verification_outlined),
+            icon: const Icon(Symbols.domain_verification_rounded),
             tooltip: tooltip,
             onPressed: () {
               context.read<CheckinBloc>().add(const CheckinRequested());
