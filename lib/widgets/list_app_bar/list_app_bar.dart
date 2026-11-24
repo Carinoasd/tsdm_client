@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:collection/collection.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -63,8 +64,15 @@ class ListAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.customMenuItems = const [],
     this.leading,
     this.automaticallyImplyLeading = true,
+    this.titleShown,
     super.key,
   });
+
+  /// Whether the [title] shows; it fades in and out with it. Always shown when null.
+  ///
+  /// A page that has its title in its content (a thread: the title heads the floors) shows it in the bar once that
+  /// one is scrolled away.
+  final ValueListenable<bool>? titleShown;
 
   /// Widget before the title, see [AppBar.leading].
   final Widget? leading;
@@ -159,7 +167,16 @@ class ListAppBar extends StatelessWidget implements PreferredSizeWidget {
     return AppBar(
       leading: leading,
       automaticallyImplyLeading: automaticallyImplyLeading,
-      title: title == null ? null : Text(context.displayText(title!)),
+      title: title == null
+          ? null
+          : titleShown == null
+          ? Text(context.displayText(title!))
+          : ValueListenableBuilder(
+              valueListenable: titleShown!,
+              builder: (context, shown, child) =>
+                  AnimatedOpacity(opacity: shown ? 1 : 0, duration: const Duration(milliseconds: 150), child: child),
+              child: Text(context.displayText(title!)),
+            ),
       // TODO: Currently we always use a compact layout in list app bar for larger main content space.
       // If going to implement responsive layout, remember to wrap list app bar in `PreferredSize` in ALL places using
       // it, this is an issue or usage defined by Flutter, seems the AppBar checks if it's direct `bottom` widget is
