@@ -78,7 +78,6 @@ import 'package:tsdm_client/features/thread/v1/utils/parse_thread_document.dart'
 import 'package:tsdm_client/features/thread/v1/view/thread_page.dart';
 import 'package:tsdm_client/features/thread/v1/widgets/collapsing_app_bar.dart';
 import 'package:tsdm_client/features/thread/v1/widgets/post_list.dart';
-import 'package:tsdm_client/features/thread/v1/widgets/thread_title_header.dart';
 import 'package:tsdm_client/features/thread_visit_history/bloc/thread_visit_history_bloc.dart';
 import 'package:tsdm_client/features/thread_visit_history/repository/thread_visit_history_repository.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
@@ -720,16 +719,16 @@ void main() {
       expect(appTextScaler(system, 1.1), appTextScaler(system, 1.1));
     });
 
-    testWidgets('a large system font: the title area of the thread page grows with it, nothing overflows', (
+    testWidgets('a large system font: the breadcrumbs of the thread page grow with it, nothing overflows', (
       tester,
     ) async {
       forum.answer = (r) => _html(_threadPage([1, 2]));
       await _pumpThread(tester, app);
-      final normal = tester.getSize(find.byType(ThreadTitleHeader)).height;
+      final normal = tester.getSize(find.byType(CollapsingAppBar)).height;
       await _unpump(tester);
       await _pumpThread(tester, app, textScale: 2);
       expect(tester.takeException(), isNull);
-      expect(tester.getSize(find.byType(ThreadTitleHeader)).height, greaterThan(normal + 5));
+      expect(tester.getSize(find.byType(CollapsingAppBar)).height, greaterThan(normal + 5));
       await _unpump(tester);
     });
 
@@ -1144,8 +1143,7 @@ void main() {
       await _pumpThread(tester, app);
       double barHeight() => tester.getSize(find.byType(CollapsingAppBar)).height;
       final full = barHeight();
-      // The bar alone: the forum path, the title and the figures scroll with the floors.
-      expect(full, greaterThanOrEqualTo(56));
+      expect(full, greaterThan(56));
       final gesture = await tester.startGesture(tester.getCenter(find.byType(PostList)));
       // Past the touch slop first: the floors take taps too (immersive reading), the drag wins once past it.
       await gesture.moveBy(const Offset(0, -20));
@@ -1160,21 +1158,26 @@ void main() {
       await _unpump(tester);
     });
 
-    /// Opacity of the title in the app bar (the second design, item 13 of `tokens-v2.md` section 9).
+    /// Opacity of the title in the app bar.
     double appBarTitleOpacity(WidgetTester tester) => tester
         .widget<AnimatedOpacity>(find.descendant(of: find.byType(AppBar), matching: find.byType(AnimatedOpacity)))
         .opacity;
 
-    testWidgets('the title shows in the app bar only once the title area is scrolled past', (tester) async {
+    /// The title printed above the floors.
+    Finder bodyTitle() => find.descendant(of: find.byType(PostList), matching: find.text('Thread title'));
+
+    testWidgets('the title shows in the app bar only once the title above the floors is scrolled past', (
+      tester,
+    ) async {
       await tester.runAsync(() => settings.setValue(SettingsKeys.collapseAppBarWhenScroll, false));
       forum.answer = (r) => _html(_threadPage([for (var i = 1; i <= 10; i++) i]));
       await _pumpThread(tester, app);
       // The title heads the floors: not twice on screen.
-      expect(find.byType(ThreadTitleHeader), findsOneWidget);
+      expect(bodyTitle(), findsOneWidget);
       expect(appBarTitleOpacity(tester), 0);
-      final header = tester.getSize(find.byType(ThreadTitleHeader)).height;
+      final title = tester.getSize(bodyTitle()).height;
       // Not yet past it.
-      await tester.drag(find.byType(PostList), Offset(0, -(header / 2)));
+      await tester.drag(find.byType(PostList), Offset(0, -(title / 2)));
       await tester.pumpAndSettle();
       expect(appBarTitleOpacity(tester), 0);
       // Past it: faded in.
@@ -1188,7 +1191,9 @@ void main() {
       await _unpump(tester);
     });
 
-    testWidgets('opened at the last floor, away from the title area: the title is in the app bar', (tester) async {
+    testWidgets('opened at the last floor, away from the title above the floors: the title is in the app bar', (
+      tester,
+    ) async {
       await tester.runAsync(() => settings.setValue(SettingsKeys.collapseAppBarWhenScroll, false));
       forum.answer = (r) => _html(_threadPage([for (var i = 1; i <= 10; i++) i]));
       await _pumpThread(tester, app, lastPost: true);
@@ -1601,29 +1606,13 @@ void main() {
     });
 
     testWidgets('L5. a list hardly longer than the screen keeps the app bar', (tester) async {
-      // The thread page now scrolls its title area with the floors, so even a one floor thread scrolls farther than
-      // the bar; the rule is checked on a list that scrolls less than the bar's height.
-      final controller = AnimationController(vsync: tester, value: 1, duration: const Duration(milliseconds: 100));
-      addTearDown(controller.dispose);
-      final collapser = AppBarCollapser(controller)..barHeight = 56;
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: LayoutBuilder(
-              builder: (context, constraints) => NotificationListener<ScrollNotification>(
-                onNotification: collapser.onNotification,
-                child: ListView(
-                  key: const ValueKey('short-list'),
-                  children: [SizedBox(height: constraints.maxHeight + 40)],
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-      await tester.drag(find.byKey(const ValueKey('short-list')), const Offset(0, -300));
+      forum.answer = (r) => _html(_threadPage([1]));
+      await _pumpThread(tester, app);
+      final full = tester.getSize(find.byType(CollapsingAppBar)).height;
+      await tester.drag(find.byType(PostList), const Offset(0, -300));
       await tester.pumpAndSettle();
-      expect(controller.value, 1, reason: 'scrolls 40, less than the bar');
+      expect(tester.getSize(find.byType(CollapsingAppBar)).height, full);
+      await _unpump(tester);
     });
 
     testWidgets('L6. "refresh to check" with one author only says the reply may not be shown', (tester) async {

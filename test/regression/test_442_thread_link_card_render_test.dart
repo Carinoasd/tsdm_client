@@ -123,11 +123,6 @@ void main() {
   Widget post(String html) => PostTypographyScope(typography: const PostTypography(), child: MunchedHtml(html));
 
   testWidgets('the links of a floor of the test forum', (tester) async {
-    // Tall enough for every card to come into view (the body text of a post is 16).
-    tester.view
-      ..devicePixelRatio = 1
-      ..physicalSize = const Size(800, 1200);
-    addTearDown(tester.view.reset);
     final html = File('test/data/thread_link_card/post_links_x5.html').readAsStringSync();
     await tester.pumpWidget(app(SingleChildScrollView(child: post(html))));
     await tester.pumpAndSettle();

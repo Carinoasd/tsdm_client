@@ -816,7 +816,7 @@ void main() {
           '<font size="5"><pre>外层字号</pre></font>',
         ),
       );
-      // A post's body text (16) is the web page's 14px.
+      // A post's body text (14) is the web page's 14px.
       const scale = postBodyFontSize / webPostFontSize;
       expect(_style(tester, '外面大字').fontSize, 24 * scale);
       expect(_style(tester, '等宽大字').fontSize, 24 * 13 / 16 * scale);
