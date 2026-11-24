@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:fpdart/fpdart.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/features/background_shop/models/background_shop.dart';
-import 'package:tsdm_client/features/background_shop/repository/my_content_background.dart';
 import 'package:tsdm_client/features/tsdmapp/small_form.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:tsdm_client/features/tsdmapp/v4.dart';
@@ -94,14 +93,8 @@ class BackgroundShopRepository {
     return answer;
   }
 
-  /// My backgrounds; kept for the account card of the "me" tab too ([MyContentBackground]).
-  Future<BackgroundShopAnswer<BackgroundMine>> mine() async {
-    final answer = await _load('bgmine', const {}, BackgroundMine.fromJson);
-    if (answer is BackgroundShopLoaded<BackgroundMine>) {
-      MyContentBackground.remember(answer.page);
-    }
-    return answer;
-  }
+  /// My backgrounds.
+  Future<BackgroundShopAnswer<BackgroundMine>> mine() => _load('bgmine', const {}, BackgroundMine.fromJson);
 
   /// Page [page] of the shop in [mode], filtered by [keyword] when not empty.
   Future<BackgroundShopAnswer<BackgroundStore>> store({
@@ -124,8 +117,6 @@ class BackgroundShopRepository {
 
   Future<BackgroundShopOutcome> _write(int uid, BackgroundShopWrite write, Future<Object?> Function() send) async {
     if (uid <= 0 || _currentUid() != uid) throw IdentityChangedException();
-    // Whatever the answer (none at all too: the forum may have carried it out), the account card asks again.
-    MyContentBackground.markStale(uid);
     final data = await send();
     final outcome = backgroundShopOutcomeOf(data, write, uid: uid);
     if (outcome == null || _currentUid() != uid) throw IdentityChangedException();

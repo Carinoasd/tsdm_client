@@ -8,14 +8,12 @@ import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/universal_html.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
-import 'package:tsdm_client/features/background_shop/repository/my_content_background.dart';
 import 'package:tsdm_client/features/checkin/bloc/checkin_bloc.dart';
 import 'package:tsdm_client/features/checkin/widgets/checkin_button.dart';
 import 'package:tsdm_client/features/home/cubit/home_cubit.dart';
 import 'package:tsdm_client/features/home/widgets/widgets.dart';
 import 'package:tsdm_client/features/homepage/utils/homepage_api.dart';
 import 'package:tsdm_client/features/in_app_browser/utils/open_forum_page.dart';
-import 'package:tsdm_client/features/me/widgets/account_card_backdrop.dart';
 import 'package:tsdm_client/features/multi_user/widgets/account_switch_dialog.dart';
 import 'package:tsdm_client/features/multi_user/widgets/current_account_avatar.dart';
 import 'package:tsdm_client/features/notification/utils/notice_page_tab.dart';
@@ -513,9 +511,6 @@ class _MePageState extends State<MePage> {
 
 /// The account in use: avatar, name, user group and uid (a tap opens the profile), the check-in of the day and the
 /// switch to another saved account.
-///
-/// On the content background the account uses in the forum's background shop (plugin 4.1.0, `bgmine`;
-/// [AccountCardBackdrop]): asked while the card is on top ([MyContentBackground.ensure]) and kept for the account.
 class _AccountCard extends StatefulWidget {
   const _AccountCard({required this.user, required this.profileOf});
 
@@ -548,36 +543,6 @@ class _AccountCardState extends State<_AccountCard> {
   }();
 
   @override
-  void initState() {
-    super.initState();
-    MyContentBackground.changes.addListener(_onBackgroundChanged);
-  }
-
-  @override
-  void dispose() {
-    MyContentBackground.changes.removeListener(_onBackgroundChanged);
-    super.dispose();
-  }
-
-  void _onBackgroundChanged() {
-    if (mounted) setState(() {});
-  }
-
-  /// The content background of the account [uid] when the forum's background shop is the app's (plugin 4.1.0); asked
-  /// when the card is seen and what is kept is not fresh. Not seen (another tab, a page above the shell, as the
-  /// background shop): its tickers are off, and it is built again when they are on.
-  AccountBackground? _backgroundOf(BuildContext context, int? uid) {
-    final onTop = TickerMode.valuesOf(context).enabled && (ModalRoute.isCurrentOf(context) ?? true);
-    if (uid == null || TsdmAppApi.backgroundShop != TsdmAppBackgroundShop.native) {
-      return null;
-    }
-    if (onTop) {
-      MyContentBackground.ensure(uid);
-    }
-    return MyContentBackground.of(uid);
-  }
-
-  @override
   Widget build(BuildContext context) {
     final user = widget.user;
     final uid = user.uid;
@@ -591,12 +556,9 @@ class _AccountCardState extends State<_AccountCard> {
       clipBehavior: Clip.antiAlias,
       shape: appSurfaceShape(context),
       color: colorScheme.surfaceContainerLow,
-      child: AccountCardBackdrop(
-        key: const ValueKey('me-account-backdrop'),
-        background: _backgroundOf(context, uid),
-        surface: colorScheme.surfaceContainerLow,
+      child: DecoratedBox(
         // The look of the greeting card of the homepage.
-        fallback: BoxDecoration(
+        decoration: BoxDecoration(
           gradient: RadialGradient(
             center: Alignment.topRight,
             radius: 1.4,
@@ -629,48 +591,39 @@ class _AccountCardState extends State<_AccountCard> {
                       ),
                       sizedBoxW12H12,
                       Expanded(
-                        // As wide as the texts: the background's veil keeps them readable up to their end.
-                        child: Align(
-                          alignment: AlignmentDirectional.centerStart,
-                          heightFactor: 1,
-                          child: AccountBackdropMark.text(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            SingleLineText(
+                              username,
+                              style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                            ),
+                            sizedBoxW4H4,
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 4,
+                              crossAxisAlignment: WrapCrossAlignment.center,
                               children: [
-                                SingleLineText(
-                                  username,
-                                  style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-                                ),
-                                sizedBoxW4H4,
-                                Wrap(
-                                  spacing: 8,
-                                  runSpacing: 4,
-                                  crossAxisAlignment: WrapCrossAlignment.center,
-                                  children: [
-                                    if (uid != null)
-                                      FutureBuilder<String?>(
-                                        future: _groupOf(uid),
-                                        builder: (context, snapshot) => snapshot.data == null
-                                            ? const SizedBox.shrink()
-                                            : _Pill(icon: Icons.verified_user_outlined, label: snapshot.data!),
-                                      ),
-                                    if (uid != null)
-                                      Text(
-                                        tr.uid(uid: uid),
-                                        style: textTheme.labelMedium?.copyWith(color: colorScheme.onSurfaceVariant),
-                                      ),
-                                  ],
-                                ),
+                                if (uid != null)
+                                  FutureBuilder<String?>(
+                                    future: _groupOf(uid),
+                                    builder: (context, snapshot) => snapshot.data == null
+                                        ? const SizedBox.shrink()
+                                        : _Pill(icon: Icons.verified_user_outlined, label: snapshot.data!),
+                                  ),
+                                if (uid != null)
+                                  Text(
+                                    tr.uid(uid: uid),
+                                    style: textTheme.labelMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+                                  ),
                               ],
                             ),
-                          ),
+                          ],
                         ),
                       ),
                       Tooltip(
                         message: context.t.profilePage.title,
-                        child: AccountBackdropMark.icon(
-                          child: Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
-                        ),
+                        child: Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
                       ),
                     ],
                   ),
