@@ -166,7 +166,7 @@ class _SiteStatsViewState extends State<_SiteStatsView> {
           context.displayText(note),
           key: const ValueKey('site-stats-note'),
           textAlign: TextAlign.center,
-          style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.outline),
+          style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
         ),
     ];
     return EasyRefresh.builder(

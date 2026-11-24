@@ -291,7 +291,7 @@ class _ShareFloorImagePageState extends State<ShareFloorImagePage> with LoggerMi
     final url = _post.author.avatarUrl;
     Widget fallback(IconData icon) => DecoratedBox(
       decoration: BoxDecoration(color: colorScheme.surfaceContainerHighest, shape: BoxShape.circle),
-      child: Center(child: Icon(icon, color: colorScheme.outline)),
+      child: Center(child: Icon(icon, color: colorScheme.onSurfaceVariant)),
     );
     final Widget avatar;
     if (_post.avatarBlocked || url == null || url.isEmpty) {
@@ -350,7 +350,7 @@ class _ShareFloorImagePageState extends State<ShareFloorImagePage> with LoggerMi
                       sizedBoxW2H2,
                       Text(
                         publishTime.yyyyMMDDHHMMSS(),
-                        style: textTheme.labelSmall?.copyWith(color: colorScheme.outline),
+                        style: textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant),
                       ),
                     ],
                   ],
@@ -397,7 +397,7 @@ class _ShareFloorImagePageState extends State<ShareFloorImagePage> with LoggerMi
           autoLoad: PostImageAutoLoad.always,
           loads: _loads,
           child: _post.isSpoofed
-              ? Text(context.t.postCard.contentUnavailable, style: TextStyle(color: colorScheme.outline))
+              ? Text(context.t.postCard.contentUnavailable, style: TextStyle(color: colorScheme.onSurfaceVariant))
               : appRenderer
               ? PostBbcodeBody(_post)
               : MunchedHtml(_post.data),
@@ -428,7 +428,10 @@ class _ShareFloorImagePageState extends State<ShareFloorImagePage> with LoggerMi
                   colors: [colorScheme.surface.withValues(alpha: 0), colorScheme.surface],
                 ),
               ),
-              child: Text('……', style: Theme.of(context).textTheme.titleMedium?.copyWith(color: colorScheme.outline)),
+              child: Text(
+                '……',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+              ),
             ),
           ),
       ],
@@ -455,11 +458,11 @@ class _ShareFloorImagePageState extends State<ShareFloorImagePage> with LoggerMi
                 if (widget.args.link case final link?) ...[
                   TextSpan(
                     text: ' · ',
-                    style: textTheme.labelMedium?.copyWith(color: colorScheme.outline),
+                    style: textTheme.labelMedium?.copyWith(color: colorScheme.onSurfaceVariant),
                   ),
                   TextSpan(
                     text: link,
-                    style: textTheme.labelSmall?.copyWith(color: colorScheme.outline),
+                    style: textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant),
                   ),
                 ],
               ],

@@ -208,7 +208,7 @@ class _IgnoreOption extends StatelessWidget {
                 Icon(icon, color: colorScheme.primary),
                 sizedBoxW12H12,
                 Expanded(child: Text(text)),
-                Icon(Icons.chevron_right, color: colorScheme.outline),
+                Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
               ],
             ),
           ),

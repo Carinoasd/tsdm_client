@@ -363,7 +363,7 @@ class _UserBlockPageState extends State<UserBlockPage> {
                         ],
                       ),
                     ),
-                    Icon(Icons.chevron_right, color: Theme.of(context).colorScheme.outline),
+                    Icon(Icons.chevron_right, color: Theme.of(context).colorScheme.onSurfaceVariant),
                   ],
                 ),
               ),
@@ -485,7 +485,7 @@ class _EmptyLine extends StatelessWidget {
       padding: edgeInsetsL12T12R12B12,
       child: Row(
         children: [
-          Icon(icon, size: 20, color: colorScheme.outline),
+          Icon(icon, size: 20, color: colorScheme.onSurfaceVariant),
           sizedBoxW12H12,
           Expanded(
             child: Text(

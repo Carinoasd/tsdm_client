@@ -548,6 +548,9 @@ final class _Muncher with LoggerMixin {
   /// The link being munched ([_buildA]): its own color is the link's ([_MunchState.linkColor]).
   uh.Element? _link;
 
+  /// Count of the quotes ([_buildBlockQuote]) the content being munched is in.
+  int _quoteDepth = 0;
+
   /// Links of this floor drawn as cards of their thread so far ([_threadLinkCard]).
   int _threadLinkCards = 0;
 
@@ -1695,7 +1698,13 @@ final class _Muncher with LoggerMixin {
     // and restore munch state to avoid potential issued about "styles inside
     // quoted blocks  affects outside main content".
     final style = state.save();
-    final content = element.innerText.isEmpty ? null : _munchOwnBlock(() => _munchStyledBlock(element, _munch));
+    _quoteDepth++;
+    final List<InlineSpan>? content;
+    try {
+      content = element.innerText.isEmpty ? null : _munchOwnBlock(() => _munchStyledBlock(element, _munch));
+    } finally {
+      _quoteDepth--;
+    }
     state.restore(style);
     // A trailing line break inside the quote ends a line that is as tall as the line before it: when that line holds
     // a nested quote, every level doubled the height and left a blank block (#158). The website shows no such line.
@@ -2151,11 +2160,12 @@ final class _Muncher with LoggerMixin {
       // An anchor of the page (`#…`) or a script (`javascript:`) leads nowhere: what is in it (a picture) is not a link.
       ..tapUrl = tapUrl
       ..wrapInWord = true
-      // The link in its own color, not in the color of a `<font>` around it; underlined in a post as on the web page.
+      // The link in its own color, not in the color of a `<font>` around it; underlined in a post as on the web page,
+      // but for the source line of a quote (who wrote it, when; a link to that post): a quiet meta line of the quote.
       ..linkDepth = state.colorStack.length
       ..linkOrder = _behindCount
       ..linkColor = null
-      ..linkUnderline = postContent;
+      ..linkUnderline = postContent && !(_quoteDepth > 0 && isQuoteSourceUrl(url));
     final List<InlineSpan>? ret;
     try {
       ret = _munch(element);
@@ -3290,6 +3300,9 @@ final class _Muncher with LoggerMixin {
     return style;
   }
 }
+
+/// Whether [url] is the link of the source line of a quote: the post quoted (`forum.php?mod=redirect&goto=findpost`).
+bool isQuoteSourceUrl(String url) => url.contains('goto=findpost');
 
 /// What a tap on a link to [href] in munched html opens: an absolute url (any scheme: the launch decides, see
 /// `DispatchUrl.dispatchAsUrl`) as written, a relative one resolved on the forum host (`forum.php?…` and

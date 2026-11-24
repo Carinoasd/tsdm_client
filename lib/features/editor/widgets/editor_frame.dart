@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:tsdm_client/constants/layout.dart';
+import 'package:tsdm_client/themes/app_surfaces.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 
 /// Rounded frame around a rich editor: the writing area of the post editor, the reply bar and the template editor.
@@ -69,7 +70,7 @@ class EditorControlBar extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLow,
+        color: AppSurfaces.of(context).bar,
         border: Border(top: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.6))),
       ),
       child: Padding(

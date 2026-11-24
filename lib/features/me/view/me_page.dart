@@ -28,6 +28,7 @@ import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/repositories/forum_home_repository/forum_home_repository.dart';
+import 'package:tsdm_client/themes/app_surfaces.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/heroes.dart';
@@ -547,114 +548,104 @@ class _AccountCardState extends State<_AccountCard> {
     final user = widget.user;
     final uid = user.uid;
     final username = user.username ?? '';
-    final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final tr = context.t.mePage;
+    final surfaces = AppSurfaces.of(context);
     return Card(
       key: const ValueKey('me-account-card'),
       margin: EdgeInsets.zero,
       clipBehavior: Clip.antiAlias,
       shape: appSurfaceShape(context),
-      color: colorScheme.surfaceContainerLow,
-      child: DecoratedBox(
-        // The look of the greeting card of the homepage.
-        decoration: BoxDecoration(
-          gradient: RadialGradient(
-            center: Alignment.topRight,
-            radius: 1.4,
-            colors: [colorScheme.primaryContainer.withValues(alpha: 0.55), colorScheme.surfaceContainerLow],
-            stops: const [0, 0.6],
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Semantics(
-              button: true,
-              child: InkWell(
-                key: const ValueKey('me-account-profile'),
-                onTap: () async => context.pushNamed(ScreenPaths.loggedUserProfile),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 8, 12),
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: 64,
-                        height: 64,
-                        child: HeroUserAvatar(
-                          key: ValueKey(username),
-                          username: username,
-                          avatarUrl: avatarUrlOfUid(uid?.toString()),
-                          // A tab kept alive off screen: no hero flying in from it.
-                          disableHero: true,
-                        ),
+      // The hero card of the page, as the greeting card of the homepage.
+      color: surfaces.hero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Semantics(
+            button: true,
+            child: InkWell(
+              key: const ValueKey('me-account-profile'),
+              onTap: () async => context.pushNamed(ScreenPaths.loggedUserProfile),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 8, 12),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 64,
+                      height: 64,
+                      child: HeroUserAvatar(
+                        key: ValueKey(username),
+                        username: username,
+                        avatarUrl: avatarUrlOfUid(uid?.toString()),
+                        // A tab kept alive off screen: no hero flying in from it.
+                        disableHero: true,
                       ),
-                      sizedBoxW12H12,
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            SingleLineText(
-                              username,
-                              style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-                            ),
-                            sizedBoxW4H4,
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 4,
-                              crossAxisAlignment: WrapCrossAlignment.center,
-                              children: [
-                                if (uid != null)
-                                  FutureBuilder<String?>(
-                                    future: _groupOf(uid),
-                                    builder: (context, snapshot) => snapshot.data == null
-                                        ? const SizedBox.shrink()
-                                        : _Pill(icon: Icons.verified_user_outlined, label: snapshot.data!),
-                                  ),
-                                if (uid != null)
-                                  Text(
-                                    tr.uid(uid: uid),
-                                    style: textTheme.labelMedium?.copyWith(color: colorScheme.onSurfaceVariant),
-                                  ),
-                              ],
-                            ),
-                          ],
-                        ),
+                    ),
+                    sizedBoxW12H12,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SingleLineText(
+                            username,
+                            style: textTheme.titleLarge?.copyWith(color: surfaces.onHero, fontWeight: FontWeight.bold),
+                          ),
+                          sizedBoxW4H4,
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 4,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              if (uid != null)
+                                FutureBuilder<String?>(
+                                  future: _groupOf(uid),
+                                  builder: (context, snapshot) => snapshot.data == null
+                                      ? const SizedBox.shrink()
+                                      : _Pill(icon: Icons.verified_user_outlined, label: snapshot.data!),
+                                ),
+                              if (uid != null)
+                                Text(
+                                  tr.uid(uid: uid),
+                                  style: textTheme.labelMedium?.copyWith(color: surfaces.onHero),
+                                ),
+                            ],
+                          ),
+                        ],
                       ),
-                      Tooltip(
-                        message: context.t.profilePage.title,
-                        child: Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
-                      ),
-                    ],
-                  ),
+                    ),
+                    Tooltip(
+                      message: context.t.profilePage.title,
+                      child: Icon(Icons.chevron_right, color: surfaces.onHero),
+                    ),
+                  ],
                 ),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              child: Row(
-                children: [
-                  if (context.readOrNull<CheckinBloc>() != null) ...[
-                    Expanded(
-                      child: CheckinButton(enableSnackBar: true, label: context.t.homepage.welcome.checkin),
-                    ),
-                    sizedBoxW8H8,
-                  ],
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Row(
+              children: [
+                if (context.readOrNull<CheckinBloc>() != null) ...[
                   Expanded(
-                    child: FilledButton.tonalIcon(
-                      key: const ValueKey('me-switch-account'),
-                      style: FilledButton.styleFrom(minimumSize: const Size(0, 48)),
-                      icon: const Icon(Icons.switch_account_outlined),
-                      label: FittedBox(fit: BoxFit.scaleDown, child: Text(tr.switchAccount, maxLines: 1)),
-                      onPressed: () async =>
-                          showDialog<void>(context: context, builder: (_) => const AccountSwitchDialog()),
-                    ),
+                    child: CheckinButton(enableSnackBar: true, label: context.t.homepage.welcome.checkin),
                   ),
+                  sizedBoxW8H8,
                 ],
-              ),
+                Expanded(
+                  child: FilledButton.icon(
+                    key: const ValueKey('me-switch-account'),
+                    style: appHeroActionStyle(context),
+                    icon: const Icon(Icons.switch_account_outlined),
+                    label: FittedBox(fit: BoxFit.scaleDown, child: Text(tr.switchAccount, maxLines: 1)),
+                    onPressed: () async =>
+                        showDialog<void>(context: context, builder: (_) => const AccountSwitchDialog()),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -713,7 +704,6 @@ class _GuestCard extends StatelessWidget {
       margin: EdgeInsets.zero,
       clipBehavior: Clip.antiAlias,
       shape: appSurfaceShape(context),
-      color: colorScheme.surfaceContainerLow,
       child: Padding(
         padding: edgeInsetsL16T16R16B16,
         child: Column(

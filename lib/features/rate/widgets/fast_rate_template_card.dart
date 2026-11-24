@@ -32,7 +32,7 @@ class RateScoreChip extends StatelessWidget {
         ? colorScheme.primary
         : value < 0
         ? colorScheme.error
-        : colorScheme.outline;
+        : colorScheme.onSurfaceVariant;
     return AppInsetBlock(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: Text.rich(
@@ -184,7 +184,7 @@ class _FastRateTemplateCardState extends State<FastRateTemplateCard> {
                       style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
                     ),
                   ),
-                  if (widget.allowEdit) Icon(Icons.more_vert, size: 18, color: colorScheme.outline),
+                  if (widget.allowEdit) Icon(Icons.more_vert, size: 18, color: colorScheme.onSurfaceVariant),
                 ],
               ),
               sizedBoxW8H8,

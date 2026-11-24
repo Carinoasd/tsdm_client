@@ -5,6 +5,7 @@ import 'package:tsdm_client/features/checkin/bloc/checkin_bloc.dart';
 import 'package:tsdm_client/features/checkin/models/models.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
+import 'package:tsdm_client/widgets/app_surface.dart';
 
 /// Widget provides ability to checkin.
 class CheckinButton extends StatelessWidget {
@@ -96,11 +97,13 @@ class CheckinButton extends StatelessWidget {
           if (checked) {
             final checkedTr = context.t.homepage.welcome;
             if (label != null) {
+              // Done, not unavailable: the secondary look of the card with a filled check, the label in full color.
+              // Still no action (no second check-in); the label tells a screen reader it is done.
               return Tooltip(
                 message: checkedTr.checkedInHint,
-                child: FilledButton.tonalIcon(
-                  style: FilledButton.styleFrom(minimumSize: const Size(0, 48)),
-                  icon: const Icon(Icons.task_alt_outlined),
+                child: FilledButton.icon(
+                  style: appHeroActionStyle(context),
+                  icon: const Icon(Icons.check_circle),
                   label: Text(checkedTr.checkedIn),
                   onPressed: null,
                 ),

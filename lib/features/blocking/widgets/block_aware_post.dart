@@ -115,7 +115,6 @@ class BlockedPostPlaceholder extends StatelessWidget {
     // A muted, compact floor: the floor number keeps its place, the content is replaced by one line and one action.
     return Card(
       margin: EdgeInsets.zero,
-      color: colorScheme.surfaceContainerLow,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
         child: LayoutBuilder(
@@ -130,7 +129,7 @@ class BlockedPostPlaceholder extends StatelessWidget {
               children: [
                 Text(
                   postFloorLabel(context.t, floor: floor, hot: hot, hotFloor: hotFloor),
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(color: colorScheme.outline),
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant),
                 ),
                 Text(
                   pending ? _pendingText(tr, failed: failed) : tr.postPlaceholder,
@@ -146,7 +145,7 @@ class BlockedPostPlaceholder extends StatelessWidget {
                   _pendingIcon(pending: pending, failed: failed),
                   size: 32,
                   color: pending && failed ? colorScheme.errorContainer : colorScheme.surfaceContainerHighest,
-                  foregroundColor: pending && failed ? colorScheme.onErrorContainer : colorScheme.outline,
+                  foregroundColor: pending && failed ? colorScheme.onErrorContainer : colorScheme.onSurfaceVariant,
                 ),
                 sizedBoxW12H12,
                 Expanded(child: texts),

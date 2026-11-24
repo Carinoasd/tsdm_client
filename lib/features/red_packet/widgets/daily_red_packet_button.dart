@@ -14,6 +14,7 @@ import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
+import 'package:tsdm_client/widgets/app_surface.dart';
 
 /// Claims today's daily red packet with [formHash], e.g. [RedPacketRepository.claimDaily].
 typedef DailyRedPacketClaim = AsyncEither<DailyRedPacketResult> Function(String formHash);
@@ -108,8 +109,8 @@ class _DailyRedPacketButtonState extends State<DailyRedPacketButton> with Logger
       return widget.labeled ? const DailyRedPacketClaimedButton() : sizedBoxEmpty;
     }
     if (widget.labeled) {
-      return FilledButton.tonalIcon(
-        style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
+      return FilledButton.icon(
+        style: appHeroActionStyle(context, height: 44),
         icon: _claiming ? sizedCircularProgressIndicator : const Icon(Icons.redeem_outlined),
         label: Text(tooltip),
         onPressed: _claiming ? null : _claim,
@@ -123,6 +124,8 @@ class _DailyRedPacketButtonState extends State<DailyRedPacketButton> with Logger
 }
 
 /// Today's daily red packet is claimed: a disabled button saying so, with [hint] as tooltip when given.
+///
+/// Looks done, not unavailable ([appHeroActionStyle]): a full color label and a filled check.
 class DailyRedPacketClaimedButton extends StatelessWidget {
   /// Constructor.
   const DailyRedPacketClaimedButton({this.hint, super.key});
@@ -132,9 +135,9 @@ class DailyRedPacketClaimedButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final button = FilledButton.tonalIcon(
-      style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
-      icon: const Icon(Icons.task_alt_outlined),
+    final button = FilledButton.icon(
+      style: appHeroActionStyle(context, height: 44),
+      icon: const Icon(Icons.check_circle),
       label: Text(context.t.redPacket.daily.claimedToday),
       onPressed: null,
     );
@@ -244,8 +247,8 @@ class _DailyRedPacketEntryState extends State<DailyRedPacketEntry> {
     final config = widget.config;
     final formHash = widget.formHash;
     if (uid == null) {
-      return OutlinedButton.icon(
-        style: OutlinedButton.styleFrom(minimumSize: const Size(0, 44)),
+      return FilledButton.icon(
+        style: appHeroActionStyle(context, height: 44),
         icon: const Icon(Icons.login_outlined),
         label: Text(tr.needLogin),
         onPressed: () async => context.pushNamed(ScreenPaths.login),
@@ -267,8 +270,8 @@ class _DailyRedPacketEntryState extends State<DailyRedPacketEntry> {
     }
     return Tooltip(
       message: tr.unavailableHint,
-      child: OutlinedButton.icon(
-        style: OutlinedButton.styleFrom(minimumSize: const Size(0, 44)),
+      child: FilledButton.icon(
+        style: appHeroActionStyle(context, height: 44),
         icon: widget.checking ? sizedCircularProgressIndicator : const Icon(Icons.redeem_outlined),
         label: Text(tr.unavailable),
         onPressed: widget.checking ? null : widget.onCheck,

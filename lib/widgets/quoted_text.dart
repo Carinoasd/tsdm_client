@@ -1,7 +1,5 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
-import 'package:tsdm_client/constants/layout.dart';
+import 'package:tsdm_client/themes/app_surfaces.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 
 /// Widget to show some quoted text.
@@ -21,8 +19,7 @@ class QuotedText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final quotedColor = colorScheme.tertiary;
-    final quotedStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant);
+    final quotedStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(color: colorScheme.onSurface);
 
     final Widget content;
     if (text != null) {
@@ -34,29 +31,17 @@ class QuotedText extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    // A tinted block with an accent bar on the start side and one opening quote mark: reads as quoted without the
-    // large quote icons around the text. The rich content (links, images, emojis) keeps its own styles.
+    // An opaque block of the inset layer with a neutral bar on the start side: reads as quoted without quote marks,
+    // and stays clear on any seed color (a translucent tinted block went muddy on dark themes). The rich content
+    // (links, images, emojis) keeps its own styles.
     return ClipRRect(
       borderRadius: BorderRadius.circular(appInnerRadius),
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: colorScheme.tertiaryContainer.withValues(alpha: 0.35),
-          border: Border(left: BorderSide(color: quotedColor, width: 3)),
+          color: AppSurfaces.of(context).inset,
+          border: Border(left: BorderSide(color: colorScheme.outline, width: 3)),
         ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(10, 8, 12, 8),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Transform.rotate(
-                angle: pi,
-                child: Icon(Icons.format_quote_rounded, size: 18, color: quotedColor),
-              ),
-              sizedBoxW8H8,
-              Expanded(child: content),
-            ],
-          ),
-        ),
+        child: Padding(padding: const EdgeInsets.fromLTRB(12, 8, 12, 8), child: content),
       ),
     );
   }

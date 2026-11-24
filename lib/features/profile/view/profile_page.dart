@@ -713,7 +713,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     userProfile.checkinLevel!,
                     style: textTheme.titleSmall?.copyWith(color: colorScheme.primary, fontWeight: FontWeight.bold),
                   ),
-                  Text(description, style: textTheme.labelMedium?.copyWith(color: colorScheme.outline)),
+                  Text(description, style: textTheme.labelMedium?.copyWith(color: colorScheme.onSurfaceVariant)),
                 ],
               ),
               sizedBoxW8H8,
@@ -784,7 +784,7 @@ class _ProfilePageState extends State<ProfilePage> {
           if (subtitles.isNotEmpty) ...[
             sizedBoxW4H4,
             // Wraps instead of scrolling sideways.
-            Text(subtitles.join(' · '), style: textTheme.titleSmall?.copyWith(color: colorScheme.outline)),
+            Text(subtitles.join(' · '), style: textTheme.titleSmall?.copyWith(color: colorScheme.onSurfaceVariant)),
           ],
           sizedBoxW12H12,
           Wrap(
@@ -1400,7 +1400,7 @@ class _InfoGrid extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: textTheme.labelSmall?.copyWith(color: colorScheme.outline)),
+                Text(label, style: textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant)),
                 Text(
                   value,
                   style: (emphasizeValue ? textTheme.titleMedium : textTheme.bodyMedium)?.copyWith(

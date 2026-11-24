@@ -481,7 +481,7 @@ class _PollCreatePageState extends State<PollCreatePage> {
                       Text(
                         tr.optionCount(count: filled, max: form.maxOptions),
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: optionListError == null ? theme.colorScheme.outline : theme.colorScheme.error,
+                          color: optionListError == null ? theme.colorScheme.onSurfaceVariant : theme.colorScheme.error,
                         ),
                       ),
                       if (optionListError != null)
@@ -636,12 +636,12 @@ class _PollCreatePageState extends State<PollCreatePage> {
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.info_outline, size: 16, color: theme.colorScheme.outline),
+            Icon(Icons.info_outline, size: 16, color: theme.colorScheme.onSurfaceVariant),
             sizedBoxW8H8,
             Expanded(
               child: Text(
                 tr.noDraft,
-                style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline),
+                style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
               ),
             ),
           ],
@@ -668,7 +668,7 @@ class _PollCreatePageState extends State<PollCreatePage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.outline)),
+          Text(label, style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
           sizedBoxW2H2,
           value,
         ],

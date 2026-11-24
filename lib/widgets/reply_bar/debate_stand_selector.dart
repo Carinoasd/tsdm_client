@@ -86,7 +86,7 @@ class DebateStandSelector extends StatelessWidget {
       children: [
         selector,
         sizedBoxW4H4,
-        Text(tr.sideKeptNote, style: textTheme.labelSmall?.copyWith(color: colorScheme.outline)),
+        Text(tr.sideKeptNote, style: textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant)),
       ],
     );
   }

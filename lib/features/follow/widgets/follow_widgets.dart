@@ -298,7 +298,7 @@ class _FollowDialogState extends State<_FollowDialog> {
               children: [
                 Text(widget.username, maxLines: 1, overflow: TextOverflow.ellipsis),
                 if (remark != null && remark.isNotEmpty)
-                  Text(remark, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline)),
+                  Text(remark, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
               ],
             ),
           ),
@@ -360,7 +360,7 @@ class _Stat extends StatelessWidget {
           child: Column(
             children: [
               Text(count == null ? '-' : '$count', style: theme.textTheme.titleMedium),
-              Text(label, style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.outline)),
+              Text(label, style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
             ],
           ),
         ),
@@ -388,7 +388,7 @@ class FollowUserTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final tr = context.t.spacePage.follow;
     final theme = Theme.of(context);
-    final outline = theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.outline);
+    final outline = theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.onSurfaceVariant);
     final following = user.following;
     return AppSurface(
       onTap: () async => context.pushNamed(ScreenPaths.profile, queryParameters: {'uid': '${user.uid}'}),
@@ -472,7 +472,7 @@ class FollowFeedCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final tr = context.t.spacePage.follow;
     final theme = Theme.of(context);
-    final outline = theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.outline);
+    final outline = theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.onSurfaceVariant);
     final actions = [if (onRelay != null) _FeedAction.relay, if (onDelete != null) _FeedAction.delete];
     final tid = feed.threadId;
     final thread = Column(

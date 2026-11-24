@@ -243,7 +243,7 @@ class ThreadPreviewThumbnail extends StatelessWidget {
             ? child
             : AnimatedOpacity(opacity: frame == null ? 0 : 1, duration: duration100, child: child),
         errorBuilder: (context, error, stackTrace) => Center(
-          child: Icon(Icons.broken_image_outlined, color: colorScheme.outline, size: extent / 3),
+          child: Icon(Icons.broken_image_outlined, color: colorScheme.onSurfaceVariant, size: extent / 3),
         ),
       );
     }

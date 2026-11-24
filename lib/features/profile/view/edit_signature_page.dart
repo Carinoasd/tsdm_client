@@ -214,7 +214,7 @@ class _SignatureEditorState extends State<_SignatureEditor> {
                       '${signatureLength(_value)} / $max',
                       textAlign: TextAlign.end,
                       style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: fits ? colorScheme.outline : colorScheme.error,
+                        color: fits ? colorScheme.onSurfaceVariant : colorScheme.error,
                       ),
                     ),
                   ),

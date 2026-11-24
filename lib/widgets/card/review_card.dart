@@ -53,7 +53,8 @@ class ReviewCard extends StatelessWidget {
                   context.displayText(content),
                   style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
                 ),
-                if (time != null) Text(time!, style: textTheme.labelSmall?.copyWith(color: colorScheme.outline)),
+                if (time != null)
+                  Text(time!, style: textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant)),
               ],
             ),
           ),

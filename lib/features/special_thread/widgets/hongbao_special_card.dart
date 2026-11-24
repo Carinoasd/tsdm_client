@@ -156,7 +156,7 @@ class _HongbaoCardState extends State<_HongbaoCard> {
     final p = _packet;
     final actions = widget.onReload != null;
     final active = p.status == HongbaoStatus.active;
-    final statusColor = active ? colorScheme.error : colorScheme.outline;
+    final statusColor = active ? colorScheme.error : colorScheme.onSurfaceVariant;
     final why = switch (p.why) {
       'disabled' => tr.why.disabled,
       'login' => tr.why.login,
@@ -220,7 +220,7 @@ class _HongbaoCardState extends State<_HongbaoCard> {
                   final time? => tr.expireAt(time: time.yyyyMMDDHHMM()),
                   null => tr.noExpire,
                 },
-                color: colorScheme.outline,
+                color: colorScheme.onSurfaceVariant,
               ),
             ],
           ),
@@ -249,7 +249,7 @@ class _HongbaoCardState extends State<_HongbaoCard> {
           ],
           if (why != null) ...[
             sizedBoxW8H8,
-            Text(why, style: textTheme.bodyMedium?.copyWith(color: colorScheme.outline)),
+            Text(why, style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant)),
           ],
           if (actions && (p.canGrab || p.canViewRecords || p.canWithdraw)) ...[
             sizedBoxW12H12,
@@ -364,7 +364,7 @@ class _HongbaoRecordsList extends StatelessWidget {
           HongbaoRecords(:final records) when records.isEmpty => Padding(
             padding: edgeInsetsL24T24R24B24,
             child: Center(
-              child: Text(tr.recordsEmpty, style: TextStyle(color: colorScheme.outline)),
+              child: Text(tr.recordsEmpty, style: TextStyle(color: colorScheme.onSurfaceVariant)),
             ),
           ),
           HongbaoRecords(:final records, :final credit) => ListView(

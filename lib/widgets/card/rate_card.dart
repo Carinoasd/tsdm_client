@@ -50,7 +50,7 @@ class RateCard extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(8, 6, 12, 6),
             child: Text(
               e,
-              style: textTheme.labelMedium?.copyWith(color: colorScheme.outline, fontWeight: FontWeight.bold),
+              style: textTheme.labelMedium?.copyWith(color: colorScheme.onSurfaceVariant, fontWeight: FontWeight.bold),
             ),
           ),
         )
@@ -62,7 +62,7 @@ class RateCard extends StatelessWidget {
       if (v.startsWith('-')) {
         return colorScheme.error;
       }
-      return v.isEmpty || v == '0' ? colorScheme.outline : colorScheme.primary;
+      return v.isEmpty || v == '0' ? colorScheme.onSurfaceVariant : colorScheme.primary;
     }
 
     final tableContent = rate.records

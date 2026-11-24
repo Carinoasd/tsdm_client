@@ -65,7 +65,7 @@ class SecondaryTitleCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: textTheme.labelLarge?.copyWith(
                       color: loading
-                          ? colorScheme.outline
+                          ? colorScheme.onSurfaceVariant
                           : activated
                           ? colorScheme.onSecondaryContainer
                           : null,
@@ -85,7 +85,10 @@ class SecondaryTitleCard extends StatelessWidget {
                         ),
                         sizedBoxW8H8,
                       ],
-                      Text('ID ${title.id}', style: textTheme.labelSmall?.copyWith(color: colorScheme.outline)),
+                      Text(
+                        'ID ${title.id}',
+                        style: textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                      ),
                     ],
                   ),
                 ],

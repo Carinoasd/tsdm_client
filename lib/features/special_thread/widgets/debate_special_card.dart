@@ -83,7 +83,7 @@ class _DebateCardState extends State<_DebateCard> with _SpecialActions {
           if (affirm ? d.affirmDebaters : d.negaDebaters case final debaters?)
             Text(
               tr.debaters(count: debaters),
-              style: textTheme.labelMedium?.copyWith(color: colorScheme.outline),
+              style: textTheme.labelMedium?.copyWith(color: colorScheme.onSurfaceVariant),
             ),
           if (avatars.isNotEmpty) ...[
             sizedBoxW4H4,

@@ -240,7 +240,7 @@ class _EmojiPanelState extends State<EmojiPanel> with TickerProviderStateMixin {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: Theme.of(context).colorScheme.outline),
+          Icon(icon, color: Theme.of(context).colorScheme.onSurfaceVariant),
           sizedBoxW8H8,
           Text(
             message,

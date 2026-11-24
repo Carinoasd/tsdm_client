@@ -238,7 +238,7 @@ final class _ForumCardState extends State<ForumCard> with LoggerMixin {
                   padding: edgeInsetsL12T8R12B8,
                   child: Row(
                     children: [
-                      Icon(Icons.subdirectory_arrow_right_outlined, size: 16, color: colorScheme.outline),
+                      Icon(Icons.subdirectory_arrow_right_outlined, size: 16, color: colorScheme.onSurfaceVariant),
                       sizedBoxW8H8,
                       Expanded(
                         child: Text(
@@ -257,7 +257,7 @@ final class _ForumCardState extends State<ForumCard> with LoggerMixin {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: (large ? textTheme.labelMedium : textTheme.labelSmall)?.copyWith(
-                              color: colorScheme.outline,
+                              color: colorScheme.onSurfaceVariant,
                             ),
                           ),
                         ),

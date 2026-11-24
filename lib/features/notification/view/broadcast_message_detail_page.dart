@@ -55,7 +55,7 @@ final class BroadcastMessageDetailPage extends StatelessWidget {
                         if (state.dateTime != null)
                           Text(
                             state.dateTime!.yyyyMMDD(),
-                            style: textTheme.labelSmall?.copyWith(color: colorScheme.outline),
+                            style: textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant),
                           ),
                       ],
                     ),

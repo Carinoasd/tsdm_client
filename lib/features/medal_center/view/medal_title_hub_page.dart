@@ -121,7 +121,6 @@ class _CurrentTitleCard extends StatelessWidget {
       ],
     );
     return AppSurface(
-      color: colorScheme.surfaceContainerLow,
       padding: edgeInsetsL16T16R16B16,
       child: LayoutBuilder(
         builder: (context, constraints) {

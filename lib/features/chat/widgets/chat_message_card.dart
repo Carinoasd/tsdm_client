@@ -100,7 +100,7 @@ final class ChatMessageCard extends StatelessWidget {
             style: textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w600),
           ),
         ),
-        if (time != null) Text(time, style: textTheme.labelSmall?.copyWith(color: colorScheme.outline)),
+        if (time != null) Text(time, style: textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant)),
       ],
     );
 

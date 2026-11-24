@@ -43,7 +43,7 @@ class FriendCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final tr = context.t.friendPage;
     final theme = Theme.of(context);
-    final secondaryStyle = theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline);
+    final secondaryStyle = theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant);
     final groupName = friend.groupName;
     final groupIconUrl = friend.groupIconUrl;
     final credits = friend.credits;

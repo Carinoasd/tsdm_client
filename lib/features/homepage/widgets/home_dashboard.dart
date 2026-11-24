@@ -12,6 +12,7 @@ import 'package:tsdm_client/features/red_packet/widgets/daily_red_packet_button.
 import 'package:tsdm_client/features/settings/widgets/support_development_dialog.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/themes/app_surfaces.dart';
 import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/hour_ticker.dart';
@@ -203,7 +204,7 @@ class HomeGreetingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final surfaces = AppSurfaces.of(context);
     final textTheme = Theme.of(context).textTheme;
     final hasStatus = forumStatus != const ForumStatus.empty();
 
@@ -218,20 +219,23 @@ class HomeGreetingCard extends StatelessWidget {
             // Phones keep the greeting narrower beside the title badge: the date wraps instead of being cut.
             maxLines: compact ? 2 : 1,
             overflow: TextOverflow.ellipsis,
-            style: textTheme.labelMedium?.copyWith(color: colorScheme.primary, fontWeight: FontWeight.w600),
+            style: textTheme.labelMedium?.copyWith(color: surfaces.onHero, fontWeight: FontWeight.w600),
           ),
           sizedBoxW4H4,
           Text(
             homeGreeting(context, now.hour, username),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: (compact ? textTheme.titleLarge : textTheme.headlineSmall)?.copyWith(fontWeight: FontWeight.bold),
+            style: (compact ? textTheme.titleLarge : textTheme.headlineSmall)?.copyWith(
+              color: surfaces.onHero,
+              fontWeight: FontWeight.bold,
+            ),
           ),
           if (hasStatus) ...[
             sizedBoxW4H4,
             Text(
               context.t.homepage.todayPosts(count: forumStatus.todayCount),
-              style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+              style: textTheme.bodyMedium?.copyWith(color: surfaces.onHero),
             ),
           ],
         ],
@@ -270,78 +274,50 @@ class HomeGreetingCard extends StatelessWidget {
       margin: EdgeInsets.zero,
       clipBehavior: Clip.antiAlias,
       shape: homeCardShape(context),
-      color: colorScheme.surfaceContainerLow,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: RadialGradient(
-            center: Alignment.topRight,
-            radius: 1.4,
-            colors: [colorScheme.primaryContainer.withValues(alpha: 0.55), colorScheme.surfaceContainerLow],
-            stops: const [0, 0.6],
-          ),
-        ),
-        child: Padding(
-          padding: compact ? edgeInsetsL16T16R16B16 : edgeInsetsL24T24R24B24,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              HomeGreetingHeader(greeting: greeting, uid: uid, compact: compact),
-              SizedBox(height: compact ? 14 : 20),
-              if (compact)
-                // All four actions on one row when they fit (a phone in landscape); check-in and red packet side by
-                // side with the two entries below them on a portrait phone; everything stacked when even those two do
-                // not fit (narrow window, large text).
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final textScale = MediaQuery.textScalerOf(context).scale(14) / 14;
-                    if (constraints.maxWidth >= _allActionsRowWidth * textScale) {
-                      return Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(child: checkin),
-                          sizedBoxW8H8,
-                          Expanded(child: redPacket),
-                          sizedBoxW8H8,
-                          activities,
-                          sizedBoxW8H8,
-                          medals,
-                        ],
-                      );
-                    }
-                    if (constraints.maxWidth >= _dailyActionsRowWidth * textScale) {
-                      // The two entries share the second row half and half: as a wrap they went below each other on
-                      // a 360dp phone (feedback on 1.29.1).
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(child: checkin),
-                              sizedBoxW8H8,
-                              Expanded(child: redPacket),
-                            ],
-                          ),
-                          sizedBoxW8H8,
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(child: activities),
-                              sizedBoxW8H8,
-                              Expanded(child: medals),
-                            ],
-                          ),
-                        ],
-                      );
-                    }
-                    // The two entries stay side by side here too, their labels shrink a little when needed: the
-                    // phone of the report (360dp, larger system font) lands in this layout.
+      // The one hero card of the page: a plain primary container, the check-in the filled primary button on it.
+      color: surfaces.hero,
+      child: Padding(
+        padding: compact ? edgeInsetsL16T16R16B16 : edgeInsetsL24T24R24B24,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            HomeGreetingHeader(greeting: greeting, uid: uid, compact: compact),
+            SizedBox(height: compact ? 14 : 20),
+            if (compact)
+              // All four actions on one row when they fit (a phone in landscape); check-in and red packet side by
+              // side with the two entries below them on a portrait phone; everything stacked when even those two do
+              // not fit (narrow window, large text).
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final textScale = MediaQuery.textScalerOf(context).scale(14) / 14;
+                  if (constraints.maxWidth >= _allActionsRowWidth * textScale) {
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(child: checkin),
+                        sizedBoxW8H8,
+                        Expanded(child: redPacket),
+                        sizedBoxW8H8,
+                        activities,
+                        sizedBoxW8H8,
+                        medals,
+                      ],
+                    );
+                  }
+                  if (constraints.maxWidth >= _dailyActionsRowWidth * textScale) {
+                    // The two entries share the second row half and half: as a wrap they went below each other on
+                    // a 360dp phone (feedback on 1.29.1).
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        checkin,
-                        sizedBoxW8H8,
-                        redPacket,
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(child: checkin),
+                            sizedBoxW8H8,
+                            Expanded(child: redPacket),
+                          ],
+                        ),
                         sizedBoxW8H8,
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -353,19 +329,38 @@ class HomeGreetingCard extends StatelessWidget {
                         ),
                       ],
                     );
-                  },
-                )
-              else
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    ConstrainedBox(constraints: const BoxConstraints(minWidth: 180), child: checkin),
-                    sizedBoxW12H12,
-                    Expanded(child: quickActions),
-                  ],
-                ),
-            ],
-          ),
+                  }
+                  // The two entries stay side by side here too, their labels shrink a little when needed: the
+                  // phone of the report (360dp, larger system font) lands in this layout.
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      checkin,
+                      sizedBoxW8H8,
+                      redPacket,
+                      sizedBoxW8H8,
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(child: activities),
+                          sizedBoxW8H8,
+                          Expanded(child: medals),
+                        ],
+                      ),
+                    ],
+                  );
+                },
+              )
+            else
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ConstrainedBox(constraints: const BoxConstraints(minWidth: 180), child: checkin),
+                  sizedBoxW12H12,
+                  Expanded(child: quickActions),
+                ],
+              ),
+          ],
         ),
       ),
     );
@@ -432,8 +427,8 @@ class _QuickAction extends StatelessWidget {
   final VoidCallback onPressed;
 
   @override
-  Widget build(BuildContext context) => OutlinedButton.icon(
-    style: OutlinedButton.styleFrom(minimumSize: const Size(0, 44)),
+  Widget build(BuildContext context) => FilledButton.icon(
+    style: appHeroActionStyle(context, height: 44),
     icon: Icon(icon),
     // One line: in a half width button the label shrinks a little instead of wrapping.
     label: FittedBox(fit: BoxFit.scaleDown, child: Text(label, maxLines: 1)),

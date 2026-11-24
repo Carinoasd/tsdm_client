@@ -194,7 +194,7 @@ class _RanklistTabState extends State<_RanklistTab> with AutomaticKeepAliveClien
                         key: const ValueKey('ranklist-updated'),
                         textAlign: TextAlign.center,
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: Theme.of(context).colorScheme.outline,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ),
@@ -256,7 +256,7 @@ class _Rank extends StatelessWidget {
         textAlign: TextAlign.center,
         style: theme.textTheme.titleMedium?.copyWith(
           fontWeight: rank <= 3 ? FontWeight.bold : null,
-          color: rank <= 3 ? theme.colorScheme.primary : theme.colorScheme.outline,
+          color: rank <= 3 ? theme.colorScheme.primary : theme.colorScheme.onSurfaceVariant,
         ),
       ),
     );

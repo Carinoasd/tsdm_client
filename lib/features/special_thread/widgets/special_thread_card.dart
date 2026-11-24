@@ -283,7 +283,7 @@ class _SpecialFloorBadgesState extends State<SpecialFloorBadges> with _SpecialAc
             color: switch (stand) {
               1 => colorScheme.primary,
               2 => colorScheme.error,
-              _ => colorScheme.outline,
+              _ => colorScheme.onSurfaceVariant,
             },
           ),
         if (support != null)
@@ -353,7 +353,10 @@ class _InfoRow extends StatelessWidget {
         children: [
           ConstrainedBox(
             constraints: const BoxConstraints(minWidth: 88, maxWidth: 120),
-            child: Text(label, style: textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.outline)),
+            child: Text(
+              label,
+              style: textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+            ),
           ),
           sizedBoxW8H8,
           Expanded(child: Text(value, style: textTheme.bodyMedium)),
@@ -409,7 +412,10 @@ class _UserPill extends StatelessWidget {
               children: [
                 Text(name, style: textTheme.labelLarge),
                 if (detail case final detail? when detail.isNotEmpty)
-                  Text(detail, style: textTheme.labelSmall?.copyWith(color: Theme.of(context).colorScheme.outline)),
+                  Text(
+                    detail,
+                    style: textTheme.labelSmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                  ),
               ],
             ),
           ),

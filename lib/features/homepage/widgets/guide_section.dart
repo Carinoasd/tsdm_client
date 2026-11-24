@@ -111,7 +111,7 @@ class _GuideFeedCardState extends State<_GuideFeedCard> {
     } else if (selected == null) {
       body = Padding(
         padding: edgeInsetsL16T16R16B16,
-        child: Text(tr.empty, style: textTheme.bodyMedium?.copyWith(color: colorScheme.outline)),
+        child: Text(tr.empty, style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant)),
       );
     } else {
       body = GuideModuleList(selected, maxCount: widget.maxCount);
@@ -198,7 +198,7 @@ class GuideModuleList extends StatelessWidget {
         padding: edgeInsetsL16T16R16B16,
         child: Text(
           module.emptyMessage ?? tr.empty,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: colorScheme.outline),
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
         ),
       );
     }
@@ -263,11 +263,11 @@ class _GuideItemTile extends StatelessWidget {
                   if (forumName != null) _ForumChip(name: forumName, fid: item.fid),
                   if (isThreadReplied(context, item.tid)) ...[
                     sizedBoxW4H4,
-                    Icon(Icons.reply_outlined, size: 14, color: colorScheme.outline),
+                    Icon(Icons.reply_outlined, size: 14, color: colorScheme.onSurfaceVariant),
                   ],
                   const Spacer(),
                   if (extra != null)
-                    Text(extra, style: textTheme.bodySmall?.copyWith(color: colorScheme.outline), maxLines: 1),
+                    Text(extra, style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant), maxLines: 1),
                 ],
               ),
             ],

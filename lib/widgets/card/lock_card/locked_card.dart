@@ -15,6 +15,7 @@ import 'package:tsdm_client/features/thread/v1/utils/offline_floor.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
+import 'package:tsdm_client/themes/app_surfaces.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/show_dialog.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
@@ -229,7 +230,7 @@ class _LockedCardState extends State<LockedCard> with LoggerMixin {
                         children: salesHistory
                             .map(
                               (v) => Material(
-                                color: colorScheme.surfaceContainerLow,
+                                color: AppSurfaces.of(context).inset,
                                 borderRadius: BorderRadius.circular(appInnerRadius),
                                 clipBehavior: Clip.antiAlias,
                                 child: InkWell(
@@ -252,7 +253,9 @@ class _LockedCardState extends State<LockedCard> with LoggerMixin {
                                               ),
                                               SingleLineText(
                                                 v.time.yyyyMMDDHHMMSS(),
-                                                style: textTheme.labelSmall?.copyWith(color: colorScheme.outline),
+                                                style: textTheme.labelSmall?.copyWith(
+                                                  color: colorScheme.onSurfaceVariant,
+                                                ),
                                               ),
                                             ],
                                           ),

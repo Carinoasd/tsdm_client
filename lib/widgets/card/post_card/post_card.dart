@@ -375,7 +375,7 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
                     // Sent from the app (plugin 3.3.0), as the web page prints it beside the time.
                     if (widget.post.fromApp) context.t.postCard.fromApp,
                   ].join(' · '),
-                  style: textTheme.labelSmall?.copyWith(color: colorScheme.outline),
+                  style: textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant),
                 ),
                 // What the page prints in the floor's header of a special thread: the accepted answer of a bounty, the
                 // floor's side in a debate (plugin 2.8.0).
@@ -456,7 +456,7 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
       padding: edgeInsetsL12T4R12,
       child: Text(
         context.t.postCard.lastEditInfo(username: widget.post.lastEditUsername!, time: widget.post.lastEditTime!),
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.outline),
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
       ),
     );
   }
@@ -1169,7 +1169,7 @@ class _ContentUnavailable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = Theme.of(context).colorScheme.outline;
+    final color = Theme.of(context).colorScheme.onSurfaceVariant;
     return Row(
       children: [
         Icon(Icons.visibility_off_outlined, size: 18, color: color),
@@ -1204,7 +1204,7 @@ class _BlockedAvatar extends StatelessWidget {
           tag: heroTag,
           child: CircleAvatar(
             backgroundColor: colorScheme.surfaceContainerHighest,
-            child: Icon(Icons.no_accounts_outlined, color: colorScheme.outline),
+            child: Icon(Icons.no_accounts_outlined, color: colorScheme.onSurfaceVariant),
           ),
         ),
       ),

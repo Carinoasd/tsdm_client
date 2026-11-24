@@ -259,7 +259,7 @@ class _LocalDraftPageState extends State<LocalDraftPage> {
                     if (draft.maybeSent) tr.maybeSent,
                   ].join(' · '),
                   style: textTheme.labelSmall?.copyWith(
-                    color: draft.maybeSent ? colorScheme.error : colorScheme.outline,
+                    color: draft.maybeSent ? colorScheme.error : colorScheme.onSurfaceVariant,
                   ),
                 ),
               ],

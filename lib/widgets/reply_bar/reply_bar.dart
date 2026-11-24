@@ -48,6 +48,7 @@ import 'package:tsdm_client/routes/page_stack.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
+import 'package:tsdm_client/themes/app_surfaces.dart';
 import 'package:tsdm_client/utils/bbcode/spoiler_normalizer.dart';
 import 'package:tsdm_client/utils/browser_launcher.dart';
 import 'package:tsdm_client/utils/logger.dart';
@@ -548,7 +549,7 @@ class _ReplyBarWrapperState extends State<ReplyBar> {
             prefixIcon: Icon(
               onTapCallback == null ? Icons.lock_outline : Icons.edit_outlined,
               size: 20,
-              color: onTapCallback == null ? colorScheme.outline : colorScheme.primary,
+              color: onTapCallback == null ? colorScheme.onSurfaceVariant : colorScheme.primary,
             ),
             suffix: loading ? sizedCircularProgressIndicator : null,
             border: border,
@@ -561,7 +562,7 @@ class _ReplyBarWrapperState extends State<ReplyBar> {
         return DecoratedBox(
           key: const ValueKey('reply-bar-background'),
           decoration: BoxDecoration(
-            color: colorScheme.surfaceContainerLow,
+            color: AppSurfaces.of(context).bar,
             border: Border(top: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.6))),
           ),
           child: Padding(
@@ -1447,10 +1448,10 @@ final class _ReplyBarState extends State<_ReplyBar> with LoggerMixin {
         child: Row(
           key: const ValueKey('reply-bar-quote-removed'),
           children: [
-            Icon(Icons.format_quote_outlined, size: 16, color: colorScheme.outline),
+            Icon(Icons.format_quote_outlined, size: 16, color: colorScheme.onSurfaceVariant),
             sizedBoxW4H4,
             Expanded(
-              child: Text(tr.quoteRemoved, style: textTheme.bodySmall?.copyWith(color: colorScheme.outline)),
+              child: Text(tr.quoteRemoved, style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant)),
             ),
             TextButton(
               key: const ValueKey('reply-bar-quote-add'),
@@ -1486,7 +1487,7 @@ final class _ReplyBarState extends State<_ReplyBar> with LoggerMixin {
                     preview == null || preview.header.isEmpty ? tr.quoteLoading : tr.quoteOf(header: preview.header),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: textTheme.labelMedium?.copyWith(color: colorScheme.outline),
+                    style: textTheme.labelMedium?.copyWith(color: colorScheme.onSurfaceVariant),
                   ),
                   if (preview != null && preview.body.isNotEmpty)
                     Text(
@@ -1540,7 +1541,7 @@ final class _ReplyBarState extends State<_ReplyBar> with LoggerMixin {
         textAlign: TextAlign.end,
         style: Theme.of(
           context,
-        ).textTheme.labelSmall?.copyWith(color: issue != null ? colorScheme.error : colorScheme.outline),
+        ).textTheme.labelSmall?.copyWith(color: issue != null ? colorScheme.error : colorScheme.onSurfaceVariant),
       ),
     );
   }
@@ -1707,7 +1708,7 @@ final class _ReplyBarState extends State<_ReplyBar> with LoggerMixin {
                 child: IconButton(
                   key: const ValueKey('reply-bar-maximize'),
                   iconSize: 18,
-                  color: Theme.of(context).colorScheme.outline,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                   icon: Icon(_maximized ? Icons.close_fullscreen_outlined : Icons.open_in_full_outlined),
                   tooltip: _maximized ? tr.restoreSizeTip : tr.maximizeTip,
                   onPressed: () => setState(() => _maximized = !_maximized),

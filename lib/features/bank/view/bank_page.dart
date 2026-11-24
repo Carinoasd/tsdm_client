@@ -241,7 +241,7 @@ class _BankPageState extends State<BankPage> {
             ),
           ],
         ),
-        trailing: Icon(Icons.chevron_right, color: colorScheme.outline),
+        trailing: Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
         onTap: disabled ? null : () => _cubit.selectBank(item),
       ),
     );
@@ -479,7 +479,7 @@ class _BankPageState extends State<BankPage> {
                         sizedBoxW4H4,
                         Row(
                           children: [
-                            Icon(Icons.schedule_outlined, size: 14, color: colorScheme.outline),
+                            Icon(Icons.schedule_outlined, size: 14, color: colorScheme.onSurfaceVariant),
                             sizedBoxW4H4,
                             Flexible(
                               child: Text(
@@ -807,7 +807,11 @@ class _BankTransactionDialogState extends State<_BankTransactionDialog> {
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.account_balance_outlined, size: 18, color: Theme.of(context).colorScheme.outline),
+                        Icon(
+                          Icons.account_balance_outlined,
+                          size: 18,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
                         sizedBoxW8H8,
                         Expanded(child: Text(widget.bankName)),
                       ],

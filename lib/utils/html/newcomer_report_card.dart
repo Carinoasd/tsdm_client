@@ -63,7 +63,7 @@ class NewcomerReportCard extends StatelessWidget {
     final theme = Theme.of(context);
     final valueStyle = theme.textTheme.bodyMedium;
     final titleStyle = valueStyle?.copyWith(color: theme.colorScheme.secondary);
-    final emptyStyle = valueStyle?.copyWith(color: theme.colorScheme.outline);
+    final emptyStyle = valueStyle?.copyWith(color: theme.colorScheme.onSurfaceVariant);
     final titleColumnMaxWidth =
         MediaQuery.textScalerOf(context).scale(valueStyle?.fontSize ?? 14) * _titleColumnMaxEm +
         _cellPadding.horizontal;

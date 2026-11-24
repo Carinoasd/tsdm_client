@@ -83,7 +83,9 @@ class _RatePostPageState extends State<RatePostPage> with LoggerMixin {
         helperText: tr.scoreTodayRemaining(score: score.remaining),
         helperStyle: Theme.of(context).textTheme.labelSmall?.copyWith(color: Theme.of(context).colorScheme.secondary),
         suffixText: '${score.allowedRangeDescription} ',
-        suffixStyle: Theme.of(context).textTheme.labelMedium?.copyWith(color: Theme.of(context).colorScheme.outline),
+        suffixStyle: Theme.of(
+          context,
+        ).textTheme.labelMedium?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
       ),
       validator: (v) {
         if (v?.contains('.') ?? true) {

@@ -211,6 +211,9 @@ final class _SpanBuilder {
 
   double _elevation = -_elevationStep;
 
+  /// Count of the quotes the nodes being built are in.
+  int _quoteDepth = 0;
+
   static const _lineBreak = TextSpan(text: '\n');
 
   /// [nodes] as spans, each block on lines of its own.
@@ -279,7 +282,12 @@ final class _SpanBuilder {
   InlineSpan _block(BbNode node) {
     switch (node) {
       case BbQuote(:final children):
-        return textWidgetSpan(QuotedText.rich(TextSpan(children: build(children))));
+        _quoteDepth++;
+        try {
+          return textWidgetSpan(QuotedText.rich(TextSpan(children: build(children))));
+        } finally {
+          _quoteDepth--;
+        }
       case BbCodeBlock(:final code):
         _elevation += _elevationStep;
         final span = textWidgetSpan(CodeCard(code: code, elevation: _elevation));
@@ -505,7 +513,7 @@ final class _SpanBuilder {
       ),
       TextSpan(
         text: ' (${attachment.filesize.withSizeHint()})',
-        style: _style(const BbStyle())?.copyWith(color: colorScheme.outline),
+        style: _style(const BbStyle())?.copyWith(color: colorScheme.onSurfaceVariant),
       ),
     ];
   }
@@ -524,10 +532,13 @@ final class _SpanBuilder {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 18, color: colorScheme.outline),
+            Icon(icon, size: 18, color: colorScheme.onSurfaceVariant),
             const SizedBox(width: 8),
             Flexible(
-              child: Text(text, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: colorScheme.outline)),
+              child: Text(
+                text,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+              ),
             ),
           ],
         ),
@@ -550,7 +561,8 @@ final class _SpanBuilder {
         : (link != null ? theme.colorScheme.primary : null);
     final size = FontSize.fromString(style.size);
     final bodySize = theme.textTheme.bodyMedium?.fontSize ?? webPostFontSize;
-    final linkUnderline = link != null && typography != null;
+    // As the html renderer: the source line of a quote (a link to the post quoted) is not underlined.
+    final linkUnderline = link != null && typography != null && !(_quoteDepth > 0 && isQuoteSourceUrl(link));
     return theme.textTheme.bodyMedium?.copyWith(
       color: color,
       height: typography?.lineHeight,

@@ -91,7 +91,7 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
     child:
         widget.imageBuilder?.call(url, 48) ??
         (url == null
-            ? Icon(Icons.task_alt, color: Theme.of(context).colorScheme.outline)
+            ? Icon(Icons.task_alt, color: Theme.of(context).colorScheme.onSurfaceVariant)
             : CachedImage(url, width: 48, height: 48, fit: BoxFit.contain)),
   );
 

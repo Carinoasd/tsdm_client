@@ -171,7 +171,7 @@ class _RedPacketDialogState extends State<RedPacketDialog> with LoggerMixin {
   Widget _buildInfo(BuildContext context, RedPacketInfo info) {
     final tr = context.t.redPacket;
     final theme = Theme.of(context);
-    final secondary = theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline);
+    final secondary = theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant);
     final grabbed = _grabbed;
     final claimed = grabbed != null || info.claimed;
     final claimedAmount = grabbed?.amount ?? info.claimedAmount;

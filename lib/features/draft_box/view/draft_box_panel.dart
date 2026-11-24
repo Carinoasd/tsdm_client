@@ -137,7 +137,7 @@ class _DraftBoxPanelState extends State<DraftBoxPanel> {
                         if (state.opening == entry.tid)
                           const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
                         else
-                          Icon(Icons.chevron_right, color: colorScheme.outline),
+                          Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
                       ],
                     ),
                   ),

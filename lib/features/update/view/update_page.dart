@@ -46,7 +46,7 @@ class _UpdatePageState extends State<UpdatePage> {
                   children: [
                     Text(
                       context.t.aboutPage.version,
-                      style: textTheme.labelMedium?.copyWith(color: colorScheme.outline),
+                      style: textTheme.labelMedium?.copyWith(color: colorScheme.onSurfaceVariant),
                     ),
                     Text(appFullVersion, style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
                   ],

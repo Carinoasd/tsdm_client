@@ -756,7 +756,7 @@ class _NotificationCardShell extends StatelessWidget {
                         label == null ? relative : '$label · $relative',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: textTheme.labelSmall?.copyWith(color: colorScheme.outline),
+                        style: textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant),
                       ),
                     ),
                   ],

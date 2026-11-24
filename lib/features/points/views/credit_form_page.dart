@@ -584,7 +584,10 @@ class _ValueRow extends StatelessWidget {
         children: [
           SizedBox(
             width: 96,
-            child: Text(label, style: textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.outline)),
+            child: Text(
+              label,
+              style: textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+            ),
           ),
           sizedBoxW8H8,
           Expanded(child: Text(value, style: textTheme.bodyMedium)),

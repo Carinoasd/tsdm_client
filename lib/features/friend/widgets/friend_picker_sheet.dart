@@ -118,7 +118,7 @@ class _FriendPickerSheetState extends State<FriendPickerSheet> {
             leading: HeroUserAvatar(username: friend.username, avatarUrl: friend.avatarUrl, disableHero: true),
             title: Text(friend.username, style: const TextStyle(fontWeight: FontWeight.w600)),
             subtitle: friend.groupName == null ? null : Text(context.displayText(friend.groupName!)),
-            trailing: Icon(Icons.chevron_right, color: colorScheme.outline),
+            trailing: Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
             onTap: () => Navigator.of(context).pop(friend),
           );
         },

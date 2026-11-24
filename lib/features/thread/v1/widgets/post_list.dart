@@ -762,7 +762,7 @@ class PageDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = Theme.of(context).colorScheme.outline;
+    final color = Theme.of(context).colorScheme.onSurfaceVariant;
     final line = Expanded(child: Divider(color: Theme.of(context).colorScheme.outlineVariant, height: 1));
     return Padding(
       key: ValueKey('thread-page-divider-$page'),
@@ -811,7 +811,7 @@ class _EdgeLoader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tr = t.threadPage;
-    final color = Theme.of(context).colorScheme.outline;
+    final color = Theme.of(context).colorScheme.onSurfaceVariant;
     final style = Theme.of(context).textTheme.bodyMedium?.copyWith(color: color);
     final Widget child;
     switch (status) {
@@ -860,7 +860,7 @@ class _LastFloorFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = Theme.of(context).colorScheme.outline;
+    final color = Theme.of(context).colorScheme.onSurfaceVariant;
     return Padding(
       key: const ValueKey('thread-last-floor-footer'),
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
@@ -925,7 +925,6 @@ class ThreadEndCard extends StatelessWidget {
         child: Card(
           margin: EdgeInsets.zero,
           shape: appSurfaceShape(context),
-          color: colorScheme.surfaceContainerLow,
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
             child: Column(
@@ -936,17 +935,17 @@ class ThreadEndCard extends StatelessWidget {
                   crossAxisAlignment: WrapCrossAlignment.center,
                   spacing: 4,
                   children: [
-                    Icon(Icons.check_circle_outline, size: 18, color: colorScheme.outline),
+                    Icon(Icons.check_circle_outline, size: 18, color: colorScheme.onSurfaceVariant),
                     Text(
                       newestFirst ? tr.firstFloorReached : tr.lastFloorReached,
-                      style: textTheme.bodyMedium?.copyWith(color: colorScheme.outline),
+                      style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
                     ),
                     if (floors case final floors? when floors > 0) ...[
-                      Text('·', style: textTheme.bodyMedium?.copyWith(color: colorScheme.outline)),
+                      Text('·', style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant)),
                       Text(
                         tr.floorCount(count: floors),
                         key: const ValueKey('thread-floor-count'),
-                        style: textTheme.bodyMedium?.copyWith(color: colorScheme.outline),
+                        style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
                       ),
                     ],
                   ],

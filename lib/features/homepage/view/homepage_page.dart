@@ -682,12 +682,16 @@ class _SavedPageNote extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         children: [
-          Icon(failed ? Icons.sync_problem_outlined : Icons.sync_outlined, size: 16, color: colorScheme.outline),
+          Icon(
+            failed ? Icons.sync_problem_outlined : Icons.sync_outlined,
+            size: 16,
+            color: colorScheme.onSurfaceVariant,
+          ),
           sizedBoxW8H8,
           Expanded(
             child: Text(
               failed ? tr.failed(time: time) : tr.updating(time: time),
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
             ),
           ),
           if (failed) TextButton(onPressed: onRetry, child: Text(tr.retry)),

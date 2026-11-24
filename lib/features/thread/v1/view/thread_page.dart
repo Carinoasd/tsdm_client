@@ -83,6 +83,7 @@ import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/models/thread_open_position.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
+import 'package:tsdm_client/themes/app_surfaces.dart';
 import 'package:tsdm_client/utils/clipboard.dart';
 import 'package:tsdm_client/utils/html/html_muncher.dart';
 import 'package:tsdm_client/utils/html/post_typography.dart';
@@ -1965,7 +1966,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
   /// thread's own information is.
   Widget _buildBreadcrumbsRow(ThreadState state, double extraHeight, {required bool replied}) {
     final colorScheme = Theme.of(context).colorScheme;
-    final infoTextStyle = Theme.of(context).textTheme.labelLarge?.copyWith(color: colorScheme.outline);
+    final infoTextStyle = Theme.of(context).textTheme.labelLarge?.copyWith(color: colorScheme.onSurfaceVariant);
     final infoTextHighlightStyle = Theme.of(context).textTheme.labelLarge?.copyWith(color: colorScheme.primary);
 
     Widget pill(String label, {IconData? icon, Color? color, VoidCallback? onTap}) {
@@ -2001,7 +2002,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
 
     final breadFrags = <Widget>[
       for (final (index, e) in state.breadcrumbs.indexed) ...[
-        if (index > 0) Icon(Icons.chevron_right, size: 16, color: colorScheme.outline),
+        if (index > 0) Icon(Icons.chevron_right, size: 16, color: colorScheme.onSurfaceVariant),
         MouseRegion(
           cursor: SystemMouseCursors.click,
           child: GestureDetector(
@@ -2292,7 +2293,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
                   // in the reading column.
                   if (state.threadSoftClosed && !state.threadClosed && !state.isOffline)
                     ColoredBox(
-                      color: Theme.of(context).colorScheme.surfaceContainerLow,
+                      color: AppSurfaces.of(context).bar,
                       child: SafeArea(
                         top: false,
                         bottom: false,

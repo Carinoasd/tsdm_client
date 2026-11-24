@@ -74,7 +74,7 @@ Future<void> showOperationLogDialog(BuildContext context, String tid) async {
                           ),
                           SingleLineText(
                             e.time.yyyyMMDDHHMMSS(),
-                            style: textTheme.labelSmall?.copyWith(color: colorScheme.outline),
+                            style: textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant),
                           ),
                           sizedBoxW4H4,
                           Text(

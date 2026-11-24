@@ -81,7 +81,7 @@ class _MagicCenterPageState extends State<MagicCenterPage> {
     child:
         widget.imageBuilder?.call(url) ??
         (url == null
-            ? Icon(Icons.auto_fix_high_outlined, color: Theme.of(context).colorScheme.outline)
+            ? Icon(Icons.auto_fix_high_outlined, color: Theme.of(context).colorScheme.onSurfaceVariant)
             : CachedImage(url, width: size, height: size, fit: BoxFit.contain)),
   );
 
@@ -160,7 +160,7 @@ class _MagicCenterPageState extends State<MagicCenterPage> {
               icon: const Icon(Icons.shopping_cart_outlined),
               label: Text(tr.buy),
             )
-          : Text(tr.soldOut, style: textTheme.labelLarge?.copyWith(color: colorScheme.outline));
+          : Text(tr.soldOut, style: textTheme.labelLarge?.copyWith(color: colorScheme.onSurfaceVariant));
     } else {
       figure = item.count == null ? '' : tr.owned(count: item.count!);
       action = FilledButton.tonalIcon(

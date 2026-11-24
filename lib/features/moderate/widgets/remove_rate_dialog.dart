@@ -154,7 +154,7 @@ class _RemoveRateDialogState extends State<RemoveRateDialog> {
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(entry.time, style: textTheme.labelSmall?.copyWith(color: colorScheme.outline)),
+          Text(entry.time, style: textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant)),
           if (entry.reason.isNotEmpty) Text(context.displayText(entry.reason)),
         ],
       ),

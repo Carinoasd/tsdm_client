@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:tsdm_client/constants/layout.dart';
+import 'package:tsdm_client/themes/app_surfaces.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 
 /// Height of [ChatPeerHeader] when used as the bottom of an app bar.
@@ -35,7 +36,7 @@ class ChatPeerHeader extends StatelessWidget implements PreferredSizeWidget {
           padding: edgeInsetsL16R16B12.copyWith(bottom: 8),
           child: Row(
             children: [
-              Icon(Icons.person_outline, size: 16, color: colorScheme.outline),
+              Icon(Icons.person_outline, size: 16, color: colorScheme.onSurfaceVariant),
               sizedBoxW4H4,
               Flexible(
                 child: Text(
@@ -57,7 +58,7 @@ class ChatPeerHeader extends StatelessWidget implements PreferredSizeWidget {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.circle, size: 8, color: online ? colorScheme.primary : colorScheme.outline),
+                        Icon(Icons.circle, size: 8, color: online ? colorScheme.primary : colorScheme.onSurfaceVariant),
                         sizedBoxW4H4,
                         Text(
                           status!,
@@ -90,12 +91,11 @@ class ChatComposerFrame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     return DecoratedBox(
       decoration: BoxDecoration(
         // Same color as the collapsed reply bar, so the frame and the bar read as one area. The hairline on top is
         // drawn by the reply bar itself (UI phase 3), not twice.
-        color: colorScheme.surfaceContainerLow,
+        color: AppSurfaces.of(context).bar,
       ),
       child: AppContentWidth(maxWidth: appReadingMaxWidth, child: child),
     );

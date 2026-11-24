@@ -414,7 +414,7 @@ class _ReportHandlingPageState extends State<ReportHandlingPage> {
                   if (canOpen)
                     Padding(
                       padding: const EdgeInsets.only(top: 12),
-                      child: Icon(Icons.chevron_right, color: theme.colorScheme.outline),
+                      child: Icon(Icons.chevron_right, color: theme.colorScheme.onSurfaceVariant),
                     ),
                 ],
               ),

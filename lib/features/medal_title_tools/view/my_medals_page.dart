@@ -147,7 +147,7 @@ class _MyMedalsPageState extends State<MyMedalsPage> {
           ),
           Text(
             hidden ? tr.myMedalsHidden : tr.myMedalsShown,
-            style: textTheme.labelMedium?.copyWith(color: hidden ? colorScheme.outline : colorScheme.primary),
+            style: textTheme.labelMedium?.copyWith(color: hidden ? colorScheme.onSurfaceVariant : colorScheme.primary),
           ),
           Switch(value: !hidden, onChanged: _busy ? null : (_) => _toggle(m)),
         ],

@@ -1795,7 +1795,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
         textAlign: TextAlign.end,
         style: Theme.of(
           context,
-        ).textTheme.labelSmall?.copyWith(color: invalid ? colorScheme.error : colorScheme.outline),
+        ).textTheme.labelSmall?.copyWith(color: invalid ? colorScheme.error : colorScheme.onSurfaceVariant),
       ),
     );
   }

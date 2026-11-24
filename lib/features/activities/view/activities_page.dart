@@ -169,7 +169,7 @@ class _ActivitiesPageState extends State<ActivitiesPage> {
                                         ),
                                       ),
                                       sizedBoxW8H8,
-                                      Icon(Icons.chevron_right, color: colorScheme.outline),
+                                      Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
                                     ],
                                   ),
                                 );

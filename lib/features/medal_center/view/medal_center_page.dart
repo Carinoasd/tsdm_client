@@ -126,7 +126,7 @@ class _MedalCenterPageState extends State<MedalCenterPage> {
       child:
           widget.imageBuilder?.call(url) ??
           (url == null
-              ? Icon(Icons.image_not_supported_outlined, color: Theme.of(context).colorScheme.outline)
+              ? Icon(Icons.image_not_supported_outlined, color: Theme.of(context).colorScheme.onSurfaceVariant)
               : CachedImage(url, width: size, height: size, fit: BoxFit.contain)),
     ),
   );

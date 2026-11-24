@@ -229,7 +229,7 @@ class CollectionCommentTile extends StatelessWidget {
                 ),
               ),
               sizedBoxW8H8,
-              Text(c.time, style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.outline)),
+              Text(c.time, style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
               if (c.rate case final rate?) ...[sizedBoxW8H8, CollectionStars(rate.toDouble(), size: 14)],
             ],
           ),

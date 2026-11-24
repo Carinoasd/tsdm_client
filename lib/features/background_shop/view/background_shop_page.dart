@@ -438,11 +438,11 @@ class _PreviewState extends State<_Preview> {
     final url = widget.url;
     Widget child;
     if (url == null) {
-      child = Icon(Icons.image_not_supported_outlined, color: colorScheme.outline);
+      child = Icon(Icons.image_not_supported_outlined, color: colorScheme.onSurfaceVariant);
     } else if (!_asked && (DataSaver.holdsBack(context, mode) ?? true)) {
       child = IconButton(
         tooltip: context.t.imageGallery.tapToLoad,
-        icon: Icon(Icons.image_outlined, color: colorScheme.outline),
+        icon: Icon(Icons.image_outlined, color: colorScheme.onSurfaceVariant),
         onPressed: () => setState(() => _asked = true),
       );
     } else {

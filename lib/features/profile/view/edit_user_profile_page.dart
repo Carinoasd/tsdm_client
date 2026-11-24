@@ -594,7 +594,7 @@ Widget _buildProfileListTile<T>({
     subtitle: SingleLineText(subtitle.trim().isEmpty ? '-' : subtitle),
     titleTextStyle: Theme.of(context).textTheme.labelMedium?.copyWith(color: colorScheme.secondary),
     subtitleTextStyle: Theme.of(context).textTheme.bodyLarge?.copyWith(
-      color: subtitle.trim().isEmpty ? colorScheme.outline : colorScheme.onSurface,
+      color: subtitle.trim().isEmpty ? colorScheme.onSurfaceVariant : colorScheme.onSurface,
     ),
     onTap: onTap == null || context.read<EditUserProfileBloc>().state.status == .submitting
         ? null

@@ -47,10 +47,10 @@ class _TradeCard extends StatelessWidget {
         color: colorScheme.surfaceContainerHigh,
         child: Row(
           children: [
-            Icon(Icons.remove_shopping_cart_outlined, size: 18, color: colorScheme.outline),
+            Icon(Icons.remove_shopping_cart_outlined, size: 18, color: colorScheme.onSurfaceVariant),
             sizedBoxW8H8,
             Expanded(
-              child: Text(tr.removed, style: textTheme.bodyMedium?.copyWith(color: colorScheme.outline)),
+              child: Text(tr.removed, style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant)),
             ),
           ],
         ),
@@ -80,7 +80,7 @@ class _TradeCard extends StatelessWidget {
               child: picture == null
                   ? ColoredBox(
                       color: colorScheme.surfaceContainerHighest,
-                      child: Icon(Icons.shopping_bag_outlined, color: colorScheme.outline),
+                      child: Icon(Icons.shopping_bag_outlined, color: colorScheme.onSurfaceVariant),
                     )
                   : CachedImage(picture, width: 64, height: 64, fit: BoxFit.cover),
             ),
@@ -98,7 +98,7 @@ class _TradeCard extends StatelessWidget {
                   Text(
                     meta,
                     style: textTheme.labelSmall?.copyWith(
-                      color: goods.timeout ? colorScheme.error : colorScheme.outline,
+                      color: goods.timeout ? colorScheme.error : colorScheme.onSurfaceVariant,
                     ),
                   ),
                 if (price.isNotEmpty) ...[
@@ -109,14 +109,14 @@ class _TradeCard extends StatelessWidget {
                   Text(
                     original,
                     style: textTheme.bodySmall?.copyWith(
-                      color: colorScheme.outline,
+                      color: colorScheme.onSurfaceVariant,
                       decoration: TextDecoration.lineThrough,
                     ),
                   ),
               ],
             ),
           ),
-          if (goods.url != null) Icon(Icons.chevron_right, size: 20, color: colorScheme.outline),
+          if (goods.url != null) Icon(Icons.chevron_right, size: 20, color: colorScheme.onSurfaceVariant),
         ],
       ),
     );

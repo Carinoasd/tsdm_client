@@ -675,7 +675,7 @@ class _SearchPageState extends State<SearchPage> with LoggerMixin, ListThreadPic
               Text(
                 '${r.totalThreadCount(count: '${result?.count ?? "-"}')} · '
                 '${r.pageInfo(total: result?.totalPages ?? "-")}',
-                style: textTheme.bodySmall?.copyWith(color: colorScheme.outline),
+                style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
               ),
             ],
           ),

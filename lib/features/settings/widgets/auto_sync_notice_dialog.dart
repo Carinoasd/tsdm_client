@@ -45,7 +45,7 @@ class SettingsDurationSliderBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-    final edgeStyle = textTheme.labelSmall?.copyWith(color: colorScheme.outline);
+    final edgeStyle = textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant);
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,

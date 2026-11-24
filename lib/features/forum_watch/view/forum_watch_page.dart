@@ -139,7 +139,7 @@ class _AlertList extends StatelessWidget {
                   ],
                   Text(a.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: textTheme.titleSmall),
                   sizedBoxW4H4,
-                  Text(info, style: textTheme.labelSmall?.copyWith(color: colorScheme.outline)),
+                  Text(info, style: textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant)),
                 ],
               ),
             );
@@ -188,7 +188,7 @@ class _ForumCount extends StatelessWidget {
       '$count/$forumWatchForumMax',
       key: const ValueKey('forum-watch-forum-count'),
       style: Theme.of(context).textTheme.labelMedium?.copyWith(
-        color: count >= forumWatchForumMax ? colorScheme.error : colorScheme.outline,
+        color: count >= forumWatchForumMax ? colorScheme.error : colorScheme.onSurfaceVariant,
       ),
     );
   }

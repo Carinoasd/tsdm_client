@@ -26,7 +26,7 @@ class _HomeNavigationBarState extends State<HomeNavigationBar> {
         border: Border(top: BorderSide(color: _navigationHairline(colorScheme))),
       ),
       child: NavigationBar(
-        backgroundColor: colorScheme.surfaceContainerLow,
+        backgroundColor: AppSurfaces.of(context).bar,
         elevation: 0,
         indicatorShape: _navigationIndicatorShape,
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,

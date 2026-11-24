@@ -67,7 +67,7 @@ class PointsChangeCard extends StatelessWidget {
                   ],
                 ),
               ),
-              if (pointsChange.redirectUrl != null) Icon(Icons.chevron_right, color: colorScheme.outline),
+              if (pointsChange.redirectUrl != null) Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
             ],
           ),
           sizedBoxW8H8,

@@ -38,7 +38,7 @@ class ToolsImage extends StatelessWidget {
     width: width,
     height: height,
     child: url == null
-        ? Icon(Icons.image_not_supported_outlined, color: Theme.of(context).colorScheme.outline)
+        ? Icon(Icons.image_not_supported_outlined, color: Theme.of(context).colorScheme.onSurfaceVariant)
         : CachedImage(url!, width: width, height: height, fit: BoxFit.contain),
   );
 }

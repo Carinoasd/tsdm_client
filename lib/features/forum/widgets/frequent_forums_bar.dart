@@ -123,7 +123,7 @@ class _Bar extends StatelessWidget {
         for (final forum in recent)
           KeyedSubtree(
             key: ValueKey('recent-${forum.fid}'),
-            child: _chip(context, forum, Icons.history, colorScheme.outline),
+            child: _chip(context, forum, Icons.history, colorScheme.onSurfaceVariant),
           ),
       ],
     );

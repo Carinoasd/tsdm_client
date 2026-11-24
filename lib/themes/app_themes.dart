@@ -1,5 +1,6 @@
 import 'package:flex_color_scheme/flex_color_scheme.dart';
 import 'package:flutter/material.dart';
+import 'package:tsdm_client/themes/app_surfaces.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 
 /// App themes.
@@ -35,8 +36,8 @@ class AppTheme {
   );
 
   /// Cards are the rounded content surfaces of the homepage design, app wide.
-  static CardThemeData _buildCardTheme(ThemeData base, ColorScheme colorScheme) =>
-      base.cardTheme.copyWith(elevation: 0, shape: appSurfaceShapeOf(colorScheme));
+  static CardThemeData _buildCardTheme(ThemeData base, AppSurfaces surfaces) =>
+      base.cardTheme.copyWith(elevation: 0, color: surfaces.card, shape: appSurfaceShapeOf());
 
   /// Popup menus and dialogs follow the rounded surfaces.
   static PopupMenuThemeData _buildPopupMenuTheme(ThemeData base) => base.popupMenuTheme.copyWith(
@@ -47,15 +48,21 @@ class AppTheme {
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(appSurfaceRadius + 6)),
   );
 
-  /// Theme parts that depend on the final color scheme.
-  static ThemeData _finish(ThemeData base, ColorScheme? seedScheme) {
-    final colorScheme = seedScheme ?? base.colorScheme;
+  /// Theme parts that depend on the final color scheme: the scheme itself (exactly [colorScheme], whatever the
+  /// factory derived from it) and the surfaces of [AppSurfaces] on the page, the bars and the cards.
+  static ThemeData _finish(ThemeData base, ColorScheme colorScheme) {
+    final surfaces = AppSurfaces.fromScheme(colorScheme);
     return base.copyWith(
-      colorScheme: seedScheme,
-      cardTheme: _buildCardTheme(base, colorScheme),
+      colorScheme: colorScheme,
+      extensions: [surfaces],
+      scaffoldBackgroundColor: surfaces.page,
+      appBarTheme: base.appBarTheme.copyWith(backgroundColor: surfaces.page),
+      navigationBarTheme: base.navigationBarTheme.copyWith(backgroundColor: surfaces.bar),
+      navigationRailTheme: base.navigationRailTheme.copyWith(backgroundColor: surfaces.page),
+      cardTheme: _buildCardTheme(base, surfaces),
       chipTheme: _buildChipTheme(),
       listTileTheme: _buildListTileTheme(),
-      navigationDrawerTheme: _buildNavigationDrawerTheme(seedScheme),
+      navigationDrawerTheme: _buildNavigationDrawerTheme(colorScheme),
       tabBarTheme: _buildTabBarTheme(),
       progressIndicatorTheme: _buildProcessIndicatorTheme(),
       popupMenuTheme: _buildPopupMenuTheme(base),
@@ -82,80 +89,63 @@ class AppTheme {
     year2023: false,
   );
 
-  static NavigationDrawerThemeData _buildNavigationDrawerTheme(ColorScheme? colorScheme) => NavigationDrawerThemeData(
+  static NavigationDrawerThemeData _buildNavigationDrawerTheme(ColorScheme colorScheme) => NavigationDrawerThemeData(
     labelTextStyle: WidgetStateProperty.resolveWith((state) {
       if (state.contains(WidgetState.selected)) {
-        return TextStyle(color: colorScheme?.primary);
+        return TextStyle(color: colorScheme.primary);
       }
       return null;
     }),
     iconTheme: WidgetStateProperty.resolveWith((state) {
       if (state.contains(WidgetState.selected)) {
-        return IconThemeData(color: colorScheme?.primary);
+        return IconThemeData(color: colorScheme.primary);
       }
       return null;
     }),
   );
 
-  /// App light theme.
-  static ThemeData makeLight(BuildContext context, {required Color? seedColor, required String fontFamily}) {
-    ColorScheme? seedScheme;
-    if (seedColor != null) {
-      seedScheme = ColorScheme.fromSeed(seedColor: seedColor);
-    }
-    final base = FlexThemeData.light(
-      fontFamily: fontFamily.isEmpty ? null : fontFamily,
-      colors: seedScheme != null
-          ? FlexSchemeColor(
-              primary: seedScheme.primary,
-              primaryContainer: seedScheme.primaryContainer,
-              secondary: seedScheme.secondary,
-              secondaryContainer: seedScheme.secondaryContainer,
-              tertiary: seedScheme.tertiary,
-              tertiaryContainer: seedScheme.tertiaryContainer,
-              error: seedScheme.error,
-            )
-          : null,
-      scheme: seedColor == null ? FlexScheme.bahamaBlue : null,
-      tabBarStyle: FlexTabBarStyle.forBackground,
-      tooltipsMatchBackground: true,
-      surfaceMode: FlexSurfaceMode.level,
-      subThemesData: _subThemesData,
-      keyColors: const FlexKeyColors(),
-      visualDensity: FlexColorScheme.comfortablePlatformDensity,
-    );
-    return _finish(base, seedScheme);
+  /// The seed of the app's colors when the user chose none: the primary color of the former default scheme.
+  static const Color defaultSeedColor = FlexColor.bahamaBlueLightPrimary;
+
+  /// The color scheme of the app for [seedColor] ([defaultSeedColor] when null) in [brightness].
+  ///
+  /// One algorithm for every color (the default, a chosen one, the system's accent): the default used to come from
+  /// the bahamaBlue scheme of FlexColorScheme with its blended surfaces, a chosen color from [ColorScheme.fromSeed],
+  /// and the layers of the two went opposite ways in the light theme (cards darker than the page in one, lighter in
+  /// the other).
+  static ColorScheme colorSchemeOf(Color? seedColor, Brightness brightness) =>
+      ColorScheme.fromSeed(seedColor: seedColor ?? defaultSeedColor, brightness: brightness);
+
+  static ThemeData _make(Brightness brightness, {required Color? seedColor, required String fontFamily}) {
+    final colorScheme = colorSchemeOf(seedColor, brightness);
+    final family = fontFamily.isEmpty ? null : fontFamily;
+    final base = brightness == Brightness.light
+        ? FlexThemeData.light(
+            fontFamily: family,
+            colorScheme: colorScheme,
+            tabBarStyle: FlexTabBarStyle.forBackground,
+            tooltipsMatchBackground: true,
+            subThemesData: _subThemesData,
+            visualDensity: FlexColorScheme.comfortablePlatformDensity,
+          )
+        : FlexThemeData.dark(
+            fontFamily: family,
+            colorScheme: colorScheme,
+            tabBarStyle: FlexTabBarStyle.forBackground,
+            tooltipsMatchBackground: true,
+            subThemesData: _subThemesData,
+            visualDensity: FlexColorScheme.comfortablePlatformDensity,
+          );
+    return _finish(base, colorScheme);
   }
 
+  /// App light theme.
+  static ThemeData makeLight(BuildContext context, {required Color? seedColor, required String fontFamily}) =>
+      _make(Brightness.light, seedColor: seedColor, fontFamily: fontFamily);
+
   /// App dark themes.
-  static ThemeData makeDark(BuildContext context, {required Color? seedColor, required String fontFamily}) {
-    ColorScheme? seedScheme;
-    if (seedColor != null) {
-      seedScheme = ColorScheme.fromSeed(seedColor: seedColor, brightness: Brightness.dark);
-    }
-    final base = FlexThemeData.dark(
-      fontFamily: fontFamily.isEmpty ? null : fontFamily,
-      colors: seedScheme != null
-          ? FlexSchemeColor(
-              primary: seedScheme.primary,
-              primaryContainer: seedScheme.primaryContainer,
-              secondary: seedScheme.secondary,
-              secondaryContainer: seedScheme.secondaryContainer,
-              tertiary: seedScheme.tertiary,
-              tertiaryContainer: seedScheme.tertiaryContainer,
-              error: seedScheme.error,
-            )
-          : null,
-      scheme: seedColor == null ? FlexScheme.bahamaBlue : null,
-      tabBarStyle: FlexTabBarStyle.forBackground,
-      tooltipsMatchBackground: true,
-      surfaceMode: FlexSurfaceMode.level,
-      subThemesData: _subThemesData,
-      keyColors: const FlexKeyColors(),
-      visualDensity: FlexColorScheme.comfortablePlatformDensity,
-    );
-    return _finish(base, seedScheme);
-  }
+  static ThemeData makeDark(BuildContext context, {required Color? seedColor, required String fontFamily}) =>
+      _make(Brightness.dark, seedColor: seedColor, fontFamily: fontFamily);
 }
 
 // If you do not have a themeMode switch, uncomment this line

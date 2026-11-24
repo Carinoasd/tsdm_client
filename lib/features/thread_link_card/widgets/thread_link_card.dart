@@ -159,7 +159,7 @@ class _Card extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-    final metaStyle = textTheme.bodySmall?.copyWith(color: colorScheme.outline);
+    final metaStyle = textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant);
     final iconSize = (metaStyle?.fontSize ?? 12) + 2;
     final time = info.publishTime;
     final meta = <(IconData, String)>[
@@ -195,7 +195,7 @@ class _Card extends StatelessWidget {
                     if (i > 0) const TextSpan(text: '    '),
                     WidgetSpan(
                       alignment: PlaceholderAlignment.middle,
-                      child: Icon(icon, size: iconSize, color: colorScheme.outline),
+                      child: Icon(icon, size: iconSize, color: colorScheme.onSurfaceVariant),
                     ),
                     TextSpan(text: ' $text'),
                   ],

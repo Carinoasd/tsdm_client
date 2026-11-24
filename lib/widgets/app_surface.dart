@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:tsdm_client/constants/layout.dart';
+import 'package:tsdm_client/themes/app_surfaces.dart';
 
 /// Corner radius of the content surfaces of the app, the homepage cards included.
 const appSurfaceRadius = 18.0;
@@ -28,14 +29,32 @@ const appSurfaceGap = 12.0;
 /// Window width from which pages may use a second column.
 const appTwoColumnWidth = 840.0;
 
-/// Shape shared by the content surfaces: rounded, with a hairline border in the theme's outline variant.
-ShapeBorder appSurfaceShape(BuildContext context) => appSurfaceShapeOf(Theme.of(context).colorScheme);
+/// Shape shared by the content surfaces: rounded, without a border (the surface layers, [AppSurfaces], tell a card
+/// from the page).
+ShapeBorder appSurfaceShape(BuildContext context) => appSurfaceShapeOf();
 
-/// [appSurfaceShape] for a [colorScheme], used to build the app theme.
-RoundedRectangleBorder appSurfaceShapeOf(ColorScheme colorScheme) => RoundedRectangleBorder(
-  borderRadius: BorderRadius.circular(appSurfaceRadius),
-  side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.6)),
-);
+/// [appSurfaceShape], used to build the app theme.
+RoundedRectangleBorder appSurfaceShapeOf() =>
+    RoundedRectangleBorder(borderRadius: BorderRadius.circular(appSurfaceRadius));
+
+/// Style of a secondary action on a hero card ([AppSurfaces.hero]): a button in the card color, its label in the
+/// text color and its icon in the primary color; the primary action of the card stays a plain [FilledButton].
+///
+/// A disabled one looks the same: a done state (checked in, claimed) reads as done, not as unavailable; what it says
+/// tells it apart.
+ButtonStyle appHeroActionStyle(BuildContext context, {double height = 48}) {
+  final colorScheme = Theme.of(context).colorScheme;
+  final surfaces = AppSurfaces.of(context);
+  return FilledButton.styleFrom(
+    minimumSize: Size(0, height),
+    backgroundColor: surfaces.card,
+    foregroundColor: colorScheme.onSurface,
+    iconColor: colorScheme.primary,
+    disabledBackgroundColor: surfaces.card,
+    disabledForegroundColor: colorScheme.onSurface,
+    disabledIconColor: colorScheme.primary,
+  );
+}
 
 /// Horizontal padding of page content for the available [width]: tighter on phones.
 double appPagePadding(double width) => width < 600 ? 12 : 16;
@@ -305,7 +324,7 @@ class AppStateView extends StatelessWidget {
             child: SizedBox(
               width: 64,
               height: 64,
-              child: Icon(icon, size: 32, color: error ? colorScheme.onErrorContainer : colorScheme.outline),
+              child: Icon(icon, size: 32, color: error ? colorScheme.onErrorContainer : colorScheme.onSurfaceVariant),
             ),
           ),
           sizedBoxW16H16,
@@ -420,7 +439,7 @@ class AppInfoPill extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
     final pill = DecoratedBox(
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHigh,
+        color: AppSurfaces.of(context).control,
         borderRadius: BorderRadius.circular(appInnerRadius),
       ),
       child: Padding(
@@ -430,7 +449,7 @@ class AppInfoPill extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: large ? 17 : 14, color: colorScheme.outline),
+            Icon(icon, size: large ? 17 : 14, color: colorScheme.onSurfaceVariant),
             SizedBox(width: large ? 6 : 4),
             Flexible(
               child: Text(
@@ -518,7 +537,7 @@ class AppInsetBlock extends StatelessWidget {
   /// Padding around [child].
   final EdgeInsetsGeometry padding;
 
-  /// Background, the low surface container of the theme when null.
+  /// Background, the inset layer of the theme ([AppSurfaces.inset]) when null.
   final Color? color;
 
   /// Draw the hairline border of the surfaces.
@@ -529,7 +548,7 @@ class AppInsetBlock extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: color ?? colorScheme.surfaceContainerLow,
+        color: color ?? AppSurfaces.of(context).inset,
         borderRadius: BorderRadius.circular(appInnerRadius),
         border: outlined ? Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.6)) : null,
       ),
@@ -638,11 +657,11 @@ class AppNoticeBanner extends StatelessWidget {
 
 /// Background of an [AppEmbedCard] for the nesting [elevation] the HTML renderer gives its embedded cards.
 ///
-/// Top level blocks (elevation 0 or null) use the low surface container, nested ones a higher container, so a block
+/// Top level blocks (elevation 0 or null) use the inset layer, nested ones the control layer above it, so a block
 /// inside another one stays distinct without shadows.
 Color appEmbedColor(BuildContext context, double? elevation) {
-  final colorScheme = Theme.of(context).colorScheme;
-  return (elevation ?? 0) > 0.1 ? colorScheme.surfaceContainerHigh : colorScheme.surfaceContainerLow;
+  final surfaces = AppSurfaces.of(context);
+  return (elevation ?? 0) > 0.1 ? surfaces.control : surfaces.inset;
 }
 
 /// Frame of a special block embedded in a floor (locked content, poll, red packet, rate, bounty, code…).
@@ -663,9 +682,9 @@ class AppEmbedCard extends StatelessWidget {
     super.key,
   });
 
-  /// Background of the block, the low surface container of the theme when null.
+  /// Background of the block, the inset layer of the theme ([AppSurfaces.inset]) when null.
   ///
-  /// Blocks nested in another block (a locked area inside a spoiler) pass a higher container to stand out.
+  /// Blocks nested in another block (a locked area inside a spoiler) pass a higher layer to stand out.
   final Color? color;
 
   /// Icon of the header.
@@ -696,7 +715,6 @@ class AppEmbedCard extends StatelessWidget {
     return Padding(
       padding: margin,
       child: AppInsetBlock(
-        outlined: true,
         color: color,
         padding: edgeInsetsL12T12R12B12,
         child: Column(
@@ -714,7 +732,7 @@ class AppEmbedCard extends StatelessWidget {
                     children: [
                       Text(title, style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
                       if (subtitle != null)
-                        Text(subtitle!, style: textTheme.labelSmall?.copyWith(color: colorScheme.outline)),
+                        Text(subtitle!, style: textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant)),
                     ],
                   ),
                 ),
@@ -745,7 +763,7 @@ class AppBottomActionBar extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLow,
+        color: AppSurfaces.of(context).bar,
         border: Border(top: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.6))),
       ),
       child: SafeArea(
@@ -933,11 +951,10 @@ class AppPager extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     final localizations = MaterialLocalizations.of(context);
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHigh,
+        color: AppSurfaces.of(context).control,
         borderRadius: BorderRadius.circular(appInnerRadius),
       ),
       child: Row(
