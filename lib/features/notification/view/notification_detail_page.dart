@@ -59,7 +59,8 @@ class _NoticeDetailPage extends State<NoticeDetailPage> with LoggerMixin {
     // Post can not be null because we only call this function when in
     // success state.
     final post = state.post!;
-    // The post as a floor of the thread reader: flat on the page at a readable width, the whole width on a phone.
+    // The post as a floor of the thread reader: a rounded surface at a readable width, phones keep most of the width
+    // for the text.
     final side = floorMarginOf(context);
     // Only the post keeps the side safe area: the reply bar pads the insets itself so its background reaches the
     // screen edges in landscape.
@@ -70,7 +71,7 @@ class _NoticeDetailPage extends State<NoticeDetailPage> with LoggerMixin {
         padding: EdgeInsets.fromLTRB(side, 8, side, 12),
         child: AppContentWidth(
           maxWidth: appReadingMaxWidth,
-          child: Material(type: MaterialType.transparency, child: PostCard(post)),
+          child: Card(margin: EdgeInsets.zero, shape: appSurfaceShape(context), child: PostCard(post)),
         ),
       ),
     );

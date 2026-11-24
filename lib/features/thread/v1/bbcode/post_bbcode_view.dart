@@ -560,7 +560,7 @@ final class _SpanBuilder {
         ? colors.text(authored, on: background)
         : (link != null ? theme.colorScheme.primary : null);
     final size = FontSize.fromString(style.size);
-    // The body text of a post is larger than the theme's ([postBodyFontSize]), as in the html renderer.
+    // The body text of a post ([postBodyFontSize]), as in the html renderer.
     final bodySize = typography != null ? postBodyFontSize : theme.textTheme.bodyMedium?.fontSize ?? webPostFontSize;
     // As the html renderer: the source line of a quote (a link to the post quoted) is not underlined.
     final linkUnderline = link != null && typography != null && !(_quoteDepth > 0 && isQuoteSourceUrl(link));
