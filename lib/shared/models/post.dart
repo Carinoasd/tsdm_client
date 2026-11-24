@@ -99,7 +99,6 @@ class Post with PostMappable {
     this.viewIpUrl,
     this.commentScores = const [],
     this.timeOffset,
-    this.background,
   });
 
   /// Build a [Post] from a floor [p] of a structured thread page answer of the forum's app API (plugin 2.1.0,
@@ -581,11 +580,6 @@ class Post with PostMappable {
   /// The forum's "支持" and "踩" of the thread with their counts, which the page prints under the first floor (see
   /// [ThreadRecommend]); null on any other floor and when the forum printed none.
   final ThreadRecommend? recommend;
-
-  /// The backgrounds the floor's author set for their floors, as the web page draws them (plugin 4.1.0, the thread page
-  /// asked with `tsdmv=4`, `schema` 78: `threadPageFromApi`); null when the floor has none, the answer tells none
-  /// (older plugins, the web page) or the page draws none on it (an anonymous floor).
-  final PostBackground? background;
 
   /// The floor number to name this floor by: [postFloor], or for a [hot] reply the floor it really is ([hotFloor]).
   int? get shownFloor => postFloor ?? hotFloor;

@@ -580,9 +580,6 @@
       "threadLinkCard": {
         "title": "Preview cards for thread links"
       },
-      "showPostBackgrounds": {
-        "title": "Show post backgrounds"
-      },
       "threadContentLayout": {
         "title": "Reading layout",
         "dialogTitle": "Reading layout",

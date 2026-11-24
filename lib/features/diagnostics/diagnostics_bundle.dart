@@ -97,7 +97,6 @@ const diagnosticSettingNames = <String>[
   'threadFloorInteractionMode',
   'threadReverseOrder',
   'threadLinkCard',
-  'showPostBackgrounds',
   'enableAppPostRenderer',
   'postMediaPreview',
   'postImageAutoLoad',
