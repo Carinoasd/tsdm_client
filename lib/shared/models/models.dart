@@ -9,7 +9,6 @@ import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/extensions/universal_html.dart';
 import 'package:tsdm_client/extensions/uri.dart';
 import 'package:tsdm_client/features/post/utils/draft_marker.dart';
-import 'package:tsdm_client/features/post_background/models/post_background.dart';
 import 'package:tsdm_client/features/post_comment/models/post_comment.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/thread_floor_interaction_mode.dart';
