@@ -18,16 +18,21 @@ class AppTheme {
     bottomNavigationBarShowUnselectedLabels: false,
     alignedDropdown: true,
 
-    // Navigation bar
-    navigationBarSelectedLabelSchemeColor: SchemeColor.primary,
-    navigationBarSelectedIconSchemeColor: SchemeColor.primary,
+    // Navigation bar: the selected destination is a pill of the primary container, its icon on it, its label in the
+    // text color (bold, see [AppTheme._navigationLabel]).
+    navigationBarIndicatorSchemeColor: SchemeColor.primaryContainer,
+    navigationBarIndicatorOpacity: 1,
+    navigationBarSelectedLabelSchemeColor: SchemeColor.onSurface,
+    navigationBarSelectedIconSchemeColor: SchemeColor.onPrimaryContainer,
     navigationBarMutedUnselectedLabel: false,
     navigationBarMutedUnselectedIcon: false,
     navigationBarLabelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
 
-    // Navigation rail
-    navigationRailSelectedLabelSchemeColor: SchemeColor.primary,
-    navigationRailSelectedIconSchemeColor: SchemeColor.primary,
+    // Navigation rail: as the bar.
+    navigationRailIndicatorSchemeColor: SchemeColor.primaryContainer,
+    navigationRailIndicatorOpacity: 1,
+    navigationRailSelectedLabelSchemeColor: SchemeColor.onSurface,
+    navigationRailSelectedIconSchemeColor: SchemeColor.onPrimaryContainer,
     navigationRailUseIndicator: true,
     navigationRailMutedUnselectedLabel: false,
     navigationRailMutedUnselectedIcon: false,
@@ -49,7 +54,7 @@ class AppTheme {
   /// card. The defaults were the inset color itself (a dialog of the dark theme, a sheet of the light one).
   static DialogThemeData _buildDialogTheme(ThemeData base, AppSurfaces surfaces) => base.dialogTheme.copyWith(
     backgroundColor: surfaces.card,
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(appSurfaceRadius + 6)),
+    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(24))),
   );
 
   static BottomSheetThemeData _buildBottomSheetTheme(ThemeData base, AppSurfaces surfaces) =>
@@ -58,18 +63,47 @@ class AppTheme {
   /// Theme parts that depend on the final color scheme: the scheme itself (exactly [colorScheme], whatever the
   /// factory derived from it) and the [surfaces] on the page, the bars, the panels, dialogs and sheets.
   static ThemeData _finish(ThemeData base, ColorScheme colorScheme, AppSurfaces surfaces) {
+    final textTheme = twoWeights(base.textTheme);
+    final dark = colorScheme.brightness == Brightness.dark;
     return base.copyWith(
       colorScheme: colorScheme,
       extensions: [surfaces],
+      textTheme: textTheme,
+      primaryTextTheme: twoWeights(base.primaryTextTheme),
+      iconTheme: _buildIconTheme(base.iconTheme, dark: dark),
+      primaryIconTheme: _buildIconTheme(base.primaryIconTheme, dark: dark),
       scaffoldBackgroundColor: surfaces.page,
-      appBarTheme: base.appBarTheme.copyWith(backgroundColor: surfaces.page),
-      navigationBarTheme: base.navigationBarTheme.copyWith(backgroundColor: surfaces.bar),
-      navigationRailTheme: base.navigationRailTheme.copyWith(backgroundColor: surfaces.bar),
+      appBarTheme: base.appBarTheme.copyWith(
+        backgroundColor: surfaces.page,
+        // 20, bold. The color is given: a title style of the theme does not take the bar's foreground color.
+        titleTextStyle: textTheme.titleLarge?.copyWith(
+          fontSize: 20,
+          fontWeight: FontWeight.w700,
+          color: base.appBarTheme.titleTextStyle?.color ?? colorScheme.onSurface,
+        ),
+        iconTheme: _buildIconTheme(base.appBarTheme.iconTheme, dark: dark),
+        actionsIconTheme: _buildIconTheme(base.appBarTheme.actionsIconTheme, dark: dark),
+      ),
+      navigationBarTheme: base.navigationBarTheme.copyWith(
+        backgroundColor: surfaces.bar,
+        labelTextStyle: _navigationLabel(base.navigationBarTheme.labelTextStyle, textTheme.labelMedium),
+        iconTheme: _navigationIcon(base.navigationBarTheme.iconTheme, dark: dark),
+      ),
+      navigationRailTheme: base.navigationRailTheme.copyWith(
+        backgroundColor: surfaces.bar,
+        selectedLabelTextStyle: (base.navigationRailTheme.selectedLabelTextStyle ?? textTheme.labelMedium)?.copyWith(
+          fontWeight: FontWeight.w700,
+        ),
+        unselectedLabelTextStyle: (base.navigationRailTheme.unselectedLabelTextStyle ?? textTheme.labelMedium)
+            ?.copyWith(fontWeight: FontWeight.w400),
+        selectedIconTheme: _buildIconTheme(base.navigationRailTheme.selectedIconTheme, dark: dark, fill: 1),
+        unselectedIconTheme: _buildIconTheme(base.navigationRailTheme.unselectedIconTheme, dark: dark),
+      ),
       cardTheme: _buildCardTheme(base, surfaces),
       chipTheme: _buildChipTheme(),
       listTileTheme: _buildListTileTheme(),
-      navigationDrawerTheme: _buildNavigationDrawerTheme(colorScheme),
-      tabBarTheme: _buildTabBarTheme(),
+      navigationDrawerTheme: _buildNavigationDrawerTheme(colorScheme, textTheme, dark: dark),
+      tabBarTheme: _buildTabBarTheme(textTheme),
       progressIndicatorTheme: _buildProcessIndicatorTheme(),
       popupMenuTheme: _buildPopupMenuTheme(base, surfaces),
       dialogTheme: _buildDialogTheme(base, surfaces),
@@ -77,7 +111,11 @@ class AppTheme {
     );
   }
 
-  static ChipThemeData _buildChipTheme() => const ChipThemeData(padding: EdgeInsets.all(2));
+  /// Chips are tags and filters: regular, the weight of the small labels.
+  static ChipThemeData _buildChipTheme() => const ChipThemeData(
+    padding: EdgeInsets.all(2),
+    labelStyle: TextStyle(fontWeight: FontWeight.w400),
+  );
 
   /// Global theme for [ListTile].
   static ListTileThemeData _buildListTileTheme() => const ListTileThemeData(
@@ -86,8 +124,69 @@ class AppTheme {
     horizontalTitleGap: 10,
   );
 
-  /// Global theme for [TabBar].
-  static TabBarThemeData _buildTabBarTheme() => const TabBarThemeData(dividerHeight: 0);
+  /// Global theme for [TabBar]: the selected tab bold, the others regular.
+  static TabBarThemeData _buildTabBarTheme(TextTheme textTheme) => TabBarThemeData(
+    dividerHeight: 0,
+    labelStyle: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+    unselectedLabelStyle: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w400),
+  );
+
+  /// [textTheme] in the two weights of the app, 400 and 700, with tabular figures.
+  ///
+  /// The CJK fonts of Windows (Microsoft JhengHei: Light, Regular, Bold) and of most Android systems have no 500 or
+  /// 600: the default weights of Material (500 for the titles and labels) fell back to 400 or 700 there, and whatever
+  /// hierarchy they were meant to give did not show. The titles and the large label (buttons) are bold, the small
+  /// labels (tags, the navigation, badges) regular. Figures are tabular everywhere: times, counts, floor numbers and
+  /// pages keep their width.
+  static TextTheme twoWeights(TextTheme textTheme) {
+    TextStyle? w(TextStyle? style, FontWeight weight) =>
+        style?.copyWith(fontWeight: weight, fontFeatures: const [FontFeature.tabularFigures()]);
+    return textTheme.copyWith(
+      displayLarge: w(textTheme.displayLarge, FontWeight.w400),
+      displayMedium: w(textTheme.displayMedium, FontWeight.w400),
+      displaySmall: w(textTheme.displaySmall, FontWeight.w400),
+      headlineLarge: w(textTheme.headlineLarge, FontWeight.w400),
+      headlineMedium: w(textTheme.headlineMedium, FontWeight.w400),
+      headlineSmall: w(textTheme.headlineSmall, FontWeight.w400),
+      titleLarge: w(textTheme.titleLarge, FontWeight.w400),
+      titleMedium: w(textTheme.titleMedium, FontWeight.w700),
+      titleSmall: w(textTheme.titleSmall, FontWeight.w700),
+      bodyLarge: w(textTheme.bodyLarge, FontWeight.w400),
+      bodyMedium: w(textTheme.bodyMedium, FontWeight.w400),
+      bodySmall: w(textTheme.bodySmall, FontWeight.w400),
+      labelLarge: w(textTheme.labelLarge, FontWeight.w700),
+      labelMedium: w(textTheme.labelMedium, FontWeight.w400),
+      labelSmall: w(textTheme.labelSmall, FontWeight.w400),
+    );
+  }
+
+  /// [base] with the icon axes of the app: weight 400, and grade -25 in the dark theme (light strokes on a dark ground
+  /// look heavier; -25 is what Material Symbols advise for dark themes). Only the variable Material Symbols have these
+  /// axes; [fill] 1 draws the selected icons of the navigation filled.
+  static IconThemeData _buildIconTheme(IconThemeData? base, {required bool dark, double? fill}) =>
+      (base ?? const IconThemeData()).copyWith(weight: 400, grade: dark ? -25 : 0, fill: fill);
+
+  /// Label of a destination of the navigation bar: bold when selected, regular otherwise, in the colors and size the
+  /// [base] theme gives.
+  static WidgetStateProperty<TextStyle?> _navigationLabel(
+    WidgetStateProperty<TextStyle?>? base,
+    TextStyle? fallback,
+  ) => WidgetStateProperty.resolveWith((states) {
+    final selected = states.contains(WidgetState.selected);
+    return (base?.resolve(states) ?? fallback)?.copyWith(fontWeight: selected ? FontWeight.w700 : FontWeight.w400);
+  });
+
+  /// Icon of a destination of the navigation bar: the icon axes of the app on the [base] theme, filled when selected.
+  static WidgetStateProperty<IconThemeData?> _navigationIcon(
+    WidgetStateProperty<IconThemeData?>? base, {
+    required bool dark,
+  }) => WidgetStateProperty.resolveWith(
+    (states) => _buildIconTheme(
+      base?.resolve(states),
+      dark: dark,
+      fill: states.contains(WidgetState.selected) ? 1 : null,
+    ),
+  );
 
   static ProgressIndicatorThemeData _buildProcessIndicatorTheme() => const ProgressIndicatorThemeData(
     // This flag is deprecated since 3.29 but not default to false yet. Keep
@@ -96,18 +195,31 @@ class AppTheme {
     year2023: false,
   );
 
-  static NavigationDrawerThemeData _buildNavigationDrawerTheme(ColorScheme colorScheme) => NavigationDrawerThemeData(
+  /// The drawer of wide windows (desktop) looks like the bar and the rail: the selected destination on the primary
+  /// container, its icon filled on it, its label bold in the text color.
+  static NavigationDrawerThemeData _buildNavigationDrawerTheme(
+    ColorScheme colorScheme,
+    TextTheme textTheme, {
+    required bool dark,
+  }) => NavigationDrawerThemeData(
+    indicatorColor: colorScheme.primaryContainer,
     labelTextStyle: WidgetStateProperty.resolveWith((state) {
       if (state.contains(WidgetState.selected)) {
-        return TextStyle(color: colorScheme.primary);
+        return textTheme.labelLarge?.copyWith(color: colorScheme.onSurface, fontWeight: FontWeight.w700);
       }
-      return null;
+      return textTheme.labelLarge?.copyWith(color: colorScheme.onSurfaceVariant, fontWeight: FontWeight.w400);
     }),
     iconTheme: WidgetStateProperty.resolveWith((state) {
       if (state.contains(WidgetState.selected)) {
-        return IconThemeData(color: colorScheme.primary);
+        return IconThemeData(
+          color: colorScheme.onPrimaryContainer,
+          size: 24,
+          weight: 400,
+          grade: dark ? -25 : 0,
+          fill: 1,
+        );
       }
-      return null;
+      return IconThemeData(color: colorScheme.onSurfaceVariant, size: 24, weight: 400, grade: dark ? -25 : 0);
     }),
   );
 

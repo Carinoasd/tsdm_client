@@ -333,7 +333,7 @@ class _RedPacketDialogState extends State<RedPacketDialog> with LoggerMixin {
                                 record.username,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                                style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
                               ),
                               Text(
                                 record.time,

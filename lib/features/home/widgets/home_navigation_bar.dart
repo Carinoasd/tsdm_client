@@ -18,12 +18,11 @@ class _HomeNavigationBarState extends State<HomeNavigationBar> {
   Widget build(BuildContext context) {
     // The four tabs, the same destinations as the side navigation of wider windows.
     final barItems = _buildNavigationItems(context);
-    final colorScheme = Theme.of(context).colorScheme;
 
     // Same look as the side navigation: low container color, rounded indicator, hairline towards the content.
     return DecoratedBox(
       decoration: BoxDecoration(
-        border: Border(top: BorderSide(color: _navigationHairline(colorScheme))),
+        border: Border(top: BorderSide(color: _navigationHairline(context))),
       ),
       child: NavigationBar(
         backgroundColor: AppSurfaces.of(context).bar,

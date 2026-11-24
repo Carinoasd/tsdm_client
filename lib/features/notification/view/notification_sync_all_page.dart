@@ -248,7 +248,7 @@ class _AccountSurface extends StatelessWidget {
                       name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+                      style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
                     ),
                     if (userInfo.uid != null)
                       Text(

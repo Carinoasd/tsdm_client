@@ -3314,7 +3314,7 @@ final class _Muncher with LoggerMixin {
       // A post's content: its line height, no letter spacing (as the web page; it spread Chinese text apart).
       height: typography?.lineHeight,
       letterSpacing: typography == null ? null : 0,
-      fontWeight: state.bold ? FontWeight.w600 : null,
+      fontWeight: state.bold ? FontWeight.w700 : null,
       // The body text of a post is larger than the theme's ([postBodyFontSize]).
       fontSize: state.fontSizeStack.lastOrNull ?? (typography == null ? null : _bodyFontSize),
       backgroundColor: inline?.color == null ? null : _colors.background(inline!.color!),

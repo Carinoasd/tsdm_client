@@ -179,7 +179,7 @@ class _SupportDevelopmentDialogState extends State<SupportDevelopmentDialog> wit
             Expanded(
               child: Text(
                 uid == null ? tr.accountNoUid(username: username) : tr.account(username: username, uid: uid),
-                style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
               ),
             ),
             IconButton(

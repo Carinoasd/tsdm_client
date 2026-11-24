@@ -185,7 +185,7 @@ class _Card extends StatelessWidget {
             context.displayText(info.title),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600, color: colorScheme.primary),
+            style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700, color: colorScheme.primary),
           ),
           if (meta.isNotEmpty) ...[
             const SizedBox(height: 4),

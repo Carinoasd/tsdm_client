@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/themes/app_surfaces.dart';
 
-/// Corner radius of the content surfaces of the app, the homepage cards included.
-const appSurfaceRadius = 18.0;
+/// Corner radius of the content surfaces of the app (panels, settings groups), the homepage cards included.
+const appSurfaceRadius = 20.0;
 
 /// Corner radius of the small inner blocks of a surface (tool buttons, tags, quoted blocks).
 const appInnerRadius = 12.0;
@@ -926,15 +926,33 @@ class AppTileGroup extends StatelessWidget {
   /// Optional block under the rows, usually an [AppNoticeBanner].
   final Widget? footer;
 
+  /// Height of a one line row of a group.
+  static const rowHeight = 52.0;
+
+  /// Where the line above [row] starts: at its text, after the icon when it leads with one (a list tile with a
+  /// leading icon, a switch tile with a secondary icon), else at the start padding.
+  static double dividerIndentOf(BuildContext context, Widget row) {
+    final listTileTheme = ListTileTheme.of(context);
+    final leadsWithIcon = switch (row) {
+      ListTile(:final leading) => leading is Icon,
+      SwitchListTile(:final secondary, :final controlAffinity) =>
+        secondary is Icon && controlAffinity != ListTileControlAffinity.leading,
+      _ => false,
+    };
+    if (!leadsWithIcon) {
+      return 16;
+    }
+    final iconSize = IconTheme.of(context).size ?? 24;
+    final leadingWidth = iconSize > (listTileTheme.minLeadingWidth ?? 24)
+        ? iconSize
+        : (listTileTheme.minLeadingWidth ?? 24);
+    return 16 + leadingWidth + (listTileTheme.horizontalTitleGap ?? 16);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final divider = Divider(
-      height: 1,
-      thickness: 1,
-      indent: 16,
-      endIndent: 16,
-      color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.4),
-    );
+    final line = AppSurfaces.of(context).line;
+    Widget divider(Widget row) => Divider(height: 1, thickness: 1, indent: dividerIndentOf(context, row), color: line);
     return AppSurface(
       padding: EdgeInsets.zero,
       child: Column(
@@ -948,7 +966,16 @@ class AppTileGroup extends StatelessWidget {
               trailing: trailing,
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
             ),
-          for (var i = 0; i < children.length; i++) ...[if (i > 0) divider, children[i]],
+          ListTileTheme.merge(
+            minTileHeight: rowHeight,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (var i = 0; i < children.length; i++) ...[if (i > 0) divider(children[i]), children[i]],
+              ],
+            ),
+          ),
           if (footer != null) Padding(padding: edgeInsetsL12T4R12B12, child: footer),
           if (footer == null && title != null) const SizedBox(height: 4),
         ],
