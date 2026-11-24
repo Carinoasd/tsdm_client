@@ -7,8 +7,8 @@
 ///    chosen color would be; page, bars, panels, dialogs and sheets of the theme are the layers;
 /// 2. the layers are the swatches of the design (cyan, pink, purple, both themes), a seed of low chroma gets no hue
 ///    made up in the dark theme;
-/// 3. the layers go the same way for every seed: a dark night of the seed's hue with lighter panels, a near white
-///    page with gray-tinted panels; panels have no border;
+/// 3. the layers go the same way for every seed: a dark night of the seed's hue with lighter panels, a light gray
+///    page with white panels; panels have no border;
 /// 4. every text pair of the design is at least 4.5:1 (body, secondary and meta text on the layers, primary text,
 ///    containers, buttons).
 library;
@@ -29,14 +29,14 @@ const _seeds = <String, Color?>{
   'purple': Color(0xFF7C5CD6),
 };
 
-/// The swatches of the design (`tokens-v2.md` 1.1): page, card, inset, control, line, line strong, muted, bar.
+/// The swatches of the design (`tokens-v2.md` 1.1, the light ones since made white cards on a gray page): page, card, inset, control, line, line strong, muted, bar.
 const _swatches = <String, List<int>>{
   'cyan dark': [0xFF0A0F11, 0xFF151A1D, 0xFF1D2225, 0xFF262B2D, 0xFF2C3438, 0xFF424A4E, 0xFF9AA2A6, 0xFF111619],
-  'cyan light': [0xFFFAFCFF, 0xFFEDF1F5, 0xFFE7ECEF, 0xFFDFE3E7, 0xFFD6DEE3, 0xFFBAC2C7, 0xFF5C6469, 0xFFF0F4F8],
+  'cyan light': [0xFFDFE3E7, 0xFFFFFFFF, 0xFFEDF1F5, 0xFFD0D5D8, 0xFFC5CDD2, 0xFF8A9297, 0xFF40484C, 0xFFF3F7FB],
   'pink dark': [0xFF130C0F, 0xFF1F171A, 0xFF281F22, 0xFF30282A, 0xFF3B2F33, 0xFF53464A, 0xFFAE9CA1, 0xFF1B1416],
-  'pink light': [0xFFFFFBFF, 0xFFFDEDF0, 0xFFF7E7EB, 0xFFEEDFE2, 0xFFECD8DD, 0xFFCFBCC1, 0xFF6E5F64, 0xFFFFF0F3],
+  'pink light': [0xFFEEDFE2, 0xFFFFFFFF, 0xFFFDEDF0, 0xFFE0D1D4, 0xFFDAC7CC, 0xFF9D8C91, 0xFF514347, 0xFFFFF4F5],
   'purple dark': [0xFF0F0D13, 0xFF1A191E, 0xFF232126, 0xFF2B292F, 0xFF34313A, 0xFF4B4851, 0xFFA49EA9, 0xFF16151A],
-  'purple light': [0xFFFFFBFF, 0xFFF5EFF7, 0xFFEFE9F1, 0xFFE6E1E9, 0xFFE1DBE6, 0xFFC4BFCA, 0xFF65626B, 0xFFF8F2FA],
+  'purple light': [0xFFE6E1E9, 0xFFFFFFFF, 0xFFF5EFF7, 0xFFD8D3DA, 0xFFD0CAD5, 0xFF938F99, 0xFF48454E, 0xFFFAF4FD],
 };
 
 /// Least contrast of a text pair.
@@ -104,7 +104,7 @@ void main() {
           });
         }
 
-        test('layers: a night of the hue with lighter panels, or a near white page with darker ones', () {
+        test('layers: a night of the hue with lighter panels, or a gray page with white ones', () {
           final s = AppSurfaces.ofTheme(theme());
           if (dark) {
             expect(_luminance(s.card), greaterThan(_luminance(s.page)));
@@ -112,11 +112,24 @@ void main() {
             expect(_luminance(s.inset), greaterThan(_luminance(s.card)));
             expect(_luminance(s.control), greaterThan(_luminance(s.inset)));
           } else {
-            expect(_luminance(s.page), greaterThan(0.9), reason: 'a near white page');
-            expect(_luminance(s.card), lessThan(_luminance(s.page)));
-            expect(_luminance(s.bar), lessThan(_luminance(s.page)));
+            // White cards on a gray page; the blocks in a card are grays on its white.
+            expect(s.card, const Color(0xFFFFFFFF));
+            expect(_luminance(s.page), inInclusiveRange(0.65, 0.9), reason: 'a light gray page');
+            expect(_luminance(s.bar), greaterThan(_luminance(s.page)));
             expect(_luminance(s.inset), lessThan(_luminance(s.card)));
             expect(_luminance(s.control), lessThan(_luminance(s.inset)));
+            // A layer is told from the one it lies on: steps of 2 tones could not be told apart on a phone. Blocks
+            // and pills are on a card or on the page (the editor of a page, the pills under the app bar).
+            for (final (name, over, under) in [
+              ('card on page', s.card, s.page),
+              ('inset on card', s.inset, s.card),
+              ('inset on page', s.inset, s.page),
+              ('control on card', s.control, s.card),
+              ('control on page', s.control, s.page),
+              ('control on inset', s.control, s.inset),
+            ]) {
+              expect(contrastRatio(over, under), greaterThanOrEqualTo(1.1), reason: name);
+            }
           }
           for (final c in [s.page, s.card, s.inset, s.control, s.bar, s.line, s.lineStrong]) {
             expect(c.a, 1, reason: 'no translucent layer');
@@ -174,5 +187,27 @@ void main() {
   test('the cyan seed of the design: dark primary as measured on the device', () {
     final t = AppTheme.makeDark(_FakeContext(), seedColor: const Color(0xFF069DC7), fontFamily: '');
     expect(t.colorScheme.primary, const Color(0xFF8BD0EF));
+  });
+  test("the forum's gray (#999999, a quote's source line) reads on the gray of a quote; elsewhere it stays", () {
+    final t = AppTheme.makeLight(_FakeContext(), seedColor: const Color(0xFF069DC7), fontFamily: '');
+    final colors = AuthorColors(t);
+    final inset = AppSurfaces.ofTheme(t).inset;
+    for (final gray in const [Color(0xFF999999), Color(0xFFAAAAAA), Color(0xFF888888)]) {
+      expect(
+        contrastRatio(colors.text(gray, inQuote: true), inset),
+        greaterThanOrEqualTo(readableContrast),
+        reason: '$gray',
+      );
+    }
+    // Out of a quote the text is on the white of a card, as on the web page.
+    expect(colors.text(const Color(0xFF999999)), const Color(0xFF999999));
+    expect(colors.text(const Color(0xFF333333), inQuote: true), const Color(0xFF333333));
+    expect(colors.text(const Color(0xFFEEEEEE), inQuote: true), const Color(0xFFEEEEEE));
+    expect(colors.text(const Color(0xFFFFFFFF), inQuote: true), const Color(0xFFFFFFFF));
+    expect(colors.text(const Color(0xFFFF9900), inQuote: true), const Color(0xFFFF9900));
+    expect(
+      colors.text(const Color(0xFF999999), on: const Color(0xFF222222), inQuote: true),
+      const Color(0xFF999999),
+    );
   });
 }

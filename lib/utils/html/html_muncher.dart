@@ -3286,7 +3286,7 @@ final class _Muncher with LoggerMixin {
     final ink = theme.textTheme.bodyMedium?.color ?? theme.colorScheme.onSurface;
     Color? shown(Color? authored, {required bool inside, required Color? fallback}) {
       if (nearest == null) {
-        return authored == null ? fallback : _colors.text(authored);
+        return authored == null ? fallback : _colors.text(authored, inQuote: _quoteDepth > 0);
       }
       final background = nearest.color;
       if (background == null) {
