@@ -169,7 +169,12 @@ class PinSection extends StatelessWidget {
           if (rows.isNotEmpty) {
             rows.add(const SizedBox(height: _gap));
           }
-          rows.add(Row(crossAxisAlignment: CrossAxisAlignment.start, children: cells));
+          // The cards of a row end at the same height, as the cells of the grid did.
+          rows.add(
+            IntrinsicHeight(
+              child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: cells),
+            ),
+          );
         }
         return Column(mainAxisSize: MainAxisSize.min, children: rows);
       },
