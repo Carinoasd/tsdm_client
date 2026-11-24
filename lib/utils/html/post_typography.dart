@@ -31,8 +31,9 @@ final class PostTypography {
 
   /// Default [lineHeight]: 1.8 for the body text of 16 ([postBodyFontSize]).
   ///
-  /// The setting keeps what the reader stored: only a reader who never set it (nothing stored, the default read) gets
-  /// the new default.
+  /// The setting keeps a value stored on the device (set by the reader, a backup restored, a sync applied): a device
+  /// with nothing stored reads the new default. The settings sync does not apply the former default (1.7) another
+  /// device wrote (`syncedSettingsFormerDefaults`).
   static const defaultLineHeight = 1.8;
 
   /// Lowest [lineHeight] offered in the settings.
@@ -41,7 +42,7 @@ final class PostTypography {
   /// Highest [lineHeight] offered in the settings.
   static const maxLineHeight = 2.0;
 
-  /// Default [paragraphSpacing]; as [defaultLineHeight], only for a reader who never set it.
+  /// Default [paragraphSpacing]; kept as [defaultLineHeight] (the former default the sync does not apply: 8).
   static const defaultParagraphSpacing = 10.0;
 
   /// Lowest [paragraphSpacing] offered in the settings: none.
