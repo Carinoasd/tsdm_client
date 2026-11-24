@@ -36,8 +36,12 @@ import 'package:tsdm_client/widgets/section_list_tile.dart';
 import 'package:tsdm_client/widgets/single_line_text.dart';
 import 'package:universal_html/parsing.dart';
 
-/// Width of the page (before its paddings) from which the entries go five on a row instead of four.
-const _wideEntriesWidth = 600.0;
+/// Least width of a tile of the entry grids at text scale 1: five on a row of a phone, four at 1.3 times the text.
+const _entryTileMinWidth = 64.0;
+
+/// Fewest and most tiles on a row of the entry grids.
+const _entryMinColumns = 4;
+const _entryMaxColumns = 5;
 
 /// An entry of the "me" tab: icon, label and what a tap does.
 typedef _MeEntry = ({Key key, IconData icon, String label, VoidCallback onTap});
@@ -425,31 +429,35 @@ class _MePageState extends State<MePage> {
   );
 
   /// The app: the accounts saved on this device (with an account), the settings and about.
-  Widget _buildApp(BuildContext context, {required bool loggedIn}) => AppTileGroup(
-    title: context.t.mePage.app,
-    icon: Icons.tune_outlined,
+  Widget _buildApp(BuildContext context, {required bool loggedIn}) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      if (loggedIn)
-        _row(
-          context,
-          key: const ValueKey('me-manage-accounts'),
-          icon: Icons.manage_accounts_outlined,
-          title: context.t.manageAccountPage.title,
-          path: ScreenPaths.manageAccount,
-        ),
-      _row(
-        context,
-        key: const ValueKey('me-settings'),
-        icon: Icons.settings_outlined,
-        title: context.t.navigation.settings,
-        path: ScreenPaths.settings.path,
-      ),
-      _row(
-        context,
-        key: const ValueKey('me-about'),
-        icon: Icons.info_outline,
-        title: context.t.settingsPage.othersSection.about,
-        path: ScreenPaths.about,
+      _GroupCaption(context.t.mePage.app),
+      AppTileGroup(
+        children: [
+          if (loggedIn)
+            _row(
+              context,
+              key: const ValueKey('me-manage-accounts'),
+              icon: Icons.manage_accounts_outlined,
+              title: context.t.manageAccountPage.title,
+              path: ScreenPaths.manageAccount,
+            ),
+          _row(
+            context,
+            key: const ValueKey('me-settings'),
+            icon: Icons.settings_outlined,
+            title: context.t.navigation.settings,
+            path: ScreenPaths.settings.path,
+          ),
+          _row(
+            context,
+            key: const ValueKey('me-about'),
+            icon: Icons.info_outline,
+            title: context.t.settingsPage.othersSection.about,
+            path: ScreenPaths.about,
+          ),
+        ],
       ),
     ],
   );
@@ -466,9 +474,8 @@ class _MePageState extends State<MePage> {
         bottom: false,
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final padding = appCenteredPadding(constraints.maxWidth, maxWidth: appFormMaxWidth);
-            final wide = constraints.maxWidth >= _wideEntriesWidth;
-            final gap = wide ? appSurfaceGap + 4 : appSurfaceGapCompact + 4;
+            final padding = appCenteredPadding(constraints.maxWidth, maxWidth: appFormMaxWidth, minPadding: 16);
+            final gap = constraints.maxWidth >= 600 ? appSurfaceGap + 4 : appSurfaceGapCompact + 4;
             final tr = context.t.mePage;
             return ListView(
               key: const ValueKey('me-page-list'),
@@ -480,12 +487,12 @@ class _MePageState extends State<MePage> {
                   SizedBox(height: gap),
                   _buildAccountRows(context, uid: user.uid),
                   SizedBox(height: gap),
-                  for (final (key, title, icon, entries) in [
-                    ('me-group-content', tr.content, Icons.article_outlined, _contentEntries(context)),
-                    ('me-group-social', tr.social, Icons.people_outline, _socialEntries(context)),
-                    ('me-group-stats', tr.stats, Icons.insights_outlined, _statsEntries(context, uid: user.uid)),
+                  for (final (key, title, entries) in [
+                    ('me-group-content', tr.content, _contentEntries(context)),
+                    ('me-group-social', tr.social, _socialEntries(context)),
+                    ('me-group-stats', tr.stats, _statsEntries(context, uid: user.uid)),
                   ]) ...[
-                    _EntryGrid(key: ValueKey(key), title: title, icon: icon, entries: entries, wide: wide),
+                    _EntryGrid(key: ValueKey(key), title: title, entries: entries),
                     SizedBox(height: gap),
                   ],
                 ] else ...[
@@ -495,9 +502,7 @@ class _MePageState extends State<MePage> {
                 _EntryGrid(
                   key: const ValueKey('me-group-services'),
                   title: tr.services,
-                  icon: Icons.apps_outlined,
                   entries: _serviceEntries(context, loggedIn: loggedIn),
-                  wide: wide,
                 ),
                 SizedBox(height: gap),
                 _buildApp(context, loggedIn: loggedIn),
@@ -552,13 +557,10 @@ class _AccountCardState extends State<_AccountCard> {
     final tr = context.t.mePage;
     final colorScheme = Theme.of(context).colorScheme;
     final surfaces = AppSurfaces.of(context);
-    return Card(
+    // Not a panel: the account heads the page on the page itself, as the greeting of the homepage.
+    return Material(
       key: const ValueKey('me-account-card'),
-      margin: EdgeInsets.zero,
-      clipBehavior: Clip.antiAlias,
-      shape: appSurfaceShape(context),
-      // Not a panel: the account heads the page on the page itself, as the greeting of the homepage.
-      color: Colors.transparent,
+      type: MaterialType.transparency,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -568,7 +570,7 @@ class _AccountCardState extends State<_AccountCard> {
               key: const ValueKey('me-account-profile'),
               onTap: () async => context.pushNamed(ScreenPaths.loggedUserProfile),
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 8, 12),
+                padding: const EdgeInsets.fromLTRB(0, 8, 0, 16),
                 child: Row(
                   children: [
                     SizedBox(
@@ -591,7 +593,11 @@ class _AccountCardState extends State<_AccountCard> {
                         children: [
                           SingleLineText(
                             username,
-                            style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                            style: textTheme.headlineSmall?.copyWith(
+                              fontSize: 24,
+                              height: 1.3,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                           sizedBoxW4H4,
                           Wrap(
@@ -609,7 +615,11 @@ class _AccountCardState extends State<_AccountCard> {
                               if (uid != null)
                                 Text(
                                   tr.uid(uid: uid),
-                                  style: textTheme.labelMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+                                  style: textTheme.bodySmall?.copyWith(
+                                    fontSize: 12.5,
+                                    color: surfaces.muted,
+                                    fontFeatures: const [FontFeature.tabularFigures()],
+                                  ),
                                 ),
                             ],
                           ),
@@ -626,7 +636,7 @@ class _AccountCardState extends State<_AccountCard> {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            padding: const EdgeInsets.only(bottom: 4),
             child: Row(
               children: [
                 if (context.readOrNull<CheckinBloc>() != null) ...[
@@ -664,17 +674,18 @@ class _Pill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    // Neutral: the user group is information, not an action.
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: colorScheme.secondaryContainer,
-        borderRadius: BorderRadius.circular(appInnerRadius),
+        color: AppSurfaces.of(context).control,
+        borderRadius: BorderRadius.circular(5),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 14, color: colorScheme.onSecondaryContainer),
+            Icon(icon, size: 14, color: colorScheme.primary),
             sizedBoxW4H4,
             Flexible(
               child: Text(
@@ -683,7 +694,7 @@ class _Pill extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(
                   context,
-                ).textTheme.labelMedium?.copyWith(color: colorScheme.onSecondaryContainer, fontWeight: FontWeight.w600),
+                ).textTheme.labelMedium?.copyWith(color: colorScheme.onSurface, fontWeight: FontWeight.w700),
               ),
             ),
           ],
@@ -743,45 +754,72 @@ class _GuestCard extends StatelessWidget {
   }
 }
 
-/// A group of entries as a grid of tiles: four on a row on phones, five in wider windows, every tile the same width.
-class _EntryGrid extends StatelessWidget {
-  const _EntryGrid({required this.title, required this.icon, required this.entries, required this.wide, super.key});
+/// The name of a group of "me", on the page above its panel: small, bold, quiet, no icon.
+class _GroupCaption extends StatelessWidget {
+  const _GroupCaption(this.title);
 
   final String title;
-  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(4, 4, 4, 8),
+    child: Text(
+      title,
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+        fontSize: 13,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 13 * 0.06,
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+      ),
+    ),
+  );
+}
+
+/// Number of tiles on a row of an entry grid [width] wide: as many as fit at [_entryTileMinWidth] times the text
+/// scale [textScale], [_entryMinColumns] to [_entryMaxColumns].
+int meEntryColumns(double width, double textScale) =>
+    (width / (_entryTileMinWidth * textScale)).floor().clamp(_entryMinColumns, _entryMaxColumns);
+
+/// A group of entries: its name on the page, then a panel with a grid of tiles, every tile the same width; five on a
+/// row of a phone, fewer with a larger text ([meEntryColumns]).
+class _EntryGrid extends StatelessWidget {
+  const _EntryGrid({required this.title, required this.entries, super.key});
+
+  final String title;
   final List<_MeEntry> entries;
-  final bool wide;
 
   @override
   Widget build(BuildContext context) {
-    final columns = wide ? 5 : 4;
-    return AppSurface(
-      padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          AppSectionHeader(title, icon: icon, padding: const EdgeInsets.fromLTRB(4, 8, 4, 8)),
-          LayoutBuilder(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _GroupCaption(title),
+        AppSurface(
+          padding: const EdgeInsets.all(8),
+          child: LayoutBuilder(
             builder: (context, constraints) {
-              const spacing = 8.0;
+              final columns = meEntryColumns(
+                constraints.maxWidth,
+                MediaQuery.textScalerOf(context).scale(14) / 14,
+              );
               // A hair narrower: the rounding of the division must not push the last tile of a row to the next one.
-              final width = (constraints.maxWidth - spacing * (columns - 1)) / columns - 0.01;
+              final width = constraints.maxWidth / columns - 0.01;
               return Wrap(
-                spacing: spacing,
-                runSpacing: spacing,
                 children: [
                   for (final entry in entries) SizedBox(width: width, child: _EntryTile(entry)),
                 ],
               );
             },
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
 
-/// A tile of [_EntryGrid]: icon over a label of up to two lines.
+/// A tile of [_EntryGrid]: icon over a label of up to two lines, on the panel itself.
 class _EntryTile extends StatelessWidget {
   const _EntryTile(this.entry);
 
@@ -797,7 +835,7 @@ class _EntryTile extends StatelessWidget {
       excludeFromSemantics: true,
       child: Material(
         key: entry.key,
-        color: colorScheme.surfaceContainerHigh,
+        type: MaterialType.transparency,
         borderRadius: BorderRadius.circular(appInnerRadius),
         clipBehavior: Clip.antiAlias,
         child: Semantics(
@@ -805,20 +843,20 @@ class _EntryTile extends StatelessWidget {
           child: InkWell(
             onTap: entry.onTap,
             child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 76),
+              constraints: const BoxConstraints(minHeight: 72),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(entry.icon, color: colorScheme.primary),
-                    sizedBoxW4H4,
+                    Icon(entry.icon, size: 24, color: colorScheme.primary),
+                    const SizedBox(height: 6),
                     Text(
                       entry.label,
                       maxLines: 2,
                       textAlign: TextAlign.center,
                       overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.labelMedium,
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(fontSize: 12.5, height: 1.25),
                     ),
                   ],
                 ),

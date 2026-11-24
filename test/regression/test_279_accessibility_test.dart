@@ -28,6 +28,7 @@ import 'package:tsdm_client/features/thread/v1/view/thread_page.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/widgets/card/post_card/post_card.dart';
+import 'package:tsdm_client/widgets/card/thread_card/thread_card.dart';
 import 'package:tsdm_client/widgets/heroes.dart';
 
 import 'a11y_harness.dart';
@@ -103,20 +104,22 @@ void main() {
       await a11ySettle(tester);
       expect(find.text('Alice'), findsWidgets, reason: 'the thread cards are on the page');
       await audit(tester, covered: [floatingButtons()]);
-      // The 48 box of the avatar and its circle, name and date where they were with the 40 circle (16, 12 from the
-      // corner of the card, the name 12 after the circle): the target grew around the circle, not the head.
-      final card = tester.getRect(find.byType(Card).first);
-      final circle = tester.getRect(find.descendant(of: find.byType(Card).first, matching: find.byType(CircleAvatar)));
+      // Beautify v2: a flat row; the 24 avatar and the name are one target opening the author, 48 high, the avatar
+      // 16 from the start of the row and the name 8 after it.
+      final row = tester.getRect(find.byType(NormalThreadCard).first);
+      final circle = tester.getRect(
+        find.descendant(of: find.byType(NormalThreadCard).first, matching: find.byType(CircleAvatar)),
+      );
       final box = avatarTarget(tester, find.byType(HeroUserAvatar).first);
-      expect(box.size, const Size(48, 48));
-      expect(circle.size, const Size(40, 40));
-      expect(circle.topLeft - card.topLeft, const Offset(16, 12));
-      final name = tester.getRect(find.descendant(of: find.byType(Card).first, matching: find.text('Alice')));
-      expect(name.left - circle.right, 12);
-      // The texts (name over date) centered on the circle, as with the 40 circle at the default size.
-      final texts = tester.getRect(find.ancestor(of: find.text('Alice').first, matching: find.byType(Column)).first);
-      expect(texts.height, lessThan(48), reason: 'the default size: the box decides the height of the head');
-      expect(texts.center.dy, closeTo(circle.center.dy, 0.5));
+      expect(box.height, greaterThanOrEqualTo(48));
+      expect(box.width, greaterThanOrEqualTo(48));
+      expect(circle.size, const Size(24, 24));
+      expect(circle.left - row.left, 16);
+      final name = tester.getRect(
+        find.descendant(of: find.byType(NormalThreadCard).first, matching: find.text('Alice')),
+      );
+      expect(name.left - circle.right, 8);
+      expect(name.center.dy, closeTo(circle.center.dy, 0.5));
       await h.finish(tester);
     });
 
