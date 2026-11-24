@@ -949,7 +949,7 @@
     "donationCodeSaveFailed": "Could not save the QR code. Try again or take a screenshot.",
     "forumReward": {
       "title": "Forum rewards",
-      "description": "A donation to the app's development earns the rewards of the forum announcement 「支援天使」 (Support Angel), on the same terms as the announcement.",
+      "description": "A donation to the app's development earns the rewards of the forum announcement 「支援天使」 (Support Angel), on the same terms as the announcement for the first ¥200.",
       "separator": ": ",
       "tier50": {
         "amount": "From ¥50",
@@ -965,11 +965,11 @@
       },
       "tierEvery100": {
         "amount": "Every further ¥100",
-        "reward": "a permanent anniversary medal with a special meaning"
+        "reward": "an anniversary medal or an app sponsor medal, your choice (five app sponsor medals, given in order)"
       },
-      "tier500": {
-        "amount": "From ¥500",
-        "reward": "a choice between 「梦幻天使X」 and 「梦幻天使Y」"
+      "tierAllMedals": {
+        "amount": "All five app sponsor medals",
+        "reward": "can be exchanged for the app's own title badge"
       },
       "claimTitle": "How to claim",
       "claim": "when paying, write your forum username (or UID) in the Alipay note, then send me a private message with the amount and your forum account; once confirmed, the rewards go to that account.",

@@ -17,6 +17,7 @@ import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/platform.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
+import 'package:tsdm_client/widgets/cached_image/cached_image.dart';
 
 final _featureRequestUri = Uri.https('github.com', '/Carinoasd/tsdm_client/issues/new', {
   'template': '02_feedback.yml',
@@ -26,6 +27,18 @@ final _featureRequestUri = Uri.https('github.com', '/Carinoasd/tsdm_client/issue
 class SupportDevelopmentDialog extends StatefulWidget {
   /// Constructor.
   const SupportDevelopmentDialog({super.key});
+
+  /// The app sponsor medals, in the order they are given.
+  static const sponsorMedalUrls = [
+    'https://img.tsdm39.com/img01/medal/10%E6%9C%88/mistral%E7%AB%A0.gif',
+    'https://img.tsdm39.com/img01/medal/10%E6%9C%88/gpt%E7%AB%A0.gif',
+    'https://img.tsdm39.com/img01/medal/10%E6%9C%88/gemini%E7%AB%A0.gif',
+    'https://img.tsdm39.com/img01/medal/10%E6%9C%88/grok%E7%AB%A0.gif',
+    'https://img.tsdm39.com/img01/medal/10%E6%9C%88/claude%E7%AB%A0.gif',
+  ];
+
+  /// The title badge given for all of [sponsorMedalUrls].
+  static const sponsorTitleUrl = 'https://img.tsdm39.com/img01/title/claude.gif';
 
   /// Original donation image, bundled so it can also be viewed offline.
   static const imagePath = 'assets/images/alipay-donation.jpg';
@@ -140,6 +153,21 @@ class _SupportDevelopmentDialogState extends State<SupportDevelopmentDialog> wit
     );
   }
 
+  /// A medal or title of the rewards, from the forum's image host; nothing is shown when it cannot be loaded.
+  Widget _rewardImage(String url, {required double width, required double height, Key? key}) => SizedBox(
+    key: key,
+    width: width,
+    height: height,
+    child: CachedImage(
+      url,
+      width: width,
+      height: height,
+      fit: BoxFit.contain,
+      placeholderBuilder: (_, _) => const SizedBox.shrink(),
+      errorBuilder: (_, _, _) => const SizedBox.shrink(),
+    ),
+  );
+
   Future<void> _copyUsername(String username) async {
     await setClipboardText(username);
     if (mounted) {
@@ -156,12 +184,32 @@ class _SupportDevelopmentDialogState extends State<SupportDevelopmentDialog> wit
     final textTheme = Theme.of(context).textTheme;
     final bodyStyle = textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant);
     final strong = TextStyle(fontWeight: FontWeight.bold, color: colorScheme.onSurface);
-    final tiers = [
-      (tr.tier50.amount, tr.tier50.reward),
-      (tr.tier100.amount, tr.tier100.reward),
-      (tr.tier200.amount, tr.tier200.reward),
-      (tr.tierEvery100.amount, tr.tierEvery100.reward),
-      (tr.tier500.amount, tr.tier500.reward),
+    final tiers = <(String, String, Widget?)>[
+      (tr.tier50.amount, tr.tier50.reward, null),
+      (tr.tier100.amount, tr.tier100.reward, null),
+      (tr.tier200.amount, tr.tier200.reward, null),
+      (
+        tr.tierEvery100.amount,
+        tr.tierEvery100.reward,
+        Wrap(
+          key: const ValueKey('forum-reward-sponsor-medals'),
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final url in SupportDevelopmentDialog.sponsorMedalUrls) _rewardImage(url, width: 34, height: 55),
+          ],
+        ),
+      ),
+      (
+        tr.tierAllMedals.amount,
+        tr.tierAllMedals.reward,
+        _rewardImage(
+          SupportDevelopmentDialog.sponsorTitleUrl,
+          key: const ValueKey('forum-reward-sponsor-title'),
+          width: 110,
+          height: 60,
+        ),
+      ),
     ];
     final account = context.readOrNull<AuthenticationRepository>()?.effectiveCurrentUser;
     final username = account?.username;
@@ -205,7 +253,7 @@ class _SupportDevelopmentDialogState extends State<SupportDevelopmentDialog> wit
           AppSectionHeader(tr.title, icon: Icons.redeem_outlined),
           Text(tr.description, style: bodyStyle),
           const SizedBox(height: 4),
-          for (final (amount, reward) in tiers)
+          for (final (amount, reward, image) in tiers) ...[
             Padding(
               padding: const EdgeInsets.only(top: 6),
               child: Row(
@@ -231,6 +279,12 @@ class _SupportDevelopmentDialogState extends State<SupportDevelopmentDialog> wit
                 ],
               ),
             ),
+            if (image != null)
+              Padding(
+                padding: const EdgeInsetsDirectional.only(start: 14, top: 6),
+                child: Align(alignment: AlignmentDirectional.centerStart, child: image),
+              ),
+          ],
           const SizedBox(height: 12),
           Text.rich(
             TextSpan(

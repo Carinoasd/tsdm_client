@@ -949,7 +949,7 @@
     "donationCodeSaveFailed": "無法儲存贊助碼，請重試或使用截圖。",
     "forumReward": {
       "title": "論壇獎勵",
-      "description": "贊助 App 開發同樣可以獲得論壇「支援天使」公告的獎勵，標準與公告相同。",
+      "description": "贊助 App 開發同樣可以獲得論壇「支援天使」公告的獎勵，前 200 元的標準與公告相同。",
       "separator": "：",
       "tier50": {
         "amount": "滿 50 元",
@@ -965,11 +965,11 @@
       },
       "tierEvery100": {
         "amount": "之後每滿 100 元",
-        "reward": "一枚有特殊意義的永久週年紀念勳章"
+        "reward": "週年紀念勳章或 App 贊助勳章二選一（App 贊助勳章共五枚，依序領取）"
       },
-      "tier500": {
-        "amount": "滿 500 元",
-        "reward": "可在「夢幻天使X」與「夢幻天使Y」之間選擇"
+      "tierAllMedals": {
+        "amount": "集滿五枚 App 贊助勳章",
+        "reward": "可兌換 App 專屬牌子"
       },
       "claimTitle": "領取方式",
       "claim": "付款時在支付寶的備註裡寫上你的論壇使用者名稱（或 UID），付款後再私訊我一聲，附上金額和你的論壇帳號，我確認後把獎勵發到這個帳號。",

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -9,6 +10,10 @@ import 'package:talker_flutter/talker_flutter.dart';
 import 'package:tsdm_client/features/settings/widgets/support_development_dialog.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
+import 'package:tsdm_client/shared/providers/cookie_provider/cookie_provider.dart';
+import 'package:tsdm_client/shared/providers/image_cache_provider/image_cache_provider.dart';
+import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
+import 'package:tsdm_client/shared/providers/providers.dart';
 
 class _Picker extends FilePicker {
   String? path;
@@ -29,6 +34,16 @@ class _Picker extends FilePicker {
   }
 }
 
+/// No network: the reward images of the dialog fail to load and show nothing.
+final class _OfflineAdapter implements HttpClientAdapter {
+  @override
+  Future<ResponseBody> fetch(RequestOptions options, Stream<Uint8List>? requestStream, Future<void>? cancelFuture) =>
+      throw DioException.connectionError(requestOptions: options, reason: 'offline');
+
+  @override
+  void close({bool force = false}) {}
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   const browserChannel = MethodChannel('kzs.th000.tsdm_client/mainChannel');
@@ -38,6 +53,11 @@ void main() {
   late _Picker picker;
   setUpAll(() => talker = TalkerFlutter.init(settings: TalkerSettings(enabled: false)));
   setUp(() {
+    getIt
+      ..registerFactory<CookieProvider>(CookieProvider.buildEmpty, instanceName: ServiceKeys.empty)
+      ..registerSingleton<ImageCacheProvider>(
+        ImageCacheProvider(NetClientProvider.buildNoCookie(dio: Dio()..httpClientAdapter = _OfflineAdapter())),
+      );
     picker = _Picker();
     FilePicker.platform = picker;
     browserCalls.clear();
@@ -49,7 +69,9 @@ void main() {
       return browserAnswer();
     });
   });
-  tearDown(() {
+  tearDown(() async {
+    await getIt.get<ImageCacheProvider>().dispose();
+    await getIt.reset();
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(browserChannel, null);
   });
 
