@@ -12,6 +12,7 @@ import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
+import 'package:tsdm_client/utils/html/post_typography.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/retry_button.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
@@ -58,9 +59,8 @@ class _NoticeDetailPage extends State<NoticeDetailPage> with LoggerMixin {
     // Post can not be null because we only call this function when in
     // success state.
     final post = state.post!;
-    // The post as a floor of the thread reader: a rounded surface at a readable width, phones keep most of the width
-    // for the text.
-    final side = MediaQuery.sizeOf(context).width < 600 ? 6.0 : 16.0;
+    // The post as a floor of the thread reader: flat on the page at a readable width, the whole width on a phone.
+    final side = floorMarginOf(context);
     // Only the post keeps the side safe area: the reply bar pads the insets itself so its background reaches the
     // screen edges in landscape.
     final postView = SafeArea(
@@ -70,7 +70,7 @@ class _NoticeDetailPage extends State<NoticeDetailPage> with LoggerMixin {
         padding: EdgeInsets.fromLTRB(side, 8, side, 12),
         child: AppContentWidth(
           maxWidth: appReadingMaxWidth,
-          child: Card(margin: EdgeInsets.zero, shape: appSurfaceShape(context), child: PostCard(post)),
+          child: Material(type: MaterialType.transparency, child: PostCard(post)),
         ),
       ),
     );

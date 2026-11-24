@@ -811,9 +811,10 @@ void main() {
   testWidgets("one author's floors from a floor's menu, and every author's again, have pages of their own to load", (
     tester,
   ) async {
+    // Tall enough for the floors whose menus are opened (the body text of a post is 16).
     tester.view
       ..devicePixelRatio = 1
-      ..physicalSize = const Size(360, 780);
+      ..physicalSize = const Size(360, 1100);
     addTearDown(tester.view.reset);
     // Floors short enough for the menu at the end of the first one to be on screen, tall enough for three of them to
     // fill the screen (the list asks for no page of its own).

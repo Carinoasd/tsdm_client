@@ -127,6 +127,9 @@ String _inPost(String html) =>
 /// The colors of [c] as 0–255 channels.
 (int, int, int) _rgb(Color c) => ((c.r * 255).round(), (c.g * 255).round(), (c.b * 255).round());
 
+/// A css pixel of the web page in a post: its body text (16) is the web page's 14px.
+const _k = postBodyFontSize / webPostFontSize;
+
 void main() {
   setUpAll(() async {
     talker = TalkerFlutter.init(settings: TalkerSettings(enabled: false));
@@ -164,22 +167,22 @@ void main() {
         '<span style="font-size: 2px">太小</span>'
         '<span style="font-size: calc(1vw + 2px)">不认得</span>',
       );
-      expect(_style(tester, '像素').fontSize, 16);
-      expect(_style(tester, '点数').fontSize, 16);
-      expect(_style(tester, '一半').fontSize, 12, reason: 'of the size around it: [size=5], 24');
-      expect(_style(tester, '倍数').fontSize, 36);
-      expect(_style(tester, '关键字').fontSize, 24);
-      expect(_style(tester, '太大').fontSize, maxWebFontSize);
-      expect(_style(tester, '太小').fontSize, minWebFontSize);
-      expect(_style(tester, '不认得').fontSize, 14, reason: 'the body text');
+      expect(_style(tester, '像素').fontSize, 16 * _k);
+      expect(_style(tester, '点数').fontSize, 16 * _k);
+      expect(_style(tester, '一半').fontSize, 12 * _k, reason: 'of the size around it: [size=5], 24');
+      expect(_style(tester, '倍数').fontSize, closeTo(36 * _k, 1e-9));
+      expect(_style(tester, '关键字').fontSize, 24 * _k);
+      expect(_style(tester, '太大').fontSize, maxWebFontSize * _k);
+      expect(_style(tester, '太小').fontSize, minWebFontSize * _k);
+      expect(_style(tester, '不认得').fontSize, 14 * _k, reason: 'the body text');
     });
 
-    testWidgets('the sizes follow the body text of the app', (tester) async {
+    testWidgets("the sizes follow the body text of a post (16), not the theme's body text", (tester) async {
       final big = _light.copyWith(textTheme: _light.textTheme.copyWith(bodyMedium: const TextStyle(fontSize: 28)));
       await _pump(tester, '<font size="2">二号</font><span style="font-size: 16px">十六</span>正文', theme: big);
-      expect(_style(tester, '二号').fontSize, 26);
-      expect(_style(tester, '十六').fontSize, 32);
-      expect(_style(tester, '正文').fontSize, 28);
+      expect(_style(tester, '二号').fontSize, 13 * _k);
+      expect(_style(tester, '十六').fontSize, 16 * _k);
+      expect(_style(tester, '正文').fontSize, postBodyFontSize);
     });
 
     testWidgets('line height and font family are not taken', (tester) async {
@@ -196,7 +199,7 @@ void main() {
       );
       final style = _style(tester, '还在');
       expect(style.fontWeight, FontWeight.w600);
-      expect(style.fontSize, 14);
+      expect(style.fontSize, 14 * _k);
       expect(style.shadows, isNull);
     });
   });
@@ -216,8 +219,8 @@ void main() {
 
     testWidgets('[size=2] is smaller than the body text, as on the web page', (tester) async {
       await _pump(tester, '<font size="2">小</font><font size="3">中</font>正文');
-      expect(_style(tester, '小').fontSize, 13);
-      expect(_style(tester, '中').fontSize, 16);
+      expect(_style(tester, '小').fontSize, 13 * _k);
+      expect(_style(tester, '中').fontSize, 16 * _k);
     });
   });
 
@@ -297,7 +300,7 @@ void main() {
         }
         return true;
       });
-      expect(indents, [28, 28], reason: '2em of 14');
+      expect(indents, [28 * _k, 28 * _k], reason: '2em of 14');
       expect(texts, ['首行缩进', '又一段']);
 
       await _pump(tester, html, post: false);
@@ -319,7 +322,7 @@ void main() {
       );
       expect(_style(tester, '橙红').color, const Color(0xFFF26C4F));
       expect(_style(tester, '加粗').fontWeight, FontWeight.w600);
-      expect(_style(tester, '小字').fontSize, 12);
+      expect(_style(tester, '小字').fontSize, 12 * _k);
       expect(_style(tester, '灰字').color, const Color(0xFF999999));
       expect(_style(tester, '灰链').color, const Color(0xFF999999));
     });
@@ -328,7 +331,7 @@ void main() {
       await _pump(tester, '<font color="DarkSlateBlue" size="4"><ul><li>条目</li></ul></font>');
       final mark = _style(tester, '•');
       expect(mark.color, const Color(0xFF483D8B));
-      expect(mark.fontSize, 18);
+      expect(mark.fontSize, 18 * _k);
     });
 
     testWidgets('a cell is at the size of the post, not of a <font> around the table', (tester) async {
@@ -336,9 +339,9 @@ void main() {
         tester,
         '<font size="5">外面<table><tr><td>格子</td><td><font size="2">小格</font></td></tr></table></font>',
       );
-      expect(_style(tester, '外面').fontSize, 24);
-      expect(_style(tester, '格子').fontSize, 14);
-      expect(_style(tester, '小格').fontSize, 13);
+      expect(_style(tester, '外面').fontSize, 24 * _k);
+      expect(_style(tester, '格子').fontSize, postBodyFontSize);
+      expect(_style(tester, '小格').fontSize, 13 * _k);
     });
   });
 
@@ -362,14 +365,14 @@ void main() {
       );
       final red = _style(tester, '序章');
       expect(red.color, const Color(0xFFFFFFFF));
-      expect(red.fontSize, 20);
+      expect(red.fontSize, 20 * _k);
       expect(red.shadows, [
-        const Shadow(color: Color(0xFFFF0000), blurRadius: 6),
-        const Shadow(color: Color(0xFFFF0000), offset: Offset(3, 0), blurRadius: 6),
+        const Shadow(color: Color(0xFFFF0000), blurRadius: 6 * _k),
+        const Shadow(color: Color(0xFFFF0000), offset: Offset(3 * _k, 0), blurRadius: 6 * _k),
       ]);
       expect(_style(tester, '粗体').color, const Color(0xFF800080));
       expect(_style(tester, '编号').color, const Color(0xFF0000FF));
-      expect(_style(tester, '大字').fontSize, 24);
+      expect(_style(tester, '大字').fontSize, 24 * _k);
       expect(_style(tester, '框里').color, const Color(0xFF00AA00));
       expect(_style(tester, '框外').color, isNot(const Color(0xFF00AA00)));
       expect(_style(tester, '三层祖先').color, const Color(0xFFD6BEC8), reason: 'up to three ancestors');
@@ -718,8 +721,9 @@ void main() {
     testWidgets('shadows stay by their text, the content paints around its own box', (tester) async {
       await _pump(tester, _inPost('<span style="text-shadow: 0 -100px 0 red, 5em 0 3em blue">影子</span>'));
       expect(_style(tester, '影子').shadows, [
-        const Shadow(color: Color(0xFFFF0000), offset: Offset(0, -14)),
-        const Shadow(color: Color(0xFF0000FF), offset: Offset(14, 0), blurRadius: 14),
+        // Bounded to an em of the post's body text (16).
+        const Shadow(color: Color(0xFFFF0000), offset: Offset(0, -postBodyFontSize)),
+        const Shadow(color: Color(0xFF0000FF), offset: Offset(postBodyFontSize, 0), blurRadius: postBodyFontSize),
       ]);
       final clip = tester.widget<ClipRect>(find.byWidgetPredicate((w) => w is ClipRect && w.clipper != null));
       expect(clip.clipper!.getClip(const Size(100, 50)), const Rect.fromLTRB(-8, -8, 108, 58));
@@ -872,7 +876,7 @@ void main() {
         ),
       );
       expect(text(), allOf(contains('子一'), contains('子二'), isNot(contains('子一 子二'))));
-      expect(_style(tester, '子一').fontSize, 14);
+      expect(_style(tester, '子一').fontSize, postBodyFontSize);
       // The same with class rules.
       await _pump(
         tester,
@@ -882,7 +886,7 @@ void main() {
         ),
       );
       expect(text(), allOf(contains('格一'), contains('格二')));
-      expect(_style(tester, '格一').fontSize, 16);
+      expect(_style(tester, '格一').fontSize, 16 * _k);
       // An image link whose text is hidden: the image shows (the spans are read without building the image, which
       // needs the image cache).
       Future<int> images(String html) async {
@@ -893,7 +897,11 @@ void main() {
               typography: const PostTypography(),
               child: Builder(
                 builder: (context) {
-                  final rendered = munchElement(context, parseHtmlDocument(_inPost(html)).body!);
+                  var rendered = munchElement(context, parseHtmlDocument(_inPost(html)).body!);
+                  // A post's content comes at the size of its body text.
+                  if (rendered is DefaultTextStyle) {
+                    rendered = rendered.child;
+                  }
                   ((rendered as ConstrainedBox).child! as Text).textSpan!.visitChildren((span) {
                     if (span is WidgetSpan && span.child is GestureDetector) {
                       count++;
