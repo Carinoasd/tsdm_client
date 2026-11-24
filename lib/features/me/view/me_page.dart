@@ -579,6 +579,8 @@ class _AccountCardState extends State<_AccountCard> {
                         avatarUrl: avatarUrlOfUid(uid?.toString()),
                         // A tab kept alive off screen: no hero flying in from it.
                         disableHero: true,
+                        // The default circle is the color of the card itself.
+                        backgroundColor: surfaces.card,
                       ),
                     ),
                     sizedBoxW12H12,
