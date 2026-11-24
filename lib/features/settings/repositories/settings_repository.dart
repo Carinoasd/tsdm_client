@@ -100,14 +100,19 @@ final class SettingsRepository with LoggerMixin {
         return;
       }
       final values = syncedSettingsValues(_state);
+      var reset = false;
       for (final group in syncedSettingsFormerDefaults) {
         if (group.entries.every((e) => values[e.key] == e.value)) {
-          for (final setting in syncedSettings.where((s) => group.containsKey(s.key.name))) {
-            await _storage.deleteKey(setting.key.name);
-            _state = _state.copyWithKey(setting.key, setting.key.defaultValue);
+          for (final name in group.keys) {
+            await _storage.deleteKey(name);
           }
+          reset = true;
           info('settings at the former defaults ${group.keys.join(', ')} reset to the defaults');
         }
+      }
+      if (reset) {
+        // Read again: what was deleted reads as its default.
+        _state = await _initMap();
       }
       await _storage.saveBool(formerDefaultsResetKey, value: true);
     } on Object catch (e, st) {

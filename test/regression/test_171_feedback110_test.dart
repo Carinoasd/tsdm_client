@@ -1347,7 +1347,7 @@ void main() {
 
     Finder redPacketButton() => find.ancestor(
       of: find.text(tr.redPacket.daily.unavailable),
-      matching: find.byWidgetPredicate((w) => w is FilledButton),
+      matching: find.byWidgetPredicate((w) => w is OutlinedButton),
     );
 
     testWidgets('6. loading and refreshing never flash the activity entry in the app bar', (tester) async {
