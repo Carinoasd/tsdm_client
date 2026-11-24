@@ -69,7 +69,7 @@ class SettingsHomeLayoutPage extends StatelessWidget {
                       ReorderableDragStartListener(
                         key: ValueKey('home-layout-handle-${block.id}'),
                         index: index,
-                        child: Icon(Icons.drag_handle_outlined, color: colorScheme.outline),
+                        child: Icon(Icons.drag_handle_outlined, color: colorScheme.onSurfaceVariant),
                       ),
                       sizedBoxW12H12,
                       Expanded(child: Text(homeBlockLabel(context, block))),

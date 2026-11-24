@@ -111,8 +111,8 @@ class _ProxySettingsDialogState extends State<ProxySettingsDialog> {
     final tr = context.t.settingsPage.advancedSection.proxySettings;
     final colorScheme = Theme.of(context).colorScheme;
     final (IconData statusIcon, Color statusColor) = switch (connStatus) {
-      _TestConnStatus.waiting => (Icons.help_outline, colorScheme.outline),
-      _TestConnStatus.testing => (Icons.hourglass_top_outlined, colorScheme.outline),
+      _TestConnStatus.waiting => (Icons.help_outline, colorScheme.onSurfaceVariant),
+      _TestConnStatus.testing => (Icons.hourglass_top_outlined, colorScheme.onSurfaceVariant),
       _TestConnStatus.connected => (Icons.check_circle_outline, colorScheme.primary),
       _TestConnStatus.disconnected => (Icons.error_outline, colorScheme.error),
     };

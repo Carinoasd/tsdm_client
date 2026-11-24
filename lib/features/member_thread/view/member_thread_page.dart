@@ -207,9 +207,10 @@ class _MemberThreadPageState extends State<MemberThreadPage> with SingleTickerPr
               ),
             )
           : AppCenteredList(
-              builder: (context, side, _) => ListView.separated(
+              builder: (context, _, width) => ListView.separated(
                 physics: physics,
-                padding: side.copyWith(top: 8).add(context.safePadding()),
+                // Flat rows to the edges of a phone, hairlines between them.
+                padding: threadListPadding(width).copyWith(top: 8).add(context.safePadding()),
                 // The end of the list is its last item: built when it comes near, it asks the next page.
                 itemCount: list.items.length + 1,
                 itemBuilder: (context, index) => index < list.items.length
@@ -233,7 +234,7 @@ class _MemberThreadPageState extends State<MemberThreadPage> with SingleTickerPr
                         onLoadMore: () async => _cubit.loadMore(tab),
                         onRetry: () async => _cubit.loadMore(tab),
                       ),
-                separatorBuilder: (context, index) => appListSeparator,
+                separatorBuilder: (context, index) => const ThreadListSeparator(),
               ),
             ),
     );

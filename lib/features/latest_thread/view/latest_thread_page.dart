@@ -75,9 +75,10 @@ class _LatestThreadPageState extends State<LatestThreadPage> with ListThreadPick
               ),
             )
           : AppCenteredList(
-              builder: (context, side, _) => ListView.separated(
+              builder: (context, _, width) => ListView.separated(
                 physics: physics,
-                padding: side.copyWith(top: 8).add(context.safePadding()),
+                // Flat rows to the edges of a phone, hairlines between them.
+                padding: threadListPadding(width).copyWith(top: 8).add(context.safePadding()),
                 // The end of the list is its last item: built when it comes near, it asks the next page.
                 itemCount: state.threadList.length + 1,
                 itemBuilder: (context, index) => index < state.threadList.length
@@ -101,7 +102,7 @@ class _LatestThreadPageState extends State<LatestThreadPage> with ListThreadPick
                         onLoadMore: () => bloc.add(LatestThreadLoadMoreRequested()),
                         onRetry: () => bloc.add(LatestThreadLoadMoreRequested()),
                       ),
-                separatorBuilder: (context, index) => appListSeparator,
+                separatorBuilder: (context, index) => const ThreadListSeparator(),
               ),
             ),
     );

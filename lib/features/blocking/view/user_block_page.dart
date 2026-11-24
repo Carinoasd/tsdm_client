@@ -16,6 +16,7 @@ import 'package:tsdm_client/features/blocking/widgets/thread_filter_sections.dar
 import 'package:tsdm_client/features/blocking/widgets/user_block_button.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/themes/app_surfaces.dart';
 import 'package:tsdm_client/utils/show_dialog.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
@@ -363,7 +364,7 @@ class _UserBlockPageState extends State<UserBlockPage> {
                         ],
                       ),
                     ),
-                    Icon(Icons.chevron_right, color: Theme.of(context).colorScheme.outline),
+                    Icon(Icons.chevron_right, color: Theme.of(context).colorScheme.onSurfaceVariant),
                   ],
                 ),
               ),
@@ -429,12 +430,12 @@ class _BlockRow extends StatelessWidget {
     final text = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+        Text(title, style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
         Text(subtitle, style: textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant)),
       ],
     );
     return Material(
-      color: colorScheme.surfaceContainerLow,
+      color: AppSurfaces.of(context).inset,
       borderRadius: BorderRadius.circular(appInnerRadius),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -485,7 +486,7 @@ class _EmptyLine extends StatelessWidget {
       padding: edgeInsetsL12T12R12B12,
       child: Row(
         children: [
-          Icon(icon, size: 20, color: colorScheme.outline),
+          Icon(icon, size: 20, color: colorScheme.onSurfaceVariant),
           sizedBoxW12H12,
           Expanded(
             child: Text(

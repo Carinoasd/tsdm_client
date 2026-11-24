@@ -4,6 +4,7 @@ import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/date_time.dart';
@@ -30,8 +31,6 @@ import 'package:tsdm_client/features/netdisk/models/netdisk_link.dart';
 import 'package:tsdm_client/features/netdisk/utils/netdisk_parser.dart';
 import 'package:tsdm_client/features/post/models/models.dart';
 import 'package:tsdm_client/features/post/utils/edit_attachments.dart';
-import 'package:tsdm_client/features/post_background/models/post_background.dart';
-import 'package:tsdm_client/features/post_background/widgets/post_background_paint.dart';
 import 'package:tsdm_client/features/post_comment/widgets/post_comment_widgets.dart';
 import 'package:tsdm_client/features/post_report/view/post_report_dialog.dart';
 import 'package:tsdm_client/features/profile/widgets/secondary_title_badge.dart';
@@ -53,6 +52,7 @@ import 'package:tsdm_client/shared/models/medal.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/models/post_image_auto_load.dart';
 import 'package:tsdm_client/shared/models/thread_floor_interaction_mode.dart';
+import 'package:tsdm_client/themes/app_surfaces.dart';
 import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/clipboard.dart';
 import 'package:tsdm_client/utils/external_launch.dart';
@@ -286,15 +286,23 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
 
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final surfaces = AppSurfaces.of(context);
     final nickname = widget.post.userBriefProfile?.nickname;
     final userGroup = widget.post.userBriefProfile?.userGroup;
     final publishTime = widget.post.publishTime;
+    // Meta text: the time and where the floor was sent from, quieter than the name.
+    final metaStyle = textTheme.bodySmall?.copyWith(
+      fontSize: 12.5,
+      height: 1.4,
+      color: surfaces.muted,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
 
-    // The avatar is a 48 wide tap target around the 44 wide circle, named after the author (the circle itself has
-    // nothing to read). The circle sits at the top of the box, so it and the texts beside it stay where they were: 2
-    // less padding before it, 2 less gap after it, the target growing 4 below it.
+    // The avatar is a 48 square tap target with the 40 wide circle at its top start, named after the author (the
+    // circle itself has nothing to read): the circle lines up with the text of the floor below it, the target growing
+    // to the end and below it.
     return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 14, 12, 0),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -309,10 +317,10 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
               child: SizedBox.square(
                 dimension: 48,
                 child: Align(
-                  alignment: Alignment.topCenter,
+                  alignment: AlignmentDirectional.topStart,
                   child: SizedBox(
-                    width: 44,
-                    height: 44,
+                    width: 40,
+                    height: 40,
                     // The page prints "头像被屏蔽" in place of the avatar: none is shown, not even one kept for the
                     // author.
                     child: widget.post.avatarBlocked
@@ -327,14 +335,15 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
               ),
             ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 4),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Wrap(
                   spacing: 6,
-                  crossAxisAlignment: WrapCrossAlignment.end,
+                  runSpacing: 2,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     // The avatar before it opens the same card and is the 48 wide target; the name is read as a
                     // link.
@@ -348,10 +357,13 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
                             style: DefaultTextStyle.of(toHeroContext).style,
                             child: toHeroContext.widget,
                           ),
+                          // A name is neutral: the accent is for actions.
                           child: Text(
                             widget.post.author.name,
                             style: textTheme.titleSmall?.copyWith(
-                              color: colorScheme.primary,
+                              fontSize: 15,
+                              height: 1.35,
+                              color: colorScheme.onSurface,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -361,21 +373,27 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
                     if (nickname != null)
                       Text(
                         nickname,
-                        style: textTheme.labelSmall?.copyWith(color: colorScheme.secondary),
+                        style: textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant),
                         overflow: TextOverflow.ellipsis,
                         maxLines: 1,
                       ),
+                    if (userGroup != null && userGroup.isNotEmpty) _GroupTag(context.displayText(userGroup)),
                   ],
                 ),
                 sizedBoxW2H2,
-                Text(
-                  [
-                    if (userGroup != null && userGroup.isNotEmpty) context.displayText(userGroup),
-                    if (publishTime != null) publishTime.yyyyMMDDHHMMSS(),
+                // The time and where the floor was sent from each stay on one line; the second goes below the first
+                // when the line has no room for both.
+                Wrap(
+                  spacing: 4,
+                  children: [
+                    if (publishTime != null) Text(publishTime.yyyyMMDDHHMMSS(), style: metaStyle),
                     // Sent from the app (plugin 3.3.0), as the web page prints it beside the time.
-                    if (widget.post.fromApp) context.t.postCard.fromApp,
-                  ].join(' · '),
-                  style: textTheme.labelSmall?.copyWith(color: colorScheme.outline),
+                    if (widget.post.fromApp)
+                      Text(
+                        publishTime == null ? context.t.postCard.fromApp : '· ${context.t.postCard.fromApp}',
+                        style: metaStyle,
+                      ),
+                  ],
                 ),
                 // What the page prints in the floor's header of a special thread: the accepted answer of a bounty, the
                 // floor's side in a debate (plugin 2.8.0).
@@ -417,7 +435,7 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
           if (widget.post.stuck) ...[
             Tooltip(
               message: context.t.moderateFloorOps.stuck,
-              child: Icon(Icons.vertical_align_top_outlined, size: 20, color: colorScheme.primary),
+              child: Icon(Symbols.vertical_align_top_rounded, size: 20, color: colorScheme.primary),
             ),
             sizedBoxW4H4,
           ],
@@ -436,9 +454,10 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
               child: Tooltip(
                 message: bookmark.note.isEmpty ? context.t.floorBookmark.title : bookmark.note,
                 child: Icon(
-                  Icons.turned_in,
+                  Symbols.turned_in_rounded,
                   key: ValueKey('floor-bookmarked-${widget.post.postID}'),
                   size: 20,
+                  fill: 1,
                   color: colorScheme.primary,
                 ),
               ),
@@ -453,10 +472,10 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
 
   Widget _buildLastEditInfoRow(BuildContext context) {
     return Padding(
-      padding: edgeInsetsL12T4R12,
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
       child: Text(
         context.t.postCard.lastEditInfo(username: widget.post.lastEditUsername!, time: widget.post.lastEditTime!),
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.outline),
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
       ),
     );
   }
@@ -586,70 +605,75 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
     final online = !isOfflineFloor(context);
     final colorScheme = Theme.of(context).colorScheme;
 
-    PopupMenuItem<_PostCardActions> item(_PostCardActions value, IconData icon, String text, {Color? color}) =>
-        PopupMenuItem(
-          value: value,
-          child: Row(
-            children: [
-              Icon(icon, color: color),
-              sizedBoxPopupMenuItemIconSpacing,
-              Flexible(
-                child: Text(text, style: color == null ? null : TextStyle(color: color)),
-              ),
-            ],
+    PopupMenuItem<_PostCardActions> item(
+      _PostCardActions value,
+      IconData icon,
+      String text, {
+      Color? color,
+      double? fill,
+    }) => PopupMenuItem(
+      value: value,
+      child: Row(
+        children: [
+          Icon(icon, color: color, fill: fill),
+          sizedBoxPopupMenuItemIconSpacing,
+          Flexible(
+            child: Text(text, style: color == null ? null : TextStyle(color: color)),
           ),
-        );
+        ],
+      ),
+    );
 
     // Same actions and conditions as before, grouped: answer the floor, change what is shown (author filter, edit),
     // share and copy, then report on its own in the error color.
     final groups = <List<PopupMenuEntry<_PostCardActions>>>[
       [
-        if (online) item(_PostCardActions.reply, Icons.reply_outlined, context.t.postCard.reply),
+        if (online) item(_PostCardActions.reply, Symbols.reply_rounded, context.t.postCard.reply),
         if (online && _quotable)
-          item(_PostCardActions.addQuote, Icons.format_quote_outlined, context.t.postCard.addQuote),
+          item(_PostCardActions.addQuote, Symbols.format_quote_rounded, context.t.postCard.addQuote),
         if (online && widget.post.rateAction != null)
-          item(_PostCardActions.rate, Icons.rate_review_outlined, context.t.postCard.rate),
+          item(_PostCardActions.rate, Symbols.rate_review_rounded, context.t.postCard.rate),
         if (online && widget.post.commentAction != null)
-          item(_PostCardActions.comment, Icons.add_comment_outlined, context.t.postComment.menu),
+          item(_PostCardActions.comment, Symbols.add_comment_rounded, context.t.postComment.menu),
       ],
       [
         if (_bookmarkTarget(context) != null)
           if (_bookmarkOf(context, listen: false) == null)
-            item(_PostCardActions.bookmark, Icons.turned_in_not_outlined, context.t.floorBookmark.add)
+            item(_PostCardActions.bookmark, Symbols.turned_in_not_rounded, context.t.floorBookmark.add)
           else
-            item(_PostCardActions.bookmark, Icons.turned_in_outlined, context.t.floorBookmark.edit),
+            item(_PostCardActions.bookmark, Symbols.turned_in_rounded, context.t.floorBookmark.edit, fill: 1),
       ],
       [
         // Viewing all authors, can switch to only view current author mode.
         if (threadBloc != null && onlyVisibleUid == null && widget.post.author.uid != null)
-          item(_PostCardActions.viewTheAuthor, Icons.person_outlined, context.t.postCard.onlyViewAuthor),
+          item(_PostCardActions.viewTheAuthor, Symbols.person_rounded, context.t.postCard.onlyViewAuthor),
         // Viewing specified author now, can switch to view all authors mode.
         if (threadBloc != null && onlyVisibleUid != null)
-          item(_PostCardActions.viewAllAuthors, Icons.group_outlined, context.t.postCard.viewAllAuthors),
+          item(_PostCardActions.viewAllAuthors, Symbols.group_rounded, context.t.postCard.viewAllAuthors),
         if (online && _otherAuthorUid(context) != null)
-          item(_PostCardActions.authorThreads, Icons.topic_outlined, context.t.postCard.authorThreads),
+          item(_PostCardActions.authorThreads, Symbols.topic_rounded, context.t.postCard.authorThreads),
         if (online && widget.post.editUrl != null)
-          item(_PostCardActions.edit, Icons.edit_outlined, context.t.postCard.edit),
+          item(_PostCardActions.edit, Symbols.edit_rounded, context.t.postCard.edit),
       ],
       [
         if (galleryImagesOfPost(widget.post).isNotEmpty)
           item(
             _PostCardActions.saveImages,
-            Icons.download_for_offline_outlined,
+            Symbols.download_for_offline_rounded,
             context.t.imageBottomSheet.saveAllImages,
           ),
         if (widget.post.shareLink != null) ...[
-          item(_PostCardActions.share, Icons.share_outlined, context.t.postCard.share),
-          item(_PostCardActions.shareAsImage, Icons.image_outlined, context.t.postCard.shareAsImage),
-          item(_PostCardActions.openInBrowser, Icons.open_in_browser_outlined, context.t.postCard.openInBrowser),
-          item(_PostCardActions.openAndCopy, Icons.copy_outlined, context.t.postCard.copyText),
-          item(_PostCardActions.copyAsPlainText, Icons.notes_outlined, context.t.threadExport.copyPlain),
-          item(_PostCardActions.copyAsMarkdown, Icons.code_outlined, context.t.threadExport.copyMarkdown),
+          item(_PostCardActions.share, Symbols.share_rounded, context.t.postCard.share),
+          item(_PostCardActions.shareAsImage, Symbols.image_rounded, context.t.postCard.shareAsImage),
+          item(_PostCardActions.openInBrowser, Symbols.open_in_browser_rounded, context.t.postCard.openInBrowser),
+          item(_PostCardActions.openAndCopy, Symbols.content_copy_rounded, context.t.postCard.copyText),
+          item(_PostCardActions.copyAsPlainText, Symbols.notes_rounded, context.t.threadExport.copyPlain),
+          item(_PostCardActions.copyAsMarkdown, Symbols.code_rounded, context.t.threadExport.copyMarkdown),
           if (_netdiskLinks().isNotEmpty)
-            item(_PostCardActions.copyNetdisk, Icons.cloud_download_outlined, context.t.netdisk.copyAll),
+            item(_PostCardActions.copyNetdisk, Symbols.cloud_download_rounded, context.t.netdisk.copyAll),
           item(
             _PostCardActions.copyPid,
-            Icons.numbers_outlined,
+            Symbols.numbers_rounded,
             context.t.postCard.copyPid(pid: widget.post.postID),
           ),
         ],
@@ -678,9 +702,13 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
             widget.canRemoveRate &&
             widget.post.rate != null &&
             _removeRateTid(context) != null)
-          item(_PostCardActions.moderateRemoveRate, Icons.remove_circle_outline, context.t.moderateFloorOps.removeRate),
+          item(
+            _PostCardActions.moderateRemoveRate,
+            Symbols.remove_circle_rounded,
+            context.t.moderateFloorOps.removeRate,
+          ),
         if (online && widget.post.viewIpUrl != null && !isOfflineFloor(context))
-          item(_PostCardActions.viewIp, Icons.lan_outlined, context.t.moderateFloorOps.viewIp),
+          item(_PostCardActions.viewIp, Symbols.lan_rounded, context.t.moderateFloorOps.viewIp),
         if (online && widget.onBanAuthor != null)
           item(
             _PostCardActions.banAuthor,
@@ -690,7 +718,7 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
       ],
       [
         if (online && widget.post.reportTarget != null)
-          item(_PostCardActions.report, Icons.flag_outlined, context.t.postReport.menu, color: colorScheme.error),
+          item(_PostCardActions.report, Symbols.flag_rounded, context.t.postReport.menu, color: colorScheme.error),
       ],
     ];
 
@@ -1056,10 +1084,7 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
                     : null,
               ),
               Expanded(
-                child: IgnorePointer(
-                  ignoring: picking,
-                  child: _buildCard(context, picking: picking),
-                ),
+                child: IgnorePointer(ignoring: picking, child: _buildCard(context)),
               ),
             ],
           ),
@@ -1068,30 +1093,20 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
     );
   }
 
-  /// The floor's card; while floors are [picking] to be quoted it sits beside a checkbox, its backgrounds not drawn.
-  Widget _buildCard(BuildContext context, {bool picking = false}) {
-    final author = _buildAuthorRow(context);
-    final rest = <Widget>[
-      // Last edit status.
-      if (widget.post.lastEditUsername != null && widget.post.lastEditTime != null) _buildLastEditInfoRow(context),
-      // Post body
-      sizedBoxW12H12,
-      InteractivePostEntry(data: widget.post.data, postId: widget.post.postID),
-      // The special block of the thread (plugin 2.8.0), where the web page prints it: the bounty and the activity
-      // before the content, the poll, the goods and the debate after it. Its html is cut out of the content.
-      if (widget.post.special case final special? when SpecialThreadCard.aboveContent(special))
-        SpecialThreadCard(
-          special,
-          pid: widget.post.postID,
-          onReload: _specialReload(context),
-          onJoinDebate: isOfflineFloor(context) ? null : widget.onJoinDebate,
-          webUrl: widget.post.shareLink,
-        ),
-      _buildPostBody(context),
-      // 红包 if any.
-      if (widget.post.locked.isNotEmpty) ...widget.post.locked.where((e) => e.isValid()).map(LockedCard.new),
-      if (widget.post.special case final special?) ...[
-        if (!SpecialThreadCard.aboveContent(special))
+  Widget _buildCard(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Post author user info.
+        _buildAuthorRow(context),
+        // Last edit status.
+        if (widget.post.lastEditUsername != null && widget.post.lastEditTime != null) _buildLastEditInfoRow(context),
+        // Post body
+        sizedBoxW12H12,
+        InteractivePostEntry(data: widget.post.data, postId: widget.post.postID),
+        // The special block of the thread (plugin 2.8.0), where the web page prints it: the bounty and the activity
+        // before the content, the poll, the goods and the debate after it. Its html is cut out of the content.
+        if (widget.post.special case final special? when SpecialThreadCard.aboveContent(special))
           SpecialThreadCard(
             special,
             pid: widget.post.postID,
@@ -1099,67 +1114,80 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
             onJoinDebate: isOfflineFloor(context) ? null : widget.onJoinDebate,
             webUrl: widget.post.shareLink,
           ),
-      ] else if (widget.post.poll case final poll?)
-        PollCard(widget.post.postID, fromPage: poll),
-      if (widget.post.packetUrl != null) ...[
-        sizedBoxW12H12,
-        PacketCard(widget.post.packetUrl!, allTaken: widget.post.packetAllTaken),
-      ],
-      // The floor's comments, before the rates as on the web page; nothing without any.
-      if (widget.post.comments.isNotEmpty) ...[
-        sizedBoxW12H12,
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 712),
-          child: PostCommentSection(
-            widget.post,
-            // Read back from an offline copy: the comments it holds, nothing asked from the forum.
-            tid: isOfflineFloor(context) ? null : context.readOrNull<ThreadBloc>()?.state.tid,
-            onReload: _specialReload(context),
+        _buildPostBody(context),
+        // 红包 if any.
+        if (widget.post.locked.isNotEmpty) ...widget.post.locked.where((e) => e.isValid()).map(LockedCard.new),
+        if (widget.post.special case final special?) ...[
+          if (!SpecialThreadCard.aboveContent(special))
+            SpecialThreadCard(
+              special,
+              pid: widget.post.postID,
+              onReload: _specialReload(context),
+              onJoinDebate: isOfflineFloor(context) ? null : widget.onJoinDebate,
+              webUrl: widget.post.shareLink,
+            ),
+        ] else if (widget.post.poll case final poll?)
+          PollCard(widget.post.postID, fromPage: poll),
+        if (widget.post.packetUrl != null) ...[
+          sizedBoxW12H12,
+          PacketCard(widget.post.packetUrl!, allTaken: widget.post.packetAllTaken),
+        ],
+        // The floor's comments, before the rates as on the web page; nothing without any.
+        if (widget.post.comments.isNotEmpty) ...[
+          sizedBoxW12H12,
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 712),
+            child: PostCommentSection(
+              widget.post,
+              // Read back from an offline copy: the comments it holds, nothing asked from the forum.
+              tid: isOfflineFloor(context) ? null : context.readOrNull<ThreadBloc>()?.state.tid,
+              onReload: _specialReload(context),
+            ),
           ),
-        ),
-      ],
-      // Rate status if any.
-      if (widget.post.rate != null) ...[
-        sizedBoxW12H12,
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 712),
-          child: RateCard(widget.post.rate!, widget.post.postID),
-        ),
-      ],
-      // Context menu.
-      _buildContextMenuRow(context),
-    ];
-    // The backgrounds the author set for their floors (plugin 4.1.0): the author column's behind the author row, the
-    // content's behind the rest, as the web page's `td.pls` and `td.plc`. Without one the card is as it always was.
-    final background = _backgroundOf(context);
-    if (background == null) {
-      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [author, ...rest]);
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        PostBackgroundPaint(
-          layer: background.sidebar,
-          part: PostBackgroundPart.top,
-          enabled: !picking,
-          child: author,
-        ),
-        PostBackgroundPaint(
-          layer: background.content,
-          part: PostBackgroundPart.bottom,
-          enabled: !picking,
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: rest),
-        ),
+        ],
+        // Rate status if any.
+        if (widget.post.rate != null) ...[
+          sizedBoxW12H12,
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 712),
+            child: RateCard(widget.post.rate!, widget.post.postID),
+          ),
+        ],
+        // Context menu.
+        _buildContextMenuRow(context),
       ],
     );
   }
+}
 
-  /// The backgrounds drawn on this floor: those of [Post.background] while the setting shows them, none on a floor read
-  /// back from an offline copy.
-  PostBackground? _backgroundOf(BuildContext context) {
-    final shown = context.select<SettingsBloc, bool>((e) => e.state.settingsMap.showPostBackgrounds);
-    final background = widget.post.background;
-    return shown && background != null && !isOfflineFloor(context) ? background : null;
+/// The user group of a floor's author beside the name: a neutral tag.
+class _GroupTag extends StatelessWidget {
+  const _GroupTag(this.group);
+
+  final String group;
+
+  @override
+  Widget build(BuildContext context) {
+    final surfaces = AppSurfaces.of(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(color: surfaces.card, borderRadius: BorderRadius.circular(5)),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+        child: Text(
+          group,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style:
+              Theme.of(
+                context,
+              ).textTheme.labelSmall?.copyWith(
+                fontSize: 12,
+                height: 1.4,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+        ),
+      ),
+    );
   }
 }
 
@@ -1169,10 +1197,10 @@ class _ContentUnavailable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = Theme.of(context).colorScheme.outline;
+    final color = Theme.of(context).colorScheme.onSurfaceVariant;
     return Row(
       children: [
-        Icon(Icons.visibility_off_outlined, size: 18, color: color),
+        Icon(Symbols.visibility_off_rounded, size: 18, color: color),
         sizedBoxW8H8,
         Expanded(
           child: Text(
@@ -1204,7 +1232,7 @@ class _BlockedAvatar extends StatelessWidget {
           tag: heroTag,
           child: CircleAvatar(
             backgroundColor: colorScheme.surfaceContainerHighest,
-            child: Icon(Icons.no_accounts_outlined, color: colorScheme.outline),
+            child: Icon(Symbols.no_accounts_rounded, color: colorScheme.onSurfaceVariant),
           ),
         ),
       ),
@@ -1247,22 +1275,22 @@ class _FloorBadge extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final text = postFloorLabel(context.t, floor: post.postFloor, hot: post.hot, hotFloor: post.hotFloor);
-    final badge = DecoratedBox(
-      decoration: BoxDecoration(
-        color: post.hot ? colorScheme.tertiaryContainer : colorScheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-        child: Text(
-          text,
-          style: textTheme.labelMedium?.copyWith(
-            color: post.hot ? colorScheme.onTertiaryContainer : colorScheme.onSurfaceVariant,
-            fontFeatures: const [FontFeature.tabularFigures()],
-          ),
-        ),
+    // The floor number is meta, quiet and without a ground; a hot reply keeps its mark.
+    final label = Text(
+      text,
+      style: textTheme.labelMedium?.copyWith(
+        fontSize: 13,
+        fontWeight: FontWeight.bold,
+        color: post.hot ? colorScheme.onTertiaryContainer : AppSurfaces.of(context).muted,
+        fontFeatures: const [FontFeature.tabularFigures()],
       ),
     );
+    final badge = post.hot
+        ? DecoratedBox(
+            decoration: BoxDecoration(color: colorScheme.tertiaryContainer, borderRadius: BorderRadius.circular(8)),
+            child: Padding(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), child: label),
+          )
+        : Padding(padding: const EdgeInsets.only(top: 1), child: label);
     final link = post.shareLink;
     if (!post.hot || post.hotFloor == null || link == null || isOfflineFloor(context)) {
       return badge;

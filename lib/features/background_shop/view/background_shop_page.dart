@@ -14,6 +14,7 @@ import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/data_saver_mode.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
+import 'package:tsdm_client/themes/app_themes.dart';
 import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/network_usage.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
@@ -438,11 +439,11 @@ class _PreviewState extends State<_Preview> {
     final url = widget.url;
     Widget child;
     if (url == null) {
-      child = Icon(Icons.image_not_supported_outlined, color: colorScheme.outline);
+      child = Icon(Icons.image_not_supported_outlined, color: colorScheme.onSurfaceVariant);
     } else if (!_asked && (DataSaver.holdsBack(context, mode) ?? true)) {
       child = IconButton(
         tooltip: context.t.imageGallery.tapToLoad,
-        icon: Icon(Icons.image_outlined, color: colorScheme.outline),
+        icon: Icon(Icons.image_outlined, color: colorScheme.onSurfaceVariant),
         onPressed: () => setState(() => _asked = true),
       );
     } else {
@@ -920,6 +921,7 @@ class _BuyDialogState extends State<_BuyDialog> {
             _row(
               tr.plan,
               DropdownButton<BackgroundOffer>(
+                style: AppTheme.dropdownStyle(context),
                 key: const ValueKey('bgshop-buy-plan'),
                 isExpanded: true,
                 value: _offer,

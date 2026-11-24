@@ -19,7 +19,7 @@ class CustomEmojiImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final file = CustomEmojiStore.app?.fileOf(emoji);
-    final missing = Icon(Icons.broken_image_outlined, color: Theme.of(context).colorScheme.outline);
+    final missing = Icon(Icons.broken_image_outlined, color: Theme.of(context).colorScheme.onSurfaceVariant);
     if (file == null) {
       return missing;
     }

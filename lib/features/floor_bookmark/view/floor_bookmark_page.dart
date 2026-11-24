@@ -86,7 +86,7 @@ class FloorBookmarkPage extends StatelessWidget {
                     padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
                     child: Text(
                       group.title.isEmpty ? '${group.tid}' : group.title,
-                      style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                      style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
                     ),
                   ),
                   for (final bookmark in group.items)

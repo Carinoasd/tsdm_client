@@ -67,7 +67,7 @@ class PointsChangeCard extends StatelessWidget {
                   ],
                 ),
               ),
-              if (pointsChange.redirectUrl != null) Icon(Icons.chevron_right, color: colorScheme.outline),
+              if (pointsChange.redirectUrl != null) Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
             ],
           ),
           sizedBoxW8H8,
@@ -82,7 +82,7 @@ class PointsChangeCard extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             child: Text(
               context.displayText(pointsChange.changeMapString),
-              style: textTheme.bodyMedium?.copyWith(color: colorScheme.primary, fontWeight: FontWeight.w600),
+              style: textTheme.bodyMedium?.copyWith(color: colorScheme.primary, fontWeight: FontWeight.w700),
             ),
           ),
         ],

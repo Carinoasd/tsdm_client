@@ -138,7 +138,7 @@ class FloorBookmarkTile extends StatelessWidget {
               excerpt,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: textTheme.bodySmall?.copyWith(color: colorScheme.outline),
+              style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
             )
           : null,
     );

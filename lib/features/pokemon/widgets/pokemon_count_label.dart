@@ -26,7 +26,7 @@ class PokemonCountLabel extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
       child: Row(
         children: [
-          Icon(Icons.inventory_2_outlined, size: 16, color: Theme.of(context).colorScheme.outline),
+          Icon(Icons.inventory_2_outlined, size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
           const SizedBox(width: 6),
           Text(
             '${tr.carriedCount(count: carried)} · ${tr.boxCount(count: boxed)}',

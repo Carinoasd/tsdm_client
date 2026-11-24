@@ -147,9 +147,11 @@ class _UserBriefProfileDialogState extends State<_UserBriefProfileDialog> {
     final inDarkTheme = Theme.of(context).brightness == Brightness.dark;
     // The 700 shades read under 4.5:1 on the light surfaces of the dialog (the blue of the title, nickname and
     // registration 4.2, the green of the threads 3.7, the cyan of the posts 3.2, the orange of the privilege 2.4): one
-    // shade darker for all, cyan two, and orange is deep orange.
-    final colorOffset = inDarkTheme ? 300 : 800;
-    final cyanOffset = inDarkTheme ? 300 : 900;
+    // shade darker for all, cyan two, and orange is deep orange. The blocks are the inset layer: lighter than the
+    // dialog in the dark theme (the 300 purple read 4.05:1 on them, the 200 shades are used), darker in the light one
+    // (the 800 green read 4.3:1, the 900 shades are used).
+    final colorOffset = inDarkTheme ? 200 : 900;
+    final cyanOffset = inDarkTheme ? 200 : 900;
     final orange = inDarkTheme ? Colors.orange[300] : Colors.deepOrange[900];
     // Measured like the badges below: the dialog content has no layout builder (the dialog sizes to intrinsics).
     final contentWidth = briefProfileDialogContentWidth(MediaQuery.sizeOf(context).width);

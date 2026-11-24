@@ -91,7 +91,7 @@ class _AudioSeekBarState extends State<AudioSeekBar> {
   Widget build(BuildContext context) {
     final controller = AudioPlayerController.instance;
     final textStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
-      color: Theme.of(context).colorScheme.outline,
+      color: Theme.of(context).colorScheme.onSurfaceVariant,
       fontFeatures: const [FontFeature.tabularFigures()],
     );
     final max = widget.duration.inMilliseconds.toDouble();

@@ -48,7 +48,7 @@ class _EditAvatarPageState extends State<EditAvatarPage> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(caption, style: textTheme.labelMedium?.copyWith(color: colorScheme.outline)),
+          Text(caption, style: textTheme.labelMedium?.copyWith(color: colorScheme.onSurfaceVariant)),
           sizedBoxW8H8,
           SizedBox(
             width: _avatarMaxWidth + 20,
@@ -59,13 +59,13 @@ class _EditAvatarPageState extends State<EditAvatarPage> {
                   : Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(placeholderIcon, size: 32, color: colorScheme.outline),
+                        Icon(placeholderIcon, size: 32, color: colorScheme.onSurfaceVariant),
                         if (placeholderText != null) ...[
                           sizedBoxW4H4,
                           Text(
                             placeholderText,
                             textAlign: TextAlign.center,
-                            style: textTheme.bodySmall?.copyWith(color: colorScheme.outline),
+                            style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
                           ),
                         ],
                       ],

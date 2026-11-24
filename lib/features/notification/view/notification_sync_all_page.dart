@@ -224,7 +224,7 @@ class _AccountSurface extends StatelessWidget {
     final name = userInfo.username ?? '${userInfo.uid ?? ''}';
     final stateIcon = switch (state) {
       _AccountState.running => const SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2)),
-      _AccountState.waiting => Icon(Icons.hourglass_empty_outlined, size: 20, color: colorScheme.outline),
+      _AccountState.waiting => Icon(Icons.hourglass_empty_outlined, size: 20, color: colorScheme.onSurfaceVariant),
       _AccountState.done => Icon(Icons.check_circle_outline, size: 20, color: colorScheme.primary),
       _AccountState.failed => Icon(Icons.error_outline, size: 20, color: colorScheme.error),
     };
@@ -248,13 +248,13 @@ class _AccountSurface extends StatelessWidget {
                       name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+                      style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
                     ),
                     if (userInfo.uid != null)
                       Text(
                         'UID ${userInfo.uid}',
                         style: textTheme.labelSmall?.copyWith(
-                          color: failed ? colorScheme.onErrorContainer : colorScheme.outline,
+                          color: failed ? colorScheme.onErrorContainer : colorScheme.onSurfaceVariant,
                         ),
                       ),
                   ],
@@ -267,7 +267,7 @@ class _AccountSurface extends StatelessWidget {
                   message: context.t.noticePage.syncAllPage.user.open,
                   child: Icon(
                     Icons.chevron_right,
-                    color: failed ? colorScheme.onErrorContainer : colorScheme.outline,
+                    color: failed ? colorScheme.onErrorContainer : colorScheme.onSurfaceVariant,
                   ),
                 ),
             ],

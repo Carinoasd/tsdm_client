@@ -100,7 +100,7 @@ class _RewardCard extends StatelessWidget {
                   final String excerpt => Text(context.displayText(excerpt), style: textTheme.bodyMedium),
                   null => Row(
                     children: [
-                      Icon(Icons.lock_outline, size: 18, color: colorScheme.outline),
+                      Icon(Icons.lock_outline, size: 18, color: colorScheme.onSurfaceVariant),
                       sizedBoxW8H8,
                       Expanded(
                         child: Column(
@@ -118,7 +118,7 @@ class _RewardCard extends StatelessWidget {
                                 'spoofed' => tr.hiddenSpoofed,
                                 _ => tr.hiddenOther,
                               },
-                              style: textTheme.bodySmall?.copyWith(color: colorScheme.outline),
+                              style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
                             ),
                           ],
                         ),

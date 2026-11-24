@@ -8,6 +8,7 @@ import 'package:tsdm_client/features/poll/models/forum_poll.dart';
 import 'package:tsdm_client/features/poll/models/poll_voters.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/themes/app_themes.dart';
 import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/show_bottom_sheet.dart';
 import 'package:tsdm_client/widgets/indicator.dart';
@@ -104,6 +105,7 @@ class _PollVotersListState extends State<PollVotersList> {
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       children: [
         DropdownButton<PollOption>(
+          style: AppTheme.dropdownStyle(context),
           isExpanded: true,
           value: _option,
           items: [

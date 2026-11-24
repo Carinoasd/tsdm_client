@@ -60,7 +60,7 @@ class _SpaceBlogPageState extends State<SpaceBlogPage> {
   Widget _content(BuildContext context, BlogDetailState state) {
     final theme = Theme.of(context);
     final blog = state.blog!;
-    final outline = theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.outline);
+    final outline = theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant);
     final header = AppSurface(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

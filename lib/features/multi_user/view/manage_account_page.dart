@@ -365,14 +365,14 @@ class _UserInfoListTile extends StatelessWidget with LoggerMixin {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text('UID ${userInfo.uid!}', style: textTheme.labelSmall?.copyWith(color: colorScheme.outline)),
+          Text('UID ${userInfo.uid!}', style: textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant)),
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
                 checkedIn ? Icons.check_circle_outline : Icons.radio_button_unchecked,
                 size: 16,
-                color: checkedIn ? colorScheme.primary : colorScheme.outline,
+                color: checkedIn ? colorScheme.primary : colorScheme.onSurfaceVariant,
               ),
               sizedBoxW4H4,
               Flexible(child: Text(checkedIn ? tr.checkin.today : tr.checkin.notYet)),

@@ -43,7 +43,9 @@ class AttrBlock extends StatelessWidget {
             name,
             style:
                 nameStyle ??
-                Theme.of(context).textTheme.labelMedium?.copyWith(color: Theme.of(context).colorScheme.outline),
+                Theme.of(
+                  context,
+                ).textTheme.labelMedium?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
           ),
         ],
       ),

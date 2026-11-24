@@ -613,7 +613,7 @@ class _NoteLine extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 20, color: colorScheme.outline),
+          Icon(icon, size: 20, color: colorScheme.onSurfaceVariant),
           sizedBoxW12H12,
           Expanded(
             child: Text(

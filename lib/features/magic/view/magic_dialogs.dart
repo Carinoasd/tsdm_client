@@ -4,6 +4,7 @@ import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/features/magic/models/magic_models.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/themes/app_themes.dart';
 import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 
@@ -155,6 +156,7 @@ class _MagicFormDialogState extends State<_MagicFormDialog> {
     if (field.role == MagicFieldRole.number && _buy) return _countField(field, tr);
     if (field.role == MagicFieldRole.choice) {
       return DropdownButtonFormField<String>(
+        style: AppTheme.dropdownStyle(context),
         key: ValueKey('magic-field-${field.name}'),
         initialValue: field.options.any((o) => o.value == _choice[field.name]) ? _choice[field.name] : null,
         validator: (v) => v == null || !field.options.any((o) => o.value == v) ? tr.required : null,

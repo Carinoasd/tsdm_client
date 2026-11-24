@@ -148,7 +148,7 @@ class _ThreadContentLayoutDialogState extends State<ThreadContentLayoutDialog> {
               divisions: _widthSteps,
               onChanged: (v) => setState(() => _maxWidth = _widthAt(v.round())),
             ),
-          Text(tr.preview, style: textTheme.labelMedium?.copyWith(color: colorScheme.outline)),
+          Text(tr.preview, style: textTheme.labelMedium?.copyWith(color: colorScheme.onSurfaceVariant)),
           // The preview is a post's content laid out as in the thread page, at its text scale.
           AppInsetBlock(
             outlined: true,

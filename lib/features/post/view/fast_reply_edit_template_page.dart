@@ -15,6 +15,7 @@ import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
+import 'package:tsdm_client/themes/app_surfaces.dart';
 import 'package:tsdm_client/utils/bbcode/spoiler_normalizer.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/platform.dart';
@@ -125,7 +126,7 @@ class _FastReplyTemplateEditPageState extends State<FastReplyTemplateEditPage> w
             }
         }
       },
-      panelBgColor: Theme.of(context).colorScheme.surfaceContainerLow,
+      panelBgColor: AppSurfaces.of(context).bar,
     );
   }
 
@@ -263,7 +264,7 @@ class _FastReplyTemplateEditPageState extends State<FastReplyTemplateEditPage> w
                   ),
                   if (isDesktop)
                     ColoredBox(
-                      color: Theme.of(context).colorScheme.surfaceContainerLow,
+                      color: AppSurfaces.of(context).bar,
                       child: Padding(
                         padding: horizontal.add(edgeInsetsT4),
                         child: EditorToolbar(

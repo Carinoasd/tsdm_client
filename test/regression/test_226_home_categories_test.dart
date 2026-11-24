@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
@@ -440,10 +441,11 @@ void main() {
 
   bool selected(WidgetTester tester, String title) => tester.widget<HomeCardTab>(tab(title)).selected;
 
-  /// Second lines of the rows of the card (thread titles, the welcome text of new members), top to bottom.
+  /// Titles of the rows of the card (thread titles, the welcome text of new members), top to bottom.
   List<String?> rowTitles(WidgetTester tester) => tester
       .widgetList<ListTile>(find.descendant(of: find.byType(PinTabSection), matching: find.byType(ListTile)))
-      .map((e) => (e.subtitle as Text?)?.data)
+      // Beautify v2: the thread title leads the row, the author is the meta line under it.
+      .map((e) => (e.title is Text) ? (e.title! as Text).data : null)
       .toList();
 
   Future<void> selectTab(WidgetTester tester, String title) async {
@@ -633,7 +635,7 @@ void main() {
             expect(support.left, greaterThan(pinned.right), reason: 'in the side column');
             expect(support.top, greaterThan(stats.bottom));
           }
-          expect(inAppBar(find.byIcon(Icons.favorite_border)), findsOneWidget, reason: 'every layout');
+          expect(inAppBar(find.byIcon(Symbols.favorite_rounded)), findsOneWidget, reason: 'every layout');
           expect(tester.takeException(), isNull);
         },
         variant: TargetPlatformVariant.only(TargetPlatform.windows),
@@ -660,7 +662,7 @@ void main() {
 
     testWidgets('the app bar heart opens the support dialog', (tester) async {
       await openHomepage(tester);
-      final heart = inAppBar(find.byIcon(Icons.favorite_border));
+      final heart = inAppBar(find.byIcon(Symbols.favorite_rounded));
       expect(heart, findsOneWidget);
       expect(
         tester.widget<IconButton>(find.ancestor(of: heart, matching: find.byType(IconButton))).tooltip,
@@ -689,7 +691,7 @@ void main() {
         final title = tester.getRect(inAppBar(find.text(tr.homepage.title)));
         expect(title.width, greaterThan(0));
         expect(title.right, lessThanOrEqualTo(tester.getRect(buttons.first).left));
-        expect(inAppBar(find.byIcon(Icons.search_outlined)), findsOneWidget);
+        expect(inAppBar(find.byIcon(Symbols.search_rounded)), findsOneWidget);
         expect(inAppBar(find.byType(HeroUserAvatar)), findsOneWidget);
 
         final more = inAppBar(find.byKey(const ValueKey('homepage-app-bar-more')));
@@ -697,12 +699,12 @@ void main() {
         // down to a 320dp phone, and a 360dp one with large text.
         if (name != '300dp, large text') {
           expect(more, findsNothing, reason: 'four buttons fit');
-          expect(inAppBar(find.byIcon(Icons.favorite_border)), findsOneWidget);
+          expect(inAppBar(find.byIcon(Symbols.favorite_rounded)), findsOneWidget);
           expect(inAppBar(find.byIcon(Icons.catching_pokemon)), findsOneWidget);
           return;
         }
         // Too narrow: the pokemon centre and the support entry share one menu.
-        expect(inAppBar(find.byIcon(Icons.favorite_border)), findsNothing);
+        expect(inAppBar(find.byIcon(Symbols.favorite_rounded)), findsNothing);
         expect(inAppBar(find.byIcon(Icons.catching_pokemon)), findsNothing);
         await tester.tap(more);
         await tester.pumpAndSettle();
@@ -720,7 +722,7 @@ void main() {
   group('forum rewards in the support dialog', () {
     Future<void> openDialog(WidgetTester tester) async {
       await openHomepage(tester);
-      await tester.tap(inAppBar(find.byIcon(Icons.favorite_border)));
+      await tester.tap(inAppBar(find.byIcon(Symbols.favorite_rounded)));
       await tester.pumpAndSettle();
     }
 

@@ -30,6 +30,7 @@ import 'package:tsdm_client/features/thread_link_card/widgets/thread_link_card.d
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 // The style the author gave a post: css, colors in the theme
+import 'package:tsdm_client/themes/app_surfaces.dart';
 import 'package:tsdm_client/utils/chinese_display/chinese_converter.dart';
 import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/html/author_style.dart';
@@ -180,7 +181,7 @@ Widget munchElement(
 
   // Alignment in this page requires a fixed max width that equals to website
   // page width (712), unless the reader set the floors wider or narrower (PostTypography.maxWidth).
-  return ConstrainedBox(
+  final content = ConstrainedBox(
     constraints: BoxConstraints(maxWidth: muncher.typography?.contentMaxWidth ?? htmlContentMaxWidth),
     child: Text.rich(
       style: const TextStyle(
@@ -190,6 +191,22 @@ Widget munchElement(
       ),
       TextSpan(children: ret),
     ),
+  );
+  // A post's content is at its body text size ([postBodyFontSize]) throughout: what takes the size around it (a line
+  // break, the text of a cell or a block laid out in a rich text of its own) is as large as the text it is with.
+  if (muncher.typography == null) {
+    return content;
+  }
+  final around = DefaultTextStyle.of(context);
+  return DefaultTextStyle(
+    style: around.style.copyWith(fontSize: postBodyFontSize),
+    textAlign: around.textAlign,
+    softWrap: around.softWrap,
+    overflow: around.overflow,
+    maxLines: around.maxLines,
+    textWidthBasis: around.textWidthBasis,
+    textHeightBehavior: around.textHeightBehavior,
+    child: content,
   );
 }
 
@@ -548,6 +565,16 @@ final class _Muncher with LoggerMixin {
   /// The link being munched ([_buildA]): its own color is the link's ([_MunchState.linkColor]).
   uh.Element? _link;
 
+  /// Count of the quotes ([_buildBlockQuote]) the content being munched is in.
+  int _quoteDepth = 0;
+
+  /// Whether [element], a link to [url], is the source line of a quote: the forum writes it as
+  /// `<blockquote><font size="2"><a href="…goto=findpost…">`; a findpost link the author put in the quoted text is not.
+  bool _isQuoteSourceLink(uh.Element element, String url) {
+    final font = element.parent;
+    return isQuoteSourceUrl(url) && font?.localName == 'font' && font?.parent?.localName == 'blockquote';
+  }
+
   /// Links of this floor drawn as cards of their thread so far ([_threadLinkCard]).
   int _threadLinkCards = 0;
 
@@ -559,8 +586,11 @@ final class _Muncher with LoggerMixin {
   /// How the author's colors are shown in the theme.
   late final _colors = AuthorColors(Theme.of(context));
 
-  /// The size of the body text, what the sizes of the web page are scaled to.
-  late final double _bodyFontSize = Theme.of(context).textTheme.bodyMedium?.fontSize ?? webPostFontSize;
+  /// The size of the body text, what the sizes of the web page are scaled to: [postBodyFontSize] in a post's content
+  /// ([typography]), the theme's body text elsewhere.
+  late final double _bodyFontSize = typography != null
+      ? postBodyFontSize
+      : Theme.of(context).textTheme.bodyMedium?.fontSize ?? webPostFontSize;
 
   /// A css pixel of the web page's text in the app: the app's body text is to the web page's ([webPostFontSize]) as a
   /// size of the web page is to the app's.
@@ -1695,7 +1725,18 @@ final class _Muncher with LoggerMixin {
     // and restore munch state to avoid potential issued about "styles inside
     // quoted blocks  affects outside main content".
     final style = state.save();
-    final content = element.innerText.isEmpty ? null : _munchOwnBlock(() => _munchStyledBlock(element, _munch));
+    // The text of a quote is a step quieter than the reply around it: a little smaller in a post's content (15 for its
+    // 16), once, not again for each nested quote.
+    if (typography != null && _quoteDepth == 0) {
+      state.fontSizeStack.add(_fontSize * quoteFontScale);
+    }
+    _quoteDepth++;
+    final List<InlineSpan>? content;
+    try {
+      content = element.innerText.isEmpty ? null : _munchOwnBlock(() => _munchStyledBlock(element, _munch));
+    } finally {
+      _quoteDepth--;
+    }
     state.restore(style);
     // A trailing line break inside the quote ends a line that is as tall as the line before it: when that line holds
     // a nested quote, every level doubled the height and left a blank block (#158). The website shows no such line.
@@ -1768,7 +1809,7 @@ final class _Muncher with LoggerMixin {
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 12),
           child: Material(
-            color: theme.colorScheme.surfaceContainerLow,
+            color: AppSurfaces.ofTheme(theme).inset,
             borderRadius: BorderRadius.circular(8),
             clipBehavior: Clip.antiAlias,
             child: InkWell(
@@ -2151,11 +2192,12 @@ final class _Muncher with LoggerMixin {
       // An anchor of the page (`#…`) or a script (`javascript:`) leads nowhere: what is in it (a picture) is not a link.
       ..tapUrl = tapUrl
       ..wrapInWord = true
-      // The link in its own color, not in the color of a `<font>` around it; underlined in a post as on the web page.
+      // The link in its own color, not in the color of a `<font>` around it; underlined in a post as on the web page,
+      // but for the source line of a quote (who wrote it, when; a link to that post): a quiet meta line of the quote.
       ..linkDepth = state.colorStack.length
       ..linkOrder = _behindCount
       ..linkColor = null
-      ..linkUnderline = postContent;
+      ..linkUnderline = postContent && !(_quoteDepth > 0 && _isQuoteSourceLink(element, url));
     final List<InlineSpan>? ret;
     try {
       ret = _munch(element);
@@ -2742,7 +2784,7 @@ final class _Muncher with LoggerMixin {
 
   /// `<small>` and `<big>`: the content at [scale] times the size of the text around it, as a browser does.
   List<InlineSpan>? _munchScaled(uh.Element element, double scale) {
-    final size = state.fontSizeStack.lastOrNull ?? Theme.of(context).textTheme.bodyMedium?.fontSize ?? 14;
+    final size = _fontSize;
     final keyword = state.fontSizeKeyword;
     state
       ..fontSizeStack.add(size * scale)
@@ -3272,8 +3314,9 @@ final class _Muncher with LoggerMixin {
       // A post's content: its line height, no letter spacing (as the web page; it spread Chinese text apart).
       height: typography?.lineHeight,
       letterSpacing: typography == null ? null : 0,
-      fontWeight: state.bold ? FontWeight.w600 : null,
-      fontSize: state.fontSizeStack.lastOrNull,
+      fontWeight: state.bold ? FontWeight.w700 : null,
+      // The body text of a post is larger than the theme's ([postBodyFontSize]).
+      fontSize: state.fontSizeStack.lastOrNull ?? (typography == null ? null : _bodyFontSize),
       backgroundColor: inline?.color == null ? null : _colors.background(inline!.color!),
       decorationColor: decorationColor,
       decoration: TextDecoration.combine([
@@ -3290,6 +3333,9 @@ final class _Muncher with LoggerMixin {
     return style;
   }
 }
+
+/// Whether [url] is the link of the source line of a quote: the post quoted (`forum.php?mod=redirect&goto=findpost`).
+bool isQuoteSourceUrl(String url) => url.contains('goto=findpost');
 
 /// What a tap on a link to [href] in munched html opens: an absolute url (any scheme: the launch decides, see
 /// `DispatchUrl.dispatchAsUrl`) as written, a relative one resolved on the forum host (`forum.php?…` and

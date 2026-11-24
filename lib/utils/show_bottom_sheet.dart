@@ -12,6 +12,7 @@ import 'package:tsdm_client/features/friend/utils/approve_friend_link.dart';
 import 'package:tsdm_client/features/image/utils/image_actions.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/themes/app_surfaces.dart';
 import 'package:tsdm_client/utils/clipboard.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/network_indicator_image.dart';
@@ -85,7 +86,7 @@ Future<T?> showCustomBottomSheet<T>({
                       child: Center(
                         child: DecoratedBox(
                           decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.outlineVariant,
+                            color: AppSurfaces.of(context).lineStrong,
                             borderRadius: BorderRadius.circular(2),
                           ),
                           child: const SizedBox(width: 32, height: 4),

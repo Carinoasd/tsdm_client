@@ -238,7 +238,7 @@ final class _ForumCardState extends State<ForumCard> with LoggerMixin {
                   padding: edgeInsetsL12T8R12B8,
                   child: Row(
                     children: [
-                      Icon(Icons.subdirectory_arrow_right_outlined, size: 16, color: colorScheme.outline),
+                      Icon(Icons.subdirectory_arrow_right_outlined, size: 16, color: colorScheme.onSurfaceVariant),
                       sizedBoxW8H8,
                       Expanded(
                         child: Text(
@@ -257,7 +257,7 @@ final class _ForumCardState extends State<ForumCard> with LoggerMixin {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: (large ? textTheme.labelMedium : textTheme.labelSmall)?.copyWith(
-                              color: colorScheme.outline,
+                              color: colorScheme.onSurfaceVariant,
                             ),
                           ),
                         ),
@@ -323,7 +323,7 @@ final class _ForumCardState extends State<ForumCard> with LoggerMixin {
                         (widget.large
                                 ? Theme.of(context).textTheme.titleMedium
                                 : Theme.of(context).textTheme.titleSmall)
-                            ?.copyWith(fontWeight: FontWeight.w600),
+                            ?.copyWith(fontWeight: FontWeight.w700),
                   ),
                 ),
                 Icon(state ? Icons.expand_less : Icons.expand_more),
@@ -468,7 +468,7 @@ final class _ForumCardState extends State<ForumCard> with LoggerMixin {
                       context.displayText(widget.forum.name),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                      style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
                     ),
                     if (_note(context) ?? widget.forum.latestThreadTime?.elapsedTillNow(context) case final line?)
                       Text(
@@ -529,7 +529,7 @@ final class _ForumCardState extends State<ForumCard> with LoggerMixin {
       context.displayText(widget.forum.name),
       maxLines: 2,
       overflow: TextOverflow.ellipsis,
-      style: textTheme.headlineSmall?.copyWith(fontSize: 24, fontWeight: FontWeight.w600, height: 1.3),
+      style: textTheme.headlineSmall?.copyWith(fontSize: 24, fontWeight: FontWeight.w700, height: 1.3),
     );
     final note = _note(context);
     final time = note == null && widget.forum.latestThreadTime == null

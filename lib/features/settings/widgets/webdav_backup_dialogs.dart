@@ -151,7 +151,7 @@ class _WebdavSettingsDialogState extends State<_WebdavSettingsDialog> {
     final colorScheme = Theme.of(context).colorScheme;
     final plainHttp = Uri.tryParse(url.text.trim())?.isScheme('http') ?? false;
     final (IconData icon, Color color, String label) = switch (check) {
-      null => (Icons.help_outline, colorScheme.outline, tr.test.idle),
+      null => (Icons.help_outline, colorScheme.onSurfaceVariant, tr.test.idle),
       WebdavCheck.ok => (Icons.check_circle_outline, colorScheme.primary, tr.test.ok),
       WebdavCheck.unauthorized => (Icons.error_outline, colorScheme.error, tr.test.unauthorized),
       WebdavCheck.notFound => (Icons.error_outline, colorScheme.error, tr.test.notFound),

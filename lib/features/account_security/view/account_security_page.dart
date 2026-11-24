@@ -14,6 +14,7 @@ import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
+import 'package:tsdm_client/themes/app_themes.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/indicator.dart';
@@ -286,6 +287,7 @@ class _AccountFormDialogState extends State<_AccountFormDialog> {
           ),
           AccountChoiceField(:final name, :final label, :final options, :final initial) =>
             DropdownButtonFormField<String>(
+              style: AppTheme.dropdownStyle(context),
               initialValue: _choices[name] ?? initial,
               isExpanded: true,
               decoration: appFieldDecoration(label: label),

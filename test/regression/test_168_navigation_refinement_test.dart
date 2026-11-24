@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:go_router/go_router.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
@@ -216,7 +217,7 @@ void main() {
       expect(rail.destinations, hasLength(4));
       expect(rail.selectedIndex, 0);
 
-      final me = find.byIcon(Icons.person_outline);
+      final me = find.byIcon(Symbols.person_rounded);
       await tester.dragUntilVisible(me, find.byType(HomeNavigationRail), const Offset(0, -80));
       await tester.pumpAndSettle();
       await tester.tap(me);

@@ -587,7 +587,7 @@ void main() {
       // The link out of the forum has its mark before it.
       expect(_raw(tester, '小标题'), contains('尾\n\uFFFC链接块\n连\n弹性\n行内块末\n行内样式\n完\n\uFFFC\n图后'));
       // What it is otherwise is kept: bold, a link.
-      expect(_style(tester, '大字').fontWeight, FontWeight.w600);
+      expect(_style(tester, '大字').fontWeight, FontWeight.w700);
       final link = _spans(tester).where((e) => e.$1.text?.contains('链接块') ?? false);
       expect(link.single.$1.recognizer, isNotNull);
     });
@@ -663,10 +663,10 @@ void main() {
       expect(_style(tester, '一').color, const Color(0xFFFF0000));
       expect(_style(tester, '二').color, const Color(0xFF0000FF));
       expect(_style(tester, '三').color, const Color(0xFFFF0000));
-      expect(_style(tester, '一段').fontWeight, FontWeight.w600);
+      expect(_style(tester, '一段').fontWeight, FontWeight.w700);
       expect(_style(tester, '一段').fontStyle, FontStyle.italic);
-      expect(_style(tester, '二段').fontWeight, isNot(FontWeight.w600));
-      expect(_style(tester, '三段').fontWeight, FontWeight.w600);
+      expect(_style(tester, '二段').fontWeight, isNot(FontWeight.w700));
+      expect(_style(tester, '三段').fontWeight, FontWeight.w700);
       expect(_style(tester, '甲').color, const Color(0xFF00FF00));
       expect(_style(tester, '乙').color, const Color(0xFF00FF00));
       expect(_style(tester, '丙').color, isNot(anyOf(const Color(0xFF00FF00), const Color(0xFFFF00FF))));
@@ -816,8 +816,8 @@ void main() {
           '<font size="5"><pre>外层字号</pre></font>',
         ),
       );
-      // The theme's body text is the web page's 14px.
-      final scale = (_light.textTheme.bodyMedium?.fontSize ?? 14) / webPostFontSize;
+      // A post's body text (16) is the web page's 14px.
+      const scale = postBodyFontSize / webPostFontSize;
       expect(_style(tester, '外面大字').fontSize, 24 * scale);
       expect(_style(tester, '等宽大字').fontSize, 24 * 13 / 16 * scale);
       expect(_style(tester, '等宽中字').fontSize, 13 * scale);

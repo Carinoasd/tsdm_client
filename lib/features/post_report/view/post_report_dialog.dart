@@ -492,7 +492,7 @@ class _PostReportDialogState extends State<PostReportDialog> {
                     padding: const EdgeInsets.only(bottom: 12),
                     child: Row(
                       children: [
-                        Icon(Icons.person_outline, size: 18, color: Theme.of(context).colorScheme.outline),
+                        Icon(Icons.person_outline, size: 18, color: Theme.of(context).colorScheme.onSurfaceVariant),
                         sizedBoxW8H8,
                         Expanded(
                           child: Text(

@@ -97,10 +97,10 @@ final class ChatMessageCard extends StatelessWidget {
             chatMessage.author ?? '',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w600),
+            style: textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700),
           ),
         ),
-        if (time != null) Text(time, style: textTheme.labelSmall?.copyWith(color: colorScheme.outline)),
+        if (time != null) Text(time, style: textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant)),
       ],
     );
 

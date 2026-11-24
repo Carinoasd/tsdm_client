@@ -260,7 +260,7 @@ class _FailureViewState extends State<FailureView> {
               child: Icon(
                 failureIcon(failure.kind),
                 size: 32,
-                color: errorColors ? colorScheme.onErrorContainer : colorScheme.outline,
+                color: errorColors ? colorScheme.onErrorContainer : colorScheme.onSurfaceVariant,
               ),
             ),
           ),
@@ -268,7 +268,7 @@ class _FailureViewState extends State<FailureView> {
           Text(
             title,
             textAlign: TextAlign.center,
-            style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+            style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
           ),
           if (hint != null) ...[
             sizedBoxW8H8,
@@ -295,7 +295,7 @@ class _FailureViewState extends State<FailureView> {
               key: failureDetailsKey,
               icon: Icon(_showDetails ? Icons.expand_less : Icons.expand_more),
               label: Text(_showDetails ? tr.hideDetails : tr.details),
-              style: TextButton.styleFrom(foregroundColor: colorScheme.outline),
+              style: TextButton.styleFrom(foregroundColor: colorScheme.onSurfaceVariant),
               onPressed: () => setState(() => _showDetails = !_showDetails),
             ),
             if (_showDetails)

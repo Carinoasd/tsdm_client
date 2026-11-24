@@ -65,7 +65,7 @@ class _ScopeOption extends StatelessWidget {
       child: Row(
         children: [
           Expanded(child: Text(label)),
-          Text('$count', style: TextStyle(color: Theme.of(context).colorScheme.outline)),
+          Text('$count', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
         ],
       ),
     );

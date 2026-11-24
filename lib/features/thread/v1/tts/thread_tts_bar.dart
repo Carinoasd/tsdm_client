@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:tsdm_client/features/thread/v1/tts/thread_tts_controller.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/themes/app_surfaces.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 
 /// The speeds offered, [ttsMinRate] to [ttsMaxRate].
@@ -20,7 +21,6 @@ class ThreadTtsBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tr = context.t.threadTts;
-    final colorScheme = Theme.of(context).colorScheme;
     return ListenableBuilder(
       listenable: controller,
       builder: (context, _) {
@@ -28,8 +28,12 @@ class ThreadTtsBar extends StatelessWidget {
           return const SizedBox.shrink();
         }
         final status = controller.status;
-        return ColoredBox(
-          color: colorScheme.surfaceContainerHigh,
+        // A bar as the reply bar below it: the bar layer with a hairline above.
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            color: AppSurfaces.of(context).bar,
+            border: Border(top: BorderSide(color: AppSurfaces.of(context).line)),
+          ),
           child: SafeArea(
             top: false,
             bottom: safeBottom,

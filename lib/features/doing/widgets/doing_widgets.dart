@@ -151,7 +151,7 @@ class DoingCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final tr = context.t.spacePage.doing;
     final theme = Theme.of(context);
-    final outline = theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.outline);
+    final outline = theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.onSurfaceVariant);
     return AppSurface(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -370,7 +370,7 @@ class _DoingRepliesSheetState extends State<DoingRepliesSheet> {
                       sizedBoxW8H8,
                       Text(
                         comment.time!,
-                        style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.outline),
+                        style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
                       ),
                     ],
                   ],

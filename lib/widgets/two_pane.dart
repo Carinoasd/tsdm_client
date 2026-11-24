@@ -15,6 +15,7 @@ import 'package:tsdm_client/features/thread/v1/view/thread_page.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
+import 'package:tsdm_client/themes/app_surfaces.dart';
 import 'package:tsdm_client/utils/platform.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 
@@ -721,9 +722,8 @@ class _TwoPaneTabStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     return Material(
-      color: colorScheme.surfaceContainer,
+      color: AppSurfaces.of(context).bar,
       child: SafeArea(
         bottom: false,
         left: false,
@@ -819,7 +819,7 @@ class _TwoPaneTabState extends State<_TwoPaneTab> {
         }
       },
       child: Material(
-        color: widget.selected ? colorScheme.surface : Colors.transparent,
+        color: widget.selected ? AppSurfaces.of(context).page : Colors.transparent,
         child: InkWell(
           onTap: widget.onSelect,
           child: DecoratedBox(
@@ -918,11 +918,10 @@ class TwoPaneEmptyDetail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
       body: Center(
         child: ExcludeSemantics(
-          child: Icon(Icons.article_outlined, size: 72, color: colorScheme.outlineVariant),
+          child: Icon(Icons.article_outlined, size: 72, color: AppSurfaces.of(context).lineStrong),
         ),
       ),
     );

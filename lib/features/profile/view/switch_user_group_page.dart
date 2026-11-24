@@ -56,7 +56,7 @@ class _SwitchUserGroupPageState extends State<SwitchUserGroupPage> with LoggerMi
               children: [
                 if (state.availableGroups.isEmpty)
                   SectionListTile(
-                    title: Text(tr.nonAvailable, style: bodyTheme?.copyWith(color: colorScheme.outline)),
+                    title: Text(tr.nonAvailable, style: bodyTheme?.copyWith(color: colorScheme.onSurfaceVariant)),
                   )
                 else
                   ...state.availableGroups.map(

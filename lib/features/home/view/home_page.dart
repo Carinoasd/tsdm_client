@@ -17,6 +17,7 @@ import 'package:tsdm_client/features/local_notice/tap.dart';
 import 'package:tsdm_client/features/root/bloc/root_location_cubit.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/page_stack.dart';
+import 'package:tsdm_client/themes/app_surfaces.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/platform.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
@@ -115,7 +116,7 @@ class _HomePageState extends State<HomePage> with LoggerMixin {
         if (widget.showNavigationBar) ...[
           // One side panel: the brand block and the drawer share the low container color of the navigation.
           ColoredBox(
-            color: Theme.of(context).colorScheme.surfaceContainerLow,
+            color: AppSurfaces.of(context).bar,
             child: Column(
               children: [
                 // Brand block of the side navigation, in the rounded style of the homepage cards.

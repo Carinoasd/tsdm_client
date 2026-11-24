@@ -177,7 +177,7 @@ class _ListFooterState extends State<ListFooter> {
             SizedBox.square(
               dimension: 16,
               child: reduceMotion
-                  ? Icon(Icons.more_horiz, size: 16, color: colorScheme.outline)
+                  ? Icon(Icons.more_horiz, size: 16, color: colorScheme.onSurfaceVariant)
                   : const CircularProgressIndicator(strokeWidth: 2),
             ),
             sizedBoxW8H8,

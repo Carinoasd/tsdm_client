@@ -28,7 +28,7 @@ class NoticeCard extends StatelessWidget {
     ).textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.secondary);
     final outlineStyle = Theme.of(
       context,
-    ).textTheme.labelMedium?.copyWith(color: Theme.of(context).colorScheme.outline);
+    ).textTheme.labelMedium?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant);
     final heroTag = '${notice.username}-${notice.noticeTime}';
 
     final noticeBody = switch (notice.noticeType) {

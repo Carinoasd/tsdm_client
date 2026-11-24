@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/features/forum/utils/group.dart';
@@ -13,6 +14,7 @@ import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/repositories/forum_home_repository/forum_home_repository.dart';
+import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/hour_ticker.dart';
 
 /// First card of the homepage without an account: what a login adds, the login and the way to the forums.
@@ -36,61 +38,54 @@ class HomeGuestCard extends StatelessWidget {
       margin: EdgeInsets.zero,
       clipBehavior: Clip.antiAlias,
       shape: homeCardShape(context),
-      color: colorScheme.surfaceContainerLow,
-      child: DecoratedBox(
-        // The look of the greeting card of an account, which this card stands for.
-        decoration: BoxDecoration(
-          gradient: RadialGradient(
-            center: Alignment.topRight,
-            radius: 1.4,
-            colors: [colorScheme.primaryContainer.withValues(alpha: 0.55), colorScheme.surfaceContainerLow],
-            stops: const [0, 0.6],
-          ),
-        ),
-        child: Padding(
-          padding: compact ? edgeInsetsL16T16R16B16 : edgeInsetsL24T24R24B24,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              HourTicker(
-                builder: (context, now) => Text(
-                  '${context.t.appName} · ${MaterialLocalizations.of(context).formatMediumDate(now)}',
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: textTheme.labelMedium?.copyWith(color: colorScheme.primary, fontWeight: FontWeight.w600),
+      // The look of the greeting card of an account, which this card stands for.
+      color: Colors.transparent,
+      child: Padding(
+        padding: compact ? edgeInsetsL16T16R16B16 : edgeInsetsL24T24R24B24,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            HourTicker(
+              builder: (context, now) => Text(
+                '${context.t.appName} · ${MaterialLocalizations.of(context).formatMediumDate(now)}',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: textTheme.labelMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w400,
                 ),
               ),
-              sizedBoxW4H4,
-              Text(
-                tr.title,
-                style: (compact ? textTheme.titleLarge : textTheme.headlineSmall)?.copyWith(
-                  fontWeight: FontWeight.bold,
+            ),
+            sizedBoxW4H4,
+            Text(
+              tr.title,
+              style: (compact ? textTheme.titleLarge : textTheme.headlineSmall)?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            sizedBoxW4H4,
+            Text(tr.detail, style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant)),
+            SizedBox(height: compact ? 14 : 20),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                FilledButton.icon(
+                  key: const ValueKey('homepage-guest-login'),
+                  style: FilledButton.styleFrom(minimumSize: const Size(0, 48)),
+                  icon: const Icon(Symbols.login_rounded),
+                  label: Text(context.t.loginPage.login),
+                  onPressed: () async => context.pushNamed(ScreenPaths.login),
                 ),
-              ),
-              sizedBoxW4H4,
-              Text(tr.detail, style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant)),
-              SizedBox(height: compact ? 14 : 20),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  FilledButton.icon(
-                    key: const ValueKey('homepage-guest-login'),
-                    style: FilledButton.styleFrom(minimumSize: const Size(0, 48)),
-                    icon: const Icon(Icons.login_outlined),
-                    label: Text(context.t.loginPage.login),
-                    onPressed: () async => context.pushNamed(ScreenPaths.login),
-                  ),
-                  OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(minimumSize: const Size(0, 48)),
-                    icon: const Icon(Icons.topic_outlined),
-                    label: Text(tr.allForums),
-                    onPressed: () => showHomeTab(context, HomeTab.topic),
-                  ),
-                ],
-              ),
-            ],
-          ),
+                FilledButton.icon(
+                  style: appHeroActionStyle(context),
+                  icon: const Icon(Symbols.topic_rounded),
+                  label: Text(tr.allForums),
+                  onPressed: () => showHomeTab(context, HomeTab.topic),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
@@ -186,7 +181,7 @@ class _HomeForumEntriesCardState extends State<HomeForumEntriesCard> {
             padding: const EdgeInsets.fromLTRB(16, 8, 4, 0),
             child: Row(
               children: [
-                Icon(Icons.topic_outlined, size: 20, color: colorScheme.primary),
+                Icon(Symbols.topic_rounded, size: 20, color: colorScheme.primary),
                 sizedBoxW8H8,
                 Expanded(
                   child: Text(
@@ -263,7 +258,7 @@ class _ForumEntry extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.forum_outlined, size: 18, color: colorScheme.primary),
+                  Icon(Symbols.forum_rounded, size: 18, color: colorScheme.primary),
                   sizedBoxW8H8,
                   Flexible(
                     child: Text(forum.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: textTheme.labelLarge),

@@ -175,7 +175,7 @@ class _FastReplyTemplateCardState extends State<FastReplyTemplateCard> {
                       style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
                     ),
                   ),
-                  if (widget.allowEdit) Icon(Icons.more_vert, size: 18, color: colorScheme.outline),
+                  if (widget.allowEdit) Icon(Icons.more_vert, size: 18, color: colorScheme.onSurfaceVariant),
                 ],
               ),
               sizedBoxW8H8,

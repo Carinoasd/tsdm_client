@@ -26,6 +26,7 @@ final class HeroUserAvatar extends StatefulWidget {
     this.maxRadius,
     this.minRadius,
     this.disableHero = false,
+    this.backgroundColor,
     super.key,
   }) {
     _imageProvider = CachedImageProvider(
@@ -54,6 +55,10 @@ final class HeroUserAvatar extends StatefulWidget {
   ///
   /// Use in absolutely multi-hero-tag pages.
   final bool disableHero;
+
+  /// Color of the circle behind the image (seen while it loads, or with the initial when there is none); the
+  /// [CircleAvatar] default when null. A card in the primary container color passes another one.
+  final Color? backgroundColor;
 
   late final CachedImageProvider _imageProvider;
 
@@ -136,6 +141,7 @@ class _HeroUserAvatarState extends State<HeroUserAvatar> {
     avatar = CircleAvatar(
       key: ValueKey(_loads),
       backgroundImage: widget._imageProvider,
+      backgroundColor: widget.backgroundColor,
       maxRadius: widget.maxRadius,
       minRadius: widget.minRadius,
       child: hasError ? Text(widget.username.isEmpty ? ' ' : widget.username[0]) : null,

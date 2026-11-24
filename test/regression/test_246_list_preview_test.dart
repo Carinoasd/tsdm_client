@@ -786,7 +786,7 @@ void main() {
       expect(excerpt(), findsNothing);
       expect(thumbnail(), findsNothing);
       expect(find.textContaining('password'), findsNothing);
-      final height = tester.getSize(find.byType(Card)).height;
+      final height = tester.getSize(find.byType(NormalThreadCard)).height;
       await pump(
         tester,
         [
@@ -795,7 +795,7 @@ void main() {
           ),
         ],
       );
-      expect(tester.getSize(find.byType(Card)).height, height);
+      expect(tester.getSize(find.byType(NormalThreadCard)).height, height);
       expect(app.images.requested, isEmpty);
     });
 

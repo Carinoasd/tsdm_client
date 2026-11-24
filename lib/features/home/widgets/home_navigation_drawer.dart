@@ -17,12 +17,11 @@ class _HomeNavigationDrawerState extends State<HomeNavigationDrawer> {
   @override
   Widget build(BuildContext context) {
     final barItems = _buildNavigationItems(context);
-    final colorScheme = Theme.of(context).colorScheme;
     // Same look as the bottom bar and the rail: low container color (shared with the brand block above it), rounded
     // indicator. The same four destinations as the bottom bar; the drawer is a list and scrolls when the window is
     // short.
     return NavigationDrawer(
-      backgroundColor: colorScheme.surfaceContainerLow,
+      backgroundColor: AppSurfaces.of(context).bar,
       elevation: 0,
       indicatorShape: _navigationIndicatorShape,
       selectedIndex: _selectedIndexOf(barItems, context.watch<HomeCubit>().state.tab),

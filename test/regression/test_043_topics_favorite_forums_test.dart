@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 import 'package:tsdm_client/constants/url.dart';
@@ -628,11 +629,11 @@ void main() {
         ScrollController controller() => tester.widget<ListView>(list).controller!;
 
         Future<void> doubleTapTopics() async {
-          // The topics destination is selected, so its filled icon is drawn.
-          await tester.tap(find.byIcon(Icons.topic));
+          // The topics destination (selected: its symbol filled).
+          await tester.tap(find.byIcon(Symbols.topic_rounded));
           await tester.pump();
           now = now.add(const Duration(milliseconds: 150));
-          await tester.tap(find.byIcon(Icons.topic));
+          await tester.tap(find.byIcon(Symbols.topic_rounded));
           await tester.pump();
         }
 

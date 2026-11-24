@@ -148,7 +148,7 @@ class _CopyContentDialogState extends State<_CopyContentDialog> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(e.name, style: textTheme.labelMedium?.copyWith(color: colorScheme.outline)),
+                            Text(e.name, style: textTheme.labelMedium?.copyWith(color: colorScheme.onSurfaceVariant)),
                             sizedBoxW2H2,
                             SelectableText(
                               controllers[idx].text,

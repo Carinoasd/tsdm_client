@@ -31,7 +31,7 @@ class UserGroupProgressBar extends StatelessWidget {
                 progress.nextName,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: textTheme.bodyMedium?.copyWith(color: colorScheme.outline),
+                style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
               ),
             ),
           ],

@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:drift/native.dart';
@@ -11,6 +10,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fpdart/fpdart.dart' hide State;
 import 'package:go_router/go_router.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
@@ -649,7 +649,7 @@ void main() {
         expect(tester.getRect(find.text(tr.navigation.homepage)).top, greaterThanOrEqualTo(24));
 
         // And they still work.
-        final me = find.byIcon(Icons.person_outline);
+        final me = find.byIcon(Symbols.person_rounded);
         await tester.dragUntilVisible(me, scroll, const Offset(0, -60));
         await tester.pumpAndSettle();
         await tester.tap(me);
@@ -1347,30 +1347,30 @@ void main() {
 
     Finder redPacketButton() => find.ancestor(
       of: find.text(tr.redPacket.daily.unavailable),
-      matching: find.byWidgetPredicate((w) => w is OutlinedButton),
+      matching: find.byWidgetPredicate((w) => w is FilledButton),
     );
 
     testWidgets('6. loading and refreshing never flash the activity entry in the app bar', (tester) async {
       adapter.hold = Completer<void>();
       await openHomepage(tester);
       expect(bloc(tester).state.status, HomepageStatus.loading);
-      expect(inAppBar(find.byIcon(Icons.event_outlined)), findsNothing, reason: 'first load');
-      expect(inAppBar(find.byIcon(Icons.search_outlined)), findsOneWidget, reason: 'search stays');
+      expect(inAppBar(find.byIcon(Symbols.event_rounded)), findsNothing, reason: 'first load');
+      expect(inAppBar(find.byIcon(Symbols.search_rounded)), findsOneWidget, reason: 'search stays');
 
       adapter.hold!.complete();
       adapter.hold = null;
       await _settle(tester);
       expect(bloc(tester).state.status, HomepageStatus.success);
-      expect(inAppBar(find.byIcon(Icons.event_outlined)), findsNothing);
-      expect(find.byIcon(Icons.event_outlined), findsWidgets, reason: 'the entry of the greeting card');
+      expect(inAppBar(find.byIcon(Symbols.event_rounded)), findsNothing);
+      expect(find.byIcon(Symbols.event_rounded), findsWidgets, reason: 'the entry of the greeting card');
 
       // A manual refresh reloads everything, and the app bar stays as it was.
       adapter.hold = Completer<void>();
       bloc(tester).add(HomepageRefreshRequested());
       await _settle(tester);
       expect(bloc(tester).state.status, HomepageStatus.loading);
-      expect(inAppBar(find.byIcon(Icons.event_outlined)), findsNothing, reason: 'refresh');
-      expect(inAppBar(find.byIcon(Icons.search_outlined)), findsOneWidget);
+      expect(inAppBar(find.byIcon(Symbols.event_rounded)), findsNothing, reason: 'refresh');
+      expect(inAppBar(find.byIcon(Symbols.search_rounded)), findsOneWidget);
       adapter.hold!.complete();
       adapter.hold = null;
       await _settle(tester);

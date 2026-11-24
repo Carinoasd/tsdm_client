@@ -15,6 +15,7 @@ import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
+import 'package:tsdm_client/themes/app_themes.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 
 part 'bank_service_widgets.dart';
@@ -186,6 +187,7 @@ class _BankPageState extends State<BankPage> {
         decoration: appPickerDecoration(context, label: context.t.bank.services, icon: Icons.apps_outlined),
         child: DropdownButtonHideUnderline(
           child: DropdownButton<String>(
+            style: AppTheme.dropdownStyle(context),
             key: const ValueKey('bank-service-picker'),
             isExpanded: true,
             isDense: true,
@@ -241,7 +243,7 @@ class _BankPageState extends State<BankPage> {
             ),
           ],
         ),
-        trailing: Icon(Icons.chevron_right, color: colorScheme.outline),
+        trailing: Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
         onTap: disabled ? null : () => _cubit.selectBank(item),
       ),
     );
@@ -479,7 +481,7 @@ class _BankPageState extends State<BankPage> {
                         sizedBoxW4H4,
                         Row(
                           children: [
-                            Icon(Icons.schedule_outlined, size: 14, color: colorScheme.outline),
+                            Icon(Icons.schedule_outlined, size: 14, color: colorScheme.onSurfaceVariant),
                             sizedBoxW4H4,
                             Flexible(
                               child: Text(
@@ -807,7 +809,11 @@ class _BankTransactionDialogState extends State<_BankTransactionDialog> {
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.account_balance_outlined, size: 18, color: Theme.of(context).colorScheme.outline),
+                        Icon(
+                          Icons.account_balance_outlined,
+                          size: 18,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
                         sizedBoxW8H8,
                         Expanded(child: Text(widget.bankName)),
                       ],

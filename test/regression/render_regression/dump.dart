@@ -10,6 +10,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:tsdm_client/utils/html/author_style.dart';
 import 'package:tsdm_client/utils/html/post_table.dart';
+import 'package:tsdm_client/utils/html/post_typography.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/cached_image/cached_image.dart';
 import 'package:tsdm_client/widgets/card/code_card.dart';
@@ -374,7 +375,7 @@ final class FloorDumper {
             'u': (style?.decoration?.contains(TextDecoration.underline) ?? false) ? 1 : 0,
             's': (style?.decoration?.contains(TextDecoration.lineThrough) ?? false) ? 1 : 0,
             'c': hexColor(style?.color),
-            'fs': style?.fontSize ?? 14,
+            'fs': style?.fontSize ?? postBodyFontSize,
             'bg': hexColor(style?.backgroundColor ?? style?.background?.color),
             'al': align,
             'a': l ? 1 : 0,

@@ -33,6 +33,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fpdart/fpdart.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
@@ -791,7 +792,7 @@ void main() {
         final posts = threadPageFromApi(_api('thread_v15_282_avatar_blocked'), 1).postList;
         await pump(tester, [posts.firstWhere((e) => e.postID == '6733'), posts.firstWhere((e) => e.postID == '6732')]);
         expect(find.byType(HeroUserAvatar), findsOneWidget, reason: 'the other floor keeps its avatar');
-        expect(find.byIcon(Icons.no_accounts_outlined), findsOneWidget);
+        expect(find.byIcon(Symbols.no_accounts_rounded), findsOneWidget);
         expect(find.byTooltip(t.postCard.avatarBlocked), findsOneWidget);
         expect(tester.takeException(), isNull);
       });

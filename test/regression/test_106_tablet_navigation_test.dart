@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:tsdm_client/features/home/cubit/home_cubit.dart';
 import 'package:tsdm_client/features/home/widgets/widgets.dart';
 import 'package:tsdm_client/features/root/stream/scroll_to_top_stream.dart';
@@ -46,11 +47,12 @@ const Map<HomeTab, String> _paths = {
   HomeTab.me: '/me',
 };
 
-const Map<HomeTab, (IconData, IconData)> _icons = {
-  HomeTab.home: (Icons.home_outlined, Icons.home),
-  HomeTab.topic: (Icons.topic_outlined, Icons.topic),
-  HomeTab.notice: (Icons.notifications_outlined, Icons.notifications),
-  HomeTab.me: (Icons.person_outline, Icons.person),
+/// The symbol of each destination: the same one selected or not (filled when selected).
+const Map<HomeTab, IconData> _icons = {
+  HomeTab.home: Symbols.home_rounded,
+  HomeTab.topic: Symbols.topic_rounded,
+  HomeTab.notice: Symbols.notifications_rounded,
+  HomeTab.me: Symbols.person_rounded,
 };
 
 void main() {
@@ -141,11 +143,8 @@ void main() {
     HomeTab.me => tr.navigation.me,
   };
 
-  /// The icon currently drawn for [tab]: the filled one when selected.
-  Finder icon(HomeTab tab) {
-    final (outlined, filled) = _icons[tab]!;
-    return find.byIcon(cubit.state.tab == tab ? filled : outlined);
-  }
+  /// The icon currently drawn for [tab].
+  Finder icon(HomeTab tab) => find.byIcon(_icons[tab]!);
 
   /// Tap the destination of [tab] like a user, on its icon or (bar and drawer: the rail hides its labels) its label.
   ///

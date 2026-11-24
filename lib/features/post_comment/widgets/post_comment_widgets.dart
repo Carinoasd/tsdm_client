@@ -233,7 +233,7 @@ class PostCommentTile extends StatelessWidget {
                     if (comment.time case final time?)
                       TextSpan(
                         text: '  $time',
-                        style: textTheme.labelSmall?.copyWith(color: colorScheme.outline),
+                        style: textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant),
                       ),
                   ],
                 ),
@@ -247,7 +247,7 @@ class PostCommentTile extends StatelessWidget {
             key: ValueKey('post-comment-delete-${comment.id}'),
             visualDensity: VisualDensity.compact,
             tooltip: context.t.postComment.delete,
-            icon: Icon(Icons.delete_outline, size: 20, color: colorScheme.outline),
+            icon: Icon(Icons.delete_outline, size: 20, color: colorScheme.onSurfaceVariant),
             onPressed: onDelete,
           ),
       ],

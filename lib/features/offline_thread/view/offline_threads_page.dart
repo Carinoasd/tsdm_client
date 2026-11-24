@@ -12,6 +12,7 @@ import 'package:tsdm_client/features/thread/v1/repository/thread_repository.dart
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
+import 'package:tsdm_client/widgets/card/thread_card/thread_card.dart';
 import 'package:tsdm_client/widgets/two_pane.dart';
 
 /// One thread kept for reading without network, as the list shows it.
@@ -123,15 +124,16 @@ class _OfflineThreadsPageState extends State<OfflineThreadsPage> {
             null => const Center(child: CircularProgressIndicator()),
             [] => AppStateView(icon: Icons.offline_pin_outlined, message: tr.empty),
             _ => AppCenteredList(
-              builder: (context, side, _) => ListView.separated(
-                padding: side.copyWith(top: 8).add(context.safePadding()),
+              builder: (context, _, width) => ListView.separated(
+                // Flat rows to the edges of a phone, hairlines between them, like the other lists of threads.
+                padding: threadListPadding(width).copyWith(top: 8).add(context.safePadding()),
                 itemCount: items.length,
                 itemBuilder: (context, index) => _OfflineThreadCard(
                   items[index],
                   size: _size(items[index].size),
                   onRemove: () async => _remove(items[index]),
                 ),
-                separatorBuilder: (context, index) => appListSeparator,
+                separatorBuilder: (context, index) => const ThreadListSeparator(),
               ),
             ),
           },
@@ -165,7 +167,9 @@ class _OfflineThreadCard extends StatelessWidget {
     return TwoPaneMiddleClickOpener(
       query: _query,
       child: AppSurface(
-        padding: const EdgeInsets.fromLTRB(12, 12, 4, 12),
+        // A row on the page, not a panel.
+        color: Colors.transparent,
+        padding: const EdgeInsets.fromLTRB(16, 12, 4, 12),
         onTap: () async => _open(context),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -176,7 +180,7 @@ class _OfflineThreadCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(item.title, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+                  Text(item.title, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
                   sizedBoxW8H8,
                   Wrap(
                     spacing: 8,

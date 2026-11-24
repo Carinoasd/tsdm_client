@@ -580,9 +580,6 @@
       "threadLinkCard": {
         "title": "Preview cards for thread links"
       },
-      "showPostBackgrounds": {
-        "title": "Show post backgrounds"
-      },
       "threadContentLayout": {
         "title": "Reading layout",
         "dialogTitle": "Reading layout",
@@ -1219,7 +1216,7 @@
     },
     "softCloseHint": "This thread is closed. Take care before replying",
     "offlineBanner": "Offline copy (saved ${time: String})",
-    "statistics": "${view: int} views ${reply: int} replies",
+    "statistics": "${view: int} views · ${reply: int} replies",
     "threadInfo": {
       "title": "Thread info",
       "threadTitle": "Title",

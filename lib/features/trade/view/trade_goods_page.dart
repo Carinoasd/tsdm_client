@@ -385,7 +385,7 @@ class _TradeGoodsPageState extends State<TradeGoodsPage> {
     final textTheme = Theme.of(context).textTheme;
     if (detail.removed) {
       return Center(
-        child: Text(tr.removed, style: textTheme.bodyLarge?.copyWith(color: colorScheme.outline)),
+        child: Text(tr.removed, style: textTheme.bodyLarge?.copyWith(color: colorScheme.onSurfaceVariant)),
       );
     }
     final picture = detail.thumb ?? detail.image;
@@ -409,7 +409,10 @@ class _TradeGoodsPageState extends State<TradeGoodsPage> {
         for (final price in detail.costPrices)
           Text(
             price,
-            style: textTheme.bodySmall?.copyWith(color: colorScheme.outline, decoration: TextDecoration.lineThrough),
+            style: textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              decoration: TextDecoration.lineThrough,
+            ),
           ),
         sizedBoxW12H12,
         if (detail.sellerName.isNotEmpty)
@@ -430,7 +433,7 @@ class _TradeGoodsPageState extends State<TradeGoodsPage> {
                     ),
                   ),
                   sizedBoxW8H8,
-                  Text(tr.seller, style: textTheme.bodyMedium?.copyWith(color: colorScheme.outline)),
+                  Text(tr.seller, style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant)),
                   sizedBoxW8H8,
                   Expanded(child: Text(detail.sellerName, style: textTheme.titleSmall)),
                 ],
@@ -501,7 +504,10 @@ class _Row extends StatelessWidget {
         children: [
           SizedBox(
             width: 96,
-            child: Text(label, style: textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.outline)),
+            child: Text(
+              label,
+              style: textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+            ),
           ),
           sizedBoxW8H8,
           Expanded(child: Text(value, style: textTheme.bodyMedium)),

@@ -146,7 +146,7 @@ class _QuickPhrasesPageState extends State<QuickPhrasesPage> {
                       ReorderableDragStartListener(
                         key: ValueKey('quick-phrase-handle-${phrase.id}'),
                         index: index,
-                        child: Icon(Icons.drag_handle_outlined, color: colorScheme.outline),
+                        child: Icon(Icons.drag_handle_outlined, color: colorScheme.onSurfaceVariant),
                       ),
                     ],
                   ),

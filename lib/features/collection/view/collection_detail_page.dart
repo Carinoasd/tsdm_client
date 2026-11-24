@@ -144,7 +144,7 @@ class _CollectionDetailPageState extends State<CollectionDetailPage> {
   Widget _header(BuildContext context, CollectionDetail detail) {
     final theme = Theme.of(context);
     final tr = context.t.collection;
-    final outline = theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.outline);
+    final outline = theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant);
     return AppSurface(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

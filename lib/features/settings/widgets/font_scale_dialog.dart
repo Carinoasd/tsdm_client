@@ -62,7 +62,7 @@ class _TextScaleDialogState extends State<TextScaleDialog> {
           ),
           Row(
             children: [
-              Icon(Icons.text_decrease_outlined, size: 18, color: colorScheme.outline),
+              Icon(Icons.text_decrease_outlined, size: 18, color: colorScheme.onSurfaceVariant),
               Expanded(
                 child: Slider(
                   autofocus: true,
@@ -77,7 +77,7 @@ class _TextScaleDialogState extends State<TextScaleDialog> {
                   onChanged: (v) => setState(() => _currentScale = double.parse(v.toStringAsFixed(2))),
                 ),
               ),
-              Icon(Icons.text_increase_outlined, size: 18, color: colorScheme.outline),
+              Icon(Icons.text_increase_outlined, size: 18, color: colorScheme.onSurfaceVariant),
             ],
           ),
         ],

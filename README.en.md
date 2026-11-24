@@ -16,16 +16,16 @@
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/Carinoasd/tsdm_client" alt="license"/></a>
 </p>
 
-## Latest update: 1.61.0 (2026-11-24)
+## Latest update: 1.62.0 (2026-11-24)
 
-- Background shop under Me → Forum services: my backgrounds, the store and the event store, the warehouse and the exchange.
-- Threads show the content and sidebar backgrounds members set in the background shop; it can be turned off in Settings → Appearance.
-- My credits gains transfer and exchange.
-- Forum services gains entries for the game center, the court, the CP system and part-time jobs.
-- The background shop and the in-app transfer and exchange forms need the forum API plugin 4.1.0; with an older plugin the app opens the web page instead. Post backgrounds are shown from 4.1.0 on as well.
-- The Android build number is 177 and installs over earlier releases and test builds.
+- A visual refresh: layered surfaces without hairline borders, a near-black dark theme, two font weights only, rounded outline icons.
+- Home: the greeting is no longer a card, the four actions sit in one row of tiles, the forum guide is a flat list.
+- Thread page: floors are full-width rows separated by hairlines, the title area shows the forum path with view and reply counts, larger body text and line height.
+- Thread lists are flat rows; "Me" shows five tiles a row on phones.
+- Member backgrounds are no longer shown in posts and the setting is removed; the background shop stays.
+- Android build number 178 installs over earlier releases and test builds.
 
-[Download 1.61.0](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.61.0) · [Full changelog](./CHANGELOG.md)
+[Download 1.62.0](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.62.0) · [Full changelog](./CHANGELOG.md)
 
 ## What it is
 

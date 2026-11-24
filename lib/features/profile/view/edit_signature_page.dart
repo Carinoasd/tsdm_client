@@ -16,6 +16,7 @@ import 'package:tsdm_client/features/profile/repository/edit_user_profile_reposi
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
+import 'package:tsdm_client/themes/app_surfaces.dart';
 import 'package:tsdm_client/utils/bbcode/spoiler_normalizer.dart';
 import 'package:tsdm_client/utils/retry_button.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
@@ -197,7 +198,7 @@ class _SignatureEditorState extends State<_SignatureEditor> {
                 ),
                 if (_bbcode != null)
                   ColoredBox(
-                    color: colorScheme.surfaceContainerLow,
+                    color: AppSurfaces.of(context).bar,
                     child: Padding(
                       padding: horizontal.add(edgeInsetsT4),
                       child: EditorToolbar(
@@ -214,7 +215,7 @@ class _SignatureEditorState extends State<_SignatureEditor> {
                       '${signatureLength(_value)} / $max',
                       textAlign: TextAlign.end,
                       style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: fits ? colorScheme.outline : colorScheme.error,
+                        color: fits ? colorScheme.onSurfaceVariant : colorScheme.error,
                       ),
                     ),
                   ),

@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:tsdm_client/features/audio_player/controller/audio_player_controller.dart';
 import 'package:tsdm_client/features/audio_player/widgets/audio_controls.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/themes/app_surfaces.dart';
 
 /// The app's pages ([child]) with the mini player below them while something is played: the track's name, where it
 /// is, play or pause, close. It stays from page to page until closed; it steps aside while the keyboard is up.
@@ -47,7 +48,7 @@ class _MiniPlayerBar extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     return Material(
-      color: colorScheme.surfaceContainer,
+      color: AppSurfaces.of(context).bar,
       elevation: 3,
       child: SafeArea(
         top: false,

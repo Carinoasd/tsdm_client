@@ -76,7 +76,7 @@ class ReadLaterPage extends StatelessWidget {
                       item.title,
                       style: visitedTitleStyle(
                         context,
-                        Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                        Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
                         visited: visitMarkOf(context, '${item.tid}') != null,
                       ),
                     ),

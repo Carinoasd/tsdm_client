@@ -82,7 +82,7 @@ class _ThreadVisitHistoryPageState extends State<ThreadVisitHistoryPage> {
                       Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
                       Text(
                         tr.accountUid(uid: uid),
-                        style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline),
+                        style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
                       ),
                     ],
                   ),

@@ -85,7 +85,7 @@ class _TitleShopPageState extends State<TitleShopPage> {
         child:
             widget.imageBuilder?.call(url) ??
             (url == null
-                ? Icon(Icons.image_not_supported_outlined, color: Theme.of(context).colorScheme.outline)
+                ? Icon(Icons.image_not_supported_outlined, color: Theme.of(context).colorScheme.onSurfaceVariant)
                 : CachedImage(url, width: width, height: height, fit: BoxFit.contain)),
       ),
     );

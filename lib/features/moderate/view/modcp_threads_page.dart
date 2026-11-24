@@ -15,6 +15,7 @@ import 'package:tsdm_client/features/moderate/widgets/modcp_widgets.dart';
 import 'package:tsdm_client/features/moderate/widgets/moderate_sheet.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/themes/app_themes.dart';
 import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
@@ -480,6 +481,7 @@ class _ThreadSearchSheetState extends State<_ThreadSearchSheet> {
                 spacing: 12,
                 children: [
                   DropdownButtonFormField<String>(
+                    style: AppTheme.dropdownStyle(context),
                     key: const ValueKey('modcp-threads-option'),
                     initialValue: options.any((o) => o.value == _option) ? _option : options.first.value,
                     decoration: InputDecoration(labelText: context.t.modcpPages.threadOption),
@@ -491,6 +493,7 @@ class _ThreadSearchSheetState extends State<_ThreadSearchSheet> {
                   ),
                   if (page.threadClasses.isNotEmpty)
                     DropdownButtonFormField<String>(
+                      style: AppTheme.dropdownStyle(context),
                       key: const ValueKey('modcp-threads-type'),
                       initialValue: page.threadClasses.any((o) => o.value == _type) ? _type : '',
                       decoration: InputDecoration(labelText: context.t.modcpPages.category),

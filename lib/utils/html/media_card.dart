@@ -449,7 +449,7 @@ class PostMediaCard extends StatelessWidget {
             if (url != null)
               TextSpan(
                 text: '  ${tr.open}',
-                style: textTheme.bodySmall?.copyWith(color: colorScheme.outline),
+                style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
               ),
           ],
         ),
@@ -542,7 +542,7 @@ class _MediaPreviewCardState extends State<_MediaPreviewCard> {
     );
     final cover = ColoredBox(
       color: colorScheme.surfaceContainerHighest,
-      child: Center(child: Icon(Icons.play_circle_outline, size: 40, color: colorScheme.outline)),
+      child: Center(child: Icon(Icons.play_circle_outline, size: 40, color: colorScheme.onSurfaceVariant)),
     );
     final card = ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: _maxWidth),
@@ -604,7 +604,7 @@ class _MediaPreviewCardState extends State<_MediaPreviewCard> {
                         author,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: textTheme.bodySmall?.copyWith(color: colorScheme.outline),
+                        style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
                       ),
                   ],
                 ),

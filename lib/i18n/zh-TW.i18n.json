@@ -580,9 +580,6 @@
       "threadLinkCard": {
         "title": "帖子連結顯示預覽卡"
       },
-      "showPostBackgrounds": {
-        "title": "顯示帖子背景"
-      },
       "threadContentLayout": {
         "title": "閱讀排版",
         "dialogTitle": "閱讀排版",
@@ -1219,7 +1216,7 @@
     },
     "softCloseHint": "貼文已關閉，回覆前請注意",
     "offlineBanner": "離線內容（${time: String} 保存）",
-    "statistics": "${view: int} 查看 ${reply: int} 回覆",
+    "statistics": "${view: int} 查看 · ${reply: int} 回覆",
     "threadInfo": {
       "title": "貼文訊息",
       "threadTitle": "標題",

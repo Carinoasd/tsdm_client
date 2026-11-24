@@ -43,6 +43,7 @@ import 'package:tsdm_client/features/shortcuts/utils/pin_to_home.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
+import 'package:tsdm_client/themes/app_surfaces.dart';
 import 'package:tsdm_client/utils/clipboard.dart';
 import 'package:tsdm_client/utils/html/html_muncher.dart';
 import 'package:tsdm_client/utils/load_failure.dart';
@@ -602,8 +603,8 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
     final colorScheme = Theme.of(context).colorScheme;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: colorScheme.surface,
-        border: Border(bottom: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.6))),
+        color: AppSurfaces.of(context).page,
+        border: Border(bottom: BorderSide(color: AppSurfaces.of(context).line)),
       ),
       child: LayoutBuilder(
         builder: (context, constraints) => SingleChildScrollView(
@@ -634,25 +635,29 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
     late final Widget content;
     if (state.rulesElement == null) {
       content = AppCenteredList(
-        builder: (context, side, _) => ListView.separated(
+        builder: (context, _, width) => ListView.separated(
           controller: _pinnedScrollController,
-          padding: side.copyWith(top: 8).add(context.safePadding()),
+          // Flat rows to the edges of a phone, hairlines between them.
+          padding: threadListPadding(width).copyWith(top: 8).add(context.safePadding()),
           itemCount: state.stickThreadList.length,
           itemBuilder: (context, index) => NormalThreadCard(state.stickThreadList[index]),
-          separatorBuilder: (context, index) => appListSeparator,
+          separatorBuilder: (context, index) => const ThreadListSeparator(),
         ),
       );
     } else {
       content = AppCenteredList(
-        builder: (context, side, _) => ListView.separated(
+        builder: (context, side, width) => ListView.separated(
           controller: _pinnedScrollController,
-          padding: side.copyWith(top: 8).add(context.safePadding()),
+          // Flat rows to the edges of a phone, hairlines between them; the rules stay a panel inside the page padding.
+          padding: threadListPadding(width).copyWith(top: 8).add(context.safePadding()),
           itemCount: state.stickThreadList.length + 1,
           itemBuilder: (context, index) {
             // TODO: Do NOT add leading rules card by checking index value.
             if (index == 0) {
+              final list = threadListPadding(width);
               // Forum rules: a titled surface above the pinned threads, the forum's own markup inside.
               return AppSurface(
+                margin: EdgeInsets.only(left: side.left - list.left, right: side.right - list.right),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -670,7 +675,8 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
               return NormalThreadCard(state.stickThreadList[index - 1]);
             }
           },
-          separatorBuilder: (context, index) => appListSeparator,
+          // The rules panel keeps a gap under it; the threads have hairlines between them.
+          separatorBuilder: (context, index) => index == 0 ? appListSeparator : const ThreadListSeparator(),
         ),
       );
     }
@@ -753,7 +759,7 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
       scrollController: _threadScrollController,
       onRefresh: refresh,
       childBuilder: (context, physics) => AppCenteredList(
-        builder: (context, side, _) => CustomScrollView(
+        builder: (context, side, width) => CustomScrollView(
           controller: _threadScrollController,
           physics: physics,
           slivers: [
@@ -775,7 +781,8 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
               itemCount: threads.length + 1,
               itemBuilder: (context, index) => index < threads.length
                   ? Padding(
-                      padding: side,
+                      // Flat rows to the edges of a phone, hairlines between them.
+                      padding: threadListPadding(width),
                       child: KeyboardSelectable(
                         selection: _keyboardSelection,
                         index: index,
@@ -794,7 +801,8 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
                       onLoadMore: () => bloc.add(ForumLoadMoreRequested(state.currentPage + 1)),
                       onRetry: () => bloc.add(const ForumRetryRequested()),
                     ),
-              separatorBuilder: (context, index) => appListSeparator,
+              separatorBuilder: (context, index) =>
+                  Padding(padding: threadListPadding(width), child: const ThreadListSeparator()),
             ),
             SliverPadding(padding: context.safePadding()),
           ],

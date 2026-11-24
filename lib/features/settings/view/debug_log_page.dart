@@ -147,7 +147,7 @@ class DebugHistoricalLogPage extends StatelessWidget with LoggerMixin {
                           overflow: TextOverflow.ellipsis,
                           style: Theme.of(
                             context,
-                          ).textTheme.labelSmall?.copyWith(color: Theme.of(context).colorScheme.outline),
+                          ).textTheme.labelSmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
                         ),
                       ],
                     ),

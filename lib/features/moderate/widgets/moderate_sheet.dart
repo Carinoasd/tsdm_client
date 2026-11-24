@@ -13,6 +13,7 @@ import 'package:tsdm_client/features/moderate/widgets/thread_admin_dialogs.dart'
 import 'package:tsdm_client/features/thread_link_card/models/thread_link_card_info.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/themes/app_themes.dart';
 import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
@@ -850,6 +851,7 @@ class _ModerateDialogState extends State<ModerateDialog> {
         ),
       if (_operation == ModerateOperation.copy) ...[
         DropdownButtonFormField<String>(
+          style: AppTheme.dropdownStyle(context),
           isExpanded: true,
           initialValue: _moveTo,
           decoration: InputDecoration(labelText: tr.copyTo),
@@ -861,6 +863,7 @@ class _ModerateDialogState extends State<ModerateDialog> {
       if (_operation == ModerateOperation.merge) ..._mergeFields(context),
       if (_operation == ModerateOperation.move) ...[
         DropdownButtonFormField<String>(
+          style: AppTheme.dropdownStyle(context),
           isExpanded: true,
           initialValue: _moveTo,
           decoration: InputDecoration(labelText: tr.moveTo),
@@ -1018,6 +1021,7 @@ class _ModerateDialogState extends State<ModerateDialog> {
       Padding(
         padding: const EdgeInsets.only(top: 12),
         child: DropdownButtonFormField<String>(
+          style: AppTheme.dropdownStyle(context),
           // A new list for each forum picked.
           key: ValueKey(_moveTo),
           isExpanded: true,

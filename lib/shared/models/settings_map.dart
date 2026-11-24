@@ -57,7 +57,6 @@ class SettingsMap with SettingsMapMappable {
     this.threadContentParagraphSpacing = PostTypography.defaultParagraphSpacing,
     this.threadContentSplitLongParagraphs = false,
     this.threadLinkCard = true,
-    this.showPostBackgrounds = true,
     this.threadContentMaxWidth = 0,
     this.threadCardShowExcerpt = true,
     this.threadCardThumbnailMode = 1,
@@ -381,10 +380,6 @@ class SettingsMap with SettingsMapMappable {
   /// required: backups from older versions lack it.
   final bool threadLinkCard;
 
-  /// Whether the backgrounds of the floors' authors are drawn behind their floors. Not required: backups from older
-  /// versions lack it.
-  final bool showPostBackgrounds;
-
   /// Widest the floors grow, 0: as the app lays them out. Not required: backups from older versions lack it.
   final double threadContentMaxWidth;
 
@@ -564,7 +559,6 @@ class SettingsMap with SettingsMapMappable {
       SettingsKeys.threadContentParagraphSpacing => copyWith(threadContentParagraphSpacing: value as double?),
       SettingsKeys.threadContentSplitLongParagraphs => copyWith(threadContentSplitLongParagraphs: value as bool?),
       SettingsKeys.threadLinkCard => copyWith(threadLinkCard: value as bool?),
-      SettingsKeys.showPostBackgrounds => copyWith(showPostBackgrounds: value as bool?),
       SettingsKeys.threadContentMaxWidth => copyWith(threadContentMaxWidth: value as double?),
       SettingsKeys.highRefreshRate => copyWith(highRefreshRate: value as bool?),
       SettingsKeys.appIcon => copyWith(appIcon: value as String?),

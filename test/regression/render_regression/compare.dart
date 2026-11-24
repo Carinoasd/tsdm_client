@@ -36,6 +36,7 @@
 ///   a gradient), which the app does not show (only colors are compared); colors closer than 30 (the sum of the
 ///   channels) and sizes closer than 12% of the body text, which the two round differently;
 /// * the text of a code block: the app shows it in its own font and colors;
+/// * the underline of the source line of a quote (the link to the post quoted): the app shows it as a meta line;
 /// * the forum's jammer text (`font.jammer`): noise against copying, white on the web page, left out by the app;
 /// * what shows a fold a post makes itself (an element whose click shows a hidden one): the title of a spoiler in the
 ///   app, as the button and header of a spoiler are.
@@ -45,16 +46,20 @@ import 'dart:math' as math;
 
 import 'package:flutter/painting.dart';
 import 'package:tsdm_client/utils/html/author_style.dart';
+import 'package:tsdm_client/utils/html/post_typography.dart';
 
 /// An image, a rule and a player in the sequence of characters compared.
 const imageChar = 0xE000;
 const ruleChar = 0xE001;
 const mediaChar = 0xE002;
 
+/// Where the source line of a quote is in the web page (`<blockquote><font size="2"><a href="…goto=findpost…">`).
+final _quoteSource = RegExp(r'blockquote>font>a(>|$)');
+
 /// The text and link colors of the app's light theme, and its body text size: not colors an author gave.
 const _appDefaultColor = '#191c20';
 const _appLinkColor = '#37618e';
-const _appDefaultFontSize = 14.0;
+const double _appDefaultFontSize = postBodyFontSize;
 
 /// The forum's link color (`.t_f a`).
 const _webLinkColor = '#336699';
@@ -550,6 +555,11 @@ FloorDiff compareFloor(List<Map<String, Object?>> web, Map<String, Object?> base
     void add(String key) => (style[key] ??= []).add(i);
     for (final key in ['b', 'i', 'u', 's']) {
       if (ws[key] != as[key]) {
+        // The source line of a quote (who wrote it and when, a link to the post quoted): the app shows it as the
+        // quote's meta line, without the underline of the links of a post.
+        if (key == 'u' && ws['a'] == 1 && ws['u'] == 1 && as['u'] != 1 && _quoteSource.hasMatch(w.tp)) {
+          continue;
+        }
         if (key == 'u' && ws['a'] == 1 && as['a'] == 1 && ws['u'] == 1 && as['u'] != 1) {
           add('link-underline:lost');
           continue;

@@ -11,6 +11,7 @@ import 'package:tsdm_client/features/in_app_browser/utils/open_forum_page.dart';
 import 'package:tsdm_client/features/local_notice/notification_permission_prompt.dart';
 import 'package:tsdm_client/features/notification/bloc/auto_notification_cubit.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/themes/app_themes.dart';
 import 'package:tsdm_client/utils/logger.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
@@ -260,6 +261,7 @@ class _LoginFormState extends State<LoginForm> with LoggerMixin {
                   ).copyWith(contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4)),
                   child: DropdownButtonHideUnderline(
                     child: DropdownButton<int>(
+                      style: AppTheme.dropdownStyle(context),
                       value: _question,
                       // Long questions are cut with an ellipsis instead of overflowing on narrow phones.
                       isExpanded: true,

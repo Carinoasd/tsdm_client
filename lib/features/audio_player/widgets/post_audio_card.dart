@@ -69,7 +69,7 @@ class PostAudioCard extends StatelessWidget {
                     } else if (current && duration != null && state.status != AudioPlayerStatus.loading) {
                       second = AudioSeekBar(duration: duration);
                     } else if (info.isNotEmpty) {
-                      second = Text(info, style: textTheme.bodySmall?.copyWith(color: colorScheme.outline));
+                      second = Text(info, style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant));
                     } else {
                       second = const SizedBox.shrink();
                     }

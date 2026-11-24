@@ -5,6 +5,7 @@ import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/features/admin_tools/models/admin_models.dart';
 import 'package:tsdm_client/features/admin_tools/repository/admin_repository.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/themes/app_themes.dart';
 import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
@@ -233,6 +234,7 @@ class _AdminLoginDialogState extends State<AdminLoginDialog> {
           if (_askQuestion) ...[
             sizedBoxW12H12,
             DropdownButtonFormField<int>(
+              style: AppTheme.dropdownStyle(context),
               key: const ValueKey('admin-login-question'),
               initialValue: _question,
               isExpanded: true,

@@ -74,7 +74,7 @@ class _RateLogPageState extends State<RateLogPage> with SingleTickerProviderStat
                       overflow: TextOverflow.ellipsis,
                       style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
                     ),
-                    Text(time, style: textTheme.labelSmall?.copyWith(color: colorScheme.outline)),
+                    Text(time, style: textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant)),
                   ],
                 ),
               ),

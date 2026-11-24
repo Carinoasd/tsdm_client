@@ -23,7 +23,6 @@ class _HomeNavigationRailState extends State<HomeNavigationRail> {
   @override
   Widget build(BuildContext context) {
     final barItems = _buildNavigationItems(context);
-    final colorScheme = Theme.of(context).colorScheme;
 
     // Same look as the bottom bar and the drawer: low container color, rounded indicator, labels always shown. The app
     // icon heads the rail (GitHub #236), the destinations sit in the middle of the room below it.
@@ -40,7 +39,7 @@ class _HomeNavigationRailState extends State<HomeNavigationRail> {
           ),
         ),
       ),
-      backgroundColor: colorScheme.surfaceContainerLow,
+      backgroundColor: AppSurfaces.of(context).bar,
       indicatorShape: _navigationIndicatorShape,
       labelType: NavigationRailLabelType.all,
       destinations: [
@@ -65,7 +64,7 @@ class _HomeNavigationRailState extends State<HomeNavigationRail> {
     // is still handled by the rail itself.
     final padding = MediaQuery.paddingOf(context);
     return ColoredBox(
-      color: colorScheme.surfaceContainerLow,
+      color: AppSurfaces.of(context).bar,
       child: Padding(
         padding: EdgeInsets.only(top: padding.top, bottom: padding.bottom),
         child: MediaQuery.removePadding(

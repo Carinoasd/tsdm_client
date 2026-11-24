@@ -57,7 +57,7 @@ class PollResultBar extends StatelessWidget {
             label,
             style: textTheme.labelMedium?.copyWith(
               color: mine ? colorScheme.primary : colorScheme.onSurfaceVariant,
-              fontWeight: mine ? FontWeight.w600 : null,
+              fontWeight: mine ? FontWeight.w700 : null,
             ),
           ),
         ],

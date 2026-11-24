@@ -90,7 +90,7 @@ class _FollowedThreadsPageState extends State<FollowedThreadsPage> {
                   sizedBoxW4H4,
                   Text(
                     last.elapsedTillNow(context),
-                    style: textTheme.labelSmall?.copyWith(color: colorScheme.outline),
+                    style: textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant),
                   ),
                 ],
               ],

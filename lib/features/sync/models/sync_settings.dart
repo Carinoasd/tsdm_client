@@ -113,7 +113,6 @@ final syncedSettings = <SyncedSetting<Object>>[
   ),
   SyncedSetting._(SettingsKeys.threadContentSplitLongParagraphs, (s) => s.threadContentSplitLongParagraphs),
   SyncedSetting._(SettingsKeys.threadLinkCard, (s) => s.threadLinkCard),
-  SyncedSetting._(SettingsKeys.showPostBackgrounds, (s) => s.showPostBackgrounds),
   SyncedSetting._(SettingsKeys.postMediaPreview, (s) => s.postMediaPreview),
   SyncedSetting._(
     SettingsKeys.chineseDisplayMode,
@@ -191,26 +190,48 @@ const syncedSettingsAddedLater = {
   'collapsePinnedThreads',
 };
 
+/// The former defaults of synced settings whose default changed, by stored name: a value of the document equal to one
+/// is taken as never set and not applied ([syncedSettingsChanges], [syncedSettingsApplied]).
+///
+/// Every version writes all of [syncedSettings] into the document, the ones still at their default too: without this
+/// the old default another device wrote would come back here as if the reader chose it, and a reader who syncs the
+/// settings would never get the new one. A value the reader set to the former default on purpose is not told apart
+/// from it. What this device writes is left as it is.
+///
+/// Added in 1.62.0, when the defaults of the post typography changed (line height 1.7 to 1.8, paragraph spacing 8 to
+/// 10: [PostTypography.defaultLineHeight], [PostTypography.defaultParagraphSpacing]).
+const syncedSettingsFormerDefaults = <String, Object>{
+  'threadContentLineHeight': 1.7,
+  'threadContentParagraphSpacing': 8.0,
+};
+
+/// The value of [setting] in the document's [values] this version applies: as [SyncedSetting.decode] gives it, null
+/// for the former default of the setting ([syncedSettingsFormerDefaults]).
+Object? _incoming(SyncedSetting<Object> setting, Map<String, dynamic> values) {
+  final value = setting.decode(values[setting.key.name]);
+  return value != null && value == syncedSettingsFormerDefaults[setting.key.name] ? null : value;
+}
+
 /// The values of [syncedSettings] in [settings], by stored name: the `values` of the `settings` section.
 Map<String, Object> syncedSettingsValues(SettingsMap settings) => {
   for (final s in syncedSettings) s.key.name: s.encode(settings),
 };
 
 /// What applying the document's [values] to [settings] changes: each setting of [syncedSettings] the document holds a
-/// value of that this version accepts and that differs from the one of [settings]. Values it does not accept and names
-/// it does not know are left alone.
+/// value of that this version accepts and that differs from the one of [settings]. Values it does not accept, names
+/// it does not know and former defaults ([syncedSettingsFormerDefaults]) are left alone.
 List<(SettingsKeys<Object>, Object)> syncedSettingsChanges(Map<String, dynamic> values, SettingsMap settings) => [
   for (final s in syncedSettings)
-    if (s.decode(values[s.key.name]) case final value? when value != s.current(settings)) (s.key, value),
+    if (_incoming(s, values) case final value? when value != s.current(settings)) (s.key, value),
 ];
 
 /// The values of [syncedSettings] at their defaults, by stored name.
 Map<String, Object> syncedSettingsDefaults() => {for (final s in syncedSettings) s.key.name: s.encodedDefault};
 
 /// [current] (values of [syncedSettings] by stored name) with the document's [values] applied: each value this version
-/// accepts replaces the one of its setting.
+/// accepts replaces the one of its setting, but a former default ([syncedSettingsFormerDefaults]).
 Map<String, Object> syncedSettingsApplied(Map<String, Object> current, Map<String, dynamic> values) => {
   ...current,
   for (final s in syncedSettings)
-    if (s.decode(values[s.key.name]) case final value?) s.key.name: s.encodeValue(value),
+    if (_incoming(s, values) case final value?) s.key.name: s.encodeValue(value),
 };

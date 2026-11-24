@@ -162,7 +162,7 @@ class _PokeTile extends StatelessWidget {
                           sizedBoxW8H8,
                           Text(
                             poke.time!,
-                            style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.outline),
+                            style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
                           ),
                         ],
                       ],

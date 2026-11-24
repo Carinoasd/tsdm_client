@@ -4,6 +4,7 @@ import 'package:tsdm_client/extensions/date_time.dart';
 import 'package:tsdm_client/features/thread_link_card/models/thread_link_card_info.dart';
 import 'package:tsdm_client/features/thread_link_card/repository/thread_link_card_repository.dart';
 import 'package:tsdm_client/features/thread_link_card/utils/thread_link.dart';
+import 'package:tsdm_client/themes/app_surfaces.dart';
 import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 
 /// The card of the thread a link in a post's content leads to ([threadLinkOf]), put right after the link: its title,
@@ -159,7 +160,7 @@ class _Card extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-    final metaStyle = textTheme.bodySmall?.copyWith(color: colorScheme.outline);
+    final metaStyle = textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant);
     final iconSize = (metaStyle?.fontSize ?? 12) + 2;
     final time = info.publishTime;
     final meta = <(IconData, String)>[
@@ -184,7 +185,7 @@ class _Card extends StatelessWidget {
             context.displayText(info.title),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600, color: colorScheme.primary),
+            style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700, color: colorScheme.primary),
           ),
           if (meta.isNotEmpty) ...[
             const SizedBox(height: 4),
@@ -195,7 +196,7 @@ class _Card extends StatelessWidget {
                     if (i > 0) const TextSpan(text: '    '),
                     WidgetSpan(
                       alignment: PlaceholderAlignment.middle,
-                      child: Icon(icon, size: iconSize, color: colorScheme.outline),
+                      child: Icon(icon, size: iconSize, color: colorScheme.onSurfaceVariant),
                     ),
                     TextSpan(text: ' $text'),
                   ],
@@ -222,7 +223,7 @@ class _Card extends StatelessWidget {
             onLongPress: onShowUrl,
             onSecondaryTap: onShowUrl,
             child: DecoratedBox(
-              decoration: ShapeDecoration(shape: shape, color: colorScheme.surfaceContainerLow),
+              decoration: ShapeDecoration(shape: shape, color: AppSurfaces.of(context).inset),
               child: content,
             ),
           ),

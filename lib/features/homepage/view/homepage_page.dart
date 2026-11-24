@@ -5,6 +5,7 @@ import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
@@ -92,6 +93,11 @@ HomeLayout homeLayoutFor(double width, TargetPlatform platform) {
       : HomeLayout.compact;
 }
 
+/// Side padding of the homepage [width] wide on [platform]: 24 when the content inside it still gets a desktop layout
+/// (medium or wide), else 16 (phones, narrow windows). The greeting, the guide and the panels all start at it.
+double homePagePadding(double width, TargetPlatform platform) =>
+    homeLayoutFor(width - 48, platform) == HomeLayout.compact ? 16 : 24;
+
 /// Homepage page.
 ///
 /// Be stateful because scrollable.
@@ -150,7 +156,7 @@ class _HomepagePageState extends State<HomepagePage> {
     }
     return FloatingActionButton(
       onPressed: () async => _scrollController.animateTo(0, duration: duration200, curve: Curves.easeInOut),
-      child: const Icon(Icons.arrow_upward_outlined),
+      child: const Icon(Symbols.arrow_upward_rounded),
     );
   }
 
@@ -215,7 +221,7 @@ class _HomepagePageState extends State<HomepagePage> {
       for (final (i, child) in children.whereType<Widget>().indexed) ...[if (i > 0) SizedBox(height: gap), child],
     ];
 
-    final tools = HomeToolsCard(columns: layout == HomeLayout.medium ? 4 : 2);
+    final tools = HomeToolsCard(columns: layout == HomeLayout.medium ? 6 : 3);
     final widgets = <HomeBlock, Widget?>{
       HomeBlock.greeting: greeting,
       HomeBlock.support: support,
@@ -363,25 +369,28 @@ class _HomepagePageState extends State<HomepagePage> {
     header: const MaterialHeader(),
     onRefresh: () => context.read<HomepageBloc>().add(HomepageRefreshRequested()),
     childBuilder: (context, physics) => LayoutBuilder(
-      builder: (context, constraints) => ListView(
-        physics: physics,
-        controller: _scrollController,
-        padding: edgeInsetsL12T12R12.add(context.safePadding()),
-        children: [
-          Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: _maxContentWidth),
-              child: const WhatsNewBanner(),
+      builder: (context, constraints) {
+        final side = homePagePadding(constraints.maxWidth, Theme.of(context).platform);
+        return ListView(
+          physics: physics,
+          controller: _scrollController,
+          padding: EdgeInsets.fromLTRB(side, 12, side, 0).add(context.safePadding()),
+          children: [
+            Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: _maxContentWidth),
+                child: const WhatsNewBanner(),
+              ),
             ),
-          ),
-          Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: _maxContentWidth),
-              child: _buildGuestDashboard(context, math.min(constraints.maxWidth - 24, _maxContentWidth)),
+            Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: _maxContentWidth),
+                child: _buildGuestDashboard(context, math.min(constraints.maxWidth - side * 2, _maxContentWidth)),
+              ),
             ),
-          ),
-        ],
-      ),
+          ],
+        );
+      },
     ),
   );
 
@@ -403,7 +412,7 @@ class _HomepagePageState extends State<HomepagePage> {
     final showDailyActionsInBar = state.status == HomepageStatus.failure;
 
     final activities = (
-      icon: Icons.event_outlined,
+      icon: Symbols.event_rounded,
       label: context.t.activitiesPage.title,
       onPressed: () async => context.pushNamed<void>(ScreenPaths.activities),
     );
@@ -413,7 +422,7 @@ class _HomepagePageState extends State<HomepagePage> {
       onPressed: () async => context.pushNamed<void>(ScreenPaths.pokemon),
     );
     final support = (
-      icon: Icons.favorite_border,
+      icon: Symbols.favorite_rounded,
       label: context.t.aboutPage.supportDevelopment,
       onPressed: () async => showDialog<void>(context: context, builder: (_) => const SupportDevelopmentDialog()),
     );
@@ -432,7 +441,7 @@ class _HomepagePageState extends State<HomepagePage> {
     return [
       if (showDailyActionsInBar) ?button(activities),
       IconButton(
-        icon: const Icon(Icons.search_outlined),
+        icon: const Icon(Symbols.search_rounded),
         tooltip: context.t.searchPage.title,
         onPressed: () async => context.pushNamed(ScreenPaths.search),
       ),
@@ -583,41 +592,44 @@ class _HomepagePageState extends State<HomepagePage> {
                 header: const MaterialHeader(),
                 onRefresh: () => _refresh(context),
                 childBuilder: (context, physics) => LayoutBuilder(
-                  builder: (context, constraints) => ListView(
-                    physics: physics,
-                    controller: _scrollController,
-                    padding: edgeInsetsL12T12R12.add(context.safePadding()),
-                    children: [
-                      Center(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: _maxContentWidth),
-                          child: const WhatsNewBanner(),
-                        ),
-                      ),
-                      if (state.savedAt case final savedAt?)
+                  builder: (context, constraints) {
+                    final side = homePagePadding(constraints.maxWidth, Theme.of(context).platform);
+                    return ListView(
+                      physics: physics,
+                      controller: _scrollController,
+                      padding: EdgeInsets.fromLTRB(side, 12, side, 0).add(context.safePadding()),
+                      children: [
                         Center(
                           child: ConstrainedBox(
                             constraints: const BoxConstraints(maxWidth: _maxContentWidth),
-                            child: _SavedPageNote(
-                              savedAt: savedAt,
-                              failed: state.refreshFailed,
-                              onRetry: () => context.read<HomepageBloc>().add(HomepageLoadRequested()),
+                            child: const WhatsNewBanner(),
+                          ),
+                        ),
+                        if (state.savedAt case final savedAt?)
+                          Center(
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: _maxContentWidth),
+                              child: _SavedPageNote(
+                                savedAt: savedAt,
+                                failed: state.refreshFailed,
+                                onRetry: () => context.read<HomepageBloc>().add(HomepageLoadRequested()),
+                              ),
+                            ),
+                          ),
+                        Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: _maxContentWidth),
+                            child: _buildDashboard(
+                              context,
+                              state,
+                              math.min(constraints.maxWidth - side * 2, _maxContentWidth),
+                              HomeBlockLayout.parse(homeLayoutRaw),
                             ),
                           ),
                         ),
-                      Center(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: _maxContentWidth),
-                          child: _buildDashboard(
-                            context,
-                            state,
-                            math.min(constraints.maxWidth - 24, _maxContentWidth),
-                            HomeBlockLayout.parse(homeLayoutRaw),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    );
+                  },
                 ),
               ),
             };
@@ -682,12 +694,16 @@ class _SavedPageNote extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         children: [
-          Icon(failed ? Icons.sync_problem_outlined : Icons.sync_outlined, size: 16, color: colorScheme.outline),
+          Icon(
+            failed ? Symbols.sync_problem_rounded : Symbols.sync_rounded,
+            size: 16,
+            color: colorScheme.onSurfaceVariant,
+          ),
           sizedBoxW8H8,
           Expanded(
             child: Text(
               failed ? tr.failed(time: time) : tr.updating(time: time),
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: colorScheme.outline),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
             ),
           ),
           if (failed) TextButton(onPressed: onRetry, child: Text(tr.retry)),

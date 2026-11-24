@@ -22,7 +22,9 @@ class SpaceCount extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = Theme.of(context).textTheme.labelSmall?.copyWith(color: Theme.of(context).colorScheme.outline);
+    final style = Theme.of(
+      context,
+    ).textTheme.labelSmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -46,7 +48,7 @@ class SpaceBlogCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final outline = theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.outline);
+    final outline = theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.onSurfaceVariant);
     return AppSurface(
       onTap: () async => context.pushNamed(
         ScreenPaths.spaceBlog,
@@ -70,7 +72,7 @@ class SpaceBlogCard extends StatelessWidget {
                 sizedBoxW8H8,
                 Tooltip(
                   message: context.displayText(blog.privacy!),
-                  child: Icon(Icons.lock_outline, size: 18, color: theme.colorScheme.outline),
+                  child: Icon(Icons.lock_outline, size: 18, color: theme.colorScheme.onSurfaceVariant),
                 ),
               ],
             ],
@@ -126,7 +128,7 @@ class SpaceAlbumTile extends StatelessWidget {
             child: ColoredBox(
               color: theme.colorScheme.surfaceContainerHighest,
               child: album.coverUrl == null
-                  ? Icon(Icons.photo_library_outlined, size: 40, color: theme.colorScheme.outline)
+                  ? Icon(Icons.photo_library_outlined, size: 40, color: theme.colorScheme.onSurfaceVariant)
                   : NetworkIndicatorImage(album.coverUrl!, fit: BoxFit.cover),
             ),
           ),
@@ -204,7 +206,7 @@ class SpaceBlogCommentTile extends StatelessWidget {
                           sizedBoxW8H8,
                           Text(
                             comment.time!,
-                            style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.outline),
+                            style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
                           ),
                         ],
                       ],

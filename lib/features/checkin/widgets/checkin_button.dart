@@ -1,15 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/features/checkin/bloc/checkin_bloc.dart';
 import 'package:tsdm_client/features/checkin/models/models.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
+import 'package:tsdm_client/widgets/app_surface.dart';
 
 /// Widget provides ability to checkin.
 class CheckinButton extends StatelessWidget {
   /// Constructor.
-  const CheckinButton({this.enableSnackBar = false, this.useIcon = false, this.label, super.key});
+  const CheckinButton({
+    this.enableSnackBar = false,
+    this.useIcon = false,
+    this.label,
+    this.look = AppDayActionLook.button,
+    super.key,
+  });
 
   /// Enable snack bar feedback after checkin action.
   ///
@@ -26,6 +34,9 @@ class CheckinButton extends StatelessWidget {
   /// Show a filled button with this label instead of an icon button, e.g. on the homepage greeting card.
   final String? label;
 
+  /// How the button with a [label] is drawn: a tile among the actions of the phone greeting, a button elsewhere.
+  final AppDayActionLook look;
+
   /// The check-in result told last.
   ///
   /// Every button gets the same state from the app's [CheckinBloc], and several can be built at once (the homepage and
@@ -34,12 +45,7 @@ class CheckinButton extends StatelessWidget {
 
   /// The filled button used when [label] is set.
   Widget _buildLabeled(BuildContext context, {required Widget icon, required VoidCallback? onPressed}) =>
-      FilledButton.icon(
-        style: FilledButton.styleFrom(minimumSize: const Size(0, 48)),
-        icon: icon,
-        label: Text(label!),
-        onPressed: onPressed,
-      );
+      appDayAction(context, look: look, primary: true, icon: icon, label: label!, onPressed: onPressed);
 
   Future<void> _showCheckinFailedSnackBar(BuildContext context, CheckinResult result) async {
     if (!context.mounted) {
@@ -84,7 +90,7 @@ class CheckinButton extends StatelessWidget {
           }
 
           if (useIcon) {
-            return const Icon(Icons.domain_verification_outlined);
+            return const Icon(Symbols.domain_verification_rounded);
           }
 
           // Checked in today: recorded by this app (this run, an earlier run or the auto check-in). A check-in made
@@ -96,36 +102,43 @@ class CheckinButton extends StatelessWidget {
           if (checked) {
             final checkedTr = context.t.homepage.welcome;
             if (label != null) {
+              // Done, not unavailable: the secondary look of the card with a filled check, the label in full color.
+              // Still no action (no second check-in); the label tells a screen reader it is done.
               return Tooltip(
                 message: checkedTr.checkedInHint,
-                child: FilledButton.tonalIcon(
-                  style: FilledButton.styleFrom(minimumSize: const Size(0, 48)),
-                  icon: const Icon(Icons.task_alt_outlined),
-                  label: Text(checkedTr.checkedIn),
+                child: appDayAction(
+                  context,
+                  look: look,
+                  icon: const Icon(Symbols.check_circle_rounded, fill: 1),
+                  label: checkedTr.checkedIn,
                   onPressed: null,
                 ),
               );
             }
-            return IconButton(icon: const Icon(Icons.task_alt_outlined), tooltip: checkedTr.checkedIn, onPressed: null);
+            return IconButton(
+              icon: const Icon(Symbols.task_alt_rounded),
+              tooltip: checkedTr.checkedIn,
+              onPressed: null,
+            );
           }
 
           if (state is CheckinStateNeedLogin) {
             if (label != null) {
-              return _buildLabeled(context, icon: const Icon(Icons.domain_verification_outlined), onPressed: null);
+              return _buildLabeled(context, icon: const Icon(Symbols.domain_verification_rounded), onPressed: null);
             }
-            return IconButton(icon: const Icon(Icons.domain_verification_outlined), tooltip: tooltip, onPressed: null);
+            return IconButton(icon: const Icon(Symbols.domain_verification_rounded), tooltip: tooltip, onPressed: null);
           }
 
           if (label != null) {
             return _buildLabeled(
               context,
-              icon: const Icon(Icons.domain_verification_outlined),
+              icon: const Icon(Symbols.domain_verification_rounded),
               onPressed: () => context.read<CheckinBloc>().add(const CheckinRequested()),
             );
           }
 
           return IconButton(
-            icon: const Icon(Icons.domain_verification_outlined),
+            icon: const Icon(Symbols.domain_verification_rounded),
             tooltip: tooltip,
             onPressed: () {
               context.read<CheckinBloc>().add(const CheckinRequested());

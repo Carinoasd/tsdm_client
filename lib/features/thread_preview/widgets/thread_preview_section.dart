@@ -243,7 +243,7 @@ class ThreadPreviewThumbnail extends StatelessWidget {
             ? child
             : AnimatedOpacity(opacity: frame == null ? 0 : 1, duration: duration100, child: child),
         errorBuilder: (context, error, stackTrace) => Center(
-          child: Icon(Icons.broken_image_outlined, color: colorScheme.outline, size: extent / 3),
+          child: Icon(Icons.broken_image_outlined, color: colorScheme.onSurfaceVariant, size: extent / 3),
         ),
       );
     }
@@ -285,7 +285,7 @@ class _MoreImages extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
         child: Text(
           '+$count',
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Colors.white, fontWeight: FontWeight.w600),
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Colors.white, fontWeight: FontWeight.w700),
         ),
       ),
     ),

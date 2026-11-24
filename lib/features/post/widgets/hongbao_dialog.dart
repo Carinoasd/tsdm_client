@@ -6,6 +6,7 @@ import 'package:tsdm_client/features/post/models/special_thread_form.dart';
 import 'package:tsdm_client/features/root/view/root_page.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/themes/app_themes.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/custom_alert_dialog.dart';
 
@@ -173,6 +174,7 @@ class _HongbaoDialogState extends State<_HongbaoDialog> {
               onChanged: (v) => setState(() => condReply = v ?? false),
             ),
             DropdownButtonFormField<String>(
+              style: AppTheme.dropdownStyle(context),
               initialValue: expire,
               decoration: InputDecoration(labelText: tr.expire),
               items: [

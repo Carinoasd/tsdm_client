@@ -51,7 +51,7 @@ class ThreadVisitHistoryCard extends StatelessWidget {
               children: [
                 Text(
                   model.threadTitle,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
                 ),
                 sizedBoxW8H8,
                 Wrap(

@@ -91,7 +91,7 @@ class _MyTitlesPageState extends State<MyTitlesPage> {
                             textAlign: TextAlign.center,
                             style: Theme.of(
                               context,
-                            ).textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.outline),
+                            ).textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
                           ),
                         )
                       else
@@ -182,7 +182,6 @@ class _CurrentTitleHeader extends StatelessWidget {
             child: Text(tr.unset),
           );
     return AppSurface(
-      color: colorScheme.surfaceContainerLow,
       child: LayoutBuilder(
         builder: (context, constraints) {
           // The title in use at its natural 184px width when there is room, complete in any case.
