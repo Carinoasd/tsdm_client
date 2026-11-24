@@ -102,7 +102,8 @@ List<int>? _channels(String c) {
 }
 
 /// Whether [app] is the gray [web] made darker: the gray of a quote's source line, which the app shows on the gray
-/// block of the quote and makes readable there (`AuthorColors.text`).
+/// block of the quote and makes readable there (`AuthorColors.text`). Only a gray the app darkens: one seen on the
+/// white of the web page (a contrast of 2, #B4B4B4 or darker) that did not read (lighter than #767676).
 bool _darkenedGray(String web, String app) {
   final w = _channels(web);
   final a = _channels(app);
@@ -110,7 +111,7 @@ bool _darkenedGray(String web, String app) {
     return false;
   }
   bool gray(List<int> c) => (c[0] - c[1]).abs() <= 4 && (c[1] - c[2]).abs() <= 4;
-  return gray(w) && gray(a) && a[0] < w[0];
+  return gray(w) && gray(a) && a[0] < w[0] && w[0] <= 0xB4 && w[0] > 0x76;
 }
 
 /// The sum of the differences of the channels of two colors, 999 when one is not a color.

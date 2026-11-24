@@ -32,11 +32,11 @@ const _seeds = <String, Color?>{
 /// The swatches of the design (`tokens-v2.md` 1.1, the light ones since made white cards on a gray page): page, card, inset, control, line, line strong, muted, bar.
 const _swatches = <String, List<int>>{
   'cyan dark': [0xFF0A0F11, 0xFF151A1D, 0xFF1D2225, 0xFF262B2D, 0xFF2C3438, 0xFF424A4E, 0xFF9AA2A6, 0xFF111619],
-  'cyan light': [0xFFE4E9EC, 0xFFFFFFFF, 0xFFEAEEF2, 0xFFDCE0E4, 0xFFC5CDD2, 0xFF8A9297, 0xFF40484C, 0xFFF3F7FB],
+  'cyan light': [0xFFDFE3E7, 0xFFFFFFFF, 0xFFEDF1F5, 0xFFD0D5D8, 0xFFC5CDD2, 0xFF8A9297, 0xFF40484C, 0xFFF3F7FB],
   'pink dark': [0xFF130C0F, 0xFF1F171A, 0xFF281F22, 0xFF30282A, 0xFF3B2F33, 0xFF53464A, 0xFFAE9CA1, 0xFF1B1416],
-  'pink light': [0xFFF4E4E8, 0xFFFFFFFF, 0xFFFAEAED, 0xFFEBDCDF, 0xFFDAC7CC, 0xFF9D8C91, 0xFF514347, 0xFFFFF4F5],
+  'pink light': [0xFFEEDFE2, 0xFFFFFFFF, 0xFFFDEDF0, 0xFFE0D1D4, 0xFFDAC7CC, 0xFF9D8C91, 0xFF514347, 0xFFFFF4F5],
   'purple dark': [0xFF0F0D13, 0xFF1A191E, 0xFF232126, 0xFF2B292F, 0xFF34313A, 0xFF4B4851, 0xFFA49EA9, 0xFF16151A],
-  'purple light': [0xFFECE6EE, 0xFFFFFFFF, 0xFFF2ECF4, 0xFFE3DEE6, 0xFFD0CAD5, 0xFF938F99, 0xFF48454E, 0xFFFAF4FD],
+  'purple light': [0xFFE6E1E9, 0xFFFFFFFF, 0xFFF5EFF7, 0xFFD8D3DA, 0xFFD0CAD5, 0xFF938F99, 0xFF48454E, 0xFFFAF4FD],
 };
 
 /// Least contrast of a text pair.
@@ -114,15 +114,19 @@ void main() {
           } else {
             // White cards on a gray page; the blocks in a card are grays on its white.
             expect(s.card, const Color(0xFFFFFFFF));
-            expect(_luminance(s.page), inInclusiveRange(0.7, 0.9), reason: 'a light gray page');
+            expect(_luminance(s.page), inInclusiveRange(0.65, 0.9), reason: 'a light gray page');
             expect(_luminance(s.bar), greaterThan(_luminance(s.page)));
             expect(_luminance(s.inset), lessThan(_luminance(s.card)));
             expect(_luminance(s.control), lessThan(_luminance(s.inset)));
-            // A layer is told from the one it lies on: steps of 2 tones could not be told apart on a phone.
+            // A layer is told from the one it lies on: steps of 2 tones could not be told apart on a phone. Blocks
+            // and pills are on a card or on the page (the editor of a page, the pills under the app bar).
             for (final (name, over, under) in [
               ('card on page', s.card, s.page),
               ('inset on card', s.inset, s.card),
+              ('inset on page', s.inset, s.page),
               ('control on card', s.control, s.card),
+              ('control on page', s.control, s.page),
+              ('control on inset', s.control, s.inset),
             ]) {
               expect(contrastRatio(over, under), greaterThanOrEqualTo(1.1), reason: name);
             }

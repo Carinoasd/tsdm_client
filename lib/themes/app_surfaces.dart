@@ -26,10 +26,11 @@ class AppSurfaces extends ThemeExtension<AppSurfaces> {
   ///
   /// The dark page is tone 4: black stays black. A stronger tint (chroma 10 from tone 7) read as a colored ground.
   ///
-  /// The light page is a gray of tone 92 with white cards on it: the text of a card is on white, and each layer is
-  /// told from the one it lies on by a contrast of 1.1 at least (a card on the page, a quote on a card, a pill on a
-  /// card). A near white page with cards 4 tones darker, and quotes 2 tones darker than those, could not be told
-  /// apart on a phone screen.
+  /// The light page is a gray of tone 90 with white cards on it: the text of a card is on white. Blocks and pills
+  /// are drawn on a card and on the page alike (a quote in a floor, the editor of a page; the pills of a floor, those
+  /// under the app bar), so the inset (95) and the control (85) are told from both by a contrast of 1.1 at least. A
+  /// near white page with cards 4 tones darker, and quotes 2 tones darker than those, could not be told apart on a
+  /// phone screen.
   factory AppSurfaces.forSeed(Color seed, Brightness brightness) {
     final dark = brightness == Brightness.dark;
     final hct = Hct.fromInt(seed.toARGB32());
@@ -50,10 +51,10 @@ class AppSurfaces extends ThemeExtension<AppSurfaces> {
             muted: c(text.get(66)),
           )
         : AppSurfaces(
-            page: c(n.get(92)),
+            page: c(n.get(90)),
             card: c(n.get(100)),
-            inset: c(n.get(94)),
-            control: c(n.get(89)),
+            inset: c(n.get(95)),
+            control: c(n.get(85)),
             bar: c(n.get(97)),
             line: c(nv.get(82)),
             lineStrong: c(nv.get(60)),
