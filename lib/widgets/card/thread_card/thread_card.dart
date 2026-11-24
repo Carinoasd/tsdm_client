@@ -1,6 +1,5 @@
 import 'dart:math' as math;
 
-import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -29,7 +28,6 @@ import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/data_saver_mode.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/themes/app_surfaces.dart';
-import 'package:tsdm_client/themes/widget_themes.dart';
 import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/html/author_style.dart' show contrastRatio, readableContrast;
 import 'package:tsdm_client/utils/platform.dart';
@@ -124,9 +122,10 @@ class _CardLayout extends StatelessWidget {
     child: _card(context, child),
   );
 
-  Card _card(BuildContext context, Widget child) => Card(
-    margin: EdgeInsets.zero,
-    clipBehavior: Clip.antiAlias,
+  /// A row of the list on the page itself, no card around it (the lists separate their rows with hairlines,
+  /// [ThreadListSeparator]); the transparent material carries the ink of a tap.
+  Widget _card(BuildContext context, Widget child) => Material(
+    type: MaterialType.transparency,
     child: AdaptiveInkResponse(
       onTap: disableTap
           ? null
@@ -243,11 +242,28 @@ class _CardLayout extends StatelessWidget {
 
   /// [author] MUST not be null.
   Widget _buildAvatar(BuildContext context) {
-    return HeroUserAvatar(username: author!.name, avatarUrl: author!.avatarUrl, disableHero: true);
+    return HeroUserAvatar(
+      username: author!.name,
+      avatarUrl: author!.avatarUrl,
+      disableHero: true,
+      maxRadius: _avatarSize / 2,
+      minRadius: _avatarSize / 2,
+    );
   }
 
-  /// Size of the tap target of the avatar: the minimum of the platform guidelines.
+  /// Size of the avatar in the head of the row.
+  static const double _avatarSize = 24;
+
+  /// Height (and least width) of the tap target of the author: the minimum of the platform guidelines.
   static const double _authorTapSize = 48;
+
+  /// Style of the meta texts of the row (time, counts): 12.5, the quiet text color, tabular figures.
+  TextStyle _metaStyle(BuildContext context, {Color? color}) => TextStyle(
+    fontSize: 12.5,
+    height: 1.4,
+    color: color ?? AppSurfaces.of(context).muted,
+    fontFeatures: const [FontFeature.tabularFigures()],
+  );
 
   /// Mainly for test.
   final bool disableTap;
@@ -258,84 +274,104 @@ class _CardLayout extends StatelessWidget {
     required bool showLastReplyAuthor,
     required bool highlightInfoRow,
   }) {
-    final infoColor = switch (highlightInfoRow) {
-      true => Theme.of(context).colorScheme.secondary,
-      false => null,
-    };
+    final infoColor = highlightInfoRow ? Theme.of(context).colorScheme.secondary : AppSurfaces.of(context).muted;
+    final style = _metaStyle(context, color: infoColor);
+    const iconSize = 16.0;
 
     final newReplies = _newReplies;
-    final infoList = <_ThreadInfo>[
+    final counts = <_ThreadInfo>[
       if (replyCount != null) (Icons.forum_outlined, '$replyCount', newReplies > 0 ? '+$newReplies' : null),
       if (viewCount != null) (Icons.bar_chart_outlined, '$viewCount', null),
-      if (showLastReplyAuthor && lastReplyAuthor != null) (Icons.person_outline, lastReplyAuthor!.name, null),
-      if (latestReplyTime != null) (Icons.timelapse_outlined, latestReplyTime!.elapsedTillNow(context), null),
       if ((price ?? 0) > 0) (FontAwesomeIcons.coins, '$price', null),
       if ((privilege ?? 0) > 0) (Icons.feedback_outlined, '$privilege', null),
     ];
+    final lastReply = showLastReplyAuthor && lastReplyAuthor != null ? lastReplyAuthor!.name : null;
+    final lastTime = latestReplyTime?.elapsedTillNow(context);
 
-    if (infoList.isEmpty) {
+    if (counts.isEmpty && lastReply == null && lastTime == null) {
       return sizedBoxEmpty;
     }
 
     if (infoRowAlignCenter) {
-      // In center.
+      // The setting of the info row: every item the same width, as it always was.
+      final infoList = <_ThreadInfo>[
+        ...counts.take(2),
+        if (lastReply != null) (Icons.person_outline, lastReply, null),
+        if (lastTime != null) (Icons.timelapse_outlined, lastTime, null),
+        ...counts.skip(2),
+      ];
       return Padding(
-        padding: edgeInsetsL16R16B12,
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 13),
         child: Row(
           children: [
-            Expanded(
-              child: Row(
-                children: infoList
-                    .map(
-                      (e) => Expanded(
-                        child: Row(
-                          children: [
-                            Icon(e.$1, size: smallIconSize, color: infoColor),
-                            sizedBoxW4H4,
-                            Expanded(
-                              child: _infoText(
-                                context,
-                                e,
-                                style: TextStyle(fontSize: smallTextSize, color: infoColor),
-                                overflow: TextOverflow.clip,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    )
-                    .toList(),
+            for (final e in infoList)
+              Expanded(
+                child: Row(
+                  children: [
+                    Icon(e.$1, size: iconSize, color: infoColor),
+                    sizedBoxW4H4,
+                    Expanded(
+                      child: _infoText(context, e, style: style, overflow: TextOverflow.clip),
+                    ),
+                  ],
+                ),
               ),
-            ),
           ],
         ),
       );
-    } else {
-      // Not in center.
-      return Padding(
-        padding: edgeInsetsL16R16B12,
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: infoList
-                .map(
-                  (e) => [
-                    Icon(e.$1, size: smallIconSize, color: infoColor),
-                    sizedBoxW4H4,
-                    _infoText(
-                      context,
-                      e,
-                      style: TextStyle(fontSize: smallTextSize, color: infoColor),
-                    ),
-                    sizedBoxW12H12,
-                  ],
-                )
-                .flattened
-                .toList(),
-          ),
-        ),
-      );
     }
+
+    // The counts on the left; who replied last and when on the right, up to 60% of the row (the name is cut first).
+    final hasRight = lastReply != null || lastTime != null;
+    final left = SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          for (final (i, e) in counts.indexed) ...[
+            if (i > 0) const SizedBox(width: 14),
+            Icon(e.$1, size: iconSize, color: infoColor),
+            sizedBoxW4H4,
+            _infoText(context, e, style: style),
+          ],
+        ],
+      ),
+    );
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 13),
+      child: LayoutBuilder(
+        builder: (context, constraints) => Row(
+          children: [
+            Expanded(child: counts.isEmpty ? sizedBoxEmpty : left),
+            if (hasRight) ...[
+              sizedBoxW12H12,
+              ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: constraints.maxWidth * 0.6),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      lastReply != null ? Icons.person_outline : Icons.timelapse_outlined,
+                      size: iconSize,
+                      color: infoColor,
+                    ),
+                    sizedBoxW4H4,
+                    if (lastReply != null)
+                      Flexible(
+                        child: Text(lastReply, style: style, maxLines: 1, overflow: TextOverflow.ellipsis),
+                      ),
+                    if (lastReply != null && lastTime != null) Text(' · ', style: style),
+                    if (lastTime != null)
+                      Flexible(
+                        child: Text(lastTime, style: style, maxLines: 1, overflow: TextOverflow.ellipsis),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 
   /// The text of [info], its highlighted part (new replies) after it in the primary color.
@@ -364,136 +400,131 @@ class _CardLayout extends StatelessWidget {
   }
 
   Widget _buildCardTitle(BuildContext context, SettingsState state) {
+    final colorScheme = Theme.of(context).colorScheme;
     final highlightRecentThread = state.settingsMap.threadCardHighlightRecentThread;
-    final TextStyle? authorNameStyle;
-    if (state.settingsMap.threadCardHighlightAuthorName) {
-      authorNameStyle = TextStyle(color: Theme.of(context).colorScheme.primary);
-    } else {
-      authorNameStyle = null;
-    }
-
-    final TextStyle? timeStyle;
-    if (isRecentThread && highlightRecentThread) {
-      timeStyle = TextStyle(
-        color: Theme.of(context).colorScheme.secondary,
-        fontSize: Theme.of(context).textTheme.labelMedium?.fontSize,
-      );
-    } else {
-      timeStyle = TextStyle(fontSize: Theme.of(context).textTheme.labelMedium?.fontSize);
-    }
-
-    final forumNameStyle = TextStyle(
-      color: Theme.of(context).colorScheme.secondary,
-      fontSize: Theme.of(context).textTheme.labelMedium?.fontSize,
+    final nameStyle = TextStyle(
+      fontSize: 13,
+      height: 1.35,
+      fontWeight: FontWeight.w700,
+      color: state.settingsMap.threadCardHighlightAuthorName ? colorScheme.primary : colorScheme.onSurface,
+    );
+    final timeStyle = _metaStyle(
+      context,
+      color: isRecentThread && highlightRecentThread ? colorScheme.secondary : null,
     );
 
-    final textTheme = Theme.of(context).textTheme;
-    final nameStyle = textTheme.titleSmall?.merge(authorNameStyle);
-    // Marks at the end of the head: replied by the current account, thread states, thread type (or forum) tag.
+    // Marks at the end of the head: thread type (or forum) tag, replied by the current account, thread states.
     final marks = <Widget>[
-      if (replied) _buildRepliedMark(context),
-      if (stateSet != null) ...stateSet!.map((e) => Icon(e.icon, size: 16)),
       if (threadType?.name.isNotEmpty ?? false) _buildTypeTag(context, threadType!.name),
+      if (replied) _buildRepliedMark(context),
+      if (stateSet != null) ...stateSet!.map((e) => Icon(e.icon, size: 16, color: AppSurfaces.of(context).muted)),
     ];
 
-    // Head of the card: who (avatar and name, both open the user) or, without an author, the forum; then when and
-    // where on one wrapping line; the marks stay at the end. Replaces a ListTile whose fixed three line layout cut
-    // the forum name with a large font. The settings of the card (highlighted name, recent time) apply as before.
-    final Widget leading;
-    final Widget name;
+    // Head of the row: who (avatar and name, one 48 high target opening the user) or, without an author, the forum;
+    // then when and where; the marks at the end. The settings of the card (highlighted name, recent time) apply as
+    // before.
+    final Widget who;
     if (author != null) {
       // An anonymous author (the forum's app API lists anonymous threads, named "匿名" without a page) has no url:
       // nothing to open, so no tap at all, instead of the "open in app" page for the forum root an empty url
       // would resolve to.
       final canOpenAuthor = !disableTap && author!.url.isNotEmpty;
       Future<void> openAuthor() async => context.dispatchAsUrl(author!.url);
-      // The avatar is a 48 wide tap target around the 40 wide circle, named after the author (the circle itself has
-      // nothing to read); the name beside it opens the same page and is read as a link.
-      leading = GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: canOpenAuthor ? openAuthor : null,
-        child: Semantics(
-          button: canOpenAuthor,
-          label: author!.name,
-          excludeSemantics: true,
-          child: SizedBox.square(
-            dimension: _authorTapSize,
-            child: Center(child: _buildAvatar(context)),
-          ),
-        ),
-      );
-      name = GestureDetector(
+      who = GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: canOpenAuthor ? openAuthor : null,
         child: Semantics(
           link: canOpenAuthor,
-          child: SingleLineText(author!.name, style: nameStyle),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: _authorTapSize, minWidth: _authorTapSize),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ExcludeSemantics(child: _buildAvatar(context)),
+                sizedBoxW8H8,
+                Flexible(child: SingleLineText(author!.name, style: nameStyle)),
+              ],
+            ),
+          ),
         ),
       );
     } else {
-      final colorScheme = Theme.of(context).colorScheme;
-      leading = Tooltip(
-        message: context.t.myThreadPage.forum,
-        child: AppIconTile(
-          Icons.forum_outlined,
-          color: colorScheme.secondaryContainer,
-          foregroundColor: colorScheme.onSecondaryContainer,
+      who = ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: _authorTapSize),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Tooltip(
+              message: context.t.myThreadPage.forum,
+              child: AppIconTile(
+                Icons.forum_outlined,
+                size: _avatarSize,
+                color: AppSurfaces.of(context).card,
+                foregroundColor: colorScheme.onSurfaceVariant,
+              ),
+            ),
+            sizedBoxW8H8,
+            Flexible(child: SingleLineText(context.displayText('$forum'), style: nameStyle)),
+          ],
         ),
       );
-      name = SingleLineText(context.displayText('$forum'), style: nameStyle);
     }
     final meta = <Widget>[
-      // The date breaks to a second line rather than being cut where the head is narrow (large text, the marks at the
-      // end).
       if (publishTime != null) Text(publishTime!.yyyyMMDD(), style: timeStyle),
       // The forum is the title of the head already when there is no author.
       if (author != null && forum != null)
-        SingleLineText(context.displayText(forum!), style: forumNameStyle, overflow: TextOverflow.ellipsis),
+        Text(context.displayText(forum!), style: _metaStyle(context), maxLines: 1, overflow: TextOverflow.ellipsis),
     ];
 
-    // The 48 wide avatar target keeps its circle where the 40 wide circle was: 4 less padding before and above it, 4
-    // less gap after it, the circle in the middle of its box. The row is centered: at the default text size (texts
-    // lower than the box) the circle and the texts stay where they were and the head grows 4 below; at a large size
-    // the texts decide the height as before and everything is 4 higher.
+    // The date (and forum) go under the name instead of cutting it when the head is narrow (large text).
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+      padding: const EdgeInsets.fromLTRB(16, 2, 16, 0),
       child: Row(
         children: [
-          leading,
-          sizedBoxW8H8,
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                name,
-                if (meta.isNotEmpty) Wrap(spacing: 8, runSpacing: 2, children: meta),
-              ],
+            flex: 3,
+            child: Wrap(
+              spacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [who, ...meta],
             ),
           ),
           if (marks.isNotEmpty) ...[
             sizedBoxW8H8,
-            Row(mainAxisSize: MainAxisSize.min, children: marks.insertBetween(sizedBoxW4H4)),
+            // The marks give way too on a very narrow head: the tag is cut before anything overflows.
+            Expanded(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  for (final (i, mark) in marks.indexed) ...[
+                    if (i > 0) const SizedBox(width: 6),
+                    if (i == 0 && (threadType?.name.isNotEmpty ?? false)) Flexible(child: mark) else mark,
+                  ],
+                ],
+              ),
+            ),
           ],
         ],
       ),
     );
   }
 
-  /// Thread type (or forum, for the latest threads) as a small tag, like the forum tags of the homepage guide.
+  /// Thread type (or forum, for the latest threads) as a small neutral tag, like the forum tags of the homepage guide.
   Widget _buildTypeTag(BuildContext context, String name) {
     final colorScheme = Theme.of(context).colorScheme;
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 140),
       child: DecoratedBox(
-        decoration: BoxDecoration(color: colorScheme.secondaryContainer, borderRadius: BorderRadius.circular(6)),
+        decoration: BoxDecoration(color: AppSurfaces.of(context).card, borderRadius: BorderRadius.circular(5)),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
           child: Text(
             context.displayText(name),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(color: colorScheme.onSecondaryContainer),
+            style: Theme.of(
+              context,
+            ).textTheme.labelSmall?.copyWith(fontSize: 12, height: 1.4, color: colorScheme.onSurfaceVariant),
           ),
         ),
       ),
@@ -518,6 +549,8 @@ class _CardLayout extends StatelessWidget {
     final externalImages = state.settingsMap.threadCardExternalThumbnails;
     final dataSaver = DataSaverMode.fromIndex(state.settingsMap.dataSaverMode);
 
+    final visited = progress != null && _newReplies == 0;
+
     // The list decides on the data saver when its first card is built, thumbnails or not.
     return DataSaverPageDecision(
       mode: dataSaver,
@@ -529,12 +562,13 @@ class _CardLayout extends StatelessWidget {
             // TODO: Tap to navigate to user space.
             _buildCardTitle(context, state),
             Padding(
-              padding: edgeInsetsL16R16B12,
+              padding: edgeInsetsL16R16,
               child: Row(
                 children: [
                   Expanded(
-                    // The thread title leads the card, as in the homepage guide; forum set colors and weights stay. A
-                    // thread read before is dimmed, as visited links are, until replies are posted after the visit.
+                    // The thread title leads the row, as in the homepage guide; forum set colors and weights stay. A
+                    // thread read before is no longer bold and dimmed, as visited links are, until replies are
+                    // posted after the visit.
                     child: Text(
                       context.displayText(title),
                       maxLines: 3,
@@ -542,11 +576,13 @@ class _CardLayout extends StatelessWidget {
                       style: visitedTitleStyle(
                         context,
                         Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          fontSize: 16.5,
                           color: css?.color,
-                          fontWeight: css?.fontWeight ?? FontWeight.w500,
+                          fontWeight: css?.fontWeight ?? (visited ? FontWeight.w400 : FontWeight.w700),
                           height: 1.45,
                         ),
-                        visited: progress != null && _newReplies == 0,
+                        visited: visited,
+                        background: AppSurfaces.of(context).page,
                       ),
                     ),
                   ),
@@ -568,7 +604,7 @@ class _CardLayout extends StatelessWidget {
               ),
             if (quotedMessage != null)
               Padding(
-                padding: edgeInsetsL16R16B12,
+                padding: edgeInsetsL16R16,
                 child: Row(children: [Expanded(child: QuotedText(context.displayText(quotedMessage ?? '')))]),
               ),
             _buildInfoWidgetRow(
@@ -577,7 +613,7 @@ class _CardLayout extends StatelessWidget {
               showLastReplyAuthor: showLastReplyAuthor,
               highlightInfoRow: highlightInfoRow,
             ),
-          ].insertBetween(sizedBoxW4H4),
+          ].insertBetween(const SizedBox(height: 6)),
         ),
       ),
     );
@@ -603,6 +639,21 @@ class _CardLayout extends StatelessWidget {
     );
   }
 }
+
+/// The hairline between two rows of a list of thread cards: the [AppSurfaces.line] color, inset as far as the texts of
+/// the rows.
+class ThreadListSeparator extends StatelessWidget {
+  /// Constructor.
+  const ThreadListSeparator({super.key});
+
+  @override
+  Widget build(BuildContext context) =>
+      Divider(height: 1, thickness: 1, indent: 16, endIndent: 16, color: AppSurfaces.of(context).line);
+}
+
+/// Horizontal padding of a list of thread cards [width] wide: none on phones, the rows run to the edges and keep their
+/// own inner padding; centered at most [appListMaxWidth] wide on wide windows.
+EdgeInsets threadListPadding(double width) => appCenteredPadding(width, minPadding: 0);
 
 /// The query of [ScreenPaths.threadV1] a thread card opens its thread with.
 Map<String, String?> threadQuery({required String threadID, required String title, ThreadType? threadType}) => {

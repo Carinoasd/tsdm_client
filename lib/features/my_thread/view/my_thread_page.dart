@@ -73,9 +73,10 @@ class _MyThreadPageState extends State<MyThreadPage> with SingleTickerProviderSt
               child: AppStateView(icon: Icons.article_outlined, message: emptyMessage, scrollable: false),
             )
           : AppCenteredList(
-              builder: (context, side, _) => ListView.separated(
+              builder: (context, _, width) => ListView.separated(
                 physics: physics,
-                padding: side.copyWith(top: 8).add(context.safePadding()),
+                // Flat rows to the edges of a phone, hairlines between them.
+                padding: threadListPadding(width).copyWith(top: 8).add(context.safePadding()),
                 // The end of the list is its last item: built when it comes near, it asks the next page.
                 itemCount: items.length + 1,
                 itemBuilder: (context, index) => index < items.length
@@ -91,7 +92,7 @@ class _MyThreadPageState extends State<MyThreadPage> with SingleTickerProviderSt
                         onLoadMore: onLoadMore,
                         onRetry: onLoadMore,
                       ),
-                separatorBuilder: (context, index) => appListSeparator,
+                separatorBuilder: (context, index) => const ThreadListSeparator(),
               ),
             ),
     );

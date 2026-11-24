@@ -48,6 +48,7 @@ import 'package:tsdm_client/shared/providers/providers.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/models/database/database.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 import 'package:tsdm_client/shared/repositories/fragments_repository/fragments_repository.dart';
+import 'package:tsdm_client/themes/app_surfaces.dart';
 import 'package:tsdm_client/themes/app_themes.dart';
 import 'package:tsdm_client/utils/html/author_style.dart';
 import 'package:tsdm_client/widgets/card/thread_card/thread_card.dart';
@@ -375,7 +376,8 @@ void main() {
   group('the dimmed title stays readable', () {
     double contrastOn(WidgetTester tester, String text) {
       final theme = Theme.of(tester.element(find.text(text)));
-      final background = theme.cardTheme.color ?? theme.colorScheme.surfaceContainerLow;
+      // Beautify v2: the rows of the lists are flat on the page.
+      final background = AppSurfaces.ofTheme(theme).page;
       return contrastRatio(Color.alphaBlend(colorOf(tester, text), background), background);
     }
 
@@ -397,7 +399,7 @@ void main() {
         for (final text in ['thread 1', 'thread 2']) {
           final full = Theme.of(tester.element(find.text(text)));
           final color = colorOf(tester, text);
-          final background = full.cardTheme.color ?? full.colorScheme.surfaceContainerLow;
+          final background = AppSurfaces.ofTheme(full).page;
           final fullContrast = contrastRatio(Color.alphaBlend(color.withValues(alpha: 1), background), background);
           expect(contrastOn(tester, text), greaterThanOrEqualTo(math.min(readableContrast, fullContrast) - 0.01));
         }
