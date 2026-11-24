@@ -544,7 +544,7 @@ class _ReplyBarWrapperState extends State<ReplyBar> {
           decoration: InputDecoration(
             isDense: true,
             filled: true,
-            fillColor: colorScheme.surface,
+            fillColor: AppSurfaces.of(context).control,
             hintText: hintText,
             prefixIcon: Icon(
               onTapCallback == null ? Icons.lock_outline : Icons.edit_outlined,
@@ -1638,7 +1638,7 @@ final class _ReplyBarState extends State<_ReplyBar> with LoggerMixin {
           setState(() => _emojiOpen = isEmoji);
         }
       },
-      panelBgColor: Theme.of(context).colorScheme.surfaceContainerLow,
+      panelBgColor: AppSurfaces.of(context).bar,
     );
   }
 

@@ -96,6 +96,7 @@ void main() {
             'primary / card': (c.primary, s.card),
             'primary / page': (c.primary, s.page),
             'primary / control': (c.primary, s.control),
+            'primary / inset (link in a quote)': (c.primary, s.inset),
             'primary / hero': (c.primary, s.hero),
             'hero text': (s.onHero, s.hero),
             'tag': (c.onSecondaryContainer, c.secondaryContainer),

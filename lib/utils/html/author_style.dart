@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:collection/collection.dart';
 import 'package:dart_bbcode_web_colors/dart_bbcode_web_colors.dart';
 import 'package:flutter/material.dart';
+import 'package:tsdm_client/themes/app_surfaces.dart';
 import 'package:universal_html/html.dart' as uh;
 
 // What the author of a post styled in its html, and how the app shows it.
@@ -1496,7 +1497,7 @@ final class AuthorColors {
   /// The colors in [theme].
   AuthorColors(ThemeData theme)
     : dark = theme.brightness == Brightness.dark,
-      surface = theme.cardTheme.color ?? theme.colorScheme.surfaceContainerLow;
+      surface = theme.cardTheme.color ?? AppSurfaces.ofTheme(theme).card;
 
   /// The theme is dark.
   final bool dark;

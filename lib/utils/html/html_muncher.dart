@@ -30,6 +30,7 @@ import 'package:tsdm_client/features/thread_link_card/widgets/thread_link_card.d
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 // The style the author gave a post: css, colors in the theme
+import 'package:tsdm_client/themes/app_surfaces.dart';
 import 'package:tsdm_client/utils/chinese_display/chinese_converter.dart';
 import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/html/author_style.dart';
@@ -550,6 +551,13 @@ final class _Muncher with LoggerMixin {
 
   /// Count of the quotes ([_buildBlockQuote]) the content being munched is in.
   int _quoteDepth = 0;
+
+  /// Whether [element], a link to [url], is the source line of a quote: the forum writes it as
+  /// `<blockquote><font size="2"><a href="…goto=findpost…">`; a findpost link the author put in the quoted text is not.
+  bool _isQuoteSourceLink(uh.Element element, String url) {
+    final font = element.parent;
+    return isQuoteSourceUrl(url) && font?.localName == 'font' && font?.parent?.localName == 'blockquote';
+  }
 
   /// Links of this floor drawn as cards of their thread so far ([_threadLinkCard]).
   int _threadLinkCards = 0;
@@ -1777,7 +1785,7 @@ final class _Muncher with LoggerMixin {
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 12),
           child: Material(
-            color: theme.colorScheme.surfaceContainerLow,
+            color: AppSurfaces.ofTheme(theme).inset,
             borderRadius: BorderRadius.circular(8),
             clipBehavior: Clip.antiAlias,
             child: InkWell(
@@ -2165,7 +2173,7 @@ final class _Muncher with LoggerMixin {
       ..linkDepth = state.colorStack.length
       ..linkOrder = _behindCount
       ..linkColor = null
-      ..linkUnderline = postContent && !(_quoteDepth > 0 && isQuoteSourceUrl(url));
+      ..linkUnderline = postContent && !(_quoteDepth > 0 && _isQuoteSourceLink(element, url));
     final List<InlineSpan>? ret;
     try {
       ret = _munch(element);

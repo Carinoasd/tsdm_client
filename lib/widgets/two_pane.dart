@@ -15,6 +15,7 @@ import 'package:tsdm_client/features/thread/v1/view/thread_page.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
+import 'package:tsdm_client/themes/app_surfaces.dart';
 import 'package:tsdm_client/utils/platform.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 
@@ -819,7 +820,7 @@ class _TwoPaneTabState extends State<_TwoPaneTab> {
         }
       },
       child: Material(
-        color: widget.selected ? colorScheme.surface : Colors.transparent,
+        color: widget.selected ? AppSurfaces.of(context).page : Colors.transparent,
         child: InkWell(
           onTap: widget.onSelect,
           child: DecoratedBox(

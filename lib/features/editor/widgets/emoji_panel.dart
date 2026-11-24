@@ -19,6 +19,7 @@ import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
+import 'package:tsdm_client/themes/app_surfaces.dart';
 import 'package:tsdm_client/utils/retry_button.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/cached_image/cached_image.dart';
@@ -378,7 +379,7 @@ class _EmojiPanelState extends State<EmojiPanel> with TickerProviderStateMixin {
     return SizedBox(
       key: const ValueKey('emoji-panel'),
       height: widget.height,
-      child: ColoredBox(color: Theme.of(context).colorScheme.surfaceContainerLow, child: body),
+      child: ColoredBox(color: AppSurfaces.of(context).bar, child: body),
     );
   }
 }

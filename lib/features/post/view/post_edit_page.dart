@@ -72,6 +72,7 @@ import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
+import 'package:tsdm_client/themes/app_surfaces.dart';
 import 'package:tsdm_client/utils/bbcode/spoiler_normalizer.dart';
 import 'package:tsdm_client/utils/browser_launcher.dart';
 import 'package:tsdm_client/utils/clipboard.dart';
@@ -1376,7 +1377,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
             }
         }
       },
-      panelBgColor: Theme.of(context).colorScheme.surfaceContainerLow,
+      panelBgColor: AppSurfaces.of(context).bar,
     );
   }
 
@@ -1935,7 +1936,7 @@ class _PostEditPageState extends State<PostEditPage> with LoggerMixin {
             _buildBodyLength(context, state, horizontal),
             if (isDesktop)
               ColoredBox(
-                color: Theme.of(context).colorScheme.surfaceContainerLow,
+                color: AppSurfaces.of(context).bar,
                 child: Padding(
                   padding: horizontal.add(edgeInsetsT4),
                   child: EditorToolbar(

@@ -16,6 +16,7 @@ import 'package:tsdm_client/features/blocking/widgets/thread_filter_sections.dar
 import 'package:tsdm_client/features/blocking/widgets/user_block_button.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/themes/app_surfaces.dart';
 import 'package:tsdm_client/utils/show_dialog.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
@@ -434,7 +435,7 @@ class _BlockRow extends StatelessWidget {
       ],
     );
     return Material(
-      color: colorScheme.surfaceContainerLow,
+      color: AppSurfaces.of(context).inset,
       borderRadius: BorderRadius.circular(appInnerRadius),
       clipBehavior: Clip.antiAlias,
       child: InkWell(

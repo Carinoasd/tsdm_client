@@ -28,6 +28,7 @@ import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/data_saver_mode.dart';
 import 'package:tsdm_client/shared/models/models.dart';
+import 'package:tsdm_client/themes/app_surfaces.dart';
 import 'package:tsdm_client/themes/widget_themes.dart';
 import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/html/author_style.dart' show contrastRatio, readableContrast;
@@ -802,7 +803,7 @@ TextStyle? visitedTitleStyle(BuildContext context, TextStyle? style, {required b
   }
   final theme = Theme.of(context);
   final color = style?.color ?? DefaultTextStyle.of(context).style.color ?? theme.colorScheme.onSurface;
-  final behind = background ?? theme.cardTheme.color ?? theme.colorScheme.surfaceContainerLow;
+  final behind = background ?? theme.cardTheme.color ?? AppSurfaces.ofTheme(theme).card;
   final needed = (MediaQuery.maybeHighContrastOf(context) ?? false) ? highContrastVisitedTitle : readableContrast;
   double contrastAt(double opacity) =>
       contrastRatio(Color.alphaBlend(color.withValues(alpha: color.a * opacity), behind), behind);

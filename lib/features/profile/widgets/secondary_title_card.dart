@@ -34,12 +34,13 @@ class SecondaryTitleCard extends StatelessWidget {
     return Card(
       clipBehavior: Clip.antiAlias,
       margin: EdgeInsets.zero,
-      color: activated ? colorScheme.secondaryContainer : colorScheme.surfaceContainerLow,
+      color: activated ? colorScheme.secondaryContainer : null,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
+        // Only the activated title is framed; the others are plain cards, as every card.
         side: BorderSide(
-          color: activated ? colorScheme.primary : colorScheme.outlineVariant,
-          width: activated ? 2 : 1,
+          color: activated ? colorScheme.primary : Colors.transparent,
+          width: activated ? 2 : 0,
         ),
       ),
       child: InkWell(

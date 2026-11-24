@@ -4,6 +4,7 @@ import 'package:tsdm_client/extensions/date_time.dart';
 import 'package:tsdm_client/features/thread_link_card/models/thread_link_card_info.dart';
 import 'package:tsdm_client/features/thread_link_card/repository/thread_link_card_repository.dart';
 import 'package:tsdm_client/features/thread_link_card/utils/thread_link.dart';
+import 'package:tsdm_client/themes/app_surfaces.dart';
 import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 
 /// The card of the thread a link in a post's content leads to ([threadLinkOf]), put right after the link: its title,
@@ -222,7 +223,7 @@ class _Card extends StatelessWidget {
             onLongPress: onShowUrl,
             onSecondaryTap: onShowUrl,
             child: DecoratedBox(
-              decoration: ShapeDecoration(shape: shape, color: colorScheme.surfaceContainerLow),
+              decoration: ShapeDecoration(shape: shape, color: AppSurfaces.of(context).inset),
               child: content,
             ),
           ),

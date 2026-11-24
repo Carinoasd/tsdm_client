@@ -31,6 +31,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
+import 'package:tsdm_client/themes/app_surfaces.dart';
 import 'package:tsdm_client/utils/html/author_style.dart';
 import 'package:tsdm_client/utils/html/html_muncher.dart';
 import 'package:tsdm_client/utils/html/post_table.dart';
@@ -536,7 +537,7 @@ void main() {
         '<span style="background-color: #ffff00"><font color="#000000">黄底黑字</font></span>',
         theme: _dark,
       );
-      final surface = _dark.colorScheme.surfaceContainerLow;
+      final surface = AppSurfaces.ofTheme(_dark).card;
       final navy = _style(tester, '深蓝').color!;
       expect(contrastRatio(navy, surface), greaterThanOrEqualTo(readableContrast));
       final (r, g, b) = _rgb(navy);
@@ -788,7 +789,7 @@ void main() {
         ),
         theme: _dark,
       );
-      final surface = _dark.colorScheme.surfaceContainerLow;
+      final surface = AppSurfaces.ofTheme(_dark).card;
       for (final text in ['红字灰底', '橙字银底']) {
         final block = _blockBackground(tester, text)!;
         expect(contrastRatio(_style(tester, text).color!, block), greaterThanOrEqualTo(readableContrast), reason: text);

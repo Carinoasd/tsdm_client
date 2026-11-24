@@ -43,6 +43,7 @@ import 'package:tsdm_client/features/shortcuts/utils/pin_to_home.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
+import 'package:tsdm_client/themes/app_surfaces.dart';
 import 'package:tsdm_client/utils/clipboard.dart';
 import 'package:tsdm_client/utils/html/html_muncher.dart';
 import 'package:tsdm_client/utils/load_failure.dart';
@@ -602,7 +603,7 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
     final colorScheme = Theme.of(context).colorScheme;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: colorScheme.surface,
+        color: AppSurfaces.of(context).page,
         border: Border(bottom: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.6))),
       ),
       child: LayoutBuilder(

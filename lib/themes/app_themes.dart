@@ -44,9 +44,15 @@ class AppTheme {
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(appInnerRadius)),
   );
 
-  static DialogThemeData _buildDialogTheme(ThemeData base) => base.dialogTheme.copyWith(
+  /// Dialogs and bottom sheets are on the card layer: the blocks in them (inset, control) stand apart as they do in a
+  /// card. The defaults were the inset color itself (a dialog of the dark theme, a sheet of the light one).
+  static DialogThemeData _buildDialogTheme(ThemeData base, AppSurfaces surfaces) => base.dialogTheme.copyWith(
+    backgroundColor: surfaces.card,
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(appSurfaceRadius + 6)),
   );
+
+  static BottomSheetThemeData _buildBottomSheetTheme(ThemeData base, AppSurfaces surfaces) =>
+      base.bottomSheetTheme.copyWith(backgroundColor: surfaces.card, modalBackgroundColor: surfaces.card);
 
   /// Theme parts that depend on the final color scheme: the scheme itself (exactly [colorScheme], whatever the
   /// factory derived from it) and the surfaces of [AppSurfaces] on the page, the bars and the cards.
@@ -66,7 +72,8 @@ class AppTheme {
       tabBarTheme: _buildTabBarTheme(),
       progressIndicatorTheme: _buildProcessIndicatorTheme(),
       popupMenuTheme: _buildPopupMenuTheme(base),
-      dialogTheme: _buildDialogTheme(base),
+      dialogTheme: _buildDialogTheme(base, surfaces),
+      bottomSheetTheme: _buildBottomSheetTheme(base, surfaces),
     );
   }
 
