@@ -116,7 +116,7 @@ class _HomePageState extends State<HomePage> with LoggerMixin {
         if (widget.showNavigationBar) ...[
           // One side panel: the brand block and the drawer share the low container color of the navigation.
           ColoredBox(
-            color: AppSurfaces.of(context).page,
+            color: AppSurfaces.of(context).bar,
             child: Column(
               children: [
                 // Brand block of the side navigation, in the rounded style of the homepage cards.

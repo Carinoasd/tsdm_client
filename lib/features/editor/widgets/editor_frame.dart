@@ -25,7 +25,7 @@ class EditorFrame extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     Widget frame({required bool focused}) => DecoratedBox(
       decoration: BoxDecoration(
-        color: colorScheme.surface,
+        color: AppSurfaces.of(context).inset,
         borderRadius: BorderRadius.circular(appInnerRadius),
         border: Border.all(
           color: focused ? colorScheme.primary : colorScheme.outlineVariant,

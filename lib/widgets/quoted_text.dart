@@ -19,7 +19,8 @@ class QuotedText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final quotedStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(color: colorScheme.onSurface);
+    final surfaces = AppSurfaces.of(context);
+    final quotedStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant);
 
     final Widget content;
     if (text != null) {
@@ -32,14 +33,14 @@ class QuotedText extends StatelessWidget {
     }
 
     // An opaque block of the inset layer with a neutral bar on the start side: reads as quoted without quote marks,
-    // and stays clear on any seed color (a translucent tinted block went muddy on dark themes). The rich content
-    // (links, images, emojis) keeps its own styles.
+    // and stays clear on any seed color (a translucent tinted block went muddy on dark themes). The quoted text is one
+    // step quieter than the reply around it; the rich content (links, images, emojis) keeps its own styles.
     return ClipRRect(
       borderRadius: BorderRadius.circular(appInnerRadius),
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: AppSurfaces.of(context).inset,
-          border: Border(left: BorderSide(color: colorScheme.outline, width: 3)),
+          color: surfaces.inset,
+          border: Border(left: BorderSide(color: surfaces.lineStrong, width: 3)),
         ),
         child: Padding(padding: const EdgeInsets.fromLTRB(12, 8, 12, 8), child: content),
       ),

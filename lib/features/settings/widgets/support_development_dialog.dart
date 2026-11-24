@@ -171,7 +171,6 @@ class _SupportDevelopmentDialogState extends State<SupportDevelopmentDialog> wit
     if (username != null && username.isNotEmpty) {
       accountRow = AppInsetBlock(
         key: const ValueKey('forum-reward-account'),
-        color: colorScheme.surface,
         padding: edgeInsetsL12T4R4B4,
         child: Row(
           children: [

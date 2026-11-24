@@ -13,7 +13,6 @@ import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/repositories/forum_home_repository/forum_home_repository.dart';
-import 'package:tsdm_client/themes/app_surfaces.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/hour_ticker.dart';
 
@@ -31,7 +30,7 @@ class HomeGuestCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tr = context.t.homepage.guest;
-    final surfaces = AppSurfaces.of(context);
+    final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     return Card(
       key: const ValueKey('homepage-guest-card'),
@@ -39,7 +38,7 @@ class HomeGuestCard extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       shape: homeCardShape(context),
       // The look of the greeting card of an account, which this card stands for.
-      color: surfaces.hero,
+      color: Colors.transparent,
       child: Padding(
         padding: compact ? edgeInsetsL16T16R16B16 : edgeInsetsL24T24R24B24,
         child: Column(
@@ -50,19 +49,21 @@ class HomeGuestCard extends StatelessWidget {
                 '${context.t.appName} · ${MaterialLocalizations.of(context).formatMediumDate(now)}',
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: textTheme.labelMedium?.copyWith(color: surfaces.onHero, fontWeight: FontWeight.w600),
+                style: textTheme.labelMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
             sizedBoxW4H4,
             Text(
               tr.title,
               style: (compact ? textTheme.titleLarge : textTheme.headlineSmall)?.copyWith(
-                color: surfaces.onHero,
                 fontWeight: FontWeight.bold,
               ),
             ),
             sizedBoxW4H4,
-            Text(tr.detail, style: textTheme.bodyMedium?.copyWith(color: surfaces.onHero)),
+            Text(tr.detail, style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant)),
             SizedBox(height: compact ? 14 : 20),
             Wrap(
               spacing: 8,

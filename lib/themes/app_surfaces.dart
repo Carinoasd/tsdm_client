@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:material_color_utilities/material_color_utilities.dart';
 
-/// The layers of surfaces of the app, picked from the roles of a [ColorScheme] so they hold for every seed color.
+/// The layers of surfaces of the app and the lines and quiet text on them.
 ///
-/// Dark and light themes go opposite ways: in a dark theme a surface is lighter the nearer it is (the page darkest,
-/// the cards above it lighter); in a light one cards are white on a gray page. Cards carry no border: the layers tell
-/// them apart. None of them is translucent, so what is drawn on them and its contrast are known.
+/// The app themes take them from the hue of the seed color ([AppSurfaces.forSeed]): a dark theme has a night of the
+/// seed's hue (not a near black gray), a light one a near white page with gray-tinted panels on it. Panels carry no
+/// border: the layers tell them apart. None of them is translucent, so what is drawn on them and its contrast are
+/// known.
 @immutable
 class AppSurfaces extends ThemeExtension<AppSurfaces> {
   /// Constructor.
@@ -14,23 +16,60 @@ class AppSurfaces extends ThemeExtension<AppSurfaces> {
     required this.inset,
     required this.control,
     required this.bar,
-    required this.hero,
-    required this.onHero,
+    required this.line,
+    required this.lineStrong,
+    required this.muted,
   });
 
-  /// The layers for [colorScheme].
-  factory AppSurfaces.fromScheme(ColorScheme colorScheme) {
-    final dark = colorScheme.brightness == Brightness.dark;
-    return AppSurfaces(
-      page: dark ? colorScheme.surfaceContainerLowest : colorScheme.surfaceContainer,
-      card: dark ? colorScheme.surfaceContainer : colorScheme.surfaceContainerLowest,
-      inset: dark ? colorScheme.surfaceContainerHigh : colorScheme.surfaceContainerLow,
-      control: dark ? colorScheme.surfaceContainerHighest : colorScheme.surfaceContainerHigh,
-      bar: dark ? colorScheme.surfaceContainer : colorScheme.surfaceContainerLowest,
-      hero: colorScheme.primaryContainer,
-      onHero: colorScheme.onPrimaryContainer,
-    );
+  /// The layers of the app for [seed] in [brightness]: tones of a palette of the seed's hue, chroma 10 in the dark
+  /// theme and 6 in the light one (the lines 2 more); [muted] is a tone of the neutral variant palette of the seed's
+  /// scheme.
+  ///
+  /// A seed of low chroma (gray, black, a gray system accent) gets the chroma of the plain scheme (6) in the dark
+  /// theme too: no hue is made up for it.
+  factory AppSurfaces.forSeed(Color seed, Brightness brightness) {
+    final dark = brightness == Brightness.dark;
+    final hct = Hct.fromInt(seed.toARGB32());
+    final chroma = dark && hct.chroma >= lowChromaSeed ? 10.0 : 6.0;
+    final n = TonalPalette.of(hct.hue, chroma);
+    final nv = TonalPalette.of(hct.hue, chroma + 2);
+    final text = SchemeTonalSpot(sourceColorHct: hct, isDark: dark, contrastLevel: 0).neutralVariantPalette;
+    Color c(int argb) => Color(argb);
+    return dark
+        ? AppSurfaces(
+            page: c(n.get(7)),
+            card: c(n.get(12)),
+            inset: c(n.get(16)),
+            control: c(n.get(20)),
+            bar: c(n.get(10)),
+            line: c(nv.get(24)),
+            lineStrong: c(nv.get(34)),
+            muted: c(text.get(66)),
+          )
+        : AppSurfaces(
+            page: c(n.get(99)),
+            card: c(n.get(95)),
+            inset: c(n.get(93)),
+            control: c(n.get(90)),
+            bar: c(n.get(96)),
+            line: c(nv.get(88)),
+            lineStrong: c(nv.get(78)),
+            muted: c(text.get(42)),
+          );
   }
+
+  /// The layers of a theme without them (a bare test theme), from the surface roles of its [colorScheme]: the roles
+  /// the app themes set to the layers.
+  factory AppSurfaces.fromScheme(ColorScheme colorScheme) => AppSurfaces(
+    page: colorScheme.surface,
+    card: colorScheme.surfaceContainer,
+    inset: colorScheme.surfaceContainerHigh,
+    control: colorScheme.surfaceContainerHighest,
+    bar: colorScheme.surfaceContainerLow,
+    line: colorScheme.outlineVariant,
+    lineStrong: colorScheme.outline,
+    muted: colorScheme.onSurfaceVariant,
+  );
 
   /// The layers of the theme of [context]; derived from its color scheme when the theme has none (a bare test theme).
   factory AppSurfaces.of(BuildContext context) => AppSurfaces.ofTheme(Theme.of(context));
@@ -39,26 +78,51 @@ class AppSurfaces extends ThemeExtension<AppSurfaces> {
   factory AppSurfaces.ofTheme(ThemeData theme) =>
       theme.extension<AppSurfaces>() ?? AppSurfaces.fromScheme(theme.colorScheme);
 
-  /// Scaffold, app bar and navigation rail.
+  /// [colorScheme] (the scheme of the same seed) with its surface roles set to these layers, so what takes the
+  /// surface roles of the theme (dialogs, menus, fields of Material) is on the same palette: [page] the surface,
+  /// [bar] the low container, [card] the container, [inset] the high one, [control] the highest, [line] the outline
+  /// variant. The lowest container is one step out of [page] (tone 4 dark, white light).
+  ColorScheme applyTo(ColorScheme colorScheme) {
+    final dark = colorScheme.brightness == Brightness.dark;
+    return colorScheme.copyWith(
+      surface: page,
+      surfaceDim: dark ? page : control,
+      surfaceBright: dark ? control : page,
+      surfaceContainerLowest: dark ? Color.lerp(page, const Color(0xFF000000), 0.4) : const Color(0xFFFFFFFF),
+      surfaceContainerLow: bar,
+      surfaceContainer: card,
+      surfaceContainerHigh: inset,
+      surfaceContainerHighest: control,
+      outlineVariant: line,
+    );
+  }
+
+  /// Below this chroma a seed has no hue worth tinting the dark surfaces with.
+  static const lowChromaSeed = 16.0;
+
+  /// Scaffold, app bar, and the lists and floors read row by row.
   final Color page;
 
-  /// Cards, floors, and the secondary buttons on a [hero] card.
+  /// Panels: cards, action tiles, dialogs and sheets, the secondary buttons of the greeting.
   final Color card;
 
-  /// A block inside a card: quotes, embedded cards.
+  /// A block inside the content: quotes, the reply field, embedded cards.
   final Color inset;
 
-  /// Pills, chips, tool buttons, the reply field.
+  /// Pills, chips, small floating buttons.
   final Color control;
 
-  /// Bottom navigation bar and the reply bar.
+  /// Bottom navigation, navigation rail, reply bar.
   final Color bar;
 
-  /// The one leading card of a page (the greeting of the homepage, the account of "me").
-  final Color hero;
+  /// Hairline between rows.
+  final Color line;
 
-  /// Text and icons on [hero].
-  final Color onHero;
+  /// The bar of a quote, outlined pills.
+  final Color lineStrong;
+
+  /// Meta text (time, counts, uid, floor number): one step quieter than the on surface variant color.
+  final Color muted;
 
   @override
   AppSurfaces copyWith({
@@ -67,16 +131,18 @@ class AppSurfaces extends ThemeExtension<AppSurfaces> {
     Color? inset,
     Color? control,
     Color? bar,
-    Color? hero,
-    Color? onHero,
+    Color? line,
+    Color? lineStrong,
+    Color? muted,
   }) => AppSurfaces(
     page: page ?? this.page,
     card: card ?? this.card,
     inset: inset ?? this.inset,
     control: control ?? this.control,
     bar: bar ?? this.bar,
-    hero: hero ?? this.hero,
-    onHero: onHero ?? this.onHero,
+    line: line ?? this.line,
+    lineStrong: lineStrong ?? this.lineStrong,
+    muted: muted ?? this.muted,
   );
 
   @override
@@ -90,8 +156,9 @@ class AppSurfaces extends ThemeExtension<AppSurfaces> {
       inset: Color.lerp(inset, other.inset, t)!,
       control: Color.lerp(control, other.control, t)!,
       bar: Color.lerp(bar, other.bar, t)!,
-      hero: Color.lerp(hero, other.hero, t)!,
-      onHero: Color.lerp(onHero, other.onHero, t)!,
+      line: Color.lerp(line, other.line, t)!,
+      lineStrong: Color.lerp(lineStrong, other.lineStrong, t)!,
+      muted: Color.lerp(muted, other.muted, t)!,
     );
   }
 }

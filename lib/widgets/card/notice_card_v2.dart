@@ -24,6 +24,7 @@ import 'package:tsdm_client/features/settings/repositories/settings_repository.d
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/themes/app_surfaces.dart';
 import 'package:tsdm_client/utils/clipboard.dart';
 import 'package:tsdm_client/utils/html/link_gesture_recognizer.dart';
 import 'package:tsdm_client/utils/html/munch_options.dart';
@@ -212,7 +213,7 @@ class _NoticeCardV2State extends State<NoticeCardV2> {
                 decoration: BoxDecoration(
                   color: colorScheme.secondaryContainer,
                   shape: BoxShape.circle,
-                  border: Border.all(color: colorScheme.surfaceContainerLow, width: 2),
+                  border: Border.all(color: AppSurfaces.of(context).card, width: 2),
                 ),
                 child: Padding(
                   padding: const EdgeInsets.all(2),
@@ -726,7 +727,7 @@ class _NotificationCardShell extends StatelessWidget {
     return AppSurface(
       onTap: onTap,
       color: highlight
-          ? Color.alphaBlend(colorScheme.primaryContainer.withValues(alpha: 0.3), colorScheme.surfaceContainerLow)
+          ? Color.alphaBlend(colorScheme.primaryContainer.withValues(alpha: 0.3), AppSurfaces.of(context).card)
           : null,
       // The leading block sits in a 48 wide box (the tap target of an avatar): 4 less padding before it and 4 less gap
       // after it keep the 40 wide block where it was.

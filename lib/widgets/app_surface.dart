@@ -37,8 +37,9 @@ ShapeBorder appSurfaceShape(BuildContext context) => appSurfaceShapeOf();
 RoundedRectangleBorder appSurfaceShapeOf() =>
     RoundedRectangleBorder(borderRadius: BorderRadius.circular(appSurfaceRadius));
 
-/// Style of a secondary action on a hero card ([AppSurfaces.hero]): a button in the card color, its label in the
-/// text color and its icon in the primary color; the primary action of the card stays a plain [FilledButton].
+/// Style of a secondary action of the greeting of the homepage or the account of "me": a button in the panel color
+/// ([AppSurfaces.card]), its label in the text color and its icon in the primary color; the primary action (the
+/// check-in) stays a plain [FilledButton].
 ///
 /// A disabled one looks the same: a done state (checked in, claimed) reads as done, not as unavailable; what it says
 /// tells it apart.

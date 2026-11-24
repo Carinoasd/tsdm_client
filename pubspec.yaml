@@ -78,6 +78,8 @@ dependencies:
   loading_indicator_m3e: ^0.1.1
   local_auth: ^3.0.0
   m3e_design: ^0.2.1
+  # Pinned by Flutter; the theme computes its surface palettes with it.
+  material_color_utilities: any
   material_design_icons_flutter: ^7.0.7296
   material_symbols_icons: ^4.2892.0
   media_kit_libs_linux: ^1.2.1

@@ -21,7 +21,7 @@ class _HomeNavigationDrawerState extends State<HomeNavigationDrawer> {
     // indicator. The same four destinations as the bottom bar; the drawer is a list and scrolls when the window is
     // short.
     return NavigationDrawer(
-      backgroundColor: AppSurfaces.of(context).page,
+      backgroundColor: AppSurfaces.of(context).bar,
       elevation: 0,
       indicatorShape: _navigationIndicatorShape,
       selectedIndex: _selectedIndexOf(barItems, context.watch<HomeCubit>().state.tab),

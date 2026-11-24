@@ -550,14 +550,15 @@ class _AccountCardState extends State<_AccountCard> {
     final username = user.username ?? '';
     final textTheme = Theme.of(context).textTheme;
     final tr = context.t.mePage;
+    final colorScheme = Theme.of(context).colorScheme;
     final surfaces = AppSurfaces.of(context);
     return Card(
       key: const ValueKey('me-account-card'),
       margin: EdgeInsets.zero,
       clipBehavior: Clip.antiAlias,
       shape: appSurfaceShape(context),
-      // The hero card of the page, as the greeting card of the homepage.
-      color: surfaces.hero,
+      // Not a panel: the account heads the page on the page itself, as the greeting of the homepage.
+      color: Colors.transparent,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -590,7 +591,7 @@ class _AccountCardState extends State<_AccountCard> {
                         children: [
                           SingleLineText(
                             username,
-                            style: textTheme.titleLarge?.copyWith(color: surfaces.onHero, fontWeight: FontWeight.bold),
+                            style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                           ),
                           sizedBoxW4H4,
                           Wrap(
@@ -608,7 +609,7 @@ class _AccountCardState extends State<_AccountCard> {
                               if (uid != null)
                                 Text(
                                   tr.uid(uid: uid),
-                                  style: textTheme.labelMedium?.copyWith(color: surfaces.onHero),
+                                  style: textTheme.labelMedium?.copyWith(color: colorScheme.onSurfaceVariant),
                                 ),
                             ],
                           ),
@@ -617,7 +618,7 @@ class _AccountCardState extends State<_AccountCard> {
                     ),
                     Tooltip(
                       message: context.t.profilePage.title,
-                      child: Icon(Icons.chevron_right, color: surfaces.onHero),
+                      child: Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
                     ),
                   ],
                 ),

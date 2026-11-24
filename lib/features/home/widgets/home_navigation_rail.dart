@@ -39,7 +39,7 @@ class _HomeNavigationRailState extends State<HomeNavigationRail> {
           ),
         ),
       ),
-      backgroundColor: AppSurfaces.of(context).page,
+      backgroundColor: AppSurfaces.of(context).bar,
       indicatorShape: _navigationIndicatorShape,
       labelType: NavigationRailLabelType.all,
       destinations: [
@@ -64,7 +64,7 @@ class _HomeNavigationRailState extends State<HomeNavigationRail> {
     // is still handled by the rail itself.
     final padding = MediaQuery.paddingOf(context);
     return ColoredBox(
-      color: AppSurfaces.of(context).page,
+      color: AppSurfaces.of(context).bar,
       child: Padding(
         padding: EdgeInsets.only(top: padding.top, bottom: padding.bottom),
         child: MediaQuery.removePadding(

@@ -40,7 +40,8 @@ class AppTheme {
       base.cardTheme.copyWith(elevation: 0, color: surfaces.card, shape: appSurfaceShapeOf());
 
   /// Popup menus and dialogs follow the rounded surfaces.
-  static PopupMenuThemeData _buildPopupMenuTheme(ThemeData base) => base.popupMenuTheme.copyWith(
+  static PopupMenuThemeData _buildPopupMenuTheme(ThemeData base, AppSurfaces surfaces) => base.popupMenuTheme.copyWith(
+    color: surfaces.card,
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(appInnerRadius)),
   );
 
@@ -55,23 +56,22 @@ class AppTheme {
       base.bottomSheetTheme.copyWith(backgroundColor: surfaces.card, modalBackgroundColor: surfaces.card);
 
   /// Theme parts that depend on the final color scheme: the scheme itself (exactly [colorScheme], whatever the
-  /// factory derived from it) and the surfaces of [AppSurfaces] on the page, the bars and the cards.
-  static ThemeData _finish(ThemeData base, ColorScheme colorScheme) {
-    final surfaces = AppSurfaces.fromScheme(colorScheme);
+  /// factory derived from it) and the [surfaces] on the page, the bars, the panels, dialogs and sheets.
+  static ThemeData _finish(ThemeData base, ColorScheme colorScheme, AppSurfaces surfaces) {
     return base.copyWith(
       colorScheme: colorScheme,
       extensions: [surfaces],
       scaffoldBackgroundColor: surfaces.page,
       appBarTheme: base.appBarTheme.copyWith(backgroundColor: surfaces.page),
       navigationBarTheme: base.navigationBarTheme.copyWith(backgroundColor: surfaces.bar),
-      navigationRailTheme: base.navigationRailTheme.copyWith(backgroundColor: surfaces.page),
+      navigationRailTheme: base.navigationRailTheme.copyWith(backgroundColor: surfaces.bar),
       cardTheme: _buildCardTheme(base, surfaces),
       chipTheme: _buildChipTheme(),
       listTileTheme: _buildListTileTheme(),
       navigationDrawerTheme: _buildNavigationDrawerTheme(colorScheme),
       tabBarTheme: _buildTabBarTheme(),
       progressIndicatorTheme: _buildProcessIndicatorTheme(),
-      popupMenuTheme: _buildPopupMenuTheme(base),
+      popupMenuTheme: _buildPopupMenuTheme(base, surfaces),
       dialogTheme: _buildDialogTheme(base, surfaces),
       bottomSheetTheme: _buildBottomSheetTheme(base, surfaces),
     );
@@ -114,16 +114,23 @@ class AppTheme {
   /// The seed of the app's colors when the user chose none: the primary color of the former default scheme.
   static const Color defaultSeedColor = FlexColor.bahamaBlueLightPrimary;
 
+  /// The surface layers of the app for [seedColor] ([defaultSeedColor] when null) in [brightness].
+  static AppSurfaces surfacesOf(Color? seedColor, Brightness brightness) =>
+      AppSurfaces.forSeed(seedColor ?? defaultSeedColor, brightness);
+
   /// The color scheme of the app for [seedColor] ([defaultSeedColor] when null) in [brightness].
   ///
-  /// One algorithm for every color (the default, a chosen one, the system's accent): the default used to come from
-  /// the bahamaBlue scheme of FlexColorScheme with its blended surfaces, a chosen color from [ColorScheme.fromSeed],
-  /// and the layers of the two went opposite ways in the light theme (cards darker than the page in one, lighter in
-  /// the other).
-  static ColorScheme colorSchemeOf(Color? seedColor, Brightness brightness) =>
-      ColorScheme.fromSeed(seedColor: seedColor ?? defaultSeedColor, brightness: brightness);
+  /// One algorithm for every color (the default, a chosen one, the system's accent): [ColorScheme.fromSeed] for the
+  /// accents and the text, its surfaces replaced by the layers of [surfacesOf] (the seed's hue). The default used to
+  /// come from the bahamaBlue scheme of FlexColorScheme with its blended surfaces, a chosen color from
+  /// [ColorScheme.fromSeed], and the layers of the two went opposite ways in the light theme.
+  static ColorScheme colorSchemeOf(Color? seedColor, Brightness brightness) => surfacesOf(
+    seedColor,
+    brightness,
+  ).applyTo(ColorScheme.fromSeed(seedColor: seedColor ?? defaultSeedColor, brightness: brightness));
 
   static ThemeData _make(Brightness brightness, {required Color? seedColor, required String fontFamily}) {
+    final surfaces = surfacesOf(seedColor, brightness);
     final colorScheme = colorSchemeOf(seedColor, brightness);
     final family = fontFamily.isEmpty ? null : fontFamily;
     final base = brightness == Brightness.light
@@ -143,7 +150,7 @@ class AppTheme {
             subThemesData: _subThemesData,
             visualDensity: FlexColorScheme.comfortablePlatformDensity,
           );
-    return _finish(base, colorScheme);
+    return _finish(base, colorScheme, surfaces);
   }
 
   /// App light theme.

@@ -12,7 +12,6 @@ import 'package:tsdm_client/features/red_packet/widgets/daily_red_packet_button.
 import 'package:tsdm_client/features/settings/widgets/support_development_dialog.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
-import 'package:tsdm_client/themes/app_surfaces.dart';
 import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/hour_ticker.dart';
@@ -204,7 +203,7 @@ class HomeGreetingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final surfaces = AppSurfaces.of(context);
+    final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final hasStatus = forumStatus != const ForumStatus.empty();
 
@@ -219,23 +218,20 @@ class HomeGreetingCard extends StatelessWidget {
             // Phones keep the greeting narrower beside the title badge: the date wraps instead of being cut.
             maxLines: compact ? 2 : 1,
             overflow: TextOverflow.ellipsis,
-            style: textTheme.labelMedium?.copyWith(color: surfaces.onHero, fontWeight: FontWeight.w600),
+            style: textTheme.labelMedium?.copyWith(color: colorScheme.onSurfaceVariant, fontWeight: FontWeight.w600),
           ),
           sizedBoxW4H4,
           Text(
             homeGreeting(context, now.hour, username),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: (compact ? textTheme.titleLarge : textTheme.headlineSmall)?.copyWith(
-              color: surfaces.onHero,
-              fontWeight: FontWeight.bold,
-            ),
+            style: (compact ? textTheme.titleLarge : textTheme.headlineSmall)?.copyWith(fontWeight: FontWeight.bold),
           ),
           if (hasStatus) ...[
             sizedBoxW4H4,
             Text(
               context.t.homepage.todayPosts(count: forumStatus.todayCount),
-              style: textTheme.bodyMedium?.copyWith(color: surfaces.onHero),
+              style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
             ),
           ],
         ],
@@ -274,8 +270,8 @@ class HomeGreetingCard extends StatelessWidget {
       margin: EdgeInsets.zero,
       clipBehavior: Clip.antiAlias,
       shape: homeCardShape(context),
-      // The one hero card of the page: a plain primary container, the check-in the filled primary button on it.
-      color: surfaces.hero,
+      // The masthead of the page, not a panel: on the page itself, the check-in the one filled primary button.
+      color: Colors.transparent,
       child: Padding(
         padding: compact ? edgeInsetsL16T16R16B16 : edgeInsetsL24T24R24B24,
         child: Column(
