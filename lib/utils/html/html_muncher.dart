@@ -181,7 +181,7 @@ Widget munchElement(
 
   // Alignment in this page requires a fixed max width that equals to website
   // page width (712), unless the reader set the floors wider or narrower (PostTypography.maxWidth).
-  return ConstrainedBox(
+  final content = ConstrainedBox(
     constraints: BoxConstraints(maxWidth: muncher.typography?.contentMaxWidth ?? htmlContentMaxWidth),
     child: Text.rich(
       style: const TextStyle(
@@ -191,6 +191,22 @@ Widget munchElement(
       ),
       TextSpan(children: ret),
     ),
+  );
+  // A post's content is at its body text size ([postBodyFontSize]) throughout: what takes the size around it (a line
+  // break, the text of a cell or a block laid out in a rich text of its own) is as large as the text it is with.
+  if (muncher.typography == null) {
+    return content;
+  }
+  final around = DefaultTextStyle.of(context);
+  return DefaultTextStyle(
+    style: around.style.copyWith(fontSize: postBodyFontSize),
+    textAlign: around.textAlign,
+    softWrap: around.softWrap,
+    overflow: around.overflow,
+    maxLines: around.maxLines,
+    textWidthBasis: around.textWidthBasis,
+    textHeightBehavior: around.textHeightBehavior,
+    child: content,
   );
 }
 
@@ -570,8 +586,11 @@ final class _Muncher with LoggerMixin {
   /// How the author's colors are shown in the theme.
   late final _colors = AuthorColors(Theme.of(context));
 
-  /// The size of the body text, what the sizes of the web page are scaled to.
-  late final double _bodyFontSize = Theme.of(context).textTheme.bodyMedium?.fontSize ?? webPostFontSize;
+  /// The size of the body text, what the sizes of the web page are scaled to: [postBodyFontSize] in a post's content
+  /// ([typography]), the theme's body text elsewhere.
+  late final double _bodyFontSize = typography != null
+      ? postBodyFontSize
+      : Theme.of(context).textTheme.bodyMedium?.fontSize ?? webPostFontSize;
 
   /// A css pixel of the web page's text in the app: the app's body text is to the web page's ([webPostFontSize]) as a
   /// size of the web page is to the app's.
@@ -1706,6 +1725,11 @@ final class _Muncher with LoggerMixin {
     // and restore munch state to avoid potential issued about "styles inside
     // quoted blocks  affects outside main content".
     final style = state.save();
+    // The text of a quote is a step quieter than the reply around it: a little smaller in a post's content (15 for its
+    // 16), once, not again for each nested quote.
+    if (typography != null && _quoteDepth == 0) {
+      state.fontSizeStack.add(_fontSize * quoteFontScale);
+    }
     _quoteDepth++;
     final List<InlineSpan>? content;
     try {
@@ -2760,7 +2784,7 @@ final class _Muncher with LoggerMixin {
 
   /// `<small>` and `<big>`: the content at [scale] times the size of the text around it, as a browser does.
   List<InlineSpan>? _munchScaled(uh.Element element, double scale) {
-    final size = state.fontSizeStack.lastOrNull ?? Theme.of(context).textTheme.bodyMedium?.fontSize ?? 14;
+    final size = _fontSize;
     final keyword = state.fontSizeKeyword;
     state
       ..fontSizeStack.add(size * scale)
@@ -3291,7 +3315,8 @@ final class _Muncher with LoggerMixin {
       height: typography?.lineHeight,
       letterSpacing: typography == null ? null : 0,
       fontWeight: state.bold ? FontWeight.w600 : null,
-      fontSize: state.fontSizeStack.lastOrNull,
+      // The body text of a post is larger than the theme's ([postBodyFontSize]).
+      fontSize: state.fontSizeStack.lastOrNull ?? (typography == null ? null : _bodyFontSize),
       backgroundColor: inline?.color == null ? null : _colors.background(inline!.color!),
       decorationColor: decorationColor,
       decoration: TextDecoration.combine([

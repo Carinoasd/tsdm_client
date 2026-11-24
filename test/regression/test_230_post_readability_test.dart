@@ -4,7 +4,7 @@
 /// height 1.5) was a wall of text on a phone, at the line height of the material body text (1.43), with letter
 /// spacing and nothing between paragraphs. Checked here on small samples written after the real posts:
 ///
-/// * the content of a post is laid out at a line height of 1.7, without letter spacing, with a gap of 8 between its
+/// * the content of a post is laid out at a line height of 1.8, without letter spacing, with a gap of 10 between its
 ///   paragraphs; the html of anything else (a notice, a message) keeps the body text;
 /// * a gap goes at a single line break between two paragraphs when one of them does not fit on a line where it is
 ///   shown (a phone, a tablet, the text scale), not at a blank line, between short lines (a poem, a list), next to an
@@ -69,8 +69,8 @@ const _long1 = '第一段的文字比较长，一行放不下，写帖子的人�
 const _long2 = '第二段的文字也比较长，同样一行放不下，段落之间要有一点空白才看得出这是新的一段。';
 const _long3 = '第三段的文字还是比较长，空行已经把它和上一段分开了，这里不用再多加一个段距了。';
 
-/// Width of a post's content on a phone 390 wide (the floor card's margins and padding off).
-const _phoneWidth = 346.0;
+/// Width of a post's content on a phone 390 wide (the flat floor's padding off).
+const _phoneWidth = 358.0;
 
 Widget _app(Widget child, {ThemeData? theme, double scale = 1}) => TranslationProvider(
   child: MaterialApp(
@@ -164,9 +164,9 @@ void main() {
   });
 
   group('the default layout of a post', () {
-    testWidgets('line height 1.7 and no letter spacing; other html keeps the body text', (tester) async {
+    testWidgets('line height 1.8 and no letter spacing; other html keeps the body text', (tester) async {
       await _pump(tester, _long1);
-      expect(_styleOf(tester, '第一段')?.height, 1.7);
+      expect(_styleOf(tester, '第一段')?.height, 1.8);
       expect(_styleOf(tester, '第一段')?.letterSpacing, 0);
 
       await _pump(tester, _long1, typography: null);
@@ -176,7 +176,7 @@ void main() {
       expect(_gapCount(tester), 0);
     });
 
-    testWidgets('a gap of 8 between two paragraphs, a line of its own as tall as the gap', (tester) async {
+    testWidgets('a gap of 10 between two paragraphs, a line of its own as tall as the gap', (tester) async {
       const html = '$_long1<br />\r\n$_long2';
       await _pump(tester, html);
       expect(_gapCount(tester), 1);
@@ -184,10 +184,10 @@ void main() {
       expect(text, '$_long1\n\n$_long2');
       final lastOfFirst = text.indexOf('。');
       final firstOfSecond = text.indexOf('第二段');
-      // One line (14 × 1.7) and the gap.
-      expect(_top(tester, firstOfSecond) - _top(tester, lastOfFirst), closeTo(14 * 1.7 + 8, 0.5));
+      // One line (16 × 1.8) and the gap.
+      expect(_top(tester, firstOfSecond) - _top(tester, lastOfFirst), closeTo(16 * 1.8 + 10, 0.5));
       // The lines of a paragraph are one line apart.
-      expect(_top(tester, text.indexOf('第一段') + 30) - _top(tester, text.indexOf('第一段')), closeTo(14 * 1.7, 0.5));
+      expect(_top(tester, text.indexOf('第一段') + 30) - _top(tester, text.indexOf('第一段')), closeTo(16 * 1.8, 0.5));
 
       // Before: one line of the body text (20), nothing between the paragraphs.
       await _pump(tester, html, typography: null);
@@ -199,7 +199,7 @@ void main() {
     testWidgets('the gap and the lines follow the text scale', (tester) async {
       await _pump(tester, '$_long1<br />$_long2', scale: 1.5);
       final text = _plain(tester);
-      expect(_top(tester, text.indexOf('第二段')) - _top(tester, text.indexOf('。')), closeTo((14 * 1.7 + 8) * 1.5, 0.75));
+      expect(_top(tester, text.indexOf('第二段')) - _top(tester, text.indexOf('。')), closeTo((16 * 1.8 + 10) * 1.5, 0.75));
     });
 
     testWidgets('no gap at a blank line, between short lines, next to an image row or a block', (tester) async {
@@ -248,14 +248,14 @@ void main() {
       const html = '$_long1<br />$_long2';
       await _pump(tester, html, typography: const PostTypography(lineHeight: 2, paragraphSpacing: 16));
       var text = _plain(tester);
-      expect(_top(tester, text.indexOf('第二段')) - _top(tester, text.indexOf('。')), closeTo(14 * 2 + 16, 0.5));
+      expect(_top(tester, text.indexOf('第二段')) - _top(tester, text.indexOf('。')), closeTo(16 * 2 + 16, 0.5));
       expect(_styleOf(tester, '第一段')?.height, 2);
 
       await _pump(tester, html, typography: const PostTypography(paragraphSpacing: 0));
       text = _plain(tester);
       expect(_gapCount(tester), 0);
       expect(text, '$_long1\n$_long2');
-      expect(_top(tester, text.indexOf('第二段')) - _top(tester, text.indexOf('。')), closeTo(14 * 1.7, 0.5));
+      expect(_top(tester, text.indexOf('第二段')) - _top(tester, text.indexOf('。')), closeTo(16 * 1.8, 0.5));
     });
 
     testWidgets('a change of the settings lays the content out again at once', (tester) async {
@@ -276,17 +276,17 @@ void main() {
         return _top(tester, text.indexOf('第二段')) - _top(tester, text.indexOf('。'));
       }
 
-      expect(gap(), closeTo(14 * 1.7 + 8, 0.5));
+      expect(gap(), closeTo(16 * 1.8 + 10, 0.5));
       notifier.value = const PostTypography(lineHeight: 1.4, paragraphSpacing: 12);
       await tester.pump();
-      expect(gap(), closeTo(14 * 1.4 + 12, 0.5));
+      expect(gap(), closeTo(16 * 1.4 + 12, 0.5));
     });
 
     testWidgets('dark mode: the same layout, the colors of the dark theme', (tester) async {
       await _pump(tester, '$_long1<br />$_long2', theme: ThemeData(brightness: Brightness.dark));
       expect(_gapCount(tester), 1);
       final style = _styleOf(tester, '第一段');
-      expect(style?.height, 1.7);
+      expect(style?.height, 1.8);
       expect(style?.color, ThemeData(brightness: Brightness.dark).textTheme.bodyMedium?.color);
     });
   });
@@ -317,14 +317,14 @@ void main() {
         return width;
       }
 
-      // A phone 390 wide: 390 − 2 × 6 (the floor's margins) − 2 × 16 (its padding) = 346, over 14.
-      expect(await lineWidth(const Size(390, 844), 1), closeTo(346 / 14, 1e-9));
-      expect(await lineWidth(const Size(360, 780), 1), closeTo(316 / 14, 1e-9));
-      expect(await lineWidth(const Size(390, 844), 0.85), closeTo(346 / 14 / 0.85, 1e-9));
-      expect(await lineWidth(const Size(390, 844), 1.5), closeTo(346 / 21, 1e-9));
+      // A phone 390 wide: the flat floor takes the width, 390 − 2 × 16 (its padding) = 358, over 16.
+      expect(await lineWidth(const Size(390, 844), 1), closeTo(358 / 16, 1e-9));
+      expect(await lineWidth(const Size(360, 780), 1), closeTo(328 / 16, 1e-9));
+      expect(await lineWidth(const Size(390, 844), 0.85), closeTo(358 / 16 / 0.85, 1e-9));
+      expect(await lineWidth(const Size(390, 844), 1.5), closeTo(358 / 24, 1e-9));
       // A tablet or a desktop window: the content is at most 712 wide.
-      expect(await lineWidth(const Size(1280, 800), 1), closeTo(712 / 14, 1e-9));
-      expect(await lineWidth(const Size(1280, 800), 1.5), closeTo(712 / 21, 1e-9));
+      expect(await lineWidth(const Size(1280, 800), 1), closeTo(712 / 16, 1e-9));
+      expect(await lineWidth(const Size(1280, 800), 1.5), closeTo(712 / 24, 1e-9));
     });
 
     /// [PostLineWidth] in a view of [size] with [padding], under a safe area as on the thread page; the line width its
@@ -364,18 +364,18 @@ void main() {
 
     testWidgets('the thread page measures it once for the floors, the safe area left out', (tester) async {
       addTearDown(tester.view.reset);
-      // A phone in landscape with a cutout on the left: 732 − 32, the floor's margins (16) and padding.
+      // A phone in landscape with a cutout on the left: 732 − 32, the floor's margins (8) and padding.
       await pumpMeasured(tester, const Size(732, 412), padding: const FakeViewPadding(left: 32));
-      expect(read(tester), closeTo((732 - 32 - 32 - 32) / 14, 1e-9));
+      expect(read(tester), closeTo((732 - 32 - 16 - 32) / 16, 1e-9));
       await pumpMeasured(tester, const Size(390, 844), padding: const FakeViewPadding(top: 47, bottom: 34));
-      expect(read(tester), closeTo(346 / 14, 1e-9), reason: 'a rotation is taken at once');
+      expect(read(tester), closeTo(358 / 16, 1e-9), reason: 'a rotation is taken at once');
     });
 
     testWidgets('while a window is resized the floors keep their line width, until the width settles', (tester) async {
       addTearDown(tester.view.reset);
       await pumpMeasured(tester, const Size(900, 900));
       final first = read(tester);
-      expect(first, closeTo(712 / 14, 1e-9));
+      expect(first, closeTo(712 / 16, 1e-9));
       // Dragged narrower, a frame at a time: nothing changes meanwhile.
       for (var w = 898.0; w >= 600; w -= 2) {
         await pumpMeasured(tester, Size(w, 900));
@@ -386,16 +386,16 @@ void main() {
       expect(read(tester), first);
       await tester.pump(const Duration(milliseconds: 60));
       await tester.pump();
-      expect(read(tester), closeTo((600 - 32 - 32) / 14, 1e-9));
+      expect(read(tester), closeTo((600 - 16 - 32) / 16, 1e-9));
 
       // A few pixels that do not make half a character are never taken.
       await pumpMeasured(tester, const Size(602, 900));
       await tester.pump(const Duration(seconds: 1));
-      expect(read(tester), closeTo((600 - 32 - 32) / 14, 1e-9));
+      expect(read(tester), closeTo((600 - 16 - 32) / 16, 1e-9));
 
       // A new text scale is taken at once.
       await pumpMeasured(tester, const Size(602, 900), scale: 1.5);
-      expect(read(tester), closeTo((602 - 32 - 32) / 21, 1e-9));
+      expect(read(tester), closeTo((602 - 16 - 32) / 24, 1e-9));
     });
 
     testWidgets('a short line and a long paragraph depend on it', (tester) async {
@@ -605,7 +605,7 @@ void main() {
       expect(text, '$s1$s2\n\n$s3$s4');
       // The piece after the cut starts a line of its own, the gap above it.
       final end = text.indexOf('\n') - 1;
-      expect(_top(tester, end + 3) - _top(tester, end), closeTo(14 * 1.7 + 8, 0.5));
+      expect(_top(tester, end + 3) - _top(tester, end), closeTo(16 * 1.8 + 10, 0.5));
       expect(
         _paragraph(tester).getBoxesForSelection(TextSelection(baseOffset: end + 3, extentOffset: end + 4)).first.left,
         closeTo(0, 0.01),
@@ -616,7 +616,7 @@ void main() {
       expect(_gapCount(tester), 1);
       expect(_plain(tester), '$s1$s2\n$s3$s4');
       final noSpace = _plain(tester).indexOf('\n') - 1;
-      expect(_top(tester, noSpace + 2) - _top(tester, noSpace), closeTo(14 * 1.7, 0.5));
+      expect(_top(tester, noSpace + 2) - _top(tester, noSpace), closeTo(16 * 1.8, 0.5));
     });
 
     testWidgets('a link cut in two still opens', (tester) async {
@@ -680,7 +680,7 @@ void main() {
         return null;
       }
 
-      expect(styleOf(root, null)?.height, 1.7);
+      expect(styleOf(root, null)?.height, 1.8);
 
       await pumpNodes(tester, const [
         BbAlign('center', [text]),
@@ -729,10 +729,10 @@ void main() {
       await db.close();
     });
 
-    test('defaults (also with settings from an older version, without them): line height 1.7, spacing 8, long '
+    test('defaults (also with settings from an older version, without them): line height 1.8, spacing 10, long '
         'paragraphs not cut; the values are saved', () async {
-      expect(SettingsKeys.threadContentLineHeight.defaultValue, 1.7);
-      expect(SettingsKeys.threadContentParagraphSpacing.defaultValue, 8.0);
+      expect(SettingsKeys.threadContentLineHeight.defaultValue, 1.8);
+      expect(SettingsKeys.threadContentParagraphSpacing.defaultValue, 10.0);
       expect(SettingsKeys.threadContentSplitLongParagraphs.defaultValue, isFalse);
       expect(settings.currentSettings.postTypography, const PostTypography());
 
