@@ -102,6 +102,27 @@ void main() {
         expect(IconTheme.of(icon).weight, 400);
       });
 
+      testWidgets('chips are regular and keep the colors of Material 3', (tester) async {
+        final theme = _theme(dark: dark);
+        await tester.pumpWidget(
+          _app(
+            theme,
+            Scaffold(
+              body: Row(
+                children: [
+                  const Chip(label: Text('tag')),
+                  FilterChip(label: const Text('on'), selected: true, onSelected: (_) {}),
+                ],
+              ),
+            ),
+          ),
+        );
+        final scheme = theme.colorScheme;
+        expect(_paintedStyle(tester, 'tag').fontWeight, FontWeight.w400);
+        expect(_paintedStyle(tester, 'tag').color, scheme.onSurfaceVariant);
+        expect(_paintedStyle(tester, 'on').color, scheme.onSecondaryContainer);
+      });
+
       testWidgets('navigation bar: the selected destination on the primary container, filled, bold', (tester) async {
         final theme = _theme(dark: dark);
         await tester.pumpWidget(

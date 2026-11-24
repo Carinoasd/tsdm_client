@@ -100,7 +100,7 @@ class AppTheme {
         unselectedIconTheme: _buildIconTheme(base.navigationRailTheme.unselectedIconTheme, dark: dark),
       ),
       cardTheme: _buildCardTheme(base, surfaces),
-      chipTheme: _buildChipTheme(),
+      chipTheme: _buildChipTheme(colorScheme, textTheme),
       listTileTheme: _buildListTileTheme(),
       navigationDrawerTheme: _buildNavigationDrawerTheme(colorScheme, textTheme, dark: dark),
       tabBarTheme: _buildTabBarTheme(textTheme),
@@ -111,10 +111,22 @@ class AppTheme {
     );
   }
 
-  /// Chips are tags and filters: regular, the weight of the small labels.
-  static ChipThemeData _buildChipTheme() => const ChipThemeData(
-    padding: EdgeInsets.all(2),
-    labelStyle: TextStyle(fontWeight: FontWeight.w400),
+  /// Chips are tags and filters: regular, the weight of the small labels. The label style of the theme replaces the
+  /// default one of the chips, so it carries their colors too (those of Material 3).
+  static ChipThemeData _buildChipTheme(ColorScheme colorScheme, TextTheme textTheme) => ChipThemeData(
+    padding: const EdgeInsets.all(2),
+    labelStyle: textTheme.labelLarge?.copyWith(
+      fontWeight: FontWeight.w400,
+      color: WidgetStateColor.resolveWith((states) {
+        if (states.contains(WidgetState.disabled)) {
+          return colorScheme.onSurface;
+        }
+        if (states.contains(WidgetState.selected)) {
+          return colorScheme.onSecondaryContainer;
+        }
+        return colorScheme.onSurfaceVariant;
+      }),
+    ),
   );
 
   /// Global theme for [ListTile].
