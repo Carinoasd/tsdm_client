@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:fpdart/fpdart.dart' hide State;
 import 'package:go_router/go_router.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/features/red_packet/models/models.dart';
@@ -116,7 +117,7 @@ class _DailyRedPacketButtonState extends State<DailyRedPacketButton> with Logger
       return appDayAction(
         context,
         look: widget.look,
-        icon: _claiming ? sizedCircularProgressIndicator : const Icon(Icons.redeem_outlined),
+        icon: _claiming ? sizedCircularProgressIndicator : const Icon(Symbols.redeem_rounded),
         label: tooltip,
         onPressed: _claiming ? null : _claim,
       );
@@ -124,7 +125,7 @@ class _DailyRedPacketButtonState extends State<DailyRedPacketButton> with Logger
     if (_claiming) {
       return IconButton(icon: sizedCircularProgressIndicator, tooltip: tooltip, onPressed: null);
     }
-    return IconButton(icon: const Icon(Icons.redeem_outlined), tooltip: tooltip, onPressed: _claim);
+    return IconButton(icon: const Icon(Symbols.redeem_rounded), tooltip: tooltip, onPressed: _claim);
   }
 }
 
@@ -146,7 +147,7 @@ class DailyRedPacketClaimedButton extends StatelessWidget {
     final button = appDayAction(
       context,
       look: look,
-      icon: const Icon(Icons.check_circle),
+      icon: const Icon(Symbols.check_circle_rounded, fill: 1),
       label: context.t.redPacket.daily.claimedToday,
       onPressed: null,
     );
@@ -263,7 +264,7 @@ class _DailyRedPacketEntryState extends State<DailyRedPacketEntry> {
       return appDayAction(
         context,
         look: widget.look,
-        icon: const Icon(Icons.login_outlined),
+        icon: const Icon(Symbols.login_rounded),
         label: tr.needLogin,
         onPressed: () async => context.pushNamed(ScreenPaths.login),
       );
@@ -292,7 +293,7 @@ class _DailyRedPacketEntryState extends State<DailyRedPacketEntry> {
       child: appDayAction(
         context,
         look: widget.look,
-        icon: widget.checking ? sizedCircularProgressIndicator : const Icon(Icons.redeem_outlined),
+        icon: widget.checking ? sizedCircularProgressIndicator : const Icon(Symbols.redeem_rounded),
         label: tr.unavailable,
         onPressed: widget.checking ? null : widget.onCheck,
       ),

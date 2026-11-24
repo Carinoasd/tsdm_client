@@ -25,6 +25,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 import 'package:tsdm_client/constants/constants.dart';
 import 'package:tsdm_client/constants/url.dart';
@@ -338,7 +339,7 @@ void main() {
         style.foregroundColor?.resolve({WidgetState.disabled}),
         Theme.of(tester.element(done)).colorScheme.onSurface,
       );
-      expect(find.descendant(of: done, matching: find.byIcon(Icons.check_circle)), findsOneWidget);
+      expect(find.descendant(of: done, matching: find.byIcon(Symbols.check_circle_rounded)), findsOneWidget);
       expect(tester.getRect(done).height, greaterThanOrEqualTo(72), reason: 'still a tile');
     });
 
@@ -464,6 +465,13 @@ void main() {
         await (FontLoader(
           'MaterialIcons',
         )..addFont(Future.value(ByteData.sublistView(File(icons).readAsBytesSync())))).load();
+      }
+      // The rounded Material Symbols (`BEAUTIFY_SHOTS_SYMBOLS`: MaterialSymbolsRounded.ttf of the package).
+      final symbols = Platform.environment['BEAUTIFY_SHOTS_SYMBOLS'];
+      if (symbols != null && File(symbols).existsSync()) {
+        await (FontLoader(
+          'packages/material_symbols_icons/MaterialSymbolsRounded',
+        )..addFont(Future.value(ByteData.sublistView(File(symbols).readAsBytesSync())))).load();
       }
     });
 

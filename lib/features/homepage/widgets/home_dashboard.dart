@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/features/checkin/widgets/checkin_button.dart';
 import 'package:tsdm_client/features/homepage/models/models.dart';
@@ -281,13 +282,13 @@ class HomeGreetingCard extends StatelessWidget {
         look: look,
       );
       final activities = _QuickAction(
-        icon: Icons.event_outlined,
+        icon: Symbols.event_rounded,
         label: context.t.activitiesPage.title,
         look: look,
         onPressed: () async => context.pushNamed(ScreenPaths.activities),
       );
       final medals = _QuickAction(
-        icon: Icons.workspace_premium_outlined,
+        icon: Symbols.workspace_premium_rounded,
         label: context.t.medalTitleHub.title,
         look: look,
         onPressed: () async => context.pushNamed(ScreenPaths.medalTitleHub),
@@ -646,7 +647,7 @@ class HomeOnlineCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
+                Icon(Symbols.chevron_right_rounded, color: colorScheme.onSurfaceVariant),
               ],
             ),
           ),
@@ -682,7 +683,7 @@ class HomeSupportCard extends StatelessWidget {
                   child: SizedBox(
                     width: 40,
                     height: 40,
-                    child: Icon(Icons.favorite, size: 20, color: colorScheme.onTertiaryContainer),
+                    child: Icon(Symbols.favorite_rounded, size: 20, color: colorScheme.onTertiaryContainer, fill: 1),
                   ),
                 ),
                 sizedBoxW12H12,
@@ -711,7 +712,7 @@ class HomeSupportCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
+                Icon(Symbols.chevron_right_rounded, color: colorScheme.onSurfaceVariant),
               ],
             ),
           ),
@@ -733,11 +734,11 @@ class HomeToolsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final tr = context.t.homepage;
     final entries = <(IconData, String, String)>[
-      (Icons.workspace_premium_outlined, context.t.medalTitleHub.title, ScreenPaths.medalTitleHub),
-      (Icons.article_outlined, tr.welcome.myThread, ScreenPaths.myThread),
-      (Icons.star_outline, tr.welcome.favorite, ScreenPaths.favorite),
-      (Icons.history_outlined, tr.welcome.history, ScreenPaths.threadVisitHistory),
-      (Icons.account_balance_outlined, context.t.bank.title, ScreenPaths.bank),
+      (Symbols.workspace_premium_rounded, context.t.medalTitleHub.title, ScreenPaths.medalTitleHub),
+      (Symbols.article_rounded, tr.welcome.myThread, ScreenPaths.myThread),
+      (Symbols.star_rounded, tr.welcome.favorite, ScreenPaths.favorite),
+      (Symbols.history_rounded, tr.welcome.history, ScreenPaths.threadVisitHistory),
+      (Symbols.account_balance_rounded, context.t.bank.title, ScreenPaths.bank),
       (Icons.catching_pokemon, context.t.pokemon.title, ScreenPaths.pokemon),
     ];
     // A titled group on the page, each entry a panel of its own.

@@ -34,6 +34,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:responsive_framework/responsive_framework.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 import 'package:tsdm_client/constants/layout.dart';
@@ -1164,7 +1165,7 @@ void main() {
     testWidgets('"back to top" comes once scrolled up some way and goes once scrolled down as far', (tester) async {
       await app.pump(tester, initial: ScreenPaths.homepage, tab: _realTab);
       final list = find.byType(Scrollable).first;
-      final button = find.widgetWithIcon(FloatingActionButton, Icons.arrow_upward_outlined);
+      final button = find.widgetWithIcon(FloatingActionButton, Symbols.arrow_upward_rounded);
       expect(button, findsNothing, reason: 'at the top');
       await tester.drag(list, const Offset(0, -800));
       await _settle(tester);

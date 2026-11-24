@@ -9,6 +9,8 @@
 /// 4. settings groups: rows 52 high, the line between two rows starts at the text (after a leading icon), corners 20.
 library;
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -35,6 +37,43 @@ TextStyle _paintedStyle(WidgetTester tester, String text) {
 }
 
 void main() {
+  test('no weight of 500 or 600 is left in the app', () {
+    final offenders = [
+      for (final file in Directory('lib').listSync(recursive: true).whereType<File>())
+        if (file.path.endsWith('.dart') && !file.path.endsWith('.g.dart'))
+          if (RegExp(r'FontWeight\.w[56]00').hasMatch(file.readAsStringSync())) file.path,
+    ];
+    expect(offenders, isEmpty);
+  });
+
+  test('the navigation, the homepage, "me" and the floors use the rounded Material Symbols', () {
+    const files = [
+      'lib/features/home/widgets/widgets.dart',
+      'lib/features/homepage/view/homepage_page.dart',
+      'lib/features/homepage/widgets/home_dashboard.dart',
+      'lib/features/homepage/widgets/guide_section.dart',
+      'lib/features/homepage/widgets/guest_home.dart',
+      'lib/features/checkin/widgets/checkin_button.dart',
+      'lib/features/red_packet/widgets/daily_red_packet_button.dart',
+      'lib/features/me/view/me_page.dart',
+      'lib/widgets/card/post_card/post_card.dart',
+    ];
+    // Symbols has no glyph for these: they stay Material Icons.
+    const kept = {'Icons.catching_pokemon'};
+    for (final path in files) {
+      final source = File(path).readAsStringSync();
+      final icons = RegExp(r'\bIcons\.\w+').allMatches(source).map((e) => e.group(0)).toSet()..removeAll(kept);
+      expect(icons, isEmpty, reason: path);
+      final notRounded = RegExp(r'\bSymbols\.(\w+)')
+          .allMatches(source)
+          .map((e) => e.group(1)!)
+          .where(
+            (e) => !e.endsWith('_rounded'),
+          );
+      expect(notRounded, isEmpty, reason: path);
+    }
+  });
+
   for (final dark in [false, true]) {
     final label = dark ? 'dark' : 'light';
 

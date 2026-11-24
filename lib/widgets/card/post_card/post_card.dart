@@ -4,6 +4,7 @@ import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/date_time.dart';
@@ -434,7 +435,7 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
           if (widget.post.stuck) ...[
             Tooltip(
               message: context.t.moderateFloorOps.stuck,
-              child: Icon(Icons.vertical_align_top_outlined, size: 20, color: colorScheme.primary),
+              child: Icon(Symbols.vertical_align_top_rounded, size: 20, color: colorScheme.primary),
             ),
             sizedBoxW4H4,
           ],
@@ -453,9 +454,10 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
               child: Tooltip(
                 message: bookmark.note.isEmpty ? context.t.floorBookmark.title : bookmark.note,
                 child: Icon(
-                  Icons.turned_in,
+                  Symbols.turned_in_rounded,
                   key: ValueKey('floor-bookmarked-${widget.post.postID}'),
                   size: 20,
+                  fill: 1,
                   color: colorScheme.primary,
                 ),
               ),
@@ -603,70 +605,75 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
     final online = !isOfflineFloor(context);
     final colorScheme = Theme.of(context).colorScheme;
 
-    PopupMenuItem<_PostCardActions> item(_PostCardActions value, IconData icon, String text, {Color? color}) =>
-        PopupMenuItem(
-          value: value,
-          child: Row(
-            children: [
-              Icon(icon, color: color),
-              sizedBoxPopupMenuItemIconSpacing,
-              Flexible(
-                child: Text(text, style: color == null ? null : TextStyle(color: color)),
-              ),
-            ],
+    PopupMenuItem<_PostCardActions> item(
+      _PostCardActions value,
+      IconData icon,
+      String text, {
+      Color? color,
+      double? fill,
+    }) => PopupMenuItem(
+      value: value,
+      child: Row(
+        children: [
+          Icon(icon, color: color, fill: fill),
+          sizedBoxPopupMenuItemIconSpacing,
+          Flexible(
+            child: Text(text, style: color == null ? null : TextStyle(color: color)),
           ),
-        );
+        ],
+      ),
+    );
 
     // Same actions and conditions as before, grouped: answer the floor, change what is shown (author filter, edit),
     // share and copy, then report on its own in the error color.
     final groups = <List<PopupMenuEntry<_PostCardActions>>>[
       [
-        if (online) item(_PostCardActions.reply, Icons.reply_outlined, context.t.postCard.reply),
+        if (online) item(_PostCardActions.reply, Symbols.reply_rounded, context.t.postCard.reply),
         if (online && _quotable)
-          item(_PostCardActions.addQuote, Icons.format_quote_outlined, context.t.postCard.addQuote),
+          item(_PostCardActions.addQuote, Symbols.format_quote_rounded, context.t.postCard.addQuote),
         if (online && widget.post.rateAction != null)
-          item(_PostCardActions.rate, Icons.rate_review_outlined, context.t.postCard.rate),
+          item(_PostCardActions.rate, Symbols.rate_review_rounded, context.t.postCard.rate),
         if (online && widget.post.commentAction != null)
-          item(_PostCardActions.comment, Icons.add_comment_outlined, context.t.postComment.menu),
+          item(_PostCardActions.comment, Symbols.add_comment_rounded, context.t.postComment.menu),
       ],
       [
         if (_bookmarkTarget(context) != null)
           if (_bookmarkOf(context, listen: false) == null)
-            item(_PostCardActions.bookmark, Icons.turned_in_not_outlined, context.t.floorBookmark.add)
+            item(_PostCardActions.bookmark, Symbols.turned_in_not_rounded, context.t.floorBookmark.add)
           else
-            item(_PostCardActions.bookmark, Icons.turned_in_outlined, context.t.floorBookmark.edit),
+            item(_PostCardActions.bookmark, Symbols.turned_in_rounded, context.t.floorBookmark.edit, fill: 1),
       ],
       [
         // Viewing all authors, can switch to only view current author mode.
         if (threadBloc != null && onlyVisibleUid == null && widget.post.author.uid != null)
-          item(_PostCardActions.viewTheAuthor, Icons.person_outlined, context.t.postCard.onlyViewAuthor),
+          item(_PostCardActions.viewTheAuthor, Symbols.person_rounded, context.t.postCard.onlyViewAuthor),
         // Viewing specified author now, can switch to view all authors mode.
         if (threadBloc != null && onlyVisibleUid != null)
-          item(_PostCardActions.viewAllAuthors, Icons.group_outlined, context.t.postCard.viewAllAuthors),
+          item(_PostCardActions.viewAllAuthors, Symbols.group_rounded, context.t.postCard.viewAllAuthors),
         if (online && _otherAuthorUid(context) != null)
-          item(_PostCardActions.authorThreads, Icons.topic_outlined, context.t.postCard.authorThreads),
+          item(_PostCardActions.authorThreads, Symbols.topic_rounded, context.t.postCard.authorThreads),
         if (online && widget.post.editUrl != null)
-          item(_PostCardActions.edit, Icons.edit_outlined, context.t.postCard.edit),
+          item(_PostCardActions.edit, Symbols.edit_rounded, context.t.postCard.edit),
       ],
       [
         if (galleryImagesOfPost(widget.post).isNotEmpty)
           item(
             _PostCardActions.saveImages,
-            Icons.download_for_offline_outlined,
+            Symbols.download_for_offline_rounded,
             context.t.imageBottomSheet.saveAllImages,
           ),
         if (widget.post.shareLink != null) ...[
-          item(_PostCardActions.share, Icons.share_outlined, context.t.postCard.share),
-          item(_PostCardActions.shareAsImage, Icons.image_outlined, context.t.postCard.shareAsImage),
-          item(_PostCardActions.openInBrowser, Icons.open_in_browser_outlined, context.t.postCard.openInBrowser),
-          item(_PostCardActions.openAndCopy, Icons.copy_outlined, context.t.postCard.copyText),
-          item(_PostCardActions.copyAsPlainText, Icons.notes_outlined, context.t.threadExport.copyPlain),
-          item(_PostCardActions.copyAsMarkdown, Icons.code_outlined, context.t.threadExport.copyMarkdown),
+          item(_PostCardActions.share, Symbols.share_rounded, context.t.postCard.share),
+          item(_PostCardActions.shareAsImage, Symbols.image_rounded, context.t.postCard.shareAsImage),
+          item(_PostCardActions.openInBrowser, Symbols.open_in_browser_rounded, context.t.postCard.openInBrowser),
+          item(_PostCardActions.openAndCopy, Symbols.content_copy_rounded, context.t.postCard.copyText),
+          item(_PostCardActions.copyAsPlainText, Symbols.notes_rounded, context.t.threadExport.copyPlain),
+          item(_PostCardActions.copyAsMarkdown, Symbols.code_rounded, context.t.threadExport.copyMarkdown),
           if (_netdiskLinks().isNotEmpty)
-            item(_PostCardActions.copyNetdisk, Icons.cloud_download_outlined, context.t.netdisk.copyAll),
+            item(_PostCardActions.copyNetdisk, Symbols.cloud_download_rounded, context.t.netdisk.copyAll),
           item(
             _PostCardActions.copyPid,
-            Icons.numbers_outlined,
+            Symbols.numbers_rounded,
             context.t.postCard.copyPid(pid: widget.post.postID),
           ),
         ],
@@ -695,9 +702,13 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
             widget.canRemoveRate &&
             widget.post.rate != null &&
             _removeRateTid(context) != null)
-          item(_PostCardActions.moderateRemoveRate, Icons.remove_circle_outline, context.t.moderateFloorOps.removeRate),
+          item(
+            _PostCardActions.moderateRemoveRate,
+            Symbols.remove_circle_rounded,
+            context.t.moderateFloorOps.removeRate,
+          ),
         if (online && widget.post.viewIpUrl != null && !isOfflineFloor(context))
-          item(_PostCardActions.viewIp, Icons.lan_outlined, context.t.moderateFloorOps.viewIp),
+          item(_PostCardActions.viewIp, Symbols.lan_rounded, context.t.moderateFloorOps.viewIp),
         if (online && widget.onBanAuthor != null)
           item(
             _PostCardActions.banAuthor,
@@ -707,7 +718,7 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
       ],
       [
         if (online && widget.post.reportTarget != null)
-          item(_PostCardActions.report, Icons.flag_outlined, context.t.postReport.menu, color: colorScheme.error),
+          item(_PostCardActions.report, Symbols.flag_rounded, context.t.postReport.menu, color: colorScheme.error),
       ],
     ];
 
@@ -1189,7 +1200,7 @@ class _ContentUnavailable extends StatelessWidget {
     final color = Theme.of(context).colorScheme.onSurfaceVariant;
     return Row(
       children: [
-        Icon(Icons.visibility_off_outlined, size: 18, color: color),
+        Icon(Symbols.visibility_off_rounded, size: 18, color: color),
         sizedBoxW8H8,
         Expanded(
           child: Text(
@@ -1221,7 +1232,7 @@ class _BlockedAvatar extends StatelessWidget {
           tag: heroTag,
           child: CircleAvatar(
             backgroundColor: colorScheme.surfaceContainerHighest,
-            child: Icon(Icons.no_accounts_outlined, color: colorScheme.onSurfaceVariant),
+            child: Icon(Symbols.no_accounts_rounded, color: colorScheme.onSurfaceVariant),
           ),
         ),
       ),

@@ -360,6 +360,13 @@ void main() {
           'MaterialIcons',
         )..addFont(Future.value(ByteData.sublistView(File(icons).readAsBytesSync())))).load();
       }
+      // The rounded Material Symbols (`BEAUTIFY_SHOTS_SYMBOLS`: MaterialSymbolsRounded.ttf of the package).
+      final symbols = Platform.environment['BEAUTIFY_SHOTS_SYMBOLS'];
+      if (symbols != null && File(symbols).existsSync()) {
+        await (FontLoader(
+          'packages/material_symbols_icons/MaterialSymbolsRounded',
+        )..addFont(Future.value(ByteData.sublistView(File(symbols).readAsBytesSync())))).load();
+      }
     });
 
     Future<void> shoot(WidgetTester tester, String name) async {

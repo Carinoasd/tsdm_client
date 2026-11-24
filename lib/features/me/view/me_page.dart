@@ -165,43 +165,43 @@ class _MePageState extends State<MePage> {
     return [
       (
         key: const ValueKey('me-my-threads'),
-        icon: Icons.article_outlined,
+        icon: Symbols.article_rounded,
         label: tr.myThreads,
         onTap: () => _open(ScreenPaths.myThread),
       ),
       (
         key: const ValueKey('me-favorites'),
-        icon: Icons.star_outline,
+        icon: Symbols.star_rounded,
         label: tr.favorites,
         onTap: () => _open(ScreenPaths.favorite),
       ),
       (
         key: const ValueKey('me-collections'),
-        icon: Icons.collections_bookmark_outlined,
+        icon: Symbols.collections_bookmark_rounded,
         label: tr.collections,
         onTap: () => _open(ScreenPaths.collections, query: {'tab': 'mine'}),
       ),
       (
         key: const ValueKey('me-followed-threads'),
-        icon: Icons.notifications_active_outlined,
+        icon: Symbols.notifications_active_rounded,
         label: tr.followedThreads,
         onTap: () => _open(ScreenPaths.followedThreads),
       ),
       (
         key: const ValueKey('me-floor-bookmarks'),
-        icon: Icons.turned_in_not_outlined,
+        icon: Symbols.turned_in_not_rounded,
         label: tr.bookmarks,
         onTap: () => _open(ScreenPaths.floorBookmarks),
       ),
       (
         key: const ValueKey('me-read-later'),
-        icon: Icons.watch_later_outlined,
+        icon: Symbols.watch_later_rounded,
         label: tr.readLater,
         onTap: () => _open(ScreenPaths.readLater),
       ),
       (
         key: const ValueKey('me-history'),
-        icon: Icons.history_outlined,
+        icon: Symbols.history_rounded,
         label: tr.history,
         onTap: () => _open(ScreenPaths.threadVisitHistory),
       ),
@@ -209,19 +209,19 @@ class _MePageState extends State<MePage> {
       // named apart so the one is not taken for the other.
       (
         key: const ValueKey('me-local-drafts'),
-        icon: Icons.edit_note_outlined,
+        icon: Symbols.edit_note_rounded,
         label: tr.localDrafts,
         onTap: () => _open(ScreenPaths.localDrafts),
       ),
       (
         key: const ValueKey('me-drafts'),
-        icon: Icons.drafts_outlined,
+        icon: Symbols.drafts_rounded,
         label: tr.drafts,
         onTap: () => _open(ScreenPaths.myThread, query: {'tab': 'drafts'}),
       ),
       (
         key: const ValueKey('me-downloads'),
-        icon: Icons.download_outlined,
+        icon: Symbols.download_rounded,
         label: tr.downloads,
         onTap: () => _open(ScreenPaths.attachmentDownloads),
       ),
@@ -236,7 +236,7 @@ class _MePageState extends State<MePage> {
       // The private messages are a tab of the notifications.
       (
         key: const ValueKey('me-messages'),
-        icon: Icons.mail_outline,
+        icon: Symbols.mail_rounded,
         label: tr.messages,
         onTap: () {
           noticePageTabRequest.value = NoticePageTab.personalMessage;
@@ -245,13 +245,13 @@ class _MePageState extends State<MePage> {
       ),
       (
         key: const ValueKey('me-friends'),
-        icon: Icons.people_outline,
+        icon: Symbols.people_rounded,
         label: tr.friends,
         onTap: () => _open(ScreenPaths.friend),
       ),
       (
         key: const ValueKey('me-visitors'),
-        icon: Icons.visibility_outlined,
+        icon: Symbols.visibility_rounded,
         label: tr.visitors,
         onTap: () => _open(ScreenPaths.friend, query: {'view': 'visitor'}),
       ),
@@ -259,14 +259,14 @@ class _MePageState extends State<MePage> {
       if (!off.contains(SpaceModule.broadcast))
         (
           key: const ValueKey('me-follow-feed'),
-          icon: Icons.dynamic_feed_outlined,
+          icon: Symbols.dynamic_feed_rounded,
           label: tr.followFeed,
           onTap: () => _open(ScreenPaths.followFeed),
         ),
       if (!off.contains(SpaceModule.doing))
         (
           key: const ValueKey('me-doings'),
-          icon: Icons.edit_note_outlined,
+          icon: Symbols.edit_note_rounded,
           label: tr.doings,
           onTap: () => _open(ScreenPaths.doing),
         ),
@@ -281,32 +281,32 @@ class _MePageState extends State<MePage> {
     return [
       (
         key: const ValueKey('me-points'),
-        icon: Icons.show_chart_outlined,
+        icon: Symbols.show_chart_rounded,
         label: tr.points,
         onTap: () => _open(ScreenPaths.points),
       ),
       (
         key: const ValueKey('me-checkin-calendar'),
-        icon: Icons.event_available_outlined,
+        icon: Symbols.event_available_rounded,
         label: tr.checkinCalendar,
         onTap: () => _open(ScreenPaths.checkinCalendar),
       ),
       (
         key: const ValueKey('me-reading-stats'),
-        icon: Icons.bar_chart_outlined,
+        icon: Symbols.bar_chart_rounded,
         label: tr.readingStats,
         onTap: () => _open(ScreenPaths.readingStats),
       ),
       (
         key: const ValueKey('me-rating-stats'),
-        icon: Icons.thumb_up_alt_outlined,
+        icon: Symbols.thumb_up_alt_rounded,
         label: tr.ratingStats,
         onTap: () => _open(ScreenPaths.ratingStats),
       ),
       if (siteStatsAllowedBy(_homePage, uid: uid) ?? true)
         (
           key: const ValueKey('me-site-stats'),
-          icon: Icons.query_stats_outlined,
+          icon: Symbols.query_stats_rounded,
           label: tr.siteStats,
           onTap: () => _open(ScreenPaths.siteStats),
         ),
@@ -324,27 +324,27 @@ class _MePageState extends State<MePage> {
     );
     final t = context.t;
     return [
-      service(const ValueKey('me-tasks'), Icons.task_alt, t.taskCenter.title, ScreenPaths.taskCenter),
-      service(const ValueKey('me-magic'), Icons.auto_fix_high_outlined, t.magicCenter.title, ScreenPaths.magicCenter),
-      service(const ValueKey('me-bank'), Icons.account_balance_outlined, t.bank.title, ScreenPaths.bank),
+      service(const ValueKey('me-tasks'), Symbols.task_alt_rounded, t.taskCenter.title, ScreenPaths.taskCenter),
+      service(const ValueKey('me-magic'), Symbols.auto_fix_high_rounded, t.magicCenter.title, ScreenPaths.magicCenter),
+      service(const ValueKey('me-bank'), Symbols.account_balance_rounded, t.bank.title, ScreenPaths.bank),
       service(
         const ValueKey('me-ranklist'),
-        Icons.leaderboard_outlined,
+        Symbols.leaderboard_rounded,
         t.ranklistPage.title,
         ScreenPaths.ranklist,
         needLogin: false,
       ),
-      service(const ValueKey('me-activities'), Icons.event_outlined, t.navigation.activities, ScreenPaths.activities),
+      service(const ValueKey('me-activities'), Symbols.event_rounded, t.navigation.activities, ScreenPaths.activities),
       // The medal centre and the title shop are on the page of medals and titles.
       service(
         const ValueKey('me-medals'),
-        Icons.workspace_premium_outlined,
+        Symbols.workspace_premium_rounded,
         t.medalTitleHub.title,
         ScreenPaths.medalTitleHub,
       ),
       service(
         const ValueKey('me-achievements'),
-        Icons.emoji_events_outlined,
+        Symbols.emoji_events_rounded,
         t.achievementsPage.title,
         ScreenPaths.achievements,
       ),
@@ -353,7 +353,7 @@ class _MePageState extends State<MePage> {
       if (TsdmAppApi.backgroundShop case final shop? when shop != TsdmAppBackgroundShop.none)
         (
           key: const ValueKey('me-background-shop'),
-          icon: Icons.wallpaper_outlined,
+          icon: Symbols.wallpaper_rounded,
           label: t.backgroundShop.title,
           onTap: () => !loggedIn
               ? _open(ScreenPaths.login)
@@ -362,10 +362,10 @@ class _MePageState extends State<MePage> {
               : unawaited(_openPluginPage('$baseUrl/plugin.php?id=background:memcp')),
         ),
       for (final (id, page, icon, label, needLogin) in [
-        ('gamecenter', 'gamecenter', Icons.sports_esports_outlined, t.mePage.entries.gameCenter, false),
-        ('tsdm_court', 'tsdm_court:court', Icons.gavel_outlined, t.mePage.entries.court, true),
-        ('tsdmcp', 'tsdmcp', Icons.favorite_border, t.mePage.entries.cpSystem, true),
-        ('np_cliworkdz', 'np_cliworkdz:work', Icons.work_outline, t.mePage.entries.partTimeJob, true),
+        ('gamecenter', 'gamecenter', Symbols.sports_esports_rounded, t.mePage.entries.gameCenter, false),
+        ('tsdm_court', 'tsdm_court:court', Symbols.gavel_rounded, t.mePage.entries.court, true),
+        ('tsdmcp', 'tsdmcp', Symbols.favorite_rounded, t.mePage.entries.cpSystem, true),
+        ('np_cliworkdz', 'np_cliworkdz:work', Symbols.work_rounded, t.mePage.entries.partTimeJob, true),
       ])
         // Offered until the forum's app API says the plugin is switched off.
         if (!TsdmAppApi.sitePluginOff(id))
@@ -398,7 +398,7 @@ class _MePageState extends State<MePage> {
     key: key,
     leading: Icon(icon),
     title: Text(title),
-    trailing: const Icon(Icons.chevron_right),
+    trailing: const Icon(Symbols.chevron_right_rounded),
     onTap: () => _open(path),
   );
 
@@ -412,7 +412,7 @@ class _MePageState extends State<MePage> {
         _row(
           context,
           key: const ValueKey('me-edit-profile'),
-          icon: Symbols.person_edit,
+          icon: Symbols.person_edit_rounded,
           title: context.t.editUserProfilePage.title,
           path: ScreenPaths.editUserProfile,
         ),
@@ -420,7 +420,7 @@ class _MePageState extends State<MePage> {
           _row(
             context,
             key: const ValueKey('me-moderator-panel'),
-            icon: Icons.admin_panel_settings_outlined,
+            icon: Symbols.admin_panel_settings_rounded,
             title: context.t.modcp.panel,
             path: ScreenPaths.moderatorPanel,
           ),
@@ -439,21 +439,21 @@ class _MePageState extends State<MePage> {
             _row(
               context,
               key: const ValueKey('me-manage-accounts'),
-              icon: Icons.manage_accounts_outlined,
+              icon: Symbols.manage_accounts_rounded,
               title: context.t.manageAccountPage.title,
               path: ScreenPaths.manageAccount,
             ),
           _row(
             context,
             key: const ValueKey('me-settings'),
-            icon: Icons.settings_outlined,
+            icon: Symbols.settings_rounded,
             title: context.t.navigation.settings,
             path: ScreenPaths.settings.path,
           ),
           _row(
             context,
             key: const ValueKey('me-about'),
-            icon: Icons.info_outline,
+            icon: Symbols.info_rounded,
             title: context.t.settingsPage.othersSection.about,
             path: ScreenPaths.about,
           ),
@@ -610,7 +610,7 @@ class _AccountCardState extends State<_AccountCard> {
                                   future: _groupOf(uid),
                                   builder: (context, snapshot) => snapshot.data == null
                                       ? const SizedBox.shrink()
-                                      : _Pill(icon: Icons.verified_user_outlined, label: snapshot.data!),
+                                      : _Pill(icon: Symbols.verified_user_rounded, label: snapshot.data!),
                                 ),
                               if (uid != null)
                                 Text(
@@ -628,7 +628,7 @@ class _AccountCardState extends State<_AccountCard> {
                     ),
                     Tooltip(
                       message: context.t.profilePage.title,
-                      child: Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
+                      child: Icon(Symbols.chevron_right_rounded, color: colorScheme.onSurfaceVariant),
                     ),
                   ],
                 ),
@@ -649,7 +649,7 @@ class _AccountCardState extends State<_AccountCard> {
                   child: FilledButton.icon(
                     key: const ValueKey('me-switch-account'),
                     style: appHeroActionStyle(context),
-                    icon: const Icon(Icons.switch_account_outlined),
+                    icon: const Icon(Symbols.switch_account_rounded),
                     label: FittedBox(fit: BoxFit.scaleDown, child: Text(tr.switchAccount, maxLines: 1)),
                     onPressed: () async =>
                         showDialog<void>(context: context, builder: (_) => const AccountSwitchDialog()),
@@ -725,7 +725,7 @@ class _GuestCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                AppIconTile(Icons.person_outline, size: 64, color: colorScheme.surfaceContainerHighest),
+                AppIconTile(Symbols.person_rounded, size: 64, color: colorScheme.surfaceContainerHighest),
                 sizedBoxW12H12,
                 Expanded(
                   child: Column(
@@ -743,7 +743,7 @@ class _GuestCard extends StatelessWidget {
             FilledButton.icon(
               key: const ValueKey('me-login'),
               style: FilledButton.styleFrom(minimumSize: const Size(0, 48)),
-              icon: const Icon(Icons.login_outlined),
+              icon: const Icon(Symbols.login_rounded),
               label: Text(context.t.loginPage.login),
               onPressed: () async => context.pushNamed(ScreenPaths.login),
             ),
