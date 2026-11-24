@@ -116,7 +116,6 @@ class _DailyRedPacketButtonState extends State<DailyRedPacketButton> with Logger
       return appDayAction(
         context,
         look: widget.look,
-        height: 44,
         icon: _claiming ? sizedCircularProgressIndicator : const Icon(Icons.redeem_outlined),
         label: tooltip,
         onPressed: _claiming ? null : _claim,
@@ -147,7 +146,6 @@ class DailyRedPacketClaimedButton extends StatelessWidget {
     final button = appDayAction(
       context,
       look: look,
-      height: 44,
       icon: const Icon(Icons.check_circle),
       label: context.t.redPacket.daily.claimedToday,
       onPressed: null,
@@ -265,7 +263,6 @@ class _DailyRedPacketEntryState extends State<DailyRedPacketEntry> {
       return appDayAction(
         context,
         look: widget.look,
-        height: 44,
         icon: const Icon(Icons.login_outlined),
         label: tr.needLogin,
         onPressed: () async => context.pushNamed(ScreenPaths.login),
@@ -295,7 +292,6 @@ class _DailyRedPacketEntryState extends State<DailyRedPacketEntry> {
       child: appDayAction(
         context,
         look: widget.look,
-        height: 44,
         icon: widget.checking ? sizedCircularProgressIndicator : const Icon(Icons.redeem_outlined),
         label: tr.unavailable,
         onPressed: widget.checking ? null : widget.onCheck,

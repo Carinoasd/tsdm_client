@@ -16,6 +16,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
 
+import 'package:dio/dio.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -36,16 +37,20 @@ import 'package:tsdm_client/features/homepage/models/models.dart';
 import 'package:tsdm_client/features/homepage/repository/guide_index_repository.dart';
 import 'package:tsdm_client/features/homepage/widgets/guide_section.dart';
 import 'package:tsdm_client/features/homepage/widgets/home_dashboard.dart';
+import 'package:tsdm_client/features/homepage/widgets/widgets.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/providers/cookie_provider/cookie_provider.dart';
+import 'package:tsdm_client/shared/providers/image_cache_provider/image_cache_provider.dart';
+import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
 import 'package:tsdm_client/shared/providers/providers.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/models/database/database.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 import 'package:tsdm_client/themes/app_surfaces.dart';
 import 'package:tsdm_client/themes/app_themes.dart';
+import 'package:tsdm_client/widgets/heroes.dart';
 
 const _user = UserLoginInfo(username: '大和啦', uid: 2042122);
 
@@ -96,6 +101,16 @@ final class _Guide extends GuideIndexRepository {
     for (final (view, title) in [('digest', '最新精华'), ('new', '最新回复'), ('newthread', '最新发表')])
       GuideModule(title: title, view: view, moreUrl: '$baseUrl/forum.php?mod=guide&view=$view', items: const []),
   ]);
+}
+
+/// No network at all.
+final class _Offline implements HttpClientAdapter {
+  @override
+  Future<ResponseBody> fetch(RequestOptions options, Stream<Uint8List>? requestStream, Future<void>? cancelFuture) =>
+      throw DioException.connectionError(requestOptions: options, reason: 'offline');
+
+  @override
+  void close({bool force = false}) {}
 }
 
 Translations get tr => LocaleSettings.instance.currentTranslations;
@@ -377,6 +392,47 @@ void main() {
             .every((e) => e.color == line),
         isTrue,
       );
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('3. the pinned groups (not on X5 now, kept for when they come back)', () {
+    PinnedThread row(int tid, String title) => PinnedThread(
+      threadUrl: 'forum.php?mod=viewthread&amp;tid=$tid',
+      threadTitle: title,
+      authorUrl: 'home.php?mod=space&amp;uid=1002',
+      authorName: 'Carol',
+    );
+    final group = PinnedThreadGroup(title: '最新活动', threadList: [row(41, '秋季同人绘画征集'), row(42, '签到挑战赛')]);
+
+    testWidgets('desktop groups are flat too: the rows start where the group title does', (tester) async {
+      tester.view.physicalSize = const Size(1280, 1200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final images = ImageCacheProvider(NetClientProvider.buildNoCookie(dio: Dio()..httpClientAdapter = _Offline()));
+      getIt.registerSingleton<ImageCacheProvider>(images);
+      addTearDown(images.dispose);
+      await tester.pumpWidget(
+        TranslationProvider(
+          child: MaterialApp(
+            home: Scaffold(
+              body: Padding(
+                padding: const EdgeInsets.all(24),
+                child: SingleChildScrollView(child: PinSection([group, group])),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(find.descendant(of: find.byType(PinSection), matching: find.byType(Card)), findsNothing);
+      final title = tester.getRect(find.text('最新活动').first);
+      final first = tester.getRect(find.text('秋季同人绘画征集').first);
+      expect(title.left, 24);
+      // The avatar target starts at the title; the thread title after it.
+      final avatar = tester.getRect(find.byType(HeroUserAvatar).first);
+      expect(avatar.left, closeTo(title.left, 0.5));
+      expect(first.left, greaterThan(avatar.right));
       expect(tester.takeException(), isNull);
     });
   });

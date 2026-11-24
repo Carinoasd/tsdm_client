@@ -92,10 +92,10 @@ HomeLayout homeLayoutFor(double width, TargetPlatform platform) {
       : HomeLayout.compact;
 }
 
-/// Side padding of the homepage [width] wide on [platform]: 16 on phones, 24 on the wider desktop layouts. The
-/// greeting, the guide and the panels all start at it.
+/// Side padding of the homepage [width] wide on [platform]: 24 when the content inside it still gets a desktop layout
+/// (medium or wide), else 16 (phones, narrow windows). The greeting, the guide and the panels all start at it.
 double homePagePadding(double width, TargetPlatform platform) =>
-    homeLayoutFor(width - 32, platform) == HomeLayout.compact ? 16 : 24;
+    homeLayoutFor(width - 48, platform) == HomeLayout.compact ? 16 : 24;
 
 /// Homepage page.
 ///
@@ -591,50 +591,44 @@ class _HomepagePageState extends State<HomepagePage> {
                 header: const MaterialHeader(),
                 onRefresh: () => _refresh(context),
                 childBuilder: (context, physics) => LayoutBuilder(
-                  builder: (context, constraints) => ListView(
-                    physics: physics,
-                    controller: _scrollController,
-                    padding: EdgeInsets.fromLTRB(
-                      homePagePadding(constraints.maxWidth, Theme.of(context).platform),
-                      12,
-                      homePagePadding(constraints.maxWidth, Theme.of(context).platform),
-                      0,
-                    ).add(context.safePadding()),
-                    children: [
-                      Center(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: _maxContentWidth),
-                          child: const WhatsNewBanner(),
-                        ),
-                      ),
-                      if (state.savedAt case final savedAt?)
+                  builder: (context, constraints) {
+                    final side = homePagePadding(constraints.maxWidth, Theme.of(context).platform);
+                    return ListView(
+                      physics: physics,
+                      controller: _scrollController,
+                      padding: EdgeInsets.fromLTRB(side, 12, side, 0).add(context.safePadding()),
+                      children: [
                         Center(
                           child: ConstrainedBox(
                             constraints: const BoxConstraints(maxWidth: _maxContentWidth),
-                            child: _SavedPageNote(
-                              savedAt: savedAt,
-                              failed: state.refreshFailed,
-                              onRetry: () => context.read<HomepageBloc>().add(HomepageLoadRequested()),
+                            child: const WhatsNewBanner(),
+                          ),
+                        ),
+                        if (state.savedAt case final savedAt?)
+                          Center(
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: _maxContentWidth),
+                              child: _SavedPageNote(
+                                savedAt: savedAt,
+                                failed: state.refreshFailed,
+                                onRetry: () => context.read<HomepageBloc>().add(HomepageLoadRequested()),
+                              ),
+                            ),
+                          ),
+                        Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: _maxContentWidth),
+                            child: _buildDashboard(
+                              context,
+                              state,
+                              math.min(constraints.maxWidth - side * 2, _maxContentWidth),
+                              HomeBlockLayout.parse(homeLayoutRaw),
                             ),
                           ),
                         ),
-                      Center(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: _maxContentWidth),
-                          child: _buildDashboard(
-                            context,
-                            state,
-                            math.min(
-                              constraints.maxWidth -
-                                  homePagePadding(constraints.maxWidth, Theme.of(context).platform) * 2,
-                              _maxContentWidth,
-                            ),
-                            HomeBlockLayout.parse(homeLayoutRaw),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    );
+                  },
                 ),
               ),
             };

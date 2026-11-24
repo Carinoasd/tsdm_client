@@ -123,7 +123,7 @@ class PinnedThreadList extends StatelessWidget with LoggerMixin {
 
 /// All pinned thread in homepage.
 ///
-/// Threads are separated into different groups, one card each side by side (medium and wide homepage layouts).
+/// Threads are separated into different groups, one column each side by side (medium and wide homepage layouts).
 class PinSection extends StatelessWidget {
   /// Constructor.
   const PinSection(this.pinnedThreadGroup, {super.key});
@@ -138,25 +138,18 @@ class PinSection extends StatelessWidget {
 
     for (var i = 0; i < count; i++) {
       final sectionName = pinnedThreadGroup[i].title;
+      // Flat like the forum guide: the title of the group on the page, a hairline, the rows.
       ret.add(
-        Card(
-          margin: EdgeInsets.zero,
-          child: Padding(
-            padding: edgeInsetsT8,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    sizedBoxW12H12,
-                    Text(sectionName, style: Theme.of(context).textTheme.titleLarge),
-                  ],
-                ),
-                sizedBoxW12H12,
-                PinnedThreadList(pinnedThreadGroup[i]),
-              ],
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(top: 4, bottom: 12),
+              child: Text(sectionName, style: homeSectionTitleStyle(context)),
             ),
-          ),
+            Divider(height: 1, thickness: 1, color: AppSurfaces.of(context).line),
+            PinnedThreadList(pinnedThreadGroup[i]),
+          ],
         ),
       );
     }
@@ -186,9 +179,6 @@ class PinSection extends StatelessWidget {
     return _buildSection(context, textScaleFactor);
   }
 }
-
-/// Horizontal padding of the tab row of [PinTabSection], inside its scroll view.
-const _pinTabRowPadding = 0.0;
 
 /// All pinned thread groups in one card of the phone homepage (compact layout): a row of tabs, the rows of the
 /// selected group under it.
@@ -256,9 +246,9 @@ class _PinTabSectionState extends State<PinTabSection> {
         return;
       }
       final position = _tabsController.position;
-      // The offsets putting the tab at the start and at the end of the row, its padding kept on that side.
-      final atStart = viewport.getOffsetToReveal(tab, 0).offset - _pinTabRowPadding;
-      final atEnd = viewport.getOffsetToReveal(tab, 1).offset + _pinTabRowPadding;
+      // The offsets putting the tab at the start and at the end of the row.
+      final atStart = viewport.getOffsetToReveal(tab, 0).offset;
+      final atEnd = viewport.getOffsetToReveal(tab, 1).offset;
       final target = math
           .min(math.max(position.pixels, atEnd), atStart)
           .clamp(position.minScrollExtent, position.maxScrollExtent);

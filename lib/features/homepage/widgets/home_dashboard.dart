@@ -507,9 +507,11 @@ class _QuickAction extends StatelessWidget {
   final VoidCallback onPressed;
 
   @override
+  // The pill keeps its own button: its label shrinks a little in a narrow row instead of wrapping, which the labels
+  // of the check-in and the red packet (short) never need.
   Widget build(BuildContext context) => look == AppDayActionLook.button
       ? FilledButton.icon(
-          style: appHeroActionStyle(context, height: 44),
+          style: appHeroActionStyle(context),
           icon: Icon(icon),
           // One line: the label shrinks a little instead of wrapping.
           label: FittedBox(fit: BoxFit.scaleDown, child: Text(label, maxLines: 1)),
