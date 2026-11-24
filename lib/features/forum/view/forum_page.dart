@@ -604,7 +604,7 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
     return DecoratedBox(
       decoration: BoxDecoration(
         color: AppSurfaces.of(context).page,
-        border: Border(bottom: BorderSide(color: AppSurfaces.of(context).line)),
+        border: Border(bottom: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.6))),
       ),
       child: LayoutBuilder(
         builder: (context, constraints) => SingleChildScrollView(
@@ -635,29 +635,25 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
     late final Widget content;
     if (state.rulesElement == null) {
       content = AppCenteredList(
-        builder: (context, _, width) => ListView.separated(
+        builder: (context, side, _) => ListView.separated(
           controller: _pinnedScrollController,
-          // Flat rows to the edges of a phone, hairlines between them.
-          padding: threadListPadding(width).copyWith(top: 8).add(context.safePadding()),
+          padding: side.copyWith(top: 8).add(context.safePadding()),
           itemCount: state.stickThreadList.length,
           itemBuilder: (context, index) => NormalThreadCard(state.stickThreadList[index]),
-          separatorBuilder: (context, index) => const ThreadListSeparator(),
+          separatorBuilder: (context, index) => appListSeparator,
         ),
       );
     } else {
       content = AppCenteredList(
-        builder: (context, side, width) => ListView.separated(
+        builder: (context, side, _) => ListView.separated(
           controller: _pinnedScrollController,
-          // Flat rows to the edges of a phone, hairlines between them; the rules stay a panel inside the page padding.
-          padding: threadListPadding(width).copyWith(top: 8).add(context.safePadding()),
+          padding: side.copyWith(top: 8).add(context.safePadding()),
           itemCount: state.stickThreadList.length + 1,
           itemBuilder: (context, index) {
             // TODO: Do NOT add leading rules card by checking index value.
             if (index == 0) {
-              final list = threadListPadding(width);
               // Forum rules: a titled surface above the pinned threads, the forum's own markup inside.
               return AppSurface(
-                margin: EdgeInsets.only(left: side.left - list.left, right: side.right - list.right),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -675,8 +671,7 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
               return NormalThreadCard(state.stickThreadList[index - 1]);
             }
           },
-          // The rules panel keeps a gap under it; the threads have hairlines between them.
-          separatorBuilder: (context, index) => index == 0 ? appListSeparator : const ThreadListSeparator(),
+          separatorBuilder: (context, index) => appListSeparator,
         ),
       );
     }
@@ -759,7 +754,7 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
       scrollController: _threadScrollController,
       onRefresh: refresh,
       childBuilder: (context, physics) => AppCenteredList(
-        builder: (context, side, width) => CustomScrollView(
+        builder: (context, side, _) => CustomScrollView(
           controller: _threadScrollController,
           physics: physics,
           slivers: [
@@ -781,8 +776,7 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
               itemCount: threads.length + 1,
               itemBuilder: (context, index) => index < threads.length
                   ? Padding(
-                      // Flat rows to the edges of a phone, hairlines between them.
-                      padding: threadListPadding(width),
+                      padding: side,
                       child: KeyboardSelectable(
                         selection: _keyboardSelection,
                         index: index,
@@ -801,8 +795,7 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
                       onLoadMore: () => bloc.add(ForumLoadMoreRequested(state.currentPage + 1)),
                       onRetry: () => bloc.add(const ForumRetryRequested()),
                     ),
-              separatorBuilder: (context, index) =>
-                  Padding(padding: threadListPadding(width), child: const ThreadListSeparator()),
+              separatorBuilder: (context, index) => appListSeparator,
             ),
             SliverPadding(padding: context.safePadding()),
           ],

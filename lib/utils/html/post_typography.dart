@@ -29,12 +29,11 @@ final class PostTypography {
     this.maxWidth = 0,
   });
 
-  /// Default [lineHeight]: 1.8 for the body text of 16 ([postBodyFontSize]).
+  /// Default [lineHeight].
   ///
-  /// The setting keeps a value stored on the device (set by the reader, a backup restored, a sync applied): a device
-  /// with nothing stored reads the new default. The settings sync does not apply the former default (1.7) another
-  /// device wrote (`syncedSettingsFormerDefaults`).
-  static const defaultLineHeight = 1.8;
+  /// It was 1.8 in 1.62.0 (with a [paragraphSpacing] of 10), then 1.7 again: the settings sync does not apply that
+  /// pair another device wrote (`syncedSettingsFormerDefaults`).
+  static const defaultLineHeight = 1.7;
 
   /// Lowest [lineHeight] offered in the settings.
   static const minLineHeight = 1.2;
@@ -42,8 +41,8 @@ final class PostTypography {
   /// Highest [lineHeight] offered in the settings.
   static const maxLineHeight = 2.0;
 
-  /// Default [paragraphSpacing]; kept as [defaultLineHeight] (the former default the sync does not apply: 8).
-  static const defaultParagraphSpacing = 10.0;
+  /// Default [paragraphSpacing]; 10 in 1.62.0, as told for [defaultLineHeight].
+  static const defaultParagraphSpacing = 8.0;
 
   /// Lowest [paragraphSpacing] offered in the settings: none.
   static const minParagraphSpacing = 0.0;
@@ -60,7 +59,7 @@ final class PostTypography {
   /// Steps of [maxWidth] offered in the settings.
   static const maxWidthStep = 100.0;
 
-  /// Default [lineWidth]: a phone 390 wide at a text scale of 1 (358 / 16).
+  /// Default [lineWidth]: a phone 390 wide at a text scale of 1 (346 / 14).
   static const double defaultLineWidth = phoneLineWidth;
 
   /// Height of a line of text, a multiple of its font size.
@@ -136,15 +135,16 @@ final class PostTypography {
 const floorPadding = 32.0;
 
 /// Size of the body text of a post's content (the floors, and the html laid out as one: [PostTypographyScope]), before
-/// the text scale: a step larger than the body text of the app (`bodyMedium`, 14), the text read the longest.
-const postBodyFontSize = 16.0;
+/// the text scale: the body text of the app (`bodyMedium`, 14).
+const postBodyFontSize = 14.0;
 
-/// Size of the text of a quote in a post's content, relative to the text around it: 15 for the body text of 16.
-const double quoteFontScale = 15 / 16;
+/// Size of the text of a quote in a post's content, relative to the text around it: 13 for the body text of 14, a step
+/// quieter than the reply around it.
+const double quoteFontScale = 13 / 14;
 
-/// Margin of a floor on each side, out of the list's width: none on a phone (the floors are flat, the text takes the
-/// width), 8 wider (the content then starts 24 in, the page margin of a wide window).
-double floorMarginOf(BuildContext context) => MediaQuery.sizeOf(context).width < 600 ? 0 : 8;
+/// Margin of a floor (a rounded card) on each side, out of the list's width: 6 on a phone, which keeps most of the
+/// width for the text, 16 wider.
+double floorMarginOf(BuildContext context) => MediaQuery.sizeOf(context).width < 600 ? 6 : 16;
 
 /// The widest the floors of a thread and what is laid out in line with them (the title, the banners) grow below it:
 /// the reader's setting ([PostTypography.maxWidth]) on the thread page, the app's widths ([appReadingMaxWidth], the

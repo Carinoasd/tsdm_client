@@ -1725,8 +1725,8 @@ final class _Muncher with LoggerMixin {
     // and restore munch state to avoid potential issued about "styles inside
     // quoted blocks  affects outside main content".
     final style = state.save();
-    // The text of a quote is a step quieter than the reply around it: a little smaller in a post's content (15 for its
-    // 16), once, not again for each nested quote.
+    // The text of a quote is a step quieter than the reply around it: a little smaller in a post's content (13 for its
+    // 14, [quoteFontScale]), once, not again for each nested quote.
     if (typography != null && _quoteDepth == 0) {
       state.fontSizeStack.add(_fontSize * quoteFontScale);
     }
@@ -3315,7 +3315,7 @@ final class _Muncher with LoggerMixin {
       height: typography?.lineHeight,
       letterSpacing: typography == null ? null : 0,
       fontWeight: state.bold ? FontWeight.w700 : null,
-      // The body text of a post is larger than the theme's ([postBodyFontSize]).
+      // The body text of a post ([postBodyFontSize]).
       fontSize: state.fontSizeStack.lastOrNull ?? (typography == null ? null : _bodyFontSize),
       backgroundColor: inline?.color == null ? null : _colors.background(inline!.color!),
       decorationColor: decorationColor,

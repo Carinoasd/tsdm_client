@@ -718,7 +718,7 @@ class _SearchPageState extends State<SearchPage> with LoggerMixin, ListThreadPic
     // Form, result info and results share one centered column, at most [appListMaxWidth] wide, in one scroll view:
     // with the keyboard up or a large font the form scrolls instead of overflowing.
     return AppCenteredList(
-      builder: (context, side, width) {
+      builder: (context, side, _) {
         final results = state.searchResult?.data;
         final Widget resultSliver;
         if (state.status.isSearching()) {
@@ -763,8 +763,7 @@ class _SearchPageState extends State<SearchPage> with LoggerMixin, ListThreadPic
           final result = state.searchResult!;
           final bloc = context.read<SearchBloc>();
           resultSliver = SliverPadding(
-            // Flat rows to the edges of a phone, hairlines between them.
-            padding: threadListPadding(width).copyWith(bottom: 12).add(context.safePadding()),
+            padding: side.copyWith(bottom: 12).add(context.safePadding()),
             // The end of the results is their last item: built when it comes near, it appends the next page.
             sliver: SliverList.separated(
               itemCount: results.length + 1,
@@ -786,7 +785,7 @@ class _SearchPageState extends State<SearchPage> with LoggerMixin, ListThreadPic
                       onLoadMore: () => bloc.add(const SearchLoadMoreRequested()),
                       onRetry: () => bloc.add(const SearchLoadMoreRequested()),
                     ),
-              separatorBuilder: (context, index) => const ThreadListSeparator(),
+              separatorBuilder: (context, index) => appListSeparator,
             ),
           );
         }

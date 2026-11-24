@@ -75,6 +75,8 @@ Future<void> _boot(List<String> args) async {
   // Whether anything was stored before this start, read before anything else writes: tells a new install from an update.
   final whatsNew = WhatsNewController.forApp(getIt.get<StorageProvider>());
   final hadPriorData = (await getIt.get<StorageProvider>().getAllSettings()).isNotEmpty;
+  // After the read above: it stores a mark of its own.
+  await getIt.get<SettingsRepository>().resetFormerDefaultsOnce();
   getIt.registerSingleton(whatsNew, dispose: (c) => c.dispose());
   unawaited(
     whatsNew

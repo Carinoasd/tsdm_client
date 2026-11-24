@@ -49,7 +49,7 @@ class PostList extends StatefulWidget {
     required this.scrollController,
     required this.latestModAct,
     this.title,
-    this.header,
+    this.titleKey,
     this.pageNumber = 1,
     this.useDivider = false,
     this.initialPostID,
@@ -72,8 +72,9 @@ class PostList extends StatefulWidget {
   /// Thread title.
   final String? title;
 
-  /// What heads the floors (the thread's place in the forum, its title and figures); [title] alone when null.
-  final Widget? header;
+  /// Key of the [title] heading the floors, for a page that watches where it is (the thread page shows the title in
+  /// its app bar once this one is scrolled away).
+  final Key? titleKey;
 
   /// Fetch page number "&page=[pageNumber]".
   final int pageNumber;
@@ -84,7 +85,7 @@ class PostList extends StatefulWidget {
   /// Build a list of [Widget].
   final Widget Function(BuildContext, Post) widgetBuilder;
 
-  /// Floors are flat on the page, parted by a hairline across the floor's width when true, by a small gap otherwise.
+  /// Floors are separate rounded surfaces; a wider gap between them when true, a thin one otherwise.
   final bool useDivider;
 
   /// List of [Post] content.
@@ -574,17 +575,12 @@ class PostListState extends State<PostList> with LoggerMixin {
     final card = _CardAnchor(
       slotKey: slot.key,
       cards: _cards,
-      child: _FloorSurface(
-        // The line above the floor parts it from the one before (or from the title); a page's divider does that for
-        // the floor beginning the page.
-        lineAbove: widget.useDivider && !_layout.pageStarts.contains(slot.key),
-        child: widget.widgetBuilder(context, post),
-      ),
+      child: _FloorSurface(child: widget.widgetBuilder(context, post)),
     );
     return KeyedSubtree(
       key: ValueKey(slot.key),
       child: Padding(
-        padding: EdgeInsets.only(bottom: widget.useDivider ? 0 : 4),
+        padding: EdgeInsets.only(bottom: widget.useDivider ? 8 : 4),
         child: _layout.pageStarts.contains(slot.key)
             ? Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -604,24 +600,18 @@ class PostListState extends State<PostList> with LoggerMixin {
       // Above the opening place, top to bottom; laid out upwards from it. The moderation notice is not here: the
       // forum prints it in the first floor and so does the floor.
       SliverToBoxAdapter(
-        child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: floorMarginOf(context)),
-          child: AppContentWidth(
-            maxWidth: ReadingWidthScope.floorOf(context),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-              // Full width: the column centres its child, so a short title used to sit in the middle while a
-              // long one wrapped from the left (feedback 113). Every title starts at the left.
-              child: SizedBox(
-                width: double.infinity,
-                child:
-                    widget.header ??
-                    Text(
-                      context.displayText(widget.title ?? ''),
-                      style: Theme.of(
-                        context,
-                      ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, height: 1.35),
-                    ),
+        child: AppContentWidth(
+          maxWidth: ReadingWidthScope.floorOf(context),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+            // Full width: the column centres its child, so a short title used to sit in the middle while a
+            // long one wrapped from the left (feedback 113). Every title starts at the left.
+            child: SizedBox(
+              width: double.infinity,
+              child: Text(
+                context.displayText(widget.title ?? ''),
+                key: widget.titleKey,
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, height: 1.35),
               ),
             ),
           ),
@@ -934,8 +924,7 @@ class ThreadEndCard extends StatelessWidget {
     final tr = t.threadPage;
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-    // A panel on the flat floors, in from the page's sides as the text of the floors is.
-    final side = floorMarginOf(context) + 16;
+    final side = floorMarginOf(context);
     return Padding(
       padding: EdgeInsets.fromLTRB(side, 8, side, 24),
       child: AppContentWidth(
@@ -1054,35 +1043,22 @@ class _CardAnchorState extends State<_CardAnchor> {
   Widget build(BuildContext context) => widget.child;
 }
 
-/// A floor of the thread, flat on the page (no card: the floors are read one after another), at most
-/// [ReadingWidthScope.floorOf] wide so lines stay readable on desktop; on a phone it takes the whole width.
+/// A floor of the thread as a rounded surface, at most [ReadingWidthScope.floorOf] wide so lines stay readable on
+/// desktop.
 class _FloorSurface extends StatelessWidget {
-  const _FloorSurface({required this.child, required this.lineAbove});
+  const _FloorSurface({required this.child});
 
   final Widget child;
 
-  /// A hairline across the floor above it.
-  final bool lineAbove;
-
   @override
   Widget build(BuildContext context) {
+    // Phones keep most of the width for the text.
+    final side = floorMarginOf(context);
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: floorMarginOf(context)),
+      padding: EdgeInsets.symmetric(horizontal: side),
       child: AppContentWidth(
         maxWidth: ReadingWidthScope.floorOf(context),
-        // What is in the floor (its menus, the ink of a tap on it) still has a material under it, as in the card.
-        child: Material(
-          type: MaterialType.transparency,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              border: lineAbove ? Border(top: BorderSide(color: AppSurfaces.of(context).line)) : null,
-            ),
-            child: Padding(
-              padding: EdgeInsets.only(top: lineAbove ? 1 : 0),
-              child: child,
-            ),
-          ),
-        ),
+        child: Card(margin: EdgeInsets.zero, shape: appSurfaceShape(context), child: child),
       ),
     );
   }

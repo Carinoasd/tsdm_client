@@ -949,7 +949,7 @@
     "donationCodeSaveFailed": "无法保存赞助码，请重试或使用截图。",
     "forumReward": {
       "title": "论坛奖励",
-      "description": "赞助 App 开发同样可以获得论坛「支援天使」公告的奖励，标准与公告相同。",
+      "description": "赞助 App 开发同样可以获得论坛「支援天使」公告的奖励，前 200 元的标准与公告相同。",
       "separator": "：",
       "tier50": {
         "amount": "满 50 元",
@@ -965,11 +965,11 @@
       },
       "tierEvery100": {
         "amount": "之后每满 100 元",
-        "reward": "一枚有特殊意义的永久周年纪念勋章"
+        "reward": "周年纪念勋章或 App 赞助勋章二选一（App 赞助勋章共五枚，依序领取）"
       },
-      "tier500": {
-        "amount": "满 500 元",
-        "reward": "可在「梦幻天使X」与「梦幻天使Y」之间选择"
+      "tierAllMedals": {
+        "amount": "集满五枚 App 赞助勋章",
+        "reward": "可兑换 App 专属牌子"
       },
       "claimTitle": "领取方式",
       "claim": "付款时在支付宝的备注里写上你的论坛用户名（或 UID），付款后再私信我一声，附上金额和你的论坛账号，我确认后把奖励发到这个账号。",
@@ -1216,7 +1216,7 @@
     },
     "softCloseHint": "帖子已关闭，回复前请注意",
     "offlineBanner": "离线内容（${time: String} 保存）",
-    "statistics": "${view: int} 查看 · ${reply: int} 回复",
+    "statistics": "${view: int} 查看 ${reply: int} 回复",
     "threadInfo": {
       "title": "帖子信息",
       "threadTitle": "标题",

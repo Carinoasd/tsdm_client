@@ -45,6 +45,7 @@ import 'package:tsdm_client/shared/providers/storage_provider/models/database/da
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 import 'package:tsdm_client/shared/repositories/forum_home_repository/forum_home_repository.dart';
 import 'package:tsdm_client/shared/repositories/fragments_repository/fragments_repository.dart';
+import 'package:tsdm_client/widgets/cached_image/cached_image.dart';
 import 'package:tsdm_client/widgets/heroes.dart';
 import 'package:universal_html/html.dart' as uh;
 
@@ -441,11 +442,10 @@ void main() {
 
   bool selected(WidgetTester tester, String title) => tester.widget<HomeCardTab>(tab(title)).selected;
 
-  /// Titles of the rows of the card (thread titles, the welcome text of new members), top to bottom.
+  /// Second lines of the rows of the card (thread titles, the welcome text of new members), top to bottom.
   List<String?> rowTitles(WidgetTester tester) => tester
       .widgetList<ListTile>(find.descendant(of: find.byType(PinTabSection), matching: find.byType(ListTile)))
-      // Beautify v2: the thread title leads the row, the author is the meta line under it.
-      .map((e) => (e.title is Text) ? (e.title! as Text).data : null)
+      .map((e) => (e.subtitle as Text?)?.data)
       .toList();
 
   Future<void> selectTab(WidgetTester tester, String title) async {
@@ -738,7 +738,7 @@ void main() {
         (reward.tier100.amount, reward.tier100.reward),
         (reward.tier200.amount, reward.tier200.reward),
         (reward.tierEvery100.amount, reward.tierEvery100.reward),
-        (reward.tier500.amount, reward.tier500.reward),
+        (reward.tierAllMedals.amount, reward.tierAllMedals.reward),
       ]) {
         expect(inDialog(find.text('$amount${reward.separator}$text', findRichText: true)), findsOneWidget);
       }
@@ -752,6 +752,25 @@ void main() {
         reason: 'read before scanning the code',
       );
       expect(tr.aboutPage.donationDescription, isNot(contains('not an official forum fundraiser')));
+      // The five app sponsor medals in the order they are given, then the title badge given for all of them.
+      final medals = inDialog(
+        find.descendant(
+          of: find.byKey(const ValueKey('forum-reward-sponsor-medals')),
+          matching: find.byType(CachedImage),
+        ),
+      );
+      expect(tester.widgetList<CachedImage>(medals).map((e) => e.imageUrl), SupportDevelopmentDialog.sponsorMedalUrls);
+      expect(SupportDevelopmentDialog.sponsorMedalUrls.map((e) => Uri.parse(e).pathSegments.last), [
+        'mistral章.gif',
+        'gpt章.gif',
+        'gemini章.gif',
+        'grok章.gif',
+        'claude章.gif',
+      ]);
+      expect(
+        tester.getRect(inDialog(find.byKey(const ValueKey('forum-reward-sponsor-title')))).top,
+        greaterThan(tester.getRect(medals.last).bottom),
+      );
     });
 
     testWidgets('logged in: the account to write in the note, copied with one tap', (tester) async {

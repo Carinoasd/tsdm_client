@@ -598,7 +598,7 @@ final class SyncRepository with LoggerMixin {
       final mine = await _store.settingsValues();
       final defaults = syncedSettingsDefaults();
       final fill = {
-        for (final MapEntry(:key, :value) in settingsValuesOf(theirs).entries)
+        for (final MapEntry(:key, :value) in syncedSettingsIncoming(settingsValuesOf(theirs)).entries)
           if (fresh.contains(key) && mine[key] == defaults[key]) key: value,
       };
       final next = syncedSettingsApplied(mine, fill);
@@ -630,7 +630,7 @@ final class SyncRepository with LoggerMixin {
     }
     if (theirs != null) {
       final fill = {
-        for (final MapEntry(:key, :value) in settingsValuesOf(theirs).entries)
+        for (final MapEntry(:key, :value) in syncedSettingsIncoming(settingsValuesOf(theirs)).entries)
           if (mine.containsKey(key) && mine[key] == defaults[key]) key: value,
       };
       final next = syncedSettingsApplied(mine, fill);

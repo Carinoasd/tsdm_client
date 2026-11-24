@@ -35,7 +35,6 @@ import 'package:tsdm_client/shared/providers/providers.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/models/database/database.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 import 'package:tsdm_client/shared/repositories/fragments_repository/fragments_repository.dart';
-import 'package:tsdm_client/themes/app_surfaces.dart';
 import 'package:tsdm_client/widgets/card/post_card/post_card.dart';
 import 'package:universal_html/parsing.dart';
 
@@ -177,16 +176,7 @@ void main() {
       expect(t.postCard.fromApp, '來自天使動漫App');
       expect(find.textContaining(t.postCard.fromApp), findsOneWidget);
       final line = tester.widget<Text>(find.textContaining(t.postCard.fromApp));
-      // Beside the time, on a line of its own when there is no room for both.
-      expect(line.data, '· ${t.postCard.fromApp}');
-      final card = tester.element(find.byType(PostCard).first);
-      final surfaces = AppSurfaces.of(card);
-      // The floor's header: the name neutral, the floor number quiet.
-      final name = tester.widget<Text>(find.text(posts.first.author.name).first);
-      expect(name.style?.color, Theme.of(card).colorScheme.onSurface);
-      expect(name.style?.fontWeight, FontWeight.bold);
-      final floor = tester.widget<Text>(find.text('#${posts.first.postFloor}').first);
-      expect(floor.style?.color, surfaces.muted);
+      expect(line.data, endsWith(' · ${t.postCard.fromApp}'));
     });
   });
 }

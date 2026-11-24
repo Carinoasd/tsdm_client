@@ -1,6 +1,6 @@
 part of 'widgets.dart';
 
-/// Rows of one pinned thread group, the same in the columns of [PinSection] and the tabs of [PinTabSection].
+/// Rows of one pinned thread group, the same in the cards of [PinSection] and the tabs of [PinTabSection].
 ///
 /// Rows whose author link names a user blocked locally are left out; the uid only comes from the forum's profile
 /// link of the row, never from the name. The posting rank ([PinnedThreadGroup.isRank]) lists users with their post
@@ -23,31 +23,17 @@ class PinnedThreadList extends StatelessWidget with LoggerMixin {
       threadTitle = pinnedThread.threadTitle;
     }
 
-    Future<void> openAuthor() async => context.pushNamed(ScreenPaths.profile, queryParameters: {'username': username});
-    // The name is read as a link and opens the same page as the avatar.
-    final author = GestureDetector(
-      onTap: openAuthor,
-      child: Semantics(
-        link: true,
-        child: Row(children: [SingleLineText(username)]),
-      ),
-    );
-    final textTheme = Theme.of(context).textTheme;
-    final surfaces = AppSurfaces.of(context);
     return ListTile(
       // 72 is the height when thread title is not null.
       // Set this value to make every group of section has the same height.
       minTileHeight: 72,
-      // Flat on the page: the rows start where the section title does.
-      contentPadding: EdgeInsets.zero,
       // The avatar is a 48 wide tap target around the 40 wide circle, named after the user (the circle itself has
       // nothing to read): the circle stays at the start, the target grows towards the title, and the title gap gives
-      // the 8 back so the texts stay where they were.
+      // the 8 back so the texts stay where they were. The name opens the same page and is read as a link.
       horizontalTitleGap: 2,
       leading: GestureDetector(
         // The whole box takes the tap, not only the circle.
         behavior: HitTestBehavior.opaque,
-        onTap: openAuthor,
         child: Semantics(
           button: true,
           label: username,
@@ -60,22 +46,16 @@ class PinnedThreadList extends StatelessWidget with LoggerMixin {
             ),
           ),
         ),
+        onTap: () async => context.pushNamed(ScreenPaths.profile, queryParameters: {'username': username}),
       ),
-      // A thread leads with its title, its author is the meta line under it; the rank lists members with their count.
-      title: isRank
-          ? author
-          : Text(
-              threadTitle,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: textTheme.bodyLarge?.copyWith(fontSize: 15.5, height: 1.5, fontWeight: FontWeight.w700),
-            ),
-      subtitle: isRank
-          ? null
-          : DefaultTextStyle.merge(
-              style: textTheme.bodySmall?.copyWith(fontSize: 12.5, color: surfaces.muted),
-              child: author,
-            ),
+      title: GestureDetector(
+        child: Semantics(
+          link: true,
+          child: Row(children: [SingleLineText(username)]),
+        ),
+        onTap: () async => context.pushNamed(ScreenPaths.profile, queryParameters: {'username': username}),
+      ),
+      subtitle: isRank ? null : SingleLineText(threadTitle, overflow: TextOverflow.ellipsis),
       trailing: isRank ? SingleLineText(threadTitle) : null,
       onTap: () async {
         final target = pinnedThread.threadUrl.parseUrlToRoute();
@@ -123,7 +103,7 @@ class PinnedThreadList extends StatelessWidget with LoggerMixin {
 
 /// All pinned thread in homepage.
 ///
-/// Threads are separated into different groups, one column each side by side (medium and wide homepage layouts).
+/// Threads are separated into different groups, one card each side by side (medium and wide homepage layouts).
 class PinSection extends StatelessWidget {
   /// Constructor.
   const PinSection(this.pinnedThreadGroup, {super.key});
@@ -131,24 +111,30 @@ class PinSection extends StatelessWidget {
   /// All pinned thread gathered in groups.
   final List<PinnedThreadGroup> pinnedThreadGroup;
 
-  /// Widest a column of one group gets before another column is added.
+  /// Widest a card of one group gets before another column is added.
   static const _maxColumnWidth = 670.0;
 
-  /// Gap between two columns, and between two rows of groups.
-  static const _columnGap = 32.0;
-  static const _rowGap = 24.0;
+  /// Gap between two cards, side by side and one above the other.
+  static const _gap = 12.0;
 
-  Widget _buildGroup(BuildContext context, PinnedThreadGroup group) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      // Flat like the forum guide: the title of the group on the page, a hairline, the rows.
-      Padding(
-        padding: const EdgeInsets.only(top: 4, bottom: 12),
-        child: Text(group.title, style: homeSectionTitleStyle(context)),
+  Widget _buildGroup(BuildContext context, PinnedThreadGroup group) => Card(
+    margin: EdgeInsets.zero,
+    child: Padding(
+      padding: edgeInsetsT8,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              sizedBoxW12H12,
+              Text(group.title, style: Theme.of(context).textTheme.titleLarge),
+            ],
+          ),
+          sizedBoxW12H12,
+          PinnedThreadList(group),
+        ],
       ),
-      Divider(height: 1, thickness: 1, color: AppSurfaces.of(context).line),
-      PinnedThreadList(group),
-    ],
+    ),
   );
 
   @override
@@ -158,21 +144,18 @@ class PinSection extends StatelessWidget {
     if (pinnedThreadGroup.isEmpty) {
       return sizedBoxEmpty;
     }
-    // Groups side by side in rows, each row as tall as its tallest group. The rows used to be cells of a grid of a
-    // fixed height (ten rows of one line): a title on two lines made a group taller than its cell and it was drawn
-    // over the group below.
+    // Cards side by side in rows, each row as tall as its tallest card. They used to be cells of a grid of a fixed
+    // height, which ten rows of a group at a large text size outgrew: the card was drawn over the one below.
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
-        final columns = width.isFinite
-            ? math.max(1, ((width + _columnGap) / (_maxColumnWidth + _columnGap)).ceil())
-            : 1;
+        final columns = width.isFinite ? math.max(1, ((width + _gap) / (_maxColumnWidth + _gap)).ceil()) : 1;
         final rows = <Widget>[];
         for (var i = 0; i < pinnedThreadGroup.length; i += columns) {
           final cells = <Widget>[];
           for (var j = 0; j < columns; j++) {
             if (j > 0) {
-              cells.add(const SizedBox(width: _columnGap));
+              cells.add(const SizedBox(width: _gap));
             }
             final index = i + j;
             cells.add(
@@ -184,9 +167,14 @@ class PinSection extends StatelessWidget {
             );
           }
           if (rows.isNotEmpty) {
-            rows.add(const SizedBox(height: _rowGap));
+            rows.add(const SizedBox(height: _gap));
           }
-          rows.add(Row(crossAxisAlignment: CrossAxisAlignment.start, children: cells));
+          // The cards of a row end at the same height, as the cells of the grid did.
+          rows.add(
+            IntrinsicHeight(
+              child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: cells),
+            ),
+          );
         }
         return Column(mainAxisSize: MainAxisSize.min, children: rows);
       },
@@ -194,15 +182,18 @@ class PinSection extends StatelessWidget {
   }
 }
 
-/// All pinned thread groups in one section of the phone homepage (compact layout): a row of tabs, the rows of the
-/// selected group under it, flat on the page like the forum guide.
+/// Horizontal padding of the tab row of [PinTabSection], inside its scroll view.
+const _pinTabRowPadding = 8.0;
+
+/// All pinned thread groups in one card of the phone homepage (compact layout): a row of tabs, the rows of the
+/// selected group under it.
 ///
-/// Seven cards of ten rows each made the phone homepage very long. The tabs look like those of the forum guide
+/// Seven cards of ten rows each made the phone homepage very long. The tabs look like those of the forum guide card
 /// ([HomeCardTab]) and scroll sideways when they do not fit; the rows are the ones of [PinSection]
 /// ([PinnedThreadList]). The selected group is remembered by its title in the settings
-/// ([SettingsKeys.homepagePinnedGroup]): it stays selected after a refresh, which builds this section anew, and after
-/// a restart; the first group is shown when the forum no longer has that title. A single group shows its title
-/// instead of a row with one tab.
+/// ([SettingsKeys.homepagePinnedGroup]): it stays selected after a refresh, which builds this card anew, and after a
+/// restart; the first group is shown when the forum no longer has that title. A single group shows its title instead
+/// of a row with one tab.
 class PinTabSection extends StatefulWidget {
   /// Constructor.
   const PinTabSection(this.pinnedThreadGroup, {super.key});
@@ -260,9 +251,9 @@ class _PinTabSectionState extends State<PinTabSection> {
         return;
       }
       final position = _tabsController.position;
-      // The offsets putting the tab at the start and at the end of the row.
-      final atStart = viewport.getOffsetToReveal(tab, 0).offset;
-      final atEnd = viewport.getOffsetToReveal(tab, 1).offset;
+      // The offsets putting the tab at the start and at the end of the row, its padding kept on that side.
+      final atStart = viewport.getOffsetToReveal(tab, 0).offset - _pinTabRowPadding;
+      final atEnd = viewport.getOffsetToReveal(tab, 1).offset + _pinTabRowPadding;
       final target = math
           .min(math.max(position.pixels, atEnd), atStart)
           .clamp(position.minScrollExtent, position.maxScrollExtent);
@@ -297,39 +288,52 @@ class _PinTabSectionState extends State<PinTabSection> {
       _tabKeys.add(GlobalKey());
     }
 
-    // Read row by row like the forum guide: on the page itself, no panel around it.
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (groups.length > 1)
-          SingleChildScrollView(
-            controller: _tabsController,
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                for (final (i, group) in groups.indexed) ...[
-                  if (i > 0) const SizedBox(width: homeTabGap),
-                  HomeCardTab(key: _tabKeys[i], label: group.title, selected: i == _shown, onTap: () => _select(group)),
+    return Card(
+      margin: EdgeInsets.zero,
+      clipBehavior: Clip.antiAlias,
+      shape: homeCardShape(context),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (groups.length > 1)
+            SingleChildScrollView(
+              controller: _tabsController,
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: _pinTabRowPadding),
+              child: Row(
+                children: [
+                  for (final (i, group) in groups.indexed)
+                    HomeCardTab(
+                      key: _tabKeys[i],
+                      label: group.title,
+                      selected: i == _shown,
+                      onTap: () => _select(group),
+                    ),
                 ],
-              ],
+              ),
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+              child: Text(
+                selected.title,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              ),
             ),
-          )
-        else
-          Padding(
-            padding: const EdgeInsets.only(top: 4, bottom: 12),
-            child: Text(selected.title, style: homeSectionTitleStyle(context)),
+          Divider(height: 1, color: AppSurfaces.of(context).line),
+          // The card grows or shrinks smoothly to the rows of the new group; the page offset is left alone.
+          AnimatedSize(
+            duration: duration200,
+            curve: Curves.easeInOut,
+            alignment: Alignment.topCenter,
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: PinnedThreadList(selected, key: ValueKey(_shown)),
+            ),
           ),
-        Divider(height: 1, thickness: 1, color: AppSurfaces.of(context).line),
-        // The section grows or shrinks smoothly to the rows of the new group; the page offset is left alone.
-        AnimatedSize(
-          duration: duration200,
-          curve: Curves.easeInOut,
-          alignment: Alignment.topCenter,
-          child: PinnedThreadList(selected, key: ValueKey(_shown)),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

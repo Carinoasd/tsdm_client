@@ -254,7 +254,7 @@ void main() {
       }
       expect(find.byType(GuideModuleList), findsOneWidget, reason: 'only the selected module is listed');
       expect(find.widgetWithText(TextButton, 'More'), findsOneWidget);
-      expect(find.widgetWithText(OutlinedButton, 'Unanswered'), findsOneWidget);
+      expect(find.widgetWithText(ActionChip, 'Unanswered'), findsOneWidget);
 
       // 最新热门 is selected first: 10 of the 30 items, the first one highlighted in the error color with its forum and
       // participants.
@@ -337,7 +337,7 @@ void main() {
     testWidgets('a failed load shows the retry row that reloads, the 抢沙发 chip stays', (tester) async {
       await pump(tester, const _FixtureRepository([], fail: true));
       expect(find.text('Failed to load, tap to retry'), findsOneWidget);
-      expect(find.widgetWithText(OutlinedButton, 'Unanswered'), findsOneWidget);
+      expect(find.widgetWithText(ActionChip, 'Unanswered'), findsOneWidget);
       expect(find.byType(GuideModuleList), findsNothing);
       // Retry keeps failing here, the row must survive it.
       await tester.tap(find.text('Failed to load, tap to retry'));

@@ -1493,11 +1493,6 @@ void main() {
     testWidgets('with the app renderer on, an offline copy is drawn from its bbcode, never asking for smilies', (
       tester,
     ) async {
-      // Tall enough for the floor drawn from its bbcode (the body text of a post is 16).
-      tester.view
-        ..devicePixelRatio = 1
-        ..physicalSize = const Size(800, 1200);
-      addTearDown(tester.view.reset);
       await tester.runAsync(() async {
         await turnOn();
         await settings.setValue(SettingsKeys.enableAppPostRenderer, true);

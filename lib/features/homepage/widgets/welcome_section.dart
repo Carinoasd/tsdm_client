@@ -34,9 +34,9 @@ class _WelcomeSectionState extends State<WelcomeSection> with LoggerMixin {
   bool _reverseSwiper = false;
 
   Widget _buildKahrpbaSwiper(BuildContext context, List<SwiperUrl> swiperUrlList) {
-    // The pictures on the page, rounded, no panel around them.
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(appTileRadius),
+    return Card(
+      margin: EdgeInsets.zero,
+      clipBehavior: Clip.antiAlias,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxHeight: _kahrpbaPicHeight),
         child: CarouselView(

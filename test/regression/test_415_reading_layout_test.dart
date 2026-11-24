@@ -133,8 +133,8 @@ void main() {
         final context = await pumpScope(tester, maxWidth);
         expect(ReadingWidthScope.floorOf(context), appReadingMaxWidth);
         expect(ReadingWidthScope.contentOf(context), htmlContentMaxWidth);
-        // Floors 1900 less their margins, at most 920; content at most 712, over 16 a character.
-        expect(postContentLineWidthIn(context, 1900), closeTo(htmlContentMaxWidth / postBodyFontSize, 1e-9));
+        // Floors 1900 less their margins, at most 920; content at most 712, over 14 a character.
+        expect(postContentLineWidthIn(context, 1900), closeTo(htmlContentMaxWidth / 14, 1e-9));
       }
     });
 
@@ -142,12 +142,12 @@ void main() {
       final context = await pumpScope(tester, 1200);
       expect(ReadingWidthScope.floorOf(context), 1200);
       expect(ReadingWidthScope.contentOf(context), 1200 - floorPadding);
-      expect(postContentLineWidthIn(context, 1900), closeTo((1200 - floorPadding) / postBodyFontSize, 1e-9));
+      expect(postContentLineWidthIn(context, 1900), closeTo((1200 - floorPadding) / 14, 1e-9));
       // Narrower than the width: the window decides, as before.
-      expect(postContentLineWidthIn(context, 700), closeTo((700 - 16 - floorPadding) / postBodyFontSize, 1e-9));
+      expect(postContentLineWidthIn(context, 700), closeTo((700 - 32 - floorPadding) / 14, 1e-9));
 
       final narrow = await pumpScope(tester, 600);
-      expect(postContentLineWidthIn(narrow, 1900), closeTo((600 - floorPadding) / postBodyFontSize, 1e-9));
+      expect(postContentLineWidthIn(narrow, 1900), closeTo((600 - floorPadding) / 14, 1e-9));
     });
   });
 

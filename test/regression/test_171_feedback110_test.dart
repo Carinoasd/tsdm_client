@@ -183,7 +183,7 @@ final class _BankRepository extends BankRepository {
 
   @override
   Future<BankLogs> fetchLogs(int bankId, int uid, {bool received = false, int page = 1}) async =>
-      BankLogs(entries: [], hasNext: false);
+      const BankLogs(entries: []);
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -834,7 +834,7 @@ void main() {
       ('chat', () => const ChatPage(username: 'Bob', uid: '1000'), () => find.byType(ChatMessageCard), false),
       (
         'thread',
-        () => ThreadPage(
+        () => const ThreadPage(
           threadID: _tid,
           findPostID: null,
           pageNumber: '1',
@@ -846,7 +846,7 @@ void main() {
       ),
       (
         'notice detail',
-        () => NoticeDetailPage(
+        () => const NoticeDetailPage(
           url: '$baseUrl/forum.php?mod=redirect&goto=findpost&pid=$_pid&ptid=$_tid',
           noticeType: NoticeType.reply,
         ),
@@ -1347,7 +1347,7 @@ void main() {
 
     Finder redPacketButton() => find.ancestor(
       of: find.text(tr.redPacket.daily.unavailable),
-      matching: find.byWidgetPredicate((w) => w is FilledButton),
+      matching: find.byWidgetPredicate((w) => w is OutlinedButton),
     );
 
     testWidgets('6. loading and refreshing never flash the activity entry in the app bar', (tester) async {
@@ -1492,9 +1492,9 @@ void main() {
       await db.close();
     });
 
-    final synced = NotificationState(
+    const synced = NotificationState(
       status: NotificationStatus.success,
-      noticeList: const [
+      noticeList: [
         NoticeV2(id: 1, timestamp: 1788000001, data: 'unread notice one'),
         NoticeV2(id: 2, timestamp: 1788000002, data: 'read notice two', alreadyRead: true),
       ],

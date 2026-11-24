@@ -286,23 +286,15 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
 
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-    final surfaces = AppSurfaces.of(context);
     final nickname = widget.post.userBriefProfile?.nickname;
     final userGroup = widget.post.userBriefProfile?.userGroup;
     final publishTime = widget.post.publishTime;
-    // Meta text: the time and where the floor was sent from, quieter than the name.
-    final metaStyle = textTheme.bodySmall?.copyWith(
-      fontSize: 12.5,
-      height: 1.4,
-      color: surfaces.muted,
-      fontFeatures: const [FontFeature.tabularFigures()],
-    );
 
-    // The avatar is a 48 square tap target with the 40 wide circle at its top start, named after the author (the
-    // circle itself has nothing to read): the circle lines up with the text of the floor below it, the target growing
-    // to the end and below it.
+    // The avatar is a 48 wide tap target around the 44 wide circle, named after the author (the circle itself has
+    // nothing to read). The circle sits at the top of the box, so it and the texts beside it stay where they were: 2
+    // less padding before it, 2 less gap after it, the target growing 4 below it.
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      padding: const EdgeInsets.fromLTRB(14, 14, 12, 0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -317,10 +309,10 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
               child: SizedBox.square(
                 dimension: 48,
                 child: Align(
-                  alignment: AlignmentDirectional.topStart,
+                  alignment: Alignment.topCenter,
                   child: SizedBox(
-                    width: 40,
-                    height: 40,
+                    width: 44,
+                    height: 44,
                     // The page prints "头像被屏蔽" in place of the avatar: none is shown, not even one kept for the
                     // author.
                     child: widget.post.avatarBlocked
@@ -335,7 +327,7 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
               ),
             ),
           ),
-          const SizedBox(width: 4),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -357,13 +349,10 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
                             style: DefaultTextStyle.of(toHeroContext).style,
                             child: toHeroContext.widget,
                           ),
-                          // A name is neutral: the accent is for actions.
                           child: Text(
                             widget.post.author.name,
                             style: textTheme.titleSmall?.copyWith(
-                              fontSize: 15,
-                              height: 1.35,
-                              color: colorScheme.onSurface,
+                              color: colorScheme.primary,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -373,7 +362,7 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
                     if (nickname != null)
                       Text(
                         nickname,
-                        style: textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                        style: textTheme.labelSmall?.copyWith(color: colorScheme.secondary),
                         overflow: TextOverflow.ellipsis,
                         maxLines: 1,
                       ),
@@ -381,19 +370,14 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
                   ],
                 ),
                 sizedBoxW2H2,
-                // The time and where the floor was sent from each stay on one line; the second goes below the first
-                // when the line has no room for both.
-                Wrap(
-                  spacing: 4,
-                  children: [
-                    if (publishTime != null) Text(publishTime.yyyyMMDDHHMMSS(), style: metaStyle),
+                // The user group is the tag beside the name: the time and where the floor was sent from.
+                Text(
+                  [
+                    if (publishTime != null) publishTime.yyyyMMDDHHMMSS(),
                     // Sent from the app (plugin 3.3.0), as the web page prints it beside the time.
-                    if (widget.post.fromApp)
-                      Text(
-                        publishTime == null ? context.t.postCard.fromApp : '· ${context.t.postCard.fromApp}',
-                        style: metaStyle,
-                      ),
-                  ],
+                    if (widget.post.fromApp) context.t.postCard.fromApp,
+                  ].join(' · '),
+                  style: textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant),
                 ),
                 // What the page prints in the floor's header of a special thread: the accepted answer of a bounty, the
                 // floor's side in a debate (plugin 2.8.0).
@@ -472,7 +456,7 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
 
   Widget _buildLastEditInfoRow(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+      padding: edgeInsetsL12T4R12,
       child: Text(
         context.t.postCard.lastEditInfo(username: widget.post.lastEditUsername!, time: widget.post.lastEditTime!),
         style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
@@ -1160,7 +1144,7 @@ class _PostCardState extends State<PostCard> with LoggerMixin {
   }
 }
 
-/// The user group of a floor's author beside the name: a neutral tag.
+/// The user group of a floor's author beside the name: a neutral tag, a step above the floor's card.
 class _GroupTag extends StatelessWidget {
   const _GroupTag(this.group);
 
@@ -1170,7 +1154,7 @@ class _GroupTag extends StatelessWidget {
   Widget build(BuildContext context) {
     final surfaces = AppSurfaces.of(context);
     return DecoratedBox(
-      decoration: BoxDecoration(color: surfaces.card, borderRadius: BorderRadius.circular(5)),
+      decoration: BoxDecoration(color: surfaces.control, borderRadius: BorderRadius.circular(5)),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
         child: Text(
@@ -1275,22 +1259,22 @@ class _FloorBadge extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final text = postFloorLabel(context.t, floor: post.postFloor, hot: post.hot, hotFloor: post.hotFloor);
-    // The floor number is meta, quiet and without a ground; a hot reply keeps its mark.
-    final label = Text(
-      text,
-      style: textTheme.labelMedium?.copyWith(
-        fontSize: 13,
-        fontWeight: FontWeight.bold,
-        color: post.hot ? colorScheme.onTertiaryContainer : AppSurfaces.of(context).muted,
-        fontFeatures: const [FontFeature.tabularFigures()],
+    final badge = DecoratedBox(
+      decoration: BoxDecoration(
+        color: post.hot ? colorScheme.tertiaryContainer : AppSurfaces.of(context).control,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        child: Text(
+          text,
+          style: textTheme.labelMedium?.copyWith(
+            color: post.hot ? colorScheme.onTertiaryContainer : colorScheme.onSurfaceVariant,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+        ),
       ),
     );
-    final badge = post.hot
-        ? DecoratedBox(
-            decoration: BoxDecoration(color: colorScheme.tertiaryContainer, borderRadius: BorderRadius.circular(8)),
-            child: Padding(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), child: label),
-          )
-        : Padding(padding: const EdgeInsets.only(top: 1), child: label);
     final link = post.shareLink;
     if (!post.hot || post.hotFloor == null || link == null || isOfflineFloor(context)) {
       return badge;

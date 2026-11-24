@@ -6,6 +6,7 @@ import 'package:collection/collection.dart';
 import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
 import 'package:rxdart/rxdart.dart';
+import 'package:tsdm_client/features/sync/models/sync_settings.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/models/thread_floor_interaction_mode.dart';
@@ -83,6 +84,46 @@ final class SettingsRepository with LoggerMixin {
 
   /// Current settings.
   late SettingsMap _state;
+
+  /// Stored name of the mark that [resetFormerDefaultsOnce] ran on this device.
+  static const formerDefaultsResetKey = 'settings.formerDefaultsReset';
+
+  /// Once on a device: settings stored at a group of former defaults ([syncedSettingsFormerDefaults], the post
+  /// typography of 1.62.0) are deleted, so they read as today's defaults.
+  ///
+  /// Such values were seldom chosen: a version before 1.62.0 stored the 1.62.0 defaults another device synced (it
+  /// applied whatever differed from its own), and 1.62.0 stored them when the layout dialog was confirmed unchanged.
+  /// Kept they would stay for good, and go to the other devices with each sync. Values set after it are left alone.
+  ///
+  /// Called by the app once the settings are loaded ([init]) and it read whether anything was stored before this start
+  /// (the mark is stored here: a new install would look like an update).
+  Future<void> resetFormerDefaultsOnce() async {
+    try {
+      if (await _storage.getBool(formerDefaultsResetKey) ?? false) {
+        return;
+      }
+      final values = syncedSettingsValues(_state);
+      var reset = false;
+      for (final group in syncedSettingsFormerDefaults) {
+        if (group.entries.every((e) => values[e.key] == e.value)) {
+          for (final name in group.keys) {
+            await _storage.deleteKey(name);
+          }
+          reset = true;
+          info('settings at the former defaults ${group.keys.join(', ')} reset to the defaults');
+        }
+      }
+      if (reset) {
+        // Read again: what was deleted reads as its default.
+        _state = await _initMap();
+        _controller.add(_state);
+      }
+      await _storage.saveBool(formerDefaultsResetKey, value: true);
+    } on Object catch (e, st) {
+      error('failed to reset the former defaults: $e');
+      handleRaw(e, st);
+    }
+  }
 
   /// Init initial settings.
   Future<void> init() async {

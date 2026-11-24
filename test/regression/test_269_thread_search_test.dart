@@ -811,32 +811,32 @@ void main() {
   testWidgets("one author's floors from a floor's menu, and every author's again, have pages of their own to load", (
     tester,
   ) async {
-    // Tall enough for the floors whose menus are opened (the body text of a post is 16).
     tester.view
       ..devicePixelRatio = 1
-      ..physicalSize = const Size(360, 1100);
+      ..physicalSize = const Size(360, 780);
     addTearDown(tester.view.reset);
     // Floors short enough for the menu at the end of the first one to be on screen, tall enough for three of them to
     // fill the screen (the list asks for no page of its own).
     String floor(int f, {required int hit}) => _floor(f, text: f == hit ? 'needle' : 'hay', lines: 12);
-    adapter.pages = [
-      _threadPage([for (var f = 1; f <= 10; f++) floor(f, hit: 1)], pages: 2),
-      _threadPage([for (var f = 11; f <= 20; f++) floor(f, hit: 15)], page: 2, pages: 2),
-    ];
-    adapter.byAuthor = {
-      '1000': [
-        _threadPage([
-          for (final f in [1, 4, 7]) floor(f, hit: 7),
-        ], pages: 2),
-        _threadPage(
-          [
-            for (final f in [12, 15, 18]) floor(f, hit: 15),
-          ],
-          page: 2,
-          pages: 2,
-        ),
-      ],
-    };
+    adapter
+      ..pages = [
+        _threadPage([for (var f = 1; f <= 10; f++) floor(f, hit: 1)], pages: 2),
+        _threadPage([for (var f = 11; f <= 20; f++) floor(f, hit: 15)], page: 2, pages: 2),
+      ]
+      ..byAuthor = {
+        '1000': [
+          _threadPage([
+            for (final f in [1, 4, 7]) floor(f, hit: 7),
+          ], pages: 2),
+          _threadPage(
+            [
+              for (final f in [12, 15, 18]) floor(f, hit: 15),
+            ],
+            page: 2,
+            pages: 2,
+          ),
+        ],
+      };
     Finder floorMenu(int floor) => find.descendant(
       of: find.ancestor(of: find.textContaining('floor $floor ', findRichText: true), matching: find.byType(PostCard)),
       matching: find.byIcon(Icons.more_vert),
