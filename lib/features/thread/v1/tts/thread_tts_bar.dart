@@ -28,8 +28,12 @@ class ThreadTtsBar extends StatelessWidget {
           return const SizedBox.shrink();
         }
         final status = controller.status;
-        return ColoredBox(
-          color: AppSurfaces.of(context).bar,
+        // A bar as the reply bar below it: the bar layer with a hairline above.
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            color: AppSurfaces.of(context).bar,
+            border: Border(top: BorderSide(color: AppSurfaces.of(context).line)),
+          ),
           child: SafeArea(
             top: false,
             bottom: safeBottom,

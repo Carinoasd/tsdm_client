@@ -1472,7 +1472,7 @@ final class _ReplyBarState extends State<_ReplyBar> with LoggerMixin {
         decoration: BoxDecoration(
           color: colorScheme.surfaceContainerHigh,
           borderRadius: BorderRadius.circular(appInnerRadius),
-          border: Border(left: BorderSide(color: colorScheme.primary.withValues(alpha: 0.6), width: 3)),
+          border: Border(left: BorderSide(color: AppSurfaces.of(context).lineStrong, width: 3)),
         ),
         padding: const EdgeInsets.fromLTRB(12, 6, 4, 6),
         child: Row(

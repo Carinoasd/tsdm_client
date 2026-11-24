@@ -398,6 +398,7 @@ class _BinListState extends State<_BinList> with AutomaticKeepAliveClientMixin {
         ),
         Material(
           color: AppSurfaces.of(context).bar,
+          shape: Border(top: BorderSide(color: AppSurfaces.of(context).line)),
           child: SafeArea(
             top: false,
             child: Padding(

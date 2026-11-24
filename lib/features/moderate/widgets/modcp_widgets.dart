@@ -172,6 +172,7 @@ class ModcpPickBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Material(
     color: AppSurfaces.of(context).bar,
+    shape: Border(top: BorderSide(color: AppSurfaces.of(context).line)),
     child: SafeArea(
       top: false,
       child: Padding(
