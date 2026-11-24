@@ -48,6 +48,7 @@ import 'package:tsdm_client/shared/providers/providers.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/models/database/database.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 import 'package:tsdm_client/utils/html/author_style.dart';
+import 'package:tsdm_client/utils/network_usage.dart';
 
 const _alice = UserLoginInfo(username: 'Alice', uid: 31);
 const _bob = UserLoginInfo(username: 'Bob', uid: 32);
@@ -510,6 +511,22 @@ void main() {
       await pump(tester, _alice);
       expect(asks, isNotEmpty);
       expect(asks.every((e) => e), isTrue);
+    });
+
+    testWidgets('on Wi-Fi only: the network asked, fetched once unmetered', (tester) async {
+      final asks = <bool>[];
+      accountBackdropImage = (url, {cacheOnly = false}) {
+        asks.add(cacheOnly);
+        return MemoryImage(Uint8List.fromList([1, 2, 3]));
+      };
+      NetworkUsage.reset();
+      NetworkUsage.check = () async => true;
+      addTearDown(NetworkUsage.reset);
+      await settings.setValue(SettingsKeys.postImageAutoLoad, PostImageAutoLoad.wifiOnly.index);
+      answers[31] = _mine(31, image: _wide);
+      await pump(tester, _alice);
+      expect(NetworkUsage.unmetered.value, isTrue);
+      expect(asks, contains(false));
     });
 
     testWidgets('a picture on white is blended, in both themes', (tester) async {

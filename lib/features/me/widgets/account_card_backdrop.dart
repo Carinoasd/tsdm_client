@@ -136,10 +136,16 @@ class _AccountCardBackdropState extends State<AccountCardBackdrop> {
       false => switch (autoLoad) {
         PostImageAutoLoad.always => true,
         PostImageAutoLoad.never => false,
-        PostImageAutoLoad.wifiOnly => NetworkUsage.unmetered.value ?? false,
+        // Asked here: nothing else on the "me" tab may have asked yet; the answer comes by [_onNetworkChanged].
+        PostImageAutoLoad.wifiOnly => _unmetered(),
       },
     };
     return !fetches;
+  }
+
+  static bool _unmetered() {
+    NetworkUsage.refreshIfStale();
+    return NetworkUsage.unmetered.value ?? false;
   }
 
   /// The network changed: whether the picture may be fetched may have too.
@@ -196,6 +202,8 @@ class _AccountCardBackdropState extends State<AccountCardBackdrop> {
 
   void _stop() {
     if (_stream case final stream? when _listener != null) {
+      // A picture left loading that fails is no error to report: nothing waits for it.
+      stream.completer?.addEphemeralErrorListener((_, _) {});
       stream.removeListener(_listener!);
     }
     _stream = null;
