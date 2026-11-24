@@ -1239,13 +1239,6 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
     unawaited(_progressCubit?.save(uid: pending.uid, tid: pending.tid, progress: pending.progress));
   }
 
-  /// Scrolling of the list: the app bar follows it, and a scroll of the user's own lets the reading position go
-  /// ([_heldPosition]).
-  ///
-  /// What the bar does with the scroll, the first that holds: searching, the search bar stays shown
-  /// ([AppBarCollapser.enabled] is false then, set in the build); immersive reading, the bars stay hidden
-  /// ([AppBarCollapser.held]); else the bar follows the list. The two never hold at once: opening the search ends
-  /// immersive reading ([_openSearch]) and refuses it while it lasts ([_setImmersive]).
   /// Show the title in the app bar when the title area heading the floors is scrolled past (its end above the top of
   /// the list), or not laid out at all; hide it while that area is on screen.
   ///
@@ -1275,6 +1268,13 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
     }
   }
 
+  /// Scrolling of the list: the app bar and its title ([_updateAppBarTitle]) follow it, and a scroll of the user's own
+  /// lets the reading position go ([_heldPosition]).
+  ///
+  /// What the bar does with the scroll, the first that holds: searching, the search bar stays shown
+  /// ([AppBarCollapser.enabled] is false then, set in the build); immersive reading, the bars stay hidden
+  /// ([AppBarCollapser.held]); else the bar follows the list. The two never hold at once: opening the search ends
+  /// immersive reading ([_openSearch]) and refuses it while it lasts ([_setImmersive]).
   bool _onScrollNotification(ScrollNotification notification) {
     if (notification is ScrollUpdateNotification || notification is ScrollEndNotification) {
       _updateAppBarTitle();

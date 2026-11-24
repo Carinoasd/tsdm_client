@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
@@ -280,10 +281,10 @@ class _CardLayout extends StatelessWidget {
 
     final newReplies = _newReplies;
     final counts = <_ThreadInfo>[
-      if (replyCount != null) (Icons.forum_outlined, '$replyCount', newReplies > 0 ? '+$newReplies' : null),
-      if (viewCount != null) (Icons.bar_chart_outlined, '$viewCount', null),
+      if (replyCount != null) (Symbols.forum_rounded, '$replyCount', newReplies > 0 ? '+$newReplies' : null),
+      if (viewCount != null) (Symbols.bar_chart_rounded, '$viewCount', null),
       if ((price ?? 0) > 0) (FontAwesomeIcons.coins, '$price', null),
-      if ((privilege ?? 0) > 0) (Icons.feedback_outlined, '$privilege', null),
+      if ((privilege ?? 0) > 0) (Symbols.feedback_rounded, '$privilege', null),
     ];
     final lastReply = showLastReplyAuthor && lastReplyAuthor != null ? lastReplyAuthor!.name : null;
     final lastTime = latestReplyTime?.elapsedTillNow(context);
@@ -296,8 +297,8 @@ class _CardLayout extends StatelessWidget {
       // The setting of the info row: every item the same width, as it always was.
       final infoList = <_ThreadInfo>[
         ...counts.take(2),
-        if (lastReply != null) (Icons.person_outline, lastReply, null),
-        if (lastTime != null) (Icons.timelapse_outlined, lastTime, null),
+        if (lastReply != null) (Symbols.person_rounded, lastReply, null),
+        if (lastTime != null) (Symbols.timelapse_rounded, lastTime, null),
         ...counts.skip(2),
       ];
       return Padding(
@@ -321,7 +322,8 @@ class _CardLayout extends StatelessWidget {
       );
     }
 
-    // The counts on the left; who replied last and when on the right, up to 60% of the row (the name is cut first).
+    // The counts on the left; who replied last and when on the right, up to 60% of the row. The time keeps its width
+    // and the name takes the rest, cut alone; the time is cut only when it does not fit by itself (a very narrow row).
     final hasRight = lastReply != null || lastTime != null;
     final left = SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -350,19 +352,43 @@ class _CardLayout extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      lastReply != null ? Icons.person_outline : Icons.timelapse_outlined,
+                      lastReply != null ? Symbols.person_rounded : Symbols.timelapse_rounded,
                       size: iconSize,
                       color: infoColor,
                     ),
                     sizedBoxW4H4,
                     if (lastReply != null)
                       Flexible(
-                        child: Text(lastReply, style: style, maxLines: 1, overflow: TextOverflow.ellipsis),
+                        child: Text(
+                          lastReply,
+                          key: const ValueKey('thread-card-last-reply-author'),
+                          style: style,
+                          maxLines: 1,
+                          softWrap: false,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                    if (lastReply != null && lastTime != null) Text(' · ', style: style),
                     if (lastTime != null)
-                      Flexible(
-                        child: Text(lastTime, style: style, maxLines: 1, overflow: TextOverflow.ellipsis),
+                      ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxWidth: math.max(0, constraints.maxWidth * 0.6 - iconSize - sizedBoxW4H4.width!),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (lastReply != null) Text(' · ', style: style),
+                            Flexible(
+                              child: Text(
+                                lastTime,
+                                key: const ValueKey('thread-card-last-reply-time'),
+                                style: style,
+                                maxLines: 1,
+                                softWrap: false,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                   ],
                 ),

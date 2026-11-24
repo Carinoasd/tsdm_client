@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/uri.dart';
@@ -77,7 +78,7 @@ class ThreadTitleHeader extends StatelessWidget {
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         for (final (index, e) in crumbs.indexed) ...[
-          if (index > 0) Icon(Icons.chevron_right, size: 16, color: colorScheme.onSurfaceVariant),
+          if (index > 0) Icon(Symbols.chevron_right_rounded, size: 16, color: colorScheme.onSurfaceVariant),
           link(
             key: ValueKey('thread-header-crumb-$index'),
             // The forum the thread is in, in the accent; the ones above it quiet.
@@ -145,13 +146,13 @@ class ThreadTitleHeader extends StatelessWidget {
             child: Center(
               widthFactor: 1,
               child: iconText(
-                Icons.bar_chart_outlined,
+                Symbols.bar_chart_rounded,
                 context.t.threadPage.statistics(view: state.viewCount ?? 0, reply: state.replyCount ?? 0),
               ),
             ),
           ),
-        if (state.isDraft) iconText(Icons.edit_note_outlined, context.t.threadPage.draft),
-        if (replied) iconText(Icons.reply_outlined, context.t.threadPage.repliedMark, color: colorScheme.tertiary),
+        if (state.isDraft) iconText(Symbols.edit_note_rounded, context.t.threadPage.draft),
+        if (replied) iconText(Symbols.reply_rounded, context.t.threadPage.repliedMark, color: colorScheme.tertiary),
       ],
     );
 
@@ -161,7 +162,7 @@ class ThreadTitleHeader extends StatelessWidget {
         constraints: const BoxConstraints(minHeight: 48, minWidth: 48),
         child: Center(
           widthFactor: 1,
-          child: iconText(Icons.tag, '${context.t.threadPage.title} ${state.tid ?? ""}'),
+          child: iconText(Symbols.tag_rounded, '${context.t.threadPage.title} ${state.tid ?? ""}'),
         ),
       ),
       onTap: onTapId,

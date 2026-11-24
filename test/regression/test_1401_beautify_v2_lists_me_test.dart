@@ -166,7 +166,9 @@ void main() {
     double textScale = 1,
     Brightness brightness = Brightness.light,
     String? fontFamily,
+    List<NormalThread>? threads,
   }) async {
+    final shown = threads ?? _threads;
     window(tester, size, textScale);
     await tester.pumpWidget(
       TranslationProvider(
@@ -180,8 +182,8 @@ void main() {
                 body: LayoutBuilder(
                   builder: (context, constraints) => ListView.separated(
                     padding: threadListPadding(constraints.maxWidth).copyWith(top: 8),
-                    itemCount: _threads.length,
-                    itemBuilder: (_, i) => NormalThreadCard(_threads[i]),
+                    itemCount: shown.length,
+                    itemBuilder: (_, i) => NormalThreadCard(shown[i]),
                     separatorBuilder: (_, _) => const ThreadListSeparator(),
                   ),
                 ),
@@ -289,6 +291,53 @@ void main() {
     testWidgets('1.3 times the text: nothing overflows', (tester) async {
       await pumpList(tester, textScale: 1.3, size: const Size(390, 1400));
       expect(tester.takeException(), isNull);
+    });
+
+    group('a long name of the last reply: only the name is cut, the time is whole', () {
+      final long = _thread(
+        9,
+        '长名称',
+        author: '白诘草',
+        last: '一个非常非常非常非常非常非常非常长的最后回复者名称',
+        replies: 3,
+        views: 40,
+      );
+
+      RenderParagraph paragraph(WidgetTester tester, String key) =>
+          tester.renderObject<RenderParagraph>(find.byKey(ValueKey(key)));
+
+      for (final (width, scale) in [(390.0, 1.0), (390.0, 1.3), (320.0, 1.3)]) {
+        testWidgets('$width wide, ${scale}x', (tester) async {
+          settingsBloc.add(const SettingsValueChanged(SettingsKeys.threadCardInfoRowAlignCenter, false));
+          await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+          await pumpList(tester, size: Size(width, 1000), textScale: scale, threads: [long]);
+          expect(tester.takeException(), isNull);
+          final name = paragraph(tester, 'thread-card-last-reply-author');
+          final time = paragraph(tester, 'thread-card-last-reply-time');
+          expect(name.didExceedMaxLines, isTrue, reason: 'the name is cut');
+          expect(time.didExceedMaxLines, isFalse, reason: 'the time is whole');
+          expect(time.size.width, closeTo(time.getMaxIntrinsicWidth(double.infinity), 0.5));
+          expect(
+            tester.getRect(find.byKey(const ValueKey('thread-card-last-reply-time'))).right,
+            closeTo(width - 16, 1),
+          );
+          // The name takes all the time leaves: the right side is as wide as it may grow (60% of the row).
+          final right = (width - 32) * 0.6;
+          final nameLeft = tester.getRect(find.byKey(const ValueKey('thread-card-last-reply-author'))).left;
+          expect(nameLeft, closeTo(width - 16 - right + 16 + 4, 1));
+        });
+      }
+
+      testWidgets('a very narrow row: no overflow, either layout', (tester) async {
+        for (final width in [240.0, 160.0]) {
+          for (final center in [false, true]) {
+            settingsBloc.add(SettingsValueChanged(SettingsKeys.threadCardInfoRowAlignCenter, center));
+            await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+            await pumpList(tester, size: Size(width, 1000), textScale: 1.3, threads: [long]);
+            expect(tester.takeException(), isNull, reason: '$width wide, center: $center');
+          }
+        }
+      });
     });
   });
 

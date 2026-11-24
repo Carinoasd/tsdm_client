@@ -71,6 +71,7 @@ void main() {
       'lib/features/red_packet/widgets/daily_red_packet_button.dart',
       'lib/features/me/view/me_page.dart',
       'lib/widgets/card/post_card/post_card.dart',
+      'lib/features/thread/v1/widgets/thread_title_header.dart',
     ];
     // Symbols has no glyph for these: they stay Material Icons.
     const kept = {'Icons.catching_pokemon'};
