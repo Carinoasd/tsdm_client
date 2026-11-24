@@ -85,6 +85,10 @@ abstract final class MyContentBackground {
   static final _failedAt = <int, DateTime>{};
   static final _asking = <int>{};
 
+  /// Counted up by each [markStale] and [clear] of an account: an answer asked before is not kept as fresh.
+  static final _generations = <int, int>{};
+  static int _generation = 0;
+
   /// The clock; replaced in tests.
   @visibleForTesting
   static DateTime Function() now = DateTime.now;
@@ -102,12 +106,14 @@ abstract final class MyContentBackground {
   /// Keep what [mine] tells of the account it was served to.
   static void remember(BackgroundMine mine) => _keep(mine.uid, AccountBackground.of(mine.content));
 
-  static void _keep(int uid, AccountBackground? background) {
+  static void _keep(int uid, AccountBackground? background, {int? askedAt}) {
     if (uid <= 0) {
       return;
     }
     final before = _kept[uid];
-    _kept[uid] = (background: background, at: now(), stale: false);
+    // Asked before a write (or [clear]): kept, still stale.
+    final stale = askedAt != null && askedAt != (_generations[uid] ?? 0) + _generation;
+    _kept[uid] = (background: background, at: now(), stale: stale);
     _failedAt.remove(uid);
     if (before == null || before.background != background) {
       changes.value++;
@@ -117,6 +123,7 @@ abstract final class MyContentBackground {
   /// A write of the background shop for [uid] was sent: asked again the next time the card shows it. What is kept is
   /// drawn until then.
   static void markStale(int uid) {
+    _generations[uid] = (_generations[uid] ?? 0) + 1;
     final kept = _kept[uid];
     if (kept != null) {
       _kept[uid] = (background: kept.background, at: kept.at, stale: true);
@@ -144,13 +151,19 @@ abstract final class MyContentBackground {
   }
 
   static Future<void> _ask(int uid) async {
+    final askedAt = (_generations[uid] ?? 0) + _generation;
     try {
       switch (await repository().mine()) {
-        // [BackgroundShopRepository.mine] fills it ([remember]) for the account served.
+        // [BackgroundShopRepository.mine] kept it ([remember]); stale again when a write came in between.
         case BackgroundShopLoaded():
-          break;
+          if (askedAt != (_generations[uid] ?? 0) + _generation) {
+            final kept = _kept[uid];
+            if (kept != null) {
+              _kept[uid] = (background: kept.background, at: kept.at, stale: true);
+            }
+          }
         case BackgroundShopUnavailable():
-          _keep(uid, null);
+          _keep(uid, null, askedAt: askedAt);
       }
     } on Object {
       // Another account now, logged out, no answer: nothing kept, asked again later.
@@ -160,9 +173,10 @@ abstract final class MyContentBackground {
     }
   }
 
-  /// Forget everything (the forum's background shop is not the app's any more, or for tests).
+  /// Forget everything (for tests): an answer on its way is kept stale.
   static void clear() {
     final had = _kept.isNotEmpty;
+    _generation++;
     _kept.clear();
     _failedAt.clear();
     if (had) {

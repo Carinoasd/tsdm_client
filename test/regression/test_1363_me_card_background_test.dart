@@ -40,6 +40,7 @@ import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
+import 'package:tsdm_client/shared/models/post_image_auto_load.dart';
 import 'package:tsdm_client/shared/providers/cookie_provider/cookie_provider.dart';
 import 'package:tsdm_client/shared/providers/image_cache_provider/image_cache_provider.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
@@ -480,6 +481,35 @@ void main() {
       await settle(tester);
       expect(asked, [31, 31]);
       expect(painted(tester), contains('cover'));
+    });
+
+    testWidgets('an answer asked before a write stays stale', (tester) async {
+      await addPicture(tester, _wide, 800, 400, edge: 0xFF305070);
+      answers[31] = _mine(31, image: _wide);
+      hold = Completer<void>();
+      await pump(tester, _alice);
+      expect(asked, [31]);
+      MyContentBackground.markStale(31);
+      hold!.complete();
+      hold = null;
+      await settle(tester);
+      expect(painted(tester), contains('cover'));
+      // Shown again: asked again.
+      await pump(tester, _alice);
+      expect(asked, [31, 31]);
+    });
+
+    testWidgets('pictures not loaded by themselves: from the cache only', (tester) async {
+      final asks = <bool>[];
+      accountBackdropImage = (url, {cacheOnly = false}) {
+        asks.add(cacheOnly);
+        return MemoryImage(Uint8List.fromList([1, 2, 3]));
+      };
+      await settings.setValue(SettingsKeys.postImageAutoLoad, PostImageAutoLoad.never.index);
+      answers[31] = _mine(31, image: _wide);
+      await pump(tester, _alice);
+      expect(asks, isNotEmpty);
+      expect(asks.every((e) => e), isTrue);
     });
 
     testWidgets('a picture on white is blended, in both themes', (tester) async {

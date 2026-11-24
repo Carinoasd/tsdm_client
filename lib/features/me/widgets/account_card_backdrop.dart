@@ -12,6 +12,8 @@ import 'package:tsdm_client/features/post_background/widgets/post_background_pai
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/data_saver_mode.dart';
+import 'package:tsdm_client/shared/models/post_image_auto_load.dart';
+import 'package:tsdm_client/utils/network_usage.dart';
 
 /// The picture of a background at [url]; from the cache only with [cacheOnly].
 typedef AccountBackdropImage = ImageProvider<Object> Function(String url, {bool cacheOnly});
@@ -46,7 +48,7 @@ final _whiteEdged = <String, bool>{};
 ///
 /// Without a background, until (or unless) its picture loads, or when no veil leaves it seen (the platform's high
 /// contrast): [fallback] behind [child], as before. The picture is a still of its first frame ([postBackgroundImage]),
-/// fetched unless the data saver holds the pictures back (the cache only then); one that failed is not asked again in
+/// fetched when the pictures of the posts load by themselves (the cache only otherwise); one that failed is not asked again in
 /// this run ([PostBackgroundFailures]).
 class AccountCardBackdrop extends StatefulWidget {
   /// Constructor.
@@ -89,6 +91,12 @@ class _AccountCardBackdropState extends State<AccountCardBackdrop> {
   ui.Image? _image;
 
   @override
+  void initState() {
+    super.initState();
+    NetworkUsage.unmetered.addListener(_onNetworkChanged);
+  }
+
+  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     _update();
@@ -102,6 +110,7 @@ class _AccountCardBackdropState extends State<AccountCardBackdrop> {
 
   @override
   void dispose() {
+    NetworkUsage.unmetered.removeListener(_onNetworkChanged);
     _stop();
     _setImage(null);
     _marks.dispose();
@@ -114,11 +123,30 @@ class _AccountCardBackdropState extends State<AccountCardBackdrop> {
     highContrast: MediaQuery.maybeHighContrastOf(context) ?? false,
   );
 
+  /// As the pictures of the posts and the floors' backgrounds: from the cache only while the data saver holds them
+  /// back, or they are not loaded by themselves (the auto load setting).
   bool get _cacheOnlyNow {
-    final mode = getIt.isRegistered<SettingsRepository>()
-        ? DataSaverMode.fromIndex(getIt.get<SettingsRepository>().currentSettings.dataSaverMode)
-        : DataSaverMode.off;
-    return DataSaver.holdsBack(context, mode) ?? true;
+    final settings = getIt.isRegistered<SettingsRepository>() ? getIt.get<SettingsRepository>().currentSettings : null;
+    final mode = settings == null ? DataSaverMode.off : DataSaverMode.fromIndex(settings.dataSaverMode);
+    final autoLoad = settings == null
+        ? PostImageAutoLoad.always
+        : PostImageAutoLoad.fromIndex(settings.postImageAutoLoad);
+    final fetches = switch (DataSaver.holdsBack(context, mode)) {
+      true || null => false,
+      false => switch (autoLoad) {
+        PostImageAutoLoad.always => true,
+        PostImageAutoLoad.never => false,
+        PostImageAutoLoad.wifiOnly => NetworkUsage.unmetered.value ?? false,
+      },
+    };
+    return !fetches;
+  }
+
+  /// The network changed: whether the picture may be fetched may have too.
+  void _onNetworkChanged() {
+    if (mounted) {
+      setState(_update);
+    }
   }
 
   /// Ask the picture of the background (again) when it, or whether it may be fetched, changed.
@@ -200,7 +228,7 @@ class _AccountCardBackdropState extends State<AccountCardBackdrop> {
       Paint()..filterQuality = FilterQuality.medium,
     );
     final picture = recorder.endRecording();
-    var white = false;
+    final bool white;
     try {
       final small = await picture.toImage(width, height);
       try {
@@ -209,6 +237,9 @@ class _AccountCardBackdropState extends State<AccountCardBackdrop> {
       } finally {
         small.dispose();
       }
+    } on Object {
+      // Not told: the card stays as without a background.
+      return;
     } finally {
       picture.dispose();
     }
