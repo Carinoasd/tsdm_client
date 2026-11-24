@@ -1,6 +1,6 @@
 part of 'widgets.dart';
 
-/// Rows of one pinned thread group, the same in the cards of [PinSection] and the tabs of [PinTabSection].
+/// Rows of one pinned thread group, the same in the columns of [PinSection] and the tabs of [PinTabSection].
 ///
 /// Rows whose author link names a user blocked locally are left out; the uid only comes from the forum's profile
 /// link of the row, never from the name. The posting rank ([PinnedThreadGroup.isRank]) lists users with their post
@@ -160,7 +160,7 @@ class PinSection extends StatelessWidget {
         maxCrossAxisExtent: 670,
         mainAxisExtent: 700 + math.max(25 * ((textScaleFactor - 1) / 0.1), 0),
         mainAxisSpacing: 12,
-        crossAxisSpacing: 12,
+        crossAxisSpacing: 32,
       ),
       shrinkWrap: true,
       children: ret,
@@ -180,15 +180,15 @@ class PinSection extends StatelessWidget {
   }
 }
 
-/// All pinned thread groups in one card of the phone homepage (compact layout): a row of tabs, the rows of the
-/// selected group under it.
+/// All pinned thread groups in one section of the phone homepage (compact layout): a row of tabs, the rows of the
+/// selected group under it, flat on the page like the forum guide.
 ///
-/// Seven cards of ten rows each made the phone homepage very long. The tabs look like those of the forum guide card
+/// Seven cards of ten rows each made the phone homepage very long. The tabs look like those of the forum guide
 /// ([HomeCardTab]) and scroll sideways when they do not fit; the rows are the ones of [PinSection]
 /// ([PinnedThreadList]). The selected group is remembered by its title in the settings
-/// ([SettingsKeys.homepagePinnedGroup]): it stays selected after a refresh, which builds this card anew, and after a
-/// restart; the first group is shown when the forum no longer has that title. A single group shows its title instead
-/// of a row with one tab.
+/// ([SettingsKeys.homepagePinnedGroup]): it stays selected after a refresh, which builds this section anew, and after
+/// a restart; the first group is shown when the forum no longer has that title. A single group shows its title
+/// instead of a row with one tab.
 class PinTabSection extends StatefulWidget {
   /// Constructor.
   const PinTabSection(this.pinnedThreadGroup, {super.key});

@@ -80,8 +80,6 @@ TextStyle? appDayActionLabelStyle(BuildContext context) =>
 /// An action of the day drawn as [look]: the [primary] one is filled with the primary color, the others are in the
 /// panel color with a primary icon ([appHeroActionStyle]). Always a [FilledButton], [onPressed] null when it does
 /// nothing (done, waiting, unavailable).
-///
-/// [height] is the least height of the [AppDayActionLook.button] look.
 Widget appDayAction(
   BuildContext context, {
   required AppDayActionLook look,
@@ -89,11 +87,8 @@ Widget appDayAction(
   required String label,
   required VoidCallback? onPressed,
   bool primary = false,
-  double height = 48,
 }) {
-  final base = primary
-      ? FilledButton.styleFrom(minimumSize: Size(0, height))
-      : appHeroActionStyle(context, height: height);
+  final base = primary ? FilledButton.styleFrom(minimumSize: const Size(0, 48)) : appHeroActionStyle(context);
   if (look == AppDayActionLook.button) {
     return FilledButton.icon(style: base, icon: icon, label: Text(label), onPressed: onPressed);
   }

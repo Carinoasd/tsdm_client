@@ -433,6 +433,11 @@ void main() {
       final avatar = tester.getRect(find.byType(HeroUserAvatar).first);
       expect(avatar.left, closeTo(title.left, 0.5));
       expect(first.left, greaterThan(avatar.right));
+      // The second column the same, a clear gap after the first.
+      final secondTitle = tester.getRect(find.text('最新活动').at(1));
+      final secondAvatar = tester.getRect(find.byType(HeroUserAvatar).at(2));
+      expect(secondAvatar.left, closeTo(secondTitle.left, 0.5));
+      expect(secondTitle.left - tester.getRect(find.byType(PinnedThreadList).first).right, greaterThanOrEqualTo(24));
       expect(tester.takeException(), isNull);
     });
   });
