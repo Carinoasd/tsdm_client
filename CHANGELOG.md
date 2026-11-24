@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [1.62.1] - 2026-11-25
+
+### Changed
+
+- 调整了首页、帖子页与帖子列表的版面。
+
 ## [1.62.0] - 2026-11-24
 
 ### Changed

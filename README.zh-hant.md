@@ -16,16 +16,12 @@
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/Carinoasd/tsdm_client" alt="license"/></a>
 </p>
 
-## 最新更新：1.62.0（2026-11-24）
+## 最新更新：1.62.1（2026-11-25）
 
-- 介面整體美化：底色分層、拿掉面板細框，深色主題維持接近純黑；只用一般與粗體兩種字重，圖示換成圓潤線條款。
-- 首頁：問候區不再包卡片，四個動作排成一列方格，論壇導讀改為細線分隔的列表。
-- 帖子頁：樓層改為通欄細線分隔，標題區顯示版塊路徑與查看、回覆數，正文字級與行距加大。
-- 帖子列表改為細線分隔的列；「我的」手機上一列五格。
-- 帖子裡不再顯示會員的背景，對應設定一併移除；背景商店保留。
-- Android 建置編號為 178，可直接覆蓋之前的正式版與測試版。
+- 調整了首頁、帖子頁與帖子列表的版面。
+- Android 建置編號為 179，可直接覆蓋之前的正式版與測試版。
 
-[下載 1.62.0](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.62.0) · [完整更新日誌](./CHANGELOG.md)
+[下載 1.62.1](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.62.1) · [完整更新日誌](./CHANGELOG.md)
 
 ## 這是什麼
 

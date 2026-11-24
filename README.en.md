@@ -16,16 +16,12 @@
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/Carinoasd/tsdm_client" alt="license"/></a>
 </p>
 
-## Latest update: 1.62.0 (2026-11-24)
+## Latest update: 1.62.1 (2026-11-25)
 
-- A visual refresh: layered surfaces without hairline borders, a near-black dark theme, two font weights only, rounded outline icons.
-- Home: the greeting is no longer a card, the four actions sit in one row of tiles, the forum guide is a flat list.
-- Thread page: floors are full-width rows separated by hairlines, the title area shows the forum path with view and reply counts, larger body text and line height.
-- Thread lists are flat rows; "Me" shows five tiles a row on phones.
-- Member backgrounds are no longer shown in posts and the setting is removed; the background shop stays.
-- Android build number 178 installs over earlier releases and test builds.
+- Adjusted the layout of the home page, the thread page and thread lists.
+- Android build number 179 installs over earlier releases and test builds.
 
-[Download 1.62.0](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.62.0) · [Full changelog](./CHANGELOG.md)
+[Download 1.62.1](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.62.1) · [Full changelog](./CHANGELOG.md)
 
 ## What it is
 
