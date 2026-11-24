@@ -12,6 +12,7 @@ import 'package:tsdm_client/features/report_handling/models/report_handling.dart
 import 'package:tsdm_client/features/report_handling/repository/report_source.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/themes/app_themes.dart';
 import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/external_launch.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
@@ -425,6 +426,7 @@ class _ReportHandlingPageState extends State<ReportHandlingPage> {
                     children: [
                       if (reward != null) ...[
                         DropdownButton<int>(
+                          style: AppTheme.dropdownStyle(context),
                           key: ValueKey('report-credit-${item.id}'),
                           value: _credits[item.id] ?? 0,
                           onChanged: _busy ? null : (v) => setState(() => _credits[item.id] = v ?? 0),

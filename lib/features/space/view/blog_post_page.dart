@@ -13,6 +13,7 @@ import 'package:tsdm_client/features/space/repository/space_write_repository.dar
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
+import 'package:tsdm_client/themes/app_themes.dart';
 import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/load_failure.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
@@ -137,6 +138,7 @@ class _BlogPostPageState extends State<BlogPostPage> {
           ),
           sizedBoxW12H12,
           DropdownButtonFormField<String?>(
+            style: AppTheme.dropdownStyle(context),
             initialValue: _category,
             decoration: InputDecoration(labelText: tr.category),
             items: [
@@ -158,6 +160,7 @@ class _BlogPostPageState extends State<BlogPostPage> {
           if (form.systemCategories.isNotEmpty) ...[
             sizedBoxW12H12,
             DropdownButtonFormField<String?>(
+              style: AppTheme.dropdownStyle(context),
               initialValue: _systemCategory,
               decoration: InputDecoration(labelText: tr.systemCategory),
               items: [
@@ -171,6 +174,7 @@ class _BlogPostPageState extends State<BlogPostPage> {
           if (privacy.isNotEmpty) ...[
             sizedBoxW12H12,
             DropdownButtonFormField<String>(
+              style: AppTheme.dropdownStyle(context),
               initialValue: privacy.any((e) => e.value == _privacy) ? _privacy : privacy.first.value,
               decoration: InputDecoration(labelText: tr.privacy),
               items: [

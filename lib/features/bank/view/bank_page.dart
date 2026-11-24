@@ -15,6 +15,7 @@ import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
+import 'package:tsdm_client/themes/app_themes.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 
 part 'bank_service_widgets.dart';
@@ -186,6 +187,7 @@ class _BankPageState extends State<BankPage> {
         decoration: appPickerDecoration(context, label: context.t.bank.services, icon: Icons.apps_outlined),
         child: DropdownButtonHideUnderline(
           child: DropdownButton<String>(
+            style: AppTheme.dropdownStyle(context),
             key: const ValueKey('bank-service-picker'),
             isExpanded: true,
             isDense: true,

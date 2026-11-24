@@ -10,6 +10,7 @@ import 'package:tsdm_client/features/editor/widgets/mention_picker.dart';
 import 'package:tsdm_client/features/points/models/credit_forms.dart';
 import 'package:tsdm_client/features/points/repository/credit_forms_repository.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/themes/app_themes.dart';
 import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/load_failure.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
@@ -518,6 +519,7 @@ class _CreditFormPageState extends State<CreditFormPage> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         DropdownButtonFormField<int>(
+          style: AppTheme.dropdownStyle(context),
           initialValue: target.id,
           items: [for (final credit in form.to) item(credit)],
           onChanged: _busy ? null : (id) => setState(() => _targetId = id),
@@ -525,6 +527,7 @@ class _CreditFormPageState extends State<CreditFormPage> {
         ),
         sizedBoxW12H12,
         DropdownButtonFormField<int>(
+          style: AppTheme.dropdownStyle(context),
           initialValue: source.id,
           items: [for (final credit in form.from) item(credit)],
           onChanged: _busy ? null : (id) => setState(() => _sourceId = id),

@@ -13,6 +13,7 @@ import 'package:tsdm_client/features/moderate/widgets/modcp_pages_widgets.dart';
 import 'package:tsdm_client/features/moderate/widgets/modcp_widgets.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/themes/app_themes.dart';
 import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
@@ -249,6 +250,7 @@ class _ModcpPostsPageState extends State<ModcpPostsPage> {
             children: [
               Expanded(
                 child: DropdownButtonFormField<int>(
+                  style: AppTheme.dropdownStyle(context),
                   key: const ValueKey('modcp-posts-forum'),
                   initialValue: forums.any((f) => f.fid == _fid) ? _fid : 0,
                   isExpanded: true,
@@ -266,6 +268,7 @@ class _ModcpPostsPageState extends State<ModcpPostsPage> {
               const SizedBox(width: 12),
               Expanded(
                 child: DropdownButtonFormField<String>(
+                  style: AppTheme.dropdownStyle(context),
                   key: const ValueKey('modcp-posts-option'),
                   initialValue: options.any((o) => o.value == _option) ? _option : options.first.value,
                   isExpanded: true,

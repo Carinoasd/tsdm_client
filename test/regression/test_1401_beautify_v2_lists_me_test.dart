@@ -229,6 +229,10 @@ void main() {
   }
 
   group('1. thread rows', () {
+    test('the info row of v2 is the default: equal columns only when chosen', () {
+      expect(SettingsKeys.threadCardInfoRowAlignCenter.defaultValue, isFalse);
+    });
+
     testWidgets('flat, hairlines between them; the head, the title and the info row of v2', (tester) async {
       // The info row of v2 is the one without equal columns (a setting, see the next test).
       settingsBloc.add(const SettingsValueChanged(SettingsKeys.threadCardInfoRowAlignCenter, false));

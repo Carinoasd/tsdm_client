@@ -6,7 +6,8 @@
 /// 2. icons: weight 400, grade -25 in the dark theme (0 in the light one);
 /// 3. navigation (bar, rail, drawer): the selected destination on the primary container, its icon filled in the on
 ///    primary container color, its label bold; the others regular;
-/// 4. settings groups: rows 52 high, the line between two rows starts at the text (after a leading icon), corners 20.
+/// 4. settings groups: rows 52 high, the line between two rows starts at the text (after a leading icon), corners 20;
+/// 5. dropdown buttons: the value chosen (and the items of the menu) regular, not the bold medium title.
 library;
 
 import 'dart:io';
@@ -42,6 +43,19 @@ void main() {
       for (final file in Directory('lib').listSync(recursive: true).whereType<File>())
         if (file.path.endsWith('.dart') && !file.path.endsWith('.g.dart'))
           if (RegExp(r'FontWeight\.w[56]00').hasMatch(file.readAsStringSync())) file.path,
+    ];
+    expect(offenders, isEmpty);
+  });
+
+  test('every dropdown button of the app has the regular style of the theme', () {
+    final dropdown = RegExp(r'\bDropdownButton(?:FormField)?(?:<[^(]*>)?\(');
+    final styled = RegExp(r'\bDropdownButton(?:FormField)?(?:<[^(]*>)?\(\s*style: AppTheme\.dropdownStyle\(context\),');
+    final offenders = [
+      for (final file in Directory('lib').listSync(recursive: true).whereType<File>())
+        if (file.path.endsWith('.dart') && !file.path.endsWith('.g.dart'))
+          if (file.readAsStringSync() case final source
+              when dropdown.allMatches(source).length != styled.allMatches(source).length)
+            file.path,
     ];
     expect(offenders, isEmpty);
   });
@@ -198,6 +212,60 @@ void main() {
         await tester.tap(find.text('open menu'));
         await tester.pumpAndSettle();
         expect(_paintedStyle(tester, 'menu item').fontWeight, FontWeight.w400);
+      });
+
+      testWidgets('dropdown buttons: the value chosen and the items of the menu are regular', (tester) async {
+        final theme = _theme(dark: dark);
+        await tester.pumpWidget(
+          _app(
+            theme,
+            Scaffold(
+              body: Builder(
+                builder: (context) => Column(
+                  children: [
+                    DropdownButtonFormField<int>(
+                      style: AppTheme.dropdownStyle(context),
+                      initialValue: 1,
+                      items: const [
+                        DropdownMenuItem(value: 1, child: Text('form one')),
+                        DropdownMenuItem(value: 2, child: Text('form two')),
+                      ],
+                      onChanged: (_) {},
+                    ),
+                    DropdownButton<int>(
+                      style: AppTheme.dropdownStyle(context),
+                      value: 1,
+                      items: const [
+                        DropdownMenuItem(value: 1, child: Text('button one')),
+                        DropdownMenuItem(value: 2, child: Text('button two')),
+                      ],
+                      onChanged: (_) {},
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+        // The medium title as the widgets see it (localized: the size is in it).
+        final title = Theme.of(tester.element(find.byType(Scaffold))).textTheme.titleMedium!;
+        expect(title.fontWeight, FontWeight.w700, reason: 'what Material takes for a dropdown button');
+        for (final chosen in ['form one', 'button one']) {
+          final style = _paintedStyle(tester, chosen);
+          expect(style.fontWeight, FontWeight.w400, reason: chosen);
+          expect(style.color, title.color, reason: chosen);
+          expect(style.fontSize, title.fontSize, reason: chosen);
+        }
+        // The open menu (the button keeps every item in an indexed stack for its width): the last of each text.
+        TextStyle inMenu(String text) => tester.renderObject<RenderParagraph>(find.text(text).last).text.style!;
+        await tester.tap(find.text('form one'));
+        await tester.pumpAndSettle();
+        expect(inMenu('form two').fontWeight, FontWeight.w400);
+        await tester.tap(find.text('form two').last);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('button one'));
+        await tester.pumpAndSettle();
+        expect(inMenu('button two').fontWeight, FontWeight.w400);
       });
 
       testWidgets('navigation bar: the selected destination on the primary container, filled, bold', (tester) async {

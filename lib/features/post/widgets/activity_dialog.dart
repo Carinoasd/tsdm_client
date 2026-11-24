@@ -6,6 +6,7 @@ import 'package:tsdm_client/features/post/models/special_thread_form.dart';
 import 'package:tsdm_client/features/root/view/root_page.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/themes/app_themes.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/custom_alert_dialog.dart';
 
@@ -272,6 +273,7 @@ class _ActivityDialogState extends State<_ActivityDialog> {
             if (info.genders.isNotEmpty) ...[
               sizedBoxW12H12,
               DropdownButtonFormField<String>(
+                style: AppTheme.dropdownStyle(context),
                 initialValue: gender,
                 decoration: InputDecoration(labelText: tr.gender),
                 items: [for (final (value, label) in info.genders) DropdownMenuItem(value: value, child: Text(label))],

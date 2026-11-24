@@ -4,6 +4,7 @@ import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/features/friend/models/add_friend.dart';
 import 'package:tsdm_client/features/friend/repository/friend_repository.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/themes/app_themes.dart';
 import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
@@ -121,6 +122,7 @@ class _AddFriendDialogState extends State<AddFriendDialog> {
           if (widget.form.groups.isNotEmpty) ...[
             sizedBoxW8H8,
             DropdownButtonFormField<String>(
+              style: AppTheme.dropdownStyle(context),
               initialValue: gid,
               isExpanded: true,
               borderRadius: BorderRadius.circular(appInnerRadius),

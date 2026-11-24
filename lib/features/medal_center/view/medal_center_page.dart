@@ -16,6 +16,7 @@ import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
+import 'package:tsdm_client/themes/app_themes.dart';
 import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/retry_button.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
@@ -397,6 +398,7 @@ class _MedalCenterPageState extends State<MedalCenterPage> {
           if (catalog?.categories.isNotEmpty ?? false) ...[
             sizedBoxW12H12,
             DropdownButtonFormField<String>(
+              style: AppTheme.dropdownStyle(context),
               key: ValueKey('category-${state.url}|$query'),
               initialValue: selected?.url,
               isExpanded: true,

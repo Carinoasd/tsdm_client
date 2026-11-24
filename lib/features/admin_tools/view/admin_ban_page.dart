@@ -8,6 +8,7 @@ import 'package:tsdm_client/features/admin_tools/widgets/admin_widgets.dart';
 import 'package:tsdm_client/features/medal_title_tools/widgets/common.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/themes/app_themes.dart';
 import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
@@ -301,6 +302,7 @@ class _AdminBanPageState extends State<AdminBanPage> with AdminPageSession {
           if (_timed) ...[
             sizedBoxW12H12,
             DropdownButtonFormField<int>(
+              style: AppTheme.dropdownStyle(context),
               key: const ValueKey('admin-ban-days'),
               initialValue: _days,
               decoration: InputDecoration(border: const OutlineInputBorder(), labelText: tr.banDays),

@@ -198,6 +198,15 @@ class AppTheme {
     );
   }
 
+  /// The text of a [DropdownButton] (and a [DropdownButtonFormField]): the value chosen and the items of its menu,
+  /// regular.
+  ///
+  /// Material takes the medium title (700, see [twoWeights]) for them and there is no theme of the dropdown buttons to
+  /// say otherwise, so every dropdown button of the app passes this as its `style`: the medium title, its size, height
+  /// and color, at 400.
+  static TextStyle? dropdownStyle(BuildContext context) =>
+      Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w400);
+
   /// [base] with the icon axes of the app: weight 400, and grade -25 in the dark theme (light strokes on a dark ground
   /// look heavier; -25 is what Material Symbols advise for dark themes). Only the variable Material Symbols have these
   /// axes; [fill] 1 draws the selected icons of the navigation filled.

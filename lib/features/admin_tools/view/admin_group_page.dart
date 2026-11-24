@@ -7,6 +7,7 @@ import 'package:tsdm_client/features/admin_tools/repository/admin_repository.dar
 import 'package:tsdm_client/features/admin_tools/widgets/admin_widgets.dart';
 import 'package:tsdm_client/features/medal_title_tools/widgets/common.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/themes/app_themes.dart';
 import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
@@ -238,6 +239,7 @@ class _AdminGroupPageState extends State<AdminGroupPage> with AdminPageSession {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           DropdownButtonFormField<int>(
+            style: AppTheme.dropdownStyle(context),
             key: const ValueKey('admin-group-main'),
             initialValue: info.groups.any((g) => g.groupId == draft.groupId) ? draft.groupId : null,
             isExpanded: true,
@@ -258,6 +260,7 @@ class _AdminGroupPageState extends State<AdminGroupPage> with AdminPageSession {
           if (selected?.relatedAdmin ?? false) ...[
             sizedBoxW12H12,
             DropdownButtonFormField<int>(
+              style: AppTheme.dropdownStyle(context),
               key: const ValueKey('admin-group-adminid'),
               initialValue: info.adminIds.contains(draft.adminId) ? draft.adminId : 0,
               decoration: InputDecoration(border: const OutlineInputBorder(), labelText: tr.adminLevel),
@@ -306,6 +309,7 @@ class _AdminGroupPageState extends State<AdminGroupPage> with AdminPageSession {
           if (draft.expiry.isNotEmpty) ...[
             sizedBoxW12H12,
             DropdownButtonFormField<int>(
+              style: AppTheme.dropdownStyle(context),
               key: const ValueKey('admin-group-expgroup'),
               initialValue: info.expGroups.any((g) => g.groupId == draft.expGroupId) ? draft.expGroupId : null,
               isExpanded: true,
@@ -323,6 +327,7 @@ class _AdminGroupPageState extends State<AdminGroupPage> with AdminPageSession {
             if (draft.expGroupId == 0 || expType == 'member') ...[
               sizedBoxW12H12,
               DropdownButtonFormField<int>(
+                style: AppTheme.dropdownStyle(context),
                 key: const ValueKey('admin-group-expadmin'),
                 initialValue: info.adminIds.contains(draft.expAdminId) ? draft.expAdminId : 0,
                 decoration: InputDecoration(border: const OutlineInputBorder(), labelText: tr.expAdmin),

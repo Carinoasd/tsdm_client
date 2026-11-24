@@ -4,6 +4,7 @@ import 'package:tsdm_client/features/root/view/root_page.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/models.dart';
+import 'package:tsdm_client/themes/app_themes.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 
 /// Let the user fill the fields [inputs] of a form of the forum (the activity's application, its cancel), each drawn
@@ -138,6 +139,7 @@ class _SpecialFormDialogState extends State<SpecialFormDialog> {
     switch (input.type) {
       case 'select':
         return DropdownButtonFormField<String>(
+          style: AppTheme.dropdownStyle(context),
           initialValue: _choices[input.name],
           isExpanded: true,
           borderRadius: BorderRadius.circular(appInnerRadius),
