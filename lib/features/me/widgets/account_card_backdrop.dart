@@ -451,8 +451,11 @@ class _BackdropPainter extends CustomPainter {
         final target = accountBackdropSideRect(
           size,
           source.size,
-          // At the right unless the member put it elsewhere.
-          alignX: background.alignX ?? PostBackgroundAlignX.right,
+          // At the right, away from the name, unless the member put it at the left: the form's default (the centre,
+          // always named) would lay the figure under the text.
+          alignX: background.alignX == PostBackgroundAlignX.left
+              ? PostBackgroundAlignX.left
+              : PostBackgroundAlignX.right,
           alignY: alignY,
         );
         canvas.drawImageRect(
