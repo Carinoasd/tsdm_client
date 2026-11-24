@@ -131,41 +131,25 @@ class PinSection extends StatelessWidget {
   /// All pinned thread gathered in groups.
   final List<PinnedThreadGroup> pinnedThreadGroup;
 
-  Widget _buildSection(BuildContext context, double textScaleFactor) {
-    final ret = <Widget>[];
+  /// Widest a column of one group gets before another column is added.
+  static const _maxColumnWidth = 670.0;
 
-    final count = pinnedThreadGroup.length;
+  /// Gap between two columns, and between two rows of groups.
+  static const _columnGap = 32.0;
+  static const _rowGap = 24.0;
 
-    for (var i = 0; i < count; i++) {
-      final sectionName = pinnedThreadGroup[i].title;
+  Widget _buildGroup(BuildContext context, PinnedThreadGroup group) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
       // Flat like the forum guide: the title of the group on the page, a hairline, the rows.
-      ret.add(
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(top: 4, bottom: 12),
-              child: Text(sectionName, style: homeSectionTitleStyle(context)),
-            ),
-            Divider(height: 1, thickness: 1, color: AppSurfaces.of(context).line),
-            PinnedThreadList(pinnedThreadGroup[i]),
-          ],
-        ),
-      );
-    }
-
-    return GridView(
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 670,
-        mainAxisExtent: 700 + math.max(25 * ((textScaleFactor - 1) / 0.1), 0),
-        mainAxisSpacing: 12,
-        crossAxisSpacing: 32,
+      Padding(
+        padding: const EdgeInsets.only(top: 4, bottom: 12),
+        child: Text(group.title, style: homeSectionTitleStyle(context)),
       ),
-      shrinkWrap: true,
-      children: ret,
-    );
-  }
+      Divider(height: 1, thickness: 1, color: AppSurfaces.of(context).line),
+      PinnedThreadList(group),
+    ],
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -174,9 +158,39 @@ class PinSection extends StatelessWidget {
     if (pinnedThreadGroup.isEmpty) {
       return sizedBoxEmpty;
     }
-    // The text scale in effect: the system font size times the app's own scale (appTextScaler).
-    final textScaleFactor = MediaQuery.textScalerOf(context).scale(14) / 14;
-    return _buildSection(context, textScaleFactor);
+    // Groups side by side in rows, each row as tall as its tallest group. The rows used to be cells of a grid of a
+    // fixed height (ten rows of one line): a title on two lines made a group taller than its cell and it was drawn
+    // over the group below.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final columns = width.isFinite
+            ? math.max(1, ((width + _columnGap) / (_maxColumnWidth + _columnGap)).ceil())
+            : 1;
+        final rows = <Widget>[];
+        for (var i = 0; i < pinnedThreadGroup.length; i += columns) {
+          final cells = <Widget>[];
+          for (var j = 0; j < columns; j++) {
+            if (j > 0) {
+              cells.add(const SizedBox(width: _columnGap));
+            }
+            final index = i + j;
+            cells.add(
+              Expanded(
+                child: index < pinnedThreadGroup.length
+                    ? _buildGroup(context, pinnedThreadGroup[index])
+                    : const SizedBox.shrink(),
+              ),
+            );
+          }
+          if (rows.isNotEmpty) {
+            rows.add(const SizedBox(height: _rowGap));
+          }
+          rows.add(Row(crossAxisAlignment: CrossAxisAlignment.start, children: cells));
+        }
+        return Column(mainAxisSize: MainAxisSize.min, children: rows);
+      },
+    );
   }
 }
 

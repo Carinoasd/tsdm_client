@@ -14,6 +14,7 @@ library;
 
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:dio/dio.dart';
@@ -439,6 +440,43 @@ void main() {
       final secondAvatar = tester.getRect(find.byType(HeroUserAvatar).at(2));
       expect(secondAvatar.left, closeTo(secondTitle.left, 0.5));
       expect(secondTitle.left - tester.getRect(find.byType(PinnedThreadList).first).right, greaterThanOrEqualTo(24));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('groups of two-line titles are not drawn over the groups below them', (tester) async {
+      tester.view.physicalSize = const Size(1040, 4000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final images = ImageCacheProvider(NetClientProvider.buildNoCookie(dio: Dio()..httpClientAdapter = _Offline()));
+      getIt.registerSingleton<ImageCacheProvider>(images);
+      addTearDown(images.dispose);
+      const long = '[11.24][转载新闻]《本想报复在老家欺负我的坏孩子，却开启了别场战争。》公开主演声优名单与告知宣传影片与更多更多更多的消息';
+      PinnedThreadGroup tall(String title) =>
+          PinnedThreadGroup(title: title, threadList: [for (var i = 0; i < 10; i++) row(100 + i, '$long $i')]);
+      await tester.pumpWidget(
+        TranslationProvider(
+          child: MaterialApp(
+            home: Scaffold(
+              body: Padding(
+                padding: const EdgeInsets.all(24),
+                child: SingleChildScrollView(
+                  child: PinSection([tall('第一组'), group.copyWith(title: '第二组'), tall('第三组'), tall('第四组')]),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      final lists = find.byType(PinnedThreadList);
+      final firstRowBottom = [tester.getRect(lists.at(0)).bottom, tester.getRect(lists.at(1)).bottom].reduce(math.max);
+      // Ten rows of two lines are taller than the 700 a grid cell used to be.
+      expect(tester.getRect(lists.at(0)).height, greaterThan(700));
+      expect(tester.getRect(find.text('第三组')).top, greaterThanOrEqualTo(firstRowBottom));
+      expect(tester.getRect(find.text('第四组')).top, greaterThanOrEqualTo(firstRowBottom));
+      // Side by side, the two of a row start at the same height.
+      expect(tester.getRect(find.text('第二组')).top, tester.getRect(find.text('第一组')).top);
+      expect(tester.getRect(find.text('第四组')).top, tester.getRect(find.text('第三组')).top);
       expect(tester.takeException(), isNull);
     });
   });
