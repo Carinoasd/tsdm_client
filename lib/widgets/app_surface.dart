@@ -929,30 +929,32 @@ class AppTileGroup extends StatelessWidget {
   /// Height of a one line row of a group.
   static const rowHeight = 52.0;
 
-  /// Where the line above [row] starts: at its text, after the icon when it leads with one (a list tile with a
-  /// leading icon, a switch tile with a secondary icon), else at the start padding.
-  static double dividerIndentOf(BuildContext context, Widget row) {
-    final listTileTheme = ListTileTheme.of(context);
-    final leadsWithIcon = switch (row) {
-      ListTile(:final leading) => leading is Icon,
-      SwitchListTile(:final secondary, :final controlAffinity) =>
-        secondary is Icon && controlAffinity != ListTileControlAffinity.leading,
-      _ => false,
-    };
-    if (!leadsWithIcon) {
+  /// Whether [row] leads with an icon: a list tile with a leading icon, a switch tile with a secondary icon before its
+  /// text. A row built by another widget (a builder) is not known.
+  static bool _leadsWithIcon(Widget row) => switch (row) {
+    ListTile(:final leading) => leading is Icon,
+    SwitchListTile(:final secondary, :final controlAffinity) =>
+      secondary is Icon && controlAffinity != ListTileControlAffinity.leading,
+    _ => false,
+  };
+
+  /// Where the lines between [rows] start: at the text of the rows, after the icon when one of them leads with an icon,
+  /// else at the start padding. One start for the whole group: rows built by a builder (not known to lead with an
+  /// icon) do not get lines of another length than their neighbours.
+  static double dividerIndentOf(BuildContext context, List<Widget> rows) {
+    if (!rows.any(_leadsWithIcon)) {
       return 16;
     }
+    final listTileTheme = ListTileTheme.of(context);
     final iconSize = IconTheme.of(context).size ?? 24;
-    final leadingWidth = iconSize > (listTileTheme.minLeadingWidth ?? 24)
-        ? iconSize
-        : (listTileTheme.minLeadingWidth ?? 24);
-    return 16 + leadingWidth + (listTileTheme.horizontalTitleGap ?? 16);
+    final minLeadingWidth = listTileTheme.minLeadingWidth ?? 24;
+    return 16 + (iconSize > minLeadingWidth ? iconSize : minLeadingWidth) + (listTileTheme.horizontalTitleGap ?? 16);
   }
 
   @override
   Widget build(BuildContext context) {
     final line = AppSurfaces.of(context).line;
-    Widget divider(Widget row) => Divider(height: 1, thickness: 1, indent: dividerIndentOf(context, row), color: line);
+    final divider = Divider(height: 1, thickness: 1, indent: dividerIndentOf(context, children), color: line);
     return AppSurface(
       padding: EdgeInsets.zero,
       child: Column(
@@ -972,7 +974,7 @@ class AppTileGroup extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               mainAxisSize: MainAxisSize.min,
               children: [
-                for (var i = 0; i < children.length; i++) ...[if (i > 0) divider(children[i]), children[i]],
+                for (var i = 0; i < children.length; i++) ...[if (i > 0) divider, children[i]],
               ],
             ),
           ),

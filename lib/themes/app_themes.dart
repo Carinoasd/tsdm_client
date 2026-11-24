@@ -45,9 +45,34 @@ class AppTheme {
       base.cardTheme.copyWith(elevation: 0, color: surfaces.card, shape: appSurfaceShapeOf());
 
   /// Popup menus and dialogs follow the rounded surfaces.
-  static PopupMenuThemeData _buildPopupMenuTheme(ThemeData base, AppSurfaces surfaces) => base.popupMenuTheme.copyWith(
+  ///
+  /// Their items are regular: the large label (700, the buttons) is what Material takes for them.
+  static PopupMenuThemeData _buildPopupMenuTheme(
+    ThemeData base,
+    AppSurfaces surfaces,
+    ColorScheme colorScheme,
+    TextTheme textTheme,
+  ) => base.popupMenuTheme.copyWith(
     color: surfaces.card,
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(appInnerRadius)),
+    textStyle: (base.popupMenuTheme.textStyle ?? textTheme.titleMedium)?.copyWith(fontWeight: FontWeight.w400),
+    labelTextStyle: WidgetStateProperty.resolveWith((states) {
+      final style =
+          base.popupMenuTheme.labelTextStyle?.resolve(states) ??
+          textTheme.labelLarge?.copyWith(
+            color: states.contains(WidgetState.disabled)
+                ? colorScheme.onSurface.withValues(alpha: 0.38)
+                : colorScheme.onSurface,
+          );
+      return style?.copyWith(fontWeight: FontWeight.w400);
+    }),
+  );
+
+  /// Items of the menus of a [MenuAnchor] (the menu bar, context menus) are regular, as those of the popup menus.
+  static MenuButtonThemeData _buildMenuButtonTheme(ThemeData base, TextTheme textTheme) => MenuButtonThemeData(
+    style: (base.menuButtonTheme.style ?? const ButtonStyle()).copyWith(
+      textStyle: WidgetStatePropertyAll(textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w400)),
+    ),
   );
 
   /// Dialogs and bottom sheets are on the card layer: the blocks in them (inset, control) stand apart as they do in a
@@ -105,7 +130,8 @@ class AppTheme {
       navigationDrawerTheme: _buildNavigationDrawerTheme(colorScheme, textTheme, dark: dark),
       tabBarTheme: _buildTabBarTheme(textTheme),
       progressIndicatorTheme: _buildProcessIndicatorTheme(),
-      popupMenuTheme: _buildPopupMenuTheme(base, surfaces),
+      popupMenuTheme: _buildPopupMenuTheme(base, surfaces, colorScheme, textTheme),
+      menuButtonTheme: _buildMenuButtonTheme(base, textTheme),
       dialogTheme: _buildDialogTheme(base, surfaces),
       bottomSheetTheme: _buildBottomSheetTheme(base, surfaces),
     );

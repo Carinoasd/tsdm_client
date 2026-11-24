@@ -162,6 +162,44 @@ void main() {
         expect(_paintedStyle(tester, 'on').color, scheme.onSecondaryContainer);
       });
 
+      testWidgets('menu items are regular: popup menus and menus of a menu anchor', (tester) async {
+        final theme = _theme(dark: dark);
+        await tester.pumpWidget(
+          _app(
+            theme,
+            Scaffold(
+              body: Column(
+                children: [
+                  PopupMenuButton<int>(
+                    itemBuilder: (_) => const [
+                      PopupMenuItem(value: 1, child: Text('popup item')),
+                      PopupMenuItem(enabled: false, value: 2, child: Text('popup disabled')),
+                    ],
+                  ),
+                  MenuAnchor(
+                    menuChildren: [MenuItemButton(onPressed: () {}, child: const Text('menu item'))],
+                    builder: (context, controller, _) =>
+                        TextButton(onPressed: controller.open, child: const Text('open menu')),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+        await tester.tap(find.byType(PopupMenuButton<int>));
+        await tester.pumpAndSettle();
+        expect(_paintedStyle(tester, 'popup item').fontWeight, FontWeight.w400);
+        expect(_paintedStyle(tester, 'popup item').color, theme.colorScheme.onSurface);
+        expect(_paintedStyle(tester, 'popup disabled').fontWeight, FontWeight.w400);
+        await tester.tapAt(Offset.zero);
+        await tester.pumpAndSettle();
+        // Buttons stay bold.
+        expect(_paintedStyle(tester, 'open menu').fontWeight, FontWeight.w700);
+        await tester.tap(find.text('open menu'));
+        await tester.pumpAndSettle();
+        expect(_paintedStyle(tester, 'menu item').fontWeight, FontWeight.w400);
+      });
+
       testWidgets('navigation bar: the selected destination on the primary container, filled, bold', (tester) async {
         final theme = _theme(dark: dark);
         await tester.pumpWidget(
@@ -245,6 +283,23 @@ void main() {
         expect(selected.fill, 1);
       });
 
+      testWidgets('settings group without icons: the lines start at the start padding', (tester) async {
+        await tester.pumpWidget(
+          _app(
+            _theme(dark: dark),
+            const Scaffold(
+              body: AppTileGroup(
+                children: [
+                  SectionListTile(title: Text('a')),
+                  SectionListTile(title: Text('b')),
+                ],
+              ),
+            ),
+          ),
+        );
+        expect(tester.widget<Divider>(find.byType(Divider)).indent, 16);
+      });
+
       testWidgets('settings group: rows 52 high, lines from the text, corners 20', (tester) async {
         final theme = _theme(dark: dark);
         await tester.pumpWidget(
@@ -277,8 +332,8 @@ void main() {
         final textStart = tester.getTopLeft(find.text('b')).dx;
         expect(dividers[0].indent, textStart);
         expect(dividers[0].color, AppSurfaces.ofTheme(theme).line);
-        // Above a row without an icon: the start padding.
-        expect(dividers[1].indent, 16);
+        // One start for the group: a row without an icon (or built by a builder) gets the same line.
+        expect(dividers[1].indent, textStart);
 
         final card = tester.widget<Card>(find.byType(Card));
         expect(card.shape, isA<RoundedRectangleBorder>());
