@@ -50,7 +50,7 @@ final class BroadcastMessageDetailPage extends StatelessWidget {
                       children: [
                         SingleLineText(
                           context.t.noticePage.broadcastMessageTab.system,
-                          style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+                          style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
                         ),
                         if (state.dateTime != null)
                           Text(

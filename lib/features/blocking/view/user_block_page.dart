@@ -430,7 +430,7 @@ class _BlockRow extends StatelessWidget {
     final text = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+        Text(title, style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
         Text(subtitle, style: textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant)),
       ],
     );

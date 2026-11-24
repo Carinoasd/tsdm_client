@@ -51,7 +51,7 @@ class HomeGuestCard extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: textTheme.labelMedium?.copyWith(
                   color: colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w400,
                 ),
               ),
             ),

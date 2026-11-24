@@ -106,7 +106,7 @@ class FavoriteCard extends StatelessWidget {
                     // A thread read before is dimmed, as in the thread lists.
                     style: visitedTitleStyle(
                       context,
-                      theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                      theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
                       visited: switch (item) {
                         FavoriteThread(:final tid) => visitMarkOf(context, tid) != null,
                         FavoriteForum() => false,

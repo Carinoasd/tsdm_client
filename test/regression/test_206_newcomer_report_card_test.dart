@@ -374,8 +374,8 @@ void main() {
       );
       final spans = cellSpans(tester);
       expect(spans.map((e) => e.text!.trim()), ['名称', '值一', '类型', '值二', '甲', '乙']);
-      expect(spans.firstWhere((e) => e.text == '名称').style?.fontWeight, FontWeight.w600);
-      expect(spans.firstWhere((e) => e.text == '值一').style?.fontWeight, isNot(FontWeight.w600));
+      expect(spans.firstWhere((e) => e.text == '名称').style?.fontWeight, FontWeight.w700);
+      expect(spans.firstWhere((e) => e.text == '值一').style?.fontWeight, isNot(FontWeight.w700));
       expect(tester.takeException(), isNull);
     });
 

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:tsdm_client/constants/constants.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
@@ -15,7 +16,6 @@ import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/page_stack.dart';
 import 'package:tsdm_client/themes/app_surfaces.dart';
-import 'package:tsdm_client/widgets/app_surface.dart';
 
 part 'animated_branch_page_view.dart';
 part 'home_navigation_bar.dart';
@@ -23,14 +23,12 @@ part 'home_navigation_drawer.dart';
 part 'home_navigation_rail.dart';
 part 'home_tab_tap.dart';
 
-/// Indicator of the selected destination in the bottom bar, the rail and the drawer: the inner radius of the app
-/// surfaces instead of the default pill.
-const _navigationIndicatorShape = RoundedRectangleBorder(
-  borderRadius: BorderRadius.all(Radius.circular(appInnerRadius)),
-);
+/// Indicator of the selected destination in the bottom bar, the rail and the drawer: a pill (its color, the primary
+/// container, comes from the theme).
+const _navigationIndicatorShape = StadiumBorder();
 
-/// Hairline between the navigation and the content, the border color of the app surfaces.
-Color _navigationHairline(ColorScheme colorScheme) => colorScheme.outlineVariant.withValues(alpha: 0.6);
+/// Hairline between the navigation and the content, the line of the app surfaces.
+Color _navigationHairline(BuildContext context) => AppSurfaces.of(context).line;
 
 /// Divider between the side navigation (rail or drawer) and the content.
 class HomeNavigationDivider extends StatelessWidget {
@@ -38,8 +36,7 @@ class HomeNavigationDivider extends StatelessWidget {
   const HomeNavigationDivider({super.key});
 
   @override
-  Widget build(BuildContext context) =>
-      VerticalDivider(width: 1, thickness: 1, color: _navigationHairline(Theme.of(context).colorScheme));
+  Widget build(BuildContext context) => VerticalDivider(width: 1, thickness: 1, color: _navigationHairline(context));
 }
 
 /// Destination of the app navigation: a tab of the home shell.
@@ -56,14 +53,10 @@ final class _NavigationItem {
     this.unreadNoticeBadge = false,
   });
 
-  /// Item icon.
-  ///
-  /// Use outline style icons.
+  /// Item icon: a rounded Material Symbol.
   final Icon icon;
 
-  /// Item icon when selected.
-  ///
-  /// Use normal style icons.
+  /// Item icon when selected: the same symbol, filled.
   final Icon selectedIcon;
 
   /// Name of the item.
@@ -84,27 +77,27 @@ List<_NavigationItem> _buildNavigationItems(BuildContext context) {
   final tr = context.t.navigation;
   return [
     _NavigationItem(
-      icon: const Icon(Icons.home_outlined),
-      selectedIcon: const Icon(Icons.home),
+      icon: const Icon(Symbols.home_rounded),
+      selectedIcon: const Icon(Symbols.home_rounded, fill: 1),
       label: tr.homepage,
       tab: HomeTab.home,
     ),
     _NavigationItem(
-      icon: const Icon(Icons.topic_outlined),
-      selectedIcon: const Icon(Icons.topic),
+      icon: const Icon(Symbols.topic_rounded),
+      selectedIcon: const Icon(Symbols.topic_rounded, fill: 1),
       label: tr.topics,
       tab: HomeTab.topic,
     ),
     _NavigationItem(
-      icon: const Icon(Icons.notifications_outlined),
-      selectedIcon: const Icon(Icons.notifications),
+      icon: const Icon(Symbols.notifications_rounded),
+      selectedIcon: const Icon(Symbols.notifications_rounded, fill: 1),
       label: tr.notice,
       tab: HomeTab.notice,
       unreadNoticeBadge: true,
     ),
     _NavigationItem(
-      icon: const Icon(Icons.person_outline),
-      selectedIcon: const Icon(Icons.person),
+      icon: const Icon(Symbols.person_rounded),
+      selectedIcon: const Icon(Symbols.person_rounded, fill: 1),
       label: tr.me,
       tab: HomeTab.me,
     ),

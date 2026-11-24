@@ -13,6 +13,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fpdart/fpdart.dart';
@@ -940,7 +941,7 @@ void main() {
       await pumpRail(tester, const Size(915, 412));
       expect(tester.takeException(), isNull);
       expect(logo, findsOneWidget);
-      final me = find.byIcon(Icons.person_outline);
+      final me = find.byIcon(Symbols.person_rounded);
       await tester.dragUntilVisible(me, find.byType(HomeNavigationRail), const Offset(0, -80));
       await tester.pumpAndSettle();
       await tester.tap(me);

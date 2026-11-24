@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -234,6 +235,14 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
 
   /// The list of floors, asked whether it shows the thread from its start ("back to top").
   final _postListKey = GlobalKey<PostListState>();
+
+  /// The title area heading the floors ([ThreadTitleHeader]), watched to show the title in the app bar once it is
+  /// scrolled away.
+  final GlobalKey _titleHeaderKey = GlobalKey();
+
+  /// Whether the app bar shows the title: not while the title area heading the floors is on screen (the title is
+  /// right there), faded in once it is scrolled past. Shown whenever that area is not laid out (loading, failure).
+  final ValueNotifier<bool> _appBarTitleShown = ValueNotifier(true);
 
   /// Where the reading of this thread stopped last time, offered to go on with ("continue" banner) while the list is
   /// near the start; null when there is nothing to offer, or once taken or dismissed.
@@ -1237,7 +1246,39 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
   /// ([AppBarCollapser.enabled] is false then, set in the build); immersive reading, the bars stay hidden
   /// ([AppBarCollapser.held]); else the bar follows the list. The two never hold at once: opening the search ends
   /// immersive reading ([_openSearch]) and refuses it while it lasts ([_setImmersive]).
+  /// Show the title in the app bar when the title area heading the floors is scrolled past (its end above the top of
+  /// the list), or not laid out at all; hide it while that area is on screen.
+  ///
+  /// Measured from the layout, not from the scroll offset: the floors are laid out around the place the thread opened
+  /// at (opened at a later floor, the title area starts above the screen), so no offset tells where the title is.
+  void _updateAppBarTitle() {
+    final box = _titleHeaderKey.currentContext?.findRenderObject();
+    final viewport = box is RenderBox && box.attached && box.hasSize ? RenderAbstractViewport.maybeOf(box) : null;
+    final position = box == null ? null : Scrollable.maybeOf(_titleHeaderKey.currentContext!)?.position;
+    final bool shown;
+    if (viewport == null || position == null || !position.hasPixels) {
+      shown = true;
+    } else {
+      final start = viewport.getOffsetToReveal(box!, 0).offset;
+      shown = position.pixels >= start + (box as RenderBox).size.height;
+    }
+    if (shown == _appBarTitleShown.value) {
+      return;
+    }
+    // Scroll notifications also come in the middle of a layout (a position corrected): the bar rebuilds after it.
+    if (SchedulerBinding.instance.schedulerPhase == SchedulerPhase.persistentCallbacks) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _appBarTitleShown.value = shown;
+      });
+    } else {
+      _appBarTitleShown.value = shown;
+    }
+  }
+
   bool _onScrollNotification(ScrollNotification notification) {
+    if (notification is ScrollUpdateNotification || notification is ScrollEndNotification) {
+      _updateAppBarTitle();
+    }
     if (notification is UserScrollNotification &&
         notification.direction != ScrollDirection.idle &&
         notification.metrics.axis == Axis.vertical) {
@@ -2040,123 +2081,131 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
               child: PostLineWidth(
                 child: MunchCacheScope(
                   cache: _munchCache,
-                  child: NotificationListener<ScrollNotification>(
-                    onNotification: _onScrollNotification,
-                    child: Stack(
-                      children: [
-                        ThreadReadingGestures(
-                          onTap: _toggleImmersive,
-                          onSwipe: swipePaging ? _swipePage : null,
-                          child: PostList(
-                            key: _postListKey,
-                            threadID: state.tid ?? widget.threadID,
-                            title: state.title ?? widget.title,
-                            header: Builder(
-                              builder: (context) => ThreadTitleHeader(
-                                state: state,
-                                title: state.title ?? widget.title ?? '',
-                                replied: isThreadReplied(context, state.tid ?? widget.threadID),
-                                onTapId: () async => showCopyThreadInfoDialog(
-                                  context: context,
-                                  tid: state.tid ?? widget.threadID,
-                                  title: state.title ?? widget.title,
+                  child: NotificationListener<ScrollMetricsNotification>(
+                    onNotification: (_) {
+                      _updateAppBarTitle();
+                      return false;
+                    },
+                    child: NotificationListener<ScrollNotification>(
+                      onNotification: _onScrollNotification,
+                      child: Stack(
+                        children: [
+                          ThreadReadingGestures(
+                            onTap: _toggleImmersive,
+                            onSwipe: swipePaging ? _swipePage : null,
+                            child: PostList(
+                              key: _postListKey,
+                              threadID: state.tid ?? widget.threadID,
+                              title: state.title ?? widget.title,
+                              header: Builder(
+                                key: _titleHeaderKey,
+                                builder: (context) => ThreadTitleHeader(
+                                  state: state,
+                                  title: state.title ?? widget.title ?? '',
+                                  replied: isThreadReplied(context, state.tid ?? widget.threadID),
+                                  onTapId: () async => showCopyThreadInfoDialog(
+                                    context: context,
+                                    tid: state.tid ?? widget.threadID,
+                                    title: state.title ?? widget.title,
+                                  ),
                                 ),
                               ),
-                            ),
-                            pageNumber: context.read<JumpPageCubit>().state.currentPage,
-                            initialPostID: (_scrollToPidOnReload ?? state.scrollTargetPid ?? widget.findPostID)
-                                ?.parseToInt(),
-                            scrollController: _listScrollController,
-                            // Posts of locally blocked users become placeholders in place, the floors keep their
-                            // positions.
-                            widgetBuilder: (context, post) => BlockAwarePost(
-                              post: post,
-                              postList: state.postList,
-                              builder: (context, post) {
-                                final management = _floorActions(state, post);
-                                return _markSearchHit(
-                                  context,
-                                  post,
-                                  searchHits,
-                                  _markSpeaking(
+                              pageNumber: context.read<JumpPageCubit>().state.currentPage,
+                              initialPostID: (_scrollToPidOnReload ?? state.scrollTargetPid ?? widget.findPostID)
+                                  ?.parseToInt(),
+                              scrollController: _listScrollController,
+                              // Posts of locally blocked users become placeholders in place, the floors keep their
+                              // positions.
+                              widgetBuilder: (context, post) => BlockAwarePost(
+                                post: post,
+                                postList: state.postList,
+                                builder: (context, post) {
+                                  final management = _floorActions(state, post);
+                                  return _markSearchHit(
                                     context,
                                     post,
-                                    PostCard(
-                                      // A page that tells the warned floors itself needs no memory of them.
-                                      state.perms == null ? _asWarnedByMe(post) : post,
-                                      replyCallback: replyPostCallback,
-                                      multiQuote: state.replyParameters == null || state.threadClosed || state.isOffline
-                                          ? null
-                                          : _multiQuote,
-                                      onEdited: () => _scrollToPidOnReload = post.postID,
-                                      onJoinDebate: state.replyParameters == null || state.threadClosed
-                                          ? null
-                                          : _joinDebate,
-                                      onModerate: management.offered
-                                          ? (action) => _moderateFloor(context, state, post, action)
-                                          : null,
-                                      moderateActions: management.actions,
-                                      canRemoveRate: management.removeRate,
-                                      // Not the account's own floors: the forum never lets staff ban themselves.
-                                      // Where the page tells the account's permissions, only with the one to ban.
-                                      onBanAuthor:
-                                          post.banAuthorUid != null &&
-                                              post.banAuthorUid != state.floorsUid &&
-                                              (state.perms?.allowBanUser ?? true) &&
-                                              !state.isOffline &&
-                                              state.fid != null
-                                          ? () => _banAuthor(context, state, post)
-                                          : null,
+                                    searchHits,
+                                    _markSpeaking(
+                                      context,
+                                      post,
+                                      PostCard(
+                                        // A page that tells the warned floors itself needs no memory of them.
+                                        state.perms == null ? _asWarnedByMe(post) : post,
+                                        replyCallback: replyPostCallback,
+                                        multiQuote:
+                                            state.replyParameters == null || state.threadClosed || state.isOffline
+                                            ? null
+                                            : _multiQuote,
+                                        onEdited: () => _scrollToPidOnReload = post.postID,
+                                        onJoinDebate: state.replyParameters == null || state.threadClosed
+                                            ? null
+                                            : _joinDebate,
+                                        onModerate: management.offered
+                                            ? (action) => _moderateFloor(context, state, post, action)
+                                            : null,
+                                        moderateActions: management.actions,
+                                        canRemoveRate: management.removeRate,
+                                        // Not the account's own floors: the forum never lets staff ban themselves.
+                                        // Where the page tells the account's permissions, only with the one to ban.
+                                        onBanAuthor:
+                                            post.banAuthorUid != null &&
+                                                post.banAuthorUid != state.floorsUid &&
+                                                (state.perms?.allowBanUser ?? true) &&
+                                                !state.isOffline &&
+                                                state.fid != null
+                                            ? () => _banAuthor(context, state, post)
+                                            : null,
+                                      ),
                                     ),
-                                  ),
-                                );
-                              },
-                            ),
-                            useDivider: true,
-                            postList: state.postList,
-                            canLoadMore: state.canLoadMore,
-                            latestModAct: state.latestModAct,
-                            generation: state.generation,
-                            firstPage: state.firstPage,
-                            lastPage: state.currentPage,
-                            nextStatus: state.nextStatus,
-                            previousStatus: state.previousStatus,
-                            scrollTargetPid: state.scrollTargetPid,
-                            scrollTargetSerial: state.scrollTargetSerial,
-                            onTopFloorChanged: _onTopFloorChanged,
-                            newestFirst: state.shownNewestFirst,
-                            endOfThread: ThreadEndCard(
-                              floors: _floorCountOf(state),
-                              status: state.nextStatus,
+                                  );
+                                },
+                              ),
+                              useDivider: true,
+                              postList: state.postList,
+                              canLoadMore: state.canLoadMore,
+                              latestModAct: state.latestModAct,
+                              generation: state.generation,
+                              firstPage: state.firstPage,
+                              lastPage: state.currentPage,
+                              nextStatus: state.nextStatus,
+                              previousStatus: state.previousStatus,
+                              scrollTargetPid: state.scrollTargetPid,
+                              scrollTargetSerial: state.scrollTargetSerial,
+                              onTopFloorChanged: _onTopFloorChanged,
                               newestFirst: state.shownNewestFirst,
-                              onReply: state.replyParameters == null || state.threadClosed || state.isOffline
-                                  ? null
-                                  : _replyToThread,
-                              // Newest floors first, the new replies are at the top: pulled down there.
-                              onLoadNewReplies: state.shownNewestFirst || state.isOffline
-                                  ? null
-                                  : () => context.read<ThreadBloc>().add(const ThreadLoadNewRepliesRequested()),
-                            ),
-                          ),
-                        ),
-                        // Not for one author's floors: the reading position is the whole thread's.
-                        if (_resumeOffer case final offer? when state.onlyVisibleUid == null)
-                          Positioned(
-                            left: 12,
-                            right: 12,
-                            bottom: 12,
-                            child: Center(
-                              child: ConstrainedBox(
-                                constraints: const BoxConstraints(maxWidth: 560),
-                                child: _ResumeBanner(
-                                  floor: offer.floor ?? 1,
-                                  onResume: _resume,
-                                  onClose: () => setState(() => _resumeOffer = null),
-                                ),
+                              endOfThread: ThreadEndCard(
+                                floors: _floorCountOf(state),
+                                status: state.nextStatus,
+                                newestFirst: state.shownNewestFirst,
+                                onReply: state.replyParameters == null || state.threadClosed || state.isOffline
+                                    ? null
+                                    : _replyToThread,
+                                // Newest floors first, the new replies are at the top: pulled down there.
+                                onLoadNewReplies: state.shownNewestFirst || state.isOffline
+                                    ? null
+                                    : () => context.read<ThreadBloc>().add(const ThreadLoadNewRepliesRequested()),
                               ),
                             ),
                           ),
-                      ],
+                          // Not for one author's floors: the reading position is the whole thread's.
+                          if (_resumeOffer case final offer? when state.onlyVisibleUid == null)
+                            Positioned(
+                              left: 12,
+                              right: 12,
+                              bottom: 12,
+                              child: Center(
+                                child: ConstrainedBox(
+                                  constraints: const BoxConstraints(maxWidth: 560),
+                                  child: _ResumeBanner(
+                                    floor: offer.floor ?? 1,
+                                    onResume: _resume,
+                                    onClose: () => setState(() => _resumeOffer = null),
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -2398,6 +2447,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
     _tts?.dispose();
     _speakingPid.dispose();
     _listScrollController.dispose();
+    _appBarTitleShown.dispose();
     _appBarController.dispose();
     _bottomBarController.dispose();
     _searchDebounce?.cancel();
@@ -2604,6 +2654,10 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
             }
 
             final title = widget.title ?? state.title;
+            // The title area may have come, gone or moved with this build (loaded, other floors above it).
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) _updateAppBarTitle();
+            });
             // The tab of the detail pane shows it.
             _paneThread?.reportTitle(title);
             // Reset jump page state when every build.
@@ -2653,6 +2707,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
                     leading: pane != null && pane.threads.length > 1 ? BackButton(onPressed: pane.pop) : null,
                     automaticallyImplyLeading: pane == null,
                     title: title,
+                    titleShown: _appBarTitleShown,
                     showReverseOrderAction: true,
                     onJumpPage: (pageNumber) async {
                       if (!mounted) {

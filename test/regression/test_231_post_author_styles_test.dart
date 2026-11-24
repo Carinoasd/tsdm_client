@@ -148,9 +148,9 @@ void main() {
       );
       final red = _style(tester, '红粗斜');
       expect(red.color, const Color(0xFFFF0000));
-      expect(red.fontWeight, FontWeight.w600);
+      expect(red.fontWeight, FontWeight.w700);
       expect(red.fontStyle, FontStyle.italic);
-      expect(_style(tester, '不粗').fontWeight, isNot(FontWeight.w600), reason: 'the author unbolds what <b> bolds');
+      expect(_style(tester, '不粗').fontWeight, isNot(FontWeight.w700), reason: 'the author unbolds what <b> bolds');
       expect(_style(tester, '底线').decoration, TextDecoration.underline);
       expect(_style(tester, '删除').decoration, TextDecoration.lineThrough);
       expect(_style(tester, '绿胜过蓝').color, const Color(0xFF00FF00), reason: 'the style over the attribute');
@@ -198,7 +198,7 @@ void main() {
         '<span style="color: notacolor; font-size: big; text-shadow: 1px; font-weight: 700;; ;:x">还在</span>',
       );
       final style = _style(tester, '还在');
-      expect(style.fontWeight, FontWeight.w600);
+      expect(style.fontWeight, FontWeight.w700);
       expect(style.fontSize, 14 * _k);
       expect(style.shadows, isNull);
     });
@@ -321,7 +321,7 @@ void main() {
         '<span class="xg1">灰字<a href="forum.php?mod=viewthread&amp;tid=1">灰链</a></span>',
       );
       expect(_style(tester, '橙红').color, const Color(0xFFF26C4F));
-      expect(_style(tester, '加粗').fontWeight, FontWeight.w600);
+      expect(_style(tester, '加粗').fontWeight, FontWeight.w700);
       expect(_style(tester, '小字').fontSize, 12 * _k);
       expect(_style(tester, '灰字').color, const Color(0xFF999999));
       expect(_style(tester, '灰链').color, const Color(0xFF999999));
@@ -426,7 +426,7 @@ void main() {
       for (final text in ['不支持', '五层', '属性']) {
         expect(_style(tester, text).color, isNot(const Color(0xFFFF0000)), reason: text);
       }
-      expect(_style(tester, '列表里认得的').fontWeight, FontWeight.w600);
+      expect(_style(tester, '列表里认得的').fontWeight, FontWeight.w700);
     });
 
     testWidgets('a broken or huge style sheet does not take the floor with it, nor its time', (tester) async {

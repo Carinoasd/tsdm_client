@@ -568,7 +568,7 @@ final class _SpanBuilder {
       color: color,
       height: typography?.lineHeight,
       letterSpacing: typography == null ? null : 0,
-      fontWeight: style.bold ? FontWeight.w600 : null,
+      fontWeight: style.bold ? FontWeight.w700 : null,
       fontSize: size.isValid
           ? size.value() * bodySize / webPostFontSize
           : (typography == null ? null : bodySize * (_quoteDepth > 0 ? quoteFontScale : 1)),

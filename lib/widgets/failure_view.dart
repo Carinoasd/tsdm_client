@@ -268,7 +268,7 @@ class _FailureViewState extends State<FailureView> {
           Text(
             title,
             textAlign: TextAlign.center,
-            style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+            style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
           ),
           if (hint != null) ...[
             sizedBoxW8H8,

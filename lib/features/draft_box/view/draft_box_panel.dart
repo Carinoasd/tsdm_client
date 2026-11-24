@@ -122,7 +122,7 @@ class _DraftBoxPanelState extends State<DraftBoxPanel> {
                                 entry.title,
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
-                                style: textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
+                                style: textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w700),
                               ),
                               if (entry.forumName.isNotEmpty) ...[
                                 sizedBoxW4H4,

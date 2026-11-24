@@ -1160,6 +1160,42 @@ void main() {
       await _unpump(tester);
     });
 
+    /// Opacity of the title in the app bar (the second design, item 13 of `tokens-v2.md` section 9).
+    double appBarTitleOpacity(WidgetTester tester) => tester
+        .widget<AnimatedOpacity>(find.descendant(of: find.byType(AppBar), matching: find.byType(AnimatedOpacity)))
+        .opacity;
+
+    testWidgets('the title shows in the app bar only once the title area is scrolled past', (tester) async {
+      await tester.runAsync(() => settings.setValue(SettingsKeys.collapseAppBarWhenScroll, false));
+      forum.answer = (r) => _html(_threadPage([for (var i = 1; i <= 10; i++) i]));
+      await _pumpThread(tester, app);
+      // The title heads the floors: not twice on screen.
+      expect(find.byType(ThreadTitleHeader), findsOneWidget);
+      expect(appBarTitleOpacity(tester), 0);
+      final header = tester.getSize(find.byType(ThreadTitleHeader)).height;
+      // Not yet past it.
+      await tester.drag(find.byType(PostList), Offset(0, -(header / 2)));
+      await tester.pumpAndSettle();
+      expect(appBarTitleOpacity(tester), 0);
+      // Past it: faded in.
+      await tester.drag(find.byType(PostList), const Offset(0, -400));
+      await tester.pumpAndSettle();
+      expect(appBarTitleOpacity(tester), 1);
+      // Back to the top: out again.
+      await tester.drag(find.byType(PostList), const Offset(0, 2000));
+      await tester.pumpAndSettle();
+      expect(appBarTitleOpacity(tester), 0);
+      await _unpump(tester);
+    });
+
+    testWidgets('opened at the last floor, away from the title area: the title is in the app bar', (tester) async {
+      await tester.runAsync(() => settings.setValue(SettingsKeys.collapseAppBarWhenScroll, false));
+      forum.answer = (r) => _html(_threadPage([for (var i = 1; i <= 10; i++) i]));
+      await _pumpThread(tester, app, lastPost: true);
+      expect(appBarTitleOpacity(tester), 1);
+      await _unpump(tester);
+    });
+
     testWidgets('stays with the setting off', (tester) async {
       await tester.runAsync(() => settings.setValue(SettingsKeys.collapseAppBarWhenScroll, false));
       forum.answer = (r) => _html(_threadPage([for (var i = 1; i <= 10; i++) i]));

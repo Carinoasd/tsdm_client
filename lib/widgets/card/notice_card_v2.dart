@@ -745,7 +745,7 @@ class _NotificationCardShell extends StatelessWidget {
                   children: [
                     DefaultTextStyle.merge(
                       style: textTheme.titleSmall?.copyWith(
-                        fontWeight: highlight ? FontWeight.bold : FontWeight.w600,
+                        fontWeight: highlight ? FontWeight.w700 : FontWeight.w400,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
