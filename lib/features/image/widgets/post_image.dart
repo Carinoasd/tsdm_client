@@ -15,6 +15,7 @@ import 'package:tsdm_client/shared/models/data_saver_mode.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/models/post_image_auto_load.dart';
 import 'package:tsdm_client/shared/providers/image_cache_provider/image_cache_provider.dart';
+import 'package:tsdm_client/themes/app_surfaces.dart';
 import 'package:tsdm_client/utils/network_usage.dart';
 import 'package:tsdm_client/utils/platform.dart';
 import 'package:tsdm_client/utils/show_bottom_sheet.dart';
@@ -549,7 +550,7 @@ class _ImageLoading extends StatelessWidget {
     final progress = this.progress;
     final Widget content;
     if (progress == null) {
-      content = Icon(Icons.image_outlined, size: 32, color: colorScheme.outlineVariant);
+      content = Icon(Icons.image_outlined, size: 32, color: AppSurfaces.of(context).lineStrong);
     } else {
       final total = progress.expectedTotalBytes;
       final value = total != null && total > 0 ? (progress.cumulativeBytesLoaded / total).clamp(0.0, 1.0) : null;

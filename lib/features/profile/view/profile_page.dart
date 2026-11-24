@@ -43,6 +43,7 @@ import 'package:tsdm_client/features/space/widgets/space_social_widgets.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/shared/models/medal.dart';
+import 'package:tsdm_client/themes/app_surfaces.dart';
 import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/utils/clipboard.dart';
 import 'package:tsdm_client/utils/html/adaptive_color.dart';
@@ -554,7 +555,7 @@ class _ProfilePageState extends State<ProfilePage> {
     final Widget avatar = DecoratedBox(
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        border: Border.all(color: colorScheme.surfaceContainerLowest, width: 3),
+        border: Border.all(color: AppSurfaces.of(context).page, width: 3),
         boxShadow: [BoxShadow(color: colorScheme.shadow.withValues(alpha: 0.12), blurRadius: 8)],
       ),
       child: HeroUserAvatar(
@@ -577,8 +578,8 @@ class _ProfilePageState extends State<ProfilePage> {
             foregroundDecoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  colorScheme.surfaceContainerLowest.withValues(alpha: 0.6),
-                  colorScheme.surfaceContainerLowest,
+                  AppSurfaces.of(context).page.withValues(alpha: 0.6),
+                  AppSurfaces.of(context).page,
                 ],
                 begin: .topCenter,
                 end: .bottomCenter,
@@ -589,7 +590,7 @@ class _ProfilePageState extends State<ProfilePage> {
         : DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [colorScheme.primaryContainer, colorScheme.surfaceContainerLowest],
+                colors: [colorScheme.primaryContainer, AppSurfaces.of(context).page],
                 begin: .topCenter,
                 end: .bottomCenter,
                 stops: const [0.0, 0.7],
@@ -607,7 +608,7 @@ class _ProfilePageState extends State<ProfilePage> {
           left: 0,
           right: 0,
           child: ColoredBox(
-            color: colorScheme.surfaceContainerLowest,
+            color: AppSurfaces.of(context).page,
             // Add 4 here because the avatar row (Positioned() below) has 4 padding at bottom.
             child: const SizedBox(height: _appBarAvatarHeight / 2 + 4),
           ),

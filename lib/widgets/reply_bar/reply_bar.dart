@@ -544,7 +544,7 @@ class _ReplyBarWrapperState extends State<ReplyBar> {
           decoration: InputDecoration(
             isDense: true,
             filled: true,
-            fillColor: AppSurfaces.of(context).control,
+            fillColor: AppSurfaces.of(context).inset,
             hintText: hintText,
             prefixIcon: Icon(
               onTapCallback == null ? Icons.lock_outline : Icons.edit_outlined,

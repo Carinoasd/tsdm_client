@@ -7,6 +7,7 @@ import 'package:tsdm_client/features/moderate/repository/modcp_repository.dart';
 import 'package:tsdm_client/features/moderate/view/moderator_panel_page.dart';
 import 'package:tsdm_client/features/moderate/widgets/moderate_panel_login.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
+import 'package:tsdm_client/themes/app_surfaces.dart';
 import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/custom_alert_dialog.dart';
@@ -170,7 +171,7 @@ class ModcpPickBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Material(
-    color: Theme.of(context).colorScheme.surfaceContainer,
+    color: AppSurfaces.of(context).bar,
     child: SafeArea(
       top: false,
       child: Padding(

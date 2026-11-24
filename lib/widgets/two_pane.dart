@@ -722,9 +722,8 @@ class _TwoPaneTabStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     return Material(
-      color: colorScheme.surfaceContainer,
+      color: AppSurfaces.of(context).bar,
       child: SafeArea(
         bottom: false,
         left: false,
@@ -919,11 +918,10 @@ class TwoPaneEmptyDetail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
       body: Center(
         child: ExcludeSemantics(
-          child: Icon(Icons.article_outlined, size: 72, color: colorScheme.outlineVariant),
+          child: Icon(Icons.article_outlined, size: 72, color: AppSurfaces.of(context).lineStrong),
         ),
       ),
     );

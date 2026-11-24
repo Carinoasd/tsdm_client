@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:tsdm_client/constants/constants.dart';
+import 'package:tsdm_client/themes/app_surfaces.dart';
 
 /// Default picture.
 ///
@@ -25,7 +26,7 @@ class FallbackPicture extends StatelessWidget {
       constraints: const BoxConstraints(maxWidth: 64, maxHeight: 64),
       child: Image.asset(
         assetsLogoPngPath,
-        color: Theme.of(context).colorScheme.outlineVariant,
+        color: AppSurfaces.of(context).lineStrong,
         fit: fit,
         width: width,
         height: height,
