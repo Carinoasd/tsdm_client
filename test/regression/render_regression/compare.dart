@@ -46,6 +46,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/painting.dart';
 import 'package:tsdm_client/utils/html/author_style.dart';
+import 'package:tsdm_client/utils/html/post_typography.dart';
 
 /// An image, a rule and a player in the sequence of characters compared.
 const imageChar = 0xE000;
@@ -58,7 +59,7 @@ final _quoteSource = RegExp(r'blockquote>font>a(>|$)');
 /// The text and link colors of the app's light theme, and its body text size: not colors an author gave.
 const _appDefaultColor = '#191c20';
 const _appLinkColor = '#37618e';
-const _appDefaultFontSize = 14.0;
+const _appDefaultFontSize = postBodyFontSize;
 
 /// The forum's link color (`.t_f a`).
 const _webLinkColor = '#336699';
