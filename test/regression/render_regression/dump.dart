@@ -9,8 +9,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:tsdm_client/utils/html/author_style.dart';
-import 'package:tsdm_client/utils/html/post_typography.dart';
 import 'package:tsdm_client/utils/html/post_table.dart';
+import 'package:tsdm_client/utils/html/post_typography.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/cached_image/cached_image.dart';
 import 'package:tsdm_client/widgets/card/code_card.dart';

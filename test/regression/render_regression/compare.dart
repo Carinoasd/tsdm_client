@@ -59,7 +59,7 @@ final _quoteSource = RegExp(r'blockquote>font>a(>|$)');
 /// The text and link colors of the app's light theme, and its body text size: not colors an author gave.
 const _appDefaultColor = '#191c20';
 const _appLinkColor = '#37618e';
-const _appDefaultFontSize = postBodyFontSize;
+const double _appDefaultFontSize = postBodyFontSize;
 
 /// The forum's link color (`.t_f a`).
 const _webLinkColor = '#336699';
