@@ -6,6 +6,7 @@ import 'package:collection/collection.dart';
 import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
 import 'package:rxdart/rxdart.dart';
+import 'package:tsdm_client/features/sync/models/sync_settings.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
 import 'package:tsdm_client/shared/models/thread_floor_interaction_mode.dart';
@@ -84,9 +85,41 @@ final class SettingsRepository with LoggerMixin {
   /// Current settings.
   late SettingsMap _state;
 
+  /// Stored name of the mark that [_resetFormerDefaults] ran on this device.
+  static const formerDefaultsResetKey = 'settings.formerDefaultsReset';
+
+  /// Once on a device: settings stored at a group of former defaults ([syncedSettingsFormerDefaults], the post
+  /// typography of 1.62.0) are deleted, so they read as today's defaults.
+  ///
+  /// Such values were seldom chosen: a version before 1.62.0 stored the 1.62.0 defaults another device synced (it
+  /// applied whatever differed from its own), and 1.62.0 stored them when the layout dialog was confirmed unchanged.
+  /// Kept they would stay for good, and go to the other devices with each sync. Values set after it are left alone.
+  Future<void> _resetFormerDefaults() async {
+    try {
+      if (await _storage.getBool(formerDefaultsResetKey) ?? false) {
+        return;
+      }
+      final values = syncedSettingsValues(_state);
+      for (final group in syncedSettingsFormerDefaults) {
+        if (group.entries.every((e) => values[e.key] == e.value)) {
+          for (final setting in syncedSettings.where((s) => group.containsKey(s.key.name))) {
+            await _storage.deleteKey(setting.key.name);
+            _state = _state.copyWithKey(setting.key, setting.key.defaultValue);
+          }
+          info('settings at the former defaults ${group.keys.join(', ')} reset to the defaults');
+        }
+      }
+      await _storage.saveBool(formerDefaultsResetKey, value: true);
+    } on Object catch (e, st) {
+      error('failed to reset the former defaults: $e');
+      handleRaw(e, st);
+    }
+  }
+
   /// Init initial settings.
   Future<void> init() async {
     _state = await _initMap();
+    await _resetFormerDefaults();
     _controller.add(_state);
     if (!_state.offlineThreads) {
       // Offline thread copies only exist while their setting is on: drop what an imported backup, an older run or any

@@ -1,3 +1,4 @@
+import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show ThemeMode;
 import 'package:tsdm_client/features/post/utils/image_edits.dart';
@@ -190,26 +191,43 @@ const syncedSettingsAddedLater = {
   'collapsePinnedThreads',
 };
 
-/// The former defaults of synced settings whose default changed, by stored name: a value of the document equal to one
-/// is taken as never set and not applied ([syncedSettingsChanges], [syncedSettingsApplied]).
+/// Former defaults of synced settings that a version wrote together, each a group by stored name: a document whose
+/// values hold every setting of a group at that value is taken as never having set them, and they are not applied
+/// ([syncedSettingsIncoming]).
 ///
 /// Every version writes all of [syncedSettings] into the document, the ones still at their default too: without this
-/// the old default another device wrote would come back here as if the reader chose it, and a reader who syncs the
-/// settings would never get the new one. A value the reader set to the former default on purpose is not told apart
-/// from it. What this device writes is left as it is.
+/// the defaults of that version another device wrote would come back here as if the reader chose them. Only the whole
+/// group is left out: a document with one of them at another value was set by the reader, and is applied as it is.
+/// The same values chosen on purpose are not told apart from them. What this device writes is left as it is.
 ///
-/// Added in 1.62.0, when the defaults of the post typography changed (line height 1.7 to 1.8, paragraph spacing 8 to
-/// 10: [PostTypography.defaultLineHeight], [PostTypography.defaultParagraphSpacing]).
-const syncedSettingsFormerDefaults = <String, Object>{
-  'threadContentLineHeight': 1.7,
-  'threadContentParagraphSpacing': 8.0,
-};
+/// 1.62.0 had the post typography at a line height of 1.8 and a paragraph spacing of 10; the defaults are 1.7 and 8
+/// again ([PostTypography.defaultLineHeight], [PostTypography.defaultParagraphSpacing]), and are applied like any
+/// other value. The settings stored on a device are reset from that pair once (`SettingsRepository`).
+const syncedSettingsFormerDefaults = <Map<String, Object>>[
+  {'threadContentLineHeight': 1.8, 'threadContentParagraphSpacing': 10.0},
+];
 
-/// The value of [setting] in the document's [values] this version applies: as [SyncedSetting.decode] gives it, null
-/// for the former default of the setting ([syncedSettingsFormerDefaults]).
-Object? _incoming(SyncedSetting<Object> setting, Map<String, dynamic> values) {
-  final value = setting.decode(values[setting.key.name]);
-  return value != null && value == syncedSettingsFormerDefaults[setting.key.name] ? null : value;
+/// Whether the document's [values] hold every setting of [group] at its value there, compared as
+/// [SyncedSetting.decode] reads them (10 and 10.0 alike).
+bool _atFormerDefaults(Map<String, Object> group, Map<String, dynamic> values) => group.entries.every((e) {
+  final setting = syncedSettings.firstWhereOrNull((s) => s.key.name == e.key);
+  return setting != null && setting.decode(values[e.key]) == e.value;
+});
+
+/// The document's [values] this version takes: all of them, but the groups of [syncedSettingsFormerDefaults] they
+/// hold at those values.
+Map<String, dynamic> syncedSettingsIncoming(Map<String, dynamic> values) {
+  final skipped = {
+    for (final group in syncedSettingsFormerDefaults)
+      if (_atFormerDefaults(group, values)) ...group.keys,
+  };
+  if (skipped.isEmpty) {
+    return values;
+  }
+  return {
+    for (final MapEntry(:key, :value) in values.entries)
+      if (!skipped.contains(key)) key: value,
+  };
 }
 
 /// The values of [syncedSettings] in [settings], by stored name: the `values` of the `settings` section.
@@ -219,19 +237,25 @@ Map<String, Object> syncedSettingsValues(SettingsMap settings) => {
 
 /// What applying the document's [values] to [settings] changes: each setting of [syncedSettings] the document holds a
 /// value of that this version accepts and that differs from the one of [settings]. Values it does not accept, names
-/// it does not know and former defaults ([syncedSettingsFormerDefaults]) are left alone.
-List<(SettingsKeys<Object>, Object)> syncedSettingsChanges(Map<String, dynamic> values, SettingsMap settings) => [
-  for (final s in syncedSettings)
-    if (_incoming(s, values) case final value? when value != s.current(settings)) (s.key, value),
-];
+/// it does not know and former defaults ([syncedSettingsIncoming]) are left alone.
+List<(SettingsKeys<Object>, Object)> syncedSettingsChanges(Map<String, dynamic> values, SettingsMap settings) {
+  final incoming = syncedSettingsIncoming(values);
+  return [
+    for (final s in syncedSettings)
+      if (s.decode(incoming[s.key.name]) case final value? when value != s.current(settings)) (s.key, value),
+  ];
+}
 
 /// The values of [syncedSettings] at their defaults, by stored name.
 Map<String, Object> syncedSettingsDefaults() => {for (final s in syncedSettings) s.key.name: s.encodedDefault};
 
 /// [current] (values of [syncedSettings] by stored name) with the document's [values] applied: each value this version
-/// accepts replaces the one of its setting, but a former default ([syncedSettingsFormerDefaults]).
-Map<String, Object> syncedSettingsApplied(Map<String, Object> current, Map<String, dynamic> values) => {
-  ...current,
-  for (final s in syncedSettings)
-    if (_incoming(s, values) case final value?) s.key.name: s.encodeValue(value),
-};
+/// accepts replaces the one of its setting, but former defaults ([syncedSettingsIncoming]).
+Map<String, Object> syncedSettingsApplied(Map<String, Object> current, Map<String, dynamic> values) {
+  final incoming = syncedSettingsIncoming(values);
+  return {
+    ...current,
+    for (final s in syncedSettings)
+      if (s.decode(incoming[s.key.name]) case final value?) s.key.name: s.encodeValue(value),
+  };
+}
