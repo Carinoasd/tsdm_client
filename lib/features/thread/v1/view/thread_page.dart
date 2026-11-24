@@ -13,7 +13,6 @@ import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/date_time.dart';
 import 'package:tsdm_client/extensions/string.dart';
-import 'package:tsdm_client/extensions/uri.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/authentication/repository/models/models.dart' show AuthStatus;
 import 'package:tsdm_client/features/authentication/utils/account_changes.dart';
@@ -75,6 +74,7 @@ import 'package:tsdm_client/features/thread/v1/utils/thread_search.dart';
 import 'package:tsdm_client/features/thread/v1/widgets/collapsing_app_bar.dart';
 import 'package:tsdm_client/features/thread/v1/widgets/post_list.dart';
 import 'package:tsdm_client/features/thread/v1/widgets/reading_gestures.dart';
+import 'package:tsdm_client/features/thread/v1/widgets/thread_title_header.dart';
 import 'package:tsdm_client/features/thread_follow/cubit/followed_threads_cubit.dart';
 import 'package:tsdm_client/features/thread_visit_history/bloc/thread_visit_history_bloc.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
@@ -1438,7 +1438,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
   }
 
   /// The bar of picking floors to quote: how many are picked and the reply with their quotes.
-  PreferredSizeWidget _buildMultiQuoteBar(BuildContext context, PreferredSizeWidget breadcrumbs) {
+  PreferredSizeWidget _buildMultiQuoteBar(BuildContext context) {
     final tr = context.t.threadPage.multiQuote;
     return AppBar(
       automaticallyImplyLeading: false,
@@ -1470,7 +1470,6 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
           ),
         ),
       ],
-      bottom: breadcrumbs,
     );
   }
 
@@ -1732,12 +1731,10 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
   }
 
   /// The app bar while searching: the words and where the current hit is among the hits, the pages not searched yet
-  /// once the hits on screen are gone through; as tall as the app bar it stands for, the forum path under it kept
-  /// ([bottom]).
+  /// once the hits on screen are gone through; as tall as the app bar it stands for.
   PreferredSizeWidget _buildSearchBar(
     BuildContext context,
     ThreadState state,
-    PreferredSizeWidget bottom,
     List<Post> hits,
   ) {
     final tr = context.t.threadPage.search;
@@ -1808,7 +1805,6 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
           onPressed: _closeSearch,
         ),
       ],
-      bottom: bottom,
     );
   }
 
@@ -1958,124 +1954,6 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
       ..requestFocus();
   }
 
-  /// Height of the breadcrumb row under the app bar for the extra height of large text.
-  static double _breadcrumbsHeight(double extraHeight) => 26 + extraHeight;
-
-  /// Forum path (links separated by chevrons) followed by small pills: thread type, thread id (copy dialog),
-  /// statistics, draft and the local replied mark. Scrolls horizontally and starts scrolled to the end, where the
-  /// thread's own information is.
-  Widget _buildBreadcrumbsRow(ThreadState state, double extraHeight, {required bool replied}) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final infoTextStyle = Theme.of(context).textTheme.labelLarge?.copyWith(color: colorScheme.onSurfaceVariant);
-    final infoTextHighlightStyle = Theme.of(context).textTheme.labelLarge?.copyWith(color: colorScheme.primary);
-
-    Widget pill(String label, {IconData? icon, Color? color, VoidCallback? onTap}) {
-      final foreground = color ?? colorScheme.onSurfaceVariant;
-      final content = Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (icon != null) ...[Icon(icon, size: 14, color: foreground), sizedBoxW4H4],
-            Text(label, style: Theme.of(context).textTheme.labelMedium?.copyWith(color: foreground)),
-          ],
-        ),
-      );
-      return Padding(
-        padding: const EdgeInsets.only(left: 6),
-        child: Material(
-          color: colorScheme.surfaceContainerHigh,
-          borderRadius: BorderRadius.circular(appInnerRadius),
-          clipBehavior: Clip.antiAlias,
-          child: onTap == null
-              ? Center(child: content)
-              : Semantics(
-                  button: true,
-                  child: InkWell(
-                    onTap: onTap,
-                    child: Center(child: content),
-                  ),
-                ),
-        ),
-      );
-    }
-
-    final breadFrags = <Widget>[
-      for (final (index, e) in state.breadcrumbs.indexed) ...[
-        if (index > 0) Icon(Icons.chevron_right, size: 16, color: colorScheme.onSurfaceVariant),
-        MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: GestureDetector(
-            onTap: () async {
-              final gid = e.link.tryGetQueryParameters()?['gid'];
-              if (gid != null) {
-                await context.pushNamed(
-                  ScreenPaths.forumGroup,
-                  pathParameters: {'gid': gid},
-                  queryParameters: {'title': e.description},
-                );
-                return;
-              }
-              await context.dispatchAsUrl(e.link.toString());
-            },
-            child: Center(child: Text(e.description, style: infoTextHighlightStyle)),
-          ),
-        ),
-      ],
-      if (state.breadcrumbs.isNotEmpty) sizedBoxW4H4,
-    ];
-
-    return Padding(
-      padding: edgeInsetsL12R12.add(edgeInsetsB4),
-      child: DefaultTextStyle.merge(
-        style: infoTextStyle,
-        child: SizedBox(
-          height: _breadcrumbsHeight(extraHeight) - 4,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            reverse: true,
-            children: <Widget>[
-              ...breadFrags,
-              if (state.threadType?.typeID != null && state.fid != null)
-                pill(
-                  state.threadType!.name,
-                  icon: Icons.label_outline,
-                  color: colorScheme.primary,
-                  onTap: () async => context.pushNamed(
-                    ScreenPaths.forum,
-                    pathParameters: {'fid': '${state.fid}'},
-                    queryParameters: {
-                      'threadTypeName': state.threadType?.name,
-                      'threadTypeID': '${state.threadType?.typeID}',
-                    },
-                  ),
-                ),
-              pill(
-                '${context.t.threadPage.title} ${state.tid ?? ""}',
-                icon: Icons.tag,
-                color: colorScheme.primary,
-                onTap: () async {
-                  final id = state.tid ?? widget.threadID;
-                  final title = state.title ?? widget.title;
-                  await showCopyThreadInfoDialog(context: context, tid: id, title: title);
-                },
-              ),
-              if (state.viewCount != null || state.replyCount != null)
-                pill(
-                  context.t.threadPage.statistics(view: state.viewCount ?? 0, reply: state.replyCount ?? 0),
-                  icon: Icons.bar_chart_outlined,
-                ),
-              if (state.isDraft) pill(context.t.threadPage.draft, icon: Icons.edit_note_outlined),
-              // The current account replied in this thread (local mark, issue #21).
-              if (replied)
-                pill(context.t.threadPage.repliedMark, icon: Icons.reply_outlined, color: colorScheme.tertiary),
-            ].reversed.toList(),
-          ),
-        ),
-      ),
-    );
-  }
-
   Future<void> replyPostCallback(User user, int? postFloor, String? replyAction) async {
     // No reply bar on floors read back offline.
     if (replyAction == null || (_threadBloc?.state.isOffline ?? false)) {
@@ -2173,6 +2051,18 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
                             key: _postListKey,
                             threadID: state.tid ?? widget.threadID,
                             title: state.title ?? widget.title,
+                            header: Builder(
+                              builder: (context) => ThreadTitleHeader(
+                                state: state,
+                                title: state.title ?? widget.title ?? '',
+                                replied: isThreadReplied(context, state.tid ?? widget.threadID),
+                                onTapId: () async => showCopyThreadInfoDialog(
+                                  context: context,
+                                  tid: state.tid ?? widget.threadID,
+                                  title: state.title ?? widget.title,
+                                ),
+                              ),
+                            ),
                             pageNumber: context.read<JumpPageCubit>().state.currentPage,
                             initialPostID: (_scrollToPidOnReload ?? state.scrollTargetPid ?? widget.findPostID)
                                 ?.parseToInt(),
@@ -2703,12 +2593,6 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
               _pageInfoGeneration = state.generation;
               jumpPage.setPageInfo(currentPage: state.firstPage);
             }
-            // The text scale in effect: the system font size times the app's own scale (appTextScaler).
-            final textScaleExtraBreadHeight = math.max<double>(
-              0,
-              (MediaQuery.textScalerOf(context).scale(14) / 14 - 1) / 0.1,
-            );
-
             // A thread started by a locally blocked user shows nothing of it, not even the title; neither does a
             // thread whose author is still unknown while somebody is blocked.
             final blocked = _blockedThreadBody(context, state);
@@ -2722,7 +2606,6 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
             final title = widget.title ?? state.title;
             // The tab of the detail pane shows it.
             _paneThread?.reportTitle(title);
-            final replied = isThreadReplied(context, state.tid ?? widget.threadID);
             // Reset jump page state when every build.
             if (state.status == ThreadStatus.loading || state.status == ThreadStatus.initial) {
               context.read<JumpPageCubit>().markLoading();
@@ -2754,10 +2637,6 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
                 if (mounted) _appBarCollapser.show();
               });
             }
-            final breadcrumbs = PreferredSize(
-              preferredSize: Size.fromHeight(_breadcrumbsHeight(textScaleExtraBreadHeight)),
-              child: _buildBreadcrumbsRow(state, textScaleExtraBreadHeight, replied: replied),
-            );
             // The hits of the search, found once for the search bar and the floors.
             final searchHits = _searchHits(context, state);
             // The search bar is as tall as the app bar: the floors do not move when it opens or closes.
@@ -2767,14 +2646,13 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
             // Watched here, in the build: the menu items are made later, when the menu opens.
             final immersiveForums = _watchedImmersiveForums(context);
             final appBar = _multiQuote.active
-                ? _buildMultiQuoteBar(context, breadcrumbs)
+                ? _buildMultiQuoteBar(context)
                 : _searching
-                ? _buildSearchBar(context, state, breadcrumbs, searchHits)
+                ? _buildSearchBar(context, state, searchHits)
                 : ListAppBar(
                     leading: pane != null && pane.threads.length > 1 ? BackButton(onPressed: pane.pop) : null,
                     automaticallyImplyLeading: pane == null,
                     title: title,
-                    bottom: breadcrumbs,
                     showReverseOrderAction: true,
                     onJumpPage: (pageNumber) async {
                       if (!mounted) {

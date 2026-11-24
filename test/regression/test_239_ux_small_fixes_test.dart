@@ -78,6 +78,7 @@ import 'package:tsdm_client/features/thread/v1/utils/parse_thread_document.dart'
 import 'package:tsdm_client/features/thread/v1/view/thread_page.dart';
 import 'package:tsdm_client/features/thread/v1/widgets/collapsing_app_bar.dart';
 import 'package:tsdm_client/features/thread/v1/widgets/post_list.dart';
+import 'package:tsdm_client/features/thread/v1/widgets/thread_title_header.dart';
 import 'package:tsdm_client/features/thread_visit_history/bloc/thread_visit_history_bloc.dart';
 import 'package:tsdm_client/features/thread_visit_history/repository/thread_visit_history_repository.dart';
 import 'package:tsdm_client/features/tsdmapp/tsdmapp_api.dart';
@@ -719,16 +720,16 @@ void main() {
       expect(appTextScaler(system, 1.1), appTextScaler(system, 1.1));
     });
 
-    testWidgets('a large system font: the breadcrumbs of the thread page grow with it, nothing overflows', (
+    testWidgets('a large system font: the title area of the thread page grows with it, nothing overflows', (
       tester,
     ) async {
       forum.answer = (r) => _html(_threadPage([1, 2]));
       await _pumpThread(tester, app);
-      final normal = tester.getSize(find.byType(CollapsingAppBar)).height;
+      final normal = tester.getSize(find.byType(ThreadTitleHeader)).height;
       await _unpump(tester);
       await _pumpThread(tester, app, textScale: 2);
       expect(tester.takeException(), isNull);
-      expect(tester.getSize(find.byType(CollapsingAppBar)).height, greaterThan(normal + 5));
+      expect(tester.getSize(find.byType(ThreadTitleHeader)).height, greaterThan(normal + 5));
       await _unpump(tester);
     });
 
@@ -1143,7 +1144,8 @@ void main() {
       await _pumpThread(tester, app);
       double barHeight() => tester.getSize(find.byType(CollapsingAppBar)).height;
       final full = barHeight();
-      expect(full, greaterThan(56));
+      // The bar alone: the forum path, the title and the figures scroll with the floors.
+      expect(full, greaterThanOrEqualTo(56));
       final gesture = await tester.startGesture(tester.getCenter(find.byType(PostList)));
       // Past the touch slop first: the floors take taps too (immersive reading), the drag wins once past it.
       await gesture.moveBy(const Offset(0, -20));
@@ -1563,13 +1565,29 @@ void main() {
     });
 
     testWidgets('L5. a list hardly longer than the screen keeps the app bar', (tester) async {
-      forum.answer = (r) => _html(_threadPage([1]));
-      await _pumpThread(tester, app);
-      final full = tester.getSize(find.byType(CollapsingAppBar)).height;
-      await tester.drag(find.byType(PostList), const Offset(0, -300));
+      // The thread page now scrolls its title area with the floors, so even a one floor thread scrolls farther than
+      // the bar; the rule is checked on a list that scrolls less than the bar's height.
+      final controller = AnimationController(vsync: tester, value: 1, duration: const Duration(milliseconds: 100));
+      addTearDown(controller.dispose);
+      final collapser = AppBarCollapser(controller)..barHeight = 56;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: LayoutBuilder(
+              builder: (context, constraints) => NotificationListener<ScrollNotification>(
+                onNotification: collapser.onNotification,
+                child: ListView(
+                  key: const ValueKey('short-list'),
+                  children: [SizedBox(height: constraints.maxHeight + 40)],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.drag(find.byKey(const ValueKey('short-list')), const Offset(0, -300));
       await tester.pumpAndSettle();
-      expect(tester.getSize(find.byType(CollapsingAppBar)).height, full);
-      await _unpump(tester);
+      expect(controller.value, 1, reason: 'scrolls 40, less than the bar');
     });
 
     testWidgets('L6. "refresh to check" with one author only says the reply may not be shown', (tester) async {

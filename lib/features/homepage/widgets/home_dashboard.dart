@@ -12,6 +12,7 @@ import 'package:tsdm_client/features/red_packet/widgets/daily_red_packet_button.
 import 'package:tsdm_client/features/settings/widgets/support_development_dialog.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/themes/app_surfaces.dart';
 import 'package:tsdm_client/utils/chinese_display/chinese_display.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/hour_ticker.dart';
@@ -27,13 +28,6 @@ const _minGreetingWidth = 168.0;
 
 /// Gap between the greeting and the title badge.
 const _greetingBadgeGap = 12.0;
-
-/// Least width (at text scale 1) of the phone greeting card content showing check-in and red packet on one row.
-const _dailyActionsRowWidth = 300.0;
-
-/// Least width (at text scale 1) of the phone greeting card content showing all four actions of the day on one row
-/// (check-in, red packet, activities, medals and titles): a phone in landscape (feedback 113).
-const _allActionsRowWidth = 560.0;
 
 /// Width of the title badge in the greeting card on wide layouts: the natural 184px of the image.
 ///
@@ -98,8 +92,8 @@ const _minCompactGreetingWidth = 148.0;
   return (width: preferred, beside: false);
 }
 
-/// A tab of a homepage card with tabs (the forum guide, the pinned thread groups): bold label, underlined in the
-/// primary color when [selected].
+/// A tab of a homepage section with tabs (the forum guide, the pinned thread groups): bold when [selected], with a
+/// bar in the primary color under it as wide as its label.
 class HomeCardTab extends StatelessWidget {
   /// Constructor.
   const HomeCardTab({required this.label, required this.selected, required this.onTap, super.key});
@@ -121,21 +115,33 @@ class HomeCardTab extends StatelessWidget {
       button: true,
       child: InkWell(
         onTap: onTap,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
-        child: Container(
-          constraints: const BoxConstraints(minHeight: 46),
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            border: Border(
-              bottom: BorderSide(color: selected ? colorScheme.primary : Colors.transparent, width: 3),
-            ),
-          ),
-          child: Text(
-            label,
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              color: selected ? colorScheme.primary : colorScheme.onSurfaceVariant,
-              fontWeight: selected ? FontWeight.bold : FontWeight.w600,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 48, minWidth: 48),
+          child: IntrinsicWidth(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.end,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 11),
+                  child: Text(
+                    label,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: selected ? colorScheme.onSurface : colorScheme.onSurfaceVariant,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+                    ),
+                  ),
+                ),
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: selected ? colorScheme.primary : Colors.transparent,
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
+                  ),
+                  child: const SizedBox(height: 3),
+                ),
+              ],
             ),
           ),
         ),
@@ -143,6 +149,13 @@ class HomeCardTab extends StatelessWidget {
     );
   }
 }
+
+/// Room between two tabs of a homepage section ([HomeCardTab]).
+const homeTabGap = 24.0;
+
+/// Title of a homepage section on the page itself (the forum guide, the tools): 18, bold.
+TextStyle? homeSectionTitleStyle(BuildContext context) =>
+    Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 18, height: 1.3, fontWeight: FontWeight.w700);
 
 /// Greeting text for the local [hour].
 String homeGreeting(BuildContext context, int hour, String name) {
@@ -206,6 +219,7 @@ class HomeGreetingCard extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final hasStatus = forumStatus != const ForumStatus.empty();
+    const tabular = [FontFeature.tabularFigures()];
 
     // The date and the greeting follow the clock: an app left open overnight showed yesterday's date (and "good
     // night" in the morning) until the page was built again.
@@ -213,163 +227,233 @@ class HomeGreetingCard extends StatelessWidget {
       builder: (context, now) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '${context.t.appName} · ${MaterialLocalizations.of(context).formatMediumDate(now)}',
+          // The kicker: the forum in the primary color, the date quieter after it.
+          Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(
+                  text: context.t.appName,
+                  style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.w700),
+                ),
+                TextSpan(text: ' · ${MaterialLocalizations.of(context).formatMediumDate(now)}'),
+              ],
+            ),
             // Phones keep the greeting narrower beside the title badge: the date wraps instead of being cut.
             maxLines: compact ? 2 : 1,
             overflow: TextOverflow.ellipsis,
-            style: textTheme.labelMedium?.copyWith(color: colorScheme.onSurfaceVariant, fontWeight: FontWeight.w600),
+            style: textTheme.bodySmall?.copyWith(
+              fontSize: 12.5,
+              height: 1.4,
+              color: colorScheme.onSurfaceVariant,
+              fontFeatures: tabular,
+            ),
           ),
           sizedBoxW4H4,
           Text(
             homeGreeting(context, now.hour, username),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: (compact ? textTheme.titleLarge : textTheme.headlineSmall)?.copyWith(fontWeight: FontWeight.bold),
+            style: textTheme.headlineMedium?.copyWith(
+              fontSize: compact ? 28 : 30,
+              height: 1.25,
+              fontWeight: FontWeight.w700,
+              color: colorScheme.onSurface,
+            ),
           ),
           if (hasStatus) ...[
             sizedBoxW4H4,
-            Text(
-              context.t.homepage.todayPosts(count: forumStatus.todayCount),
-              style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
-            ),
+            _TodayCount(forumStatus.todayCount),
           ],
         ],
       ),
     );
 
-    // Always visible next to the check-in, with the state the homepage can tell (claimable, claimed in this run, none
-    // to claim now, needs a login).
-    final redPacket = DailyRedPacketEntry(
-      uid: uid,
-      config: dailyRedPacket,
-      formHash: formHash,
-      onCheck: onCheckDailyRedPacket,
-      checking: checkingDailyRedPacket,
-      claim: claimDailyRedPacket,
-    );
-    final activities = _QuickAction(
-      icon: Icons.event_outlined,
-      label: context.t.activitiesPage.title,
-      onPressed: () async => context.pushNamed(ScreenPaths.activities),
-    );
-    final medals = _QuickAction(
-      icon: Icons.workspace_premium_outlined,
-      label: context.t.medalTitleHub.title,
-      onPressed: () async => context.pushNamed(ScreenPaths.medalTitleHub),
-    );
-    final quickActions = Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: [if (!compact) redPacket, activities, medals],
-    );
-
-    final checkin = CheckinButton(enableSnackBar: true, label: context.t.homepage.welcome.checkin);
-
-    return Card(
-      margin: EdgeInsets.zero,
-      clipBehavior: Clip.antiAlias,
-      shape: homeCardShape(context),
-      // The masthead of the page, not a panel: on the page itself, the check-in the one filled primary button.
-      color: Colors.transparent,
-      child: Padding(
-        padding: compact ? edgeInsetsL16T16R16B16 : edgeInsetsL24T24R24B24,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+    Widget actions(AppDayActionLook look) {
+      // Always visible next to the check-in, with the state the homepage can tell (claimable, claimed in this run,
+      // none to claim now, needs a login).
+      final redPacket = DailyRedPacketEntry(
+        uid: uid,
+        config: dailyRedPacket,
+        formHash: formHash,
+        onCheck: onCheckDailyRedPacket,
+        checking: checkingDailyRedPacket,
+        claim: claimDailyRedPacket,
+        look: look,
+      );
+      final activities = _QuickAction(
+        icon: Icons.event_outlined,
+        label: context.t.activitiesPage.title,
+        look: look,
+        onPressed: () async => context.pushNamed(ScreenPaths.activities),
+      );
+      final medals = _QuickAction(
+        icon: Icons.workspace_premium_outlined,
+        label: context.t.medalTitleHub.title,
+        look: look,
+        onPressed: () async => context.pushNamed(ScreenPaths.medalTitleHub),
+      );
+      final checkin = CheckinButton(enableSnackBar: true, label: context.t.homepage.welcome.checkin, look: look);
+      return switch (look) {
+        // Desktop: four pills after the today count, beside the title badge.
+        AppDayActionLook.button => Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [checkin, redPacket, activities, medals],
+        ),
+        // Phones: the four actions on one row of tiles.
+        AppDayActionLook.tile => Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            HomeGreetingHeader(greeting: greeting, uid: uid, compact: compact),
-            SizedBox(height: compact ? 14 : 20),
-            if (compact)
-              // All four actions on one row when they fit (a phone in landscape); check-in and red packet side by
-              // side with the two entries below them on a portrait phone; everything stacked when even those two do
-              // not fit (narrow window, large text).
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final textScale = MediaQuery.textScalerOf(context).scale(14) / 14;
-                  if (constraints.maxWidth >= _allActionsRowWidth * textScale) {
-                    return Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(child: checkin),
-                        sizedBoxW8H8,
-                        Expanded(child: redPacket),
-                        sizedBoxW8H8,
-                        activities,
-                        sizedBoxW8H8,
-                        medals,
-                      ],
-                    );
-                  }
-                  if (constraints.maxWidth >= _dailyActionsRowWidth * textScale) {
-                    // The two entries share the second row half and half: as a wrap they went below each other on
-                    // a 360dp phone (feedback on 1.29.1).
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(child: checkin),
-                            sizedBoxW8H8,
-                            Expanded(child: redPacket),
-                          ],
-                        ),
-                        sizedBoxW8H8,
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(child: activities),
-                            sizedBoxW8H8,
-                            Expanded(child: medals),
-                          ],
-                        ),
-                      ],
-                    );
-                  }
-                  // The two entries stay side by side here too, their labels shrink a little when needed: the
-                  // phone of the report (360dp, larger system font) lands in this layout.
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      checkin,
-                      sizedBoxW8H8,
-                      redPacket,
-                      sizedBoxW8H8,
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(child: activities),
-                          sizedBoxW8H8,
-                          Expanded(child: medals),
-                        ],
-                      ),
-                    ],
-                  );
-                },
-              )
-            else
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  ConstrainedBox(constraints: const BoxConstraints(minWidth: 180), child: checkin),
-                  sizedBoxW12H12,
-                  Expanded(child: quickActions),
-                ],
-              ),
+            Expanded(child: checkin),
+            sizedBoxW8H8,
+            Expanded(child: redPacket),
+            sizedBoxW8H8,
+            Expanded(child: activities),
+            sizedBoxW8H8,
+            Expanded(child: medals),
           ],
         ),
+        // Too narrow for four (large text, long labels): two columns, the icons before the labels.
+        AppDayActionLook.row => Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: checkin),
+                sizedBoxW8H8,
+                Expanded(child: redPacket),
+              ],
+            ),
+            sizedBoxW8H8,
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: activities),
+                sizedBoxW8H8,
+                Expanded(child: medals),
+              ],
+            ),
+          ],
+        ),
+      };
+    }
+
+    // The masthead of the page, not a panel: on the page itself, the check-in the one filled action.
+    if (!compact) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 8, bottom: 4),
+        child: HomeGreetingHeader(
+          greeting: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [greeting, sizedBoxW16H16, actions(AppDayActionLook.button)],
+          ),
+          uid: uid,
+          compact: compact,
+        ),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, bottom: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          HomeGreetingHeader(greeting: greeting, uid: uid, compact: compact),
+          const SizedBox(height: 16),
+          LayoutBuilder(
+            builder: (context, constraints) => actions(
+              homeDayActionsFitOneRow(context, constraints.maxWidth) ? AppDayActionLook.tile : AppDayActionLook.row,
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
-/// Top of the greeting card: the [greeting] and the title badge of the account [uid], beside the greeting when both
-/// fit and below it otherwise ([homeGreetingBadgeLayout]).
+/// Room between the four action tiles of the phone greeting.
+const _dayActionGap = 8.0;
+
+/// Horizontal padding inside an action tile around its label.
+const _dayActionTilePadding = 4.0;
+
+/// Whether the four action tiles of the phone greeting fit on one row [width] wide: the widest label any of them may
+/// show (every state of the check-in and the red packet, so claiming one does not change the layout), in the label
+/// style of the tiles at the text scale in effect, fits in a quarter of the row.
+bool homeDayActionsFitOneRow(BuildContext context, double width) {
+  final tr = context.t;
+  final labels = [
+    tr.homepage.welcome.checkin,
+    tr.homepage.welcome.checkedIn,
+    tr.redPacket.daily.tooltip,
+    tr.redPacket.daily.claimedToday,
+    tr.redPacket.daily.unavailable,
+    tr.redPacket.daily.needLogin,
+    tr.activitiesPage.title,
+    tr.medalTitleHub.title,
+  ];
+  final style = appDayActionLabelStyle(context);
+  final scaler = MediaQuery.textScalerOf(context);
+  final direction = Directionality.of(context);
+  var widest = 0.0;
+  for (final label in labels) {
+    final painter = TextPainter(
+      text: TextSpan(text: label, style: style),
+      textDirection: direction,
+      textScaler: scaler,
+      maxLines: 1,
+    )..layout();
+    widest = math.max(widest, painter.width);
+    painter.dispose();
+  }
+  final tile = (width - _dayActionGap * 3) / 4;
+  return widest + _dayActionTilePadding * 2 <= tile;
+}
+
+/// "N new posts today", the number bold in the primary color.
+class _TodayCount extends StatelessWidget {
+  const _TodayCount(this.count);
+
+  final String count;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    // The words around the number, as the translation puts them.
+    const mark = '\u0000';
+    final parts = context.t.homepage.todayPosts(count: mark).split(mark);
+    final style = Theme.of(context).textTheme.bodyLarge?.copyWith(
+      fontSize: 15,
+      height: 1.4,
+      color: colorScheme.onSurfaceVariant,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+    return Text.rich(
+      TextSpan(
+        children: [
+          for (final (i, part) in parts.indexed) ...[
+            if (i > 0)
+              TextSpan(
+                text: count,
+                style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.w700),
+              ),
+            TextSpan(text: part),
+          ],
+        ],
+      ),
+      style: style,
+    );
+  }
+}
+
+/// Top of the greeting: the [greeting] and the title badge of the account [uid], beside the greeting and centered on
+/// it when both fit, below it otherwise ([homeGreetingBadgeLayout]).
 class HomeGreetingHeader extends StatelessWidget {
   /// Constructor.
   const HomeGreetingHeader({required this.greeting, required this.uid, required this.compact, super.key});
 
-  /// Date line, greeting and today count.
+  /// Date line, greeting and today count (and, on desktop, the actions under them).
   final Widget greeting;
 
   /// Logged in account, for its title badge.
@@ -388,7 +472,6 @@ class HomeGreetingHeader extends StatelessWidget {
       );
       if (beside) {
         return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(child: greeting),
             CurrentAccountTitleBadge(
@@ -416,20 +499,25 @@ class HomeGreetingHeader extends StatelessWidget {
 }
 
 class _QuickAction extends StatelessWidget {
-  const _QuickAction({required this.icon, required this.label, required this.onPressed});
+  const _QuickAction({required this.icon, required this.label, required this.look, required this.onPressed});
 
   final IconData icon;
   final String label;
+  final AppDayActionLook look;
   final VoidCallback onPressed;
 
   @override
-  Widget build(BuildContext context) => FilledButton.icon(
-    style: appHeroActionStyle(context, height: 44),
-    icon: Icon(icon),
-    // One line: in a half width button the label shrinks a little instead of wrapping.
-    label: FittedBox(fit: BoxFit.scaleDown, child: Text(label, maxLines: 1)),
-    onPressed: onPressed,
-  );
+  // The pill keeps its own button: its label shrinks a little in a narrow row instead of wrapping, which the labels
+  // of the check-in and the red packet (short) never need.
+  Widget build(BuildContext context) => look == AppDayActionLook.button
+      ? FilledButton.icon(
+          style: appHeroActionStyle(context),
+          icon: Icon(icon),
+          // One line: the label shrinks a little instead of wrapping.
+          label: FittedBox(fit: BoxFit.scaleDown, child: Text(label, maxLines: 1)),
+          onPressed: onPressed,
+        )
+      : appDayAction(context, look: look, icon: Icon(icon), label: label, onPressed: onPressed);
 }
 
 /// The three counters of the forum status bar: today, yesterday and all posts.
@@ -580,7 +668,7 @@ class HomeSupportCard extends StatelessWidget {
     return Card(
       margin: EdgeInsets.zero,
       clipBehavior: Clip.antiAlias,
-      shape: homeCardShape(context),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(appTileRadius))),
       child: Semantics(
         button: true,
         child: InkWell(
@@ -590,14 +678,11 @@ class HomeSupportCard extends StatelessWidget {
             child: Row(
               children: [
                 DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: colorScheme.tertiaryContainer,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                  decoration: BoxDecoration(color: colorScheme.tertiaryContainer, shape: BoxShape.circle),
                   child: SizedBox(
                     width: 40,
                     height: 40,
-                    child: Icon(Icons.favorite_border, color: colorScheme.onTertiaryContainer),
+                    child: Icon(Icons.favorite, size: 20, color: colorScheme.onTertiaryContainer),
                   ),
                 ),
                 sizedBoxW12H12,
@@ -611,18 +696,17 @@ class HomeSupportCard extends StatelessWidget {
                         child: Text(
                           context.t.aboutPage.supportDevelopment,
                           maxLines: 1,
-                          style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                          style: textTheme.titleSmall?.copyWith(fontSize: 14.5, fontWeight: FontWeight.w700),
                         ),
                       ),
                       sizedBoxW2H2,
                       Text(
                         context.t.aboutPage.supportDevelopmentSubtitle,
-                        style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                        style: textTheme.bodySmall?.copyWith(fontSize: 12.5, color: colorScheme.onSurfaceVariant),
                       ),
-                      sizedBoxW2H2,
                       Text(
                         context.t.homepage.supportNote,
-                        style: textTheme.labelSmall?.copyWith(color: colorScheme.tertiary),
+                        style: textTheme.bodySmall?.copyWith(fontSize: 12.5, color: AppSurfaces.of(context).muted),
                       ),
                     ],
                   ),
@@ -648,7 +732,6 @@ class HomeToolsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tr = context.t.homepage;
-    final textTheme = Theme.of(context).textTheme;
     final entries = <(IconData, String, String)>[
       (Icons.workspace_premium_outlined, context.t.medalTitleHub.title, ScreenPaths.medalTitleHub),
       (Icons.article_outlined, tr.welcome.myThread, ScreenPaths.myThread),
@@ -657,36 +740,33 @@ class HomeToolsCard extends StatelessWidget {
       (Icons.account_balance_outlined, context.t.bank.title, ScreenPaths.bank),
       (Icons.catching_pokemon, context.t.pokemon.title, ScreenPaths.pokemon),
     ];
-    return Card(
-      margin: EdgeInsets.zero,
-      shape: homeCardShape(context),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(tr.tools, style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
-            sizedBoxW12H12,
-            LayoutBuilder(
-              builder: (context, constraints) {
-                const spacing = 8.0;
-                final width = (constraints.maxWidth - spacing * (columns - 1)) / columns;
-                return Wrap(
-                  spacing: spacing,
-                  runSpacing: spacing,
-                  children: [
-                    for (final (icon, label, path) in entries)
-                      SizedBox(
-                        width: width,
-                        child: _ToolButton(icon: icon, label: label, onTap: () async => context.pushNamed(path)),
-                      ),
-                  ],
-                );
-              },
-            ),
-          ],
+    // A titled group on the page, each entry a panel of its own.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 8, bottom: 12),
+          child: Text(tr.tools, style: homeSectionTitleStyle(context)),
         ),
-      ),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            const spacing = 8.0;
+            // A hair narrower: the rounding of the division must not push the last tile of a row to the next one.
+            final width = (constraints.maxWidth - spacing * (columns - 1)) / columns - 0.01;
+            return Wrap(
+              spacing: spacing,
+              runSpacing: spacing,
+              children: [
+                for (final (icon, label, path) in entries)
+                  SizedBox(
+                    width: width,
+                    child: _ToolButton(icon: icon, label: label, onTap: () async => context.pushNamed(path)),
+                  ),
+              ],
+            );
+          },
+        ),
+      ],
     );
   }
 }
@@ -702,28 +782,28 @@ class _ToolButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return Material(
-      color: colorScheme.surfaceContainerHigh,
-      borderRadius: BorderRadius.circular(12),
+      color: AppSurfaces.of(context).card,
+      borderRadius: BorderRadius.circular(appTileRadius),
       clipBehavior: Clip.antiAlias,
       child: Semantics(
         button: true,
         child: InkWell(
           onTap: onTap,
           child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 48),
+            constraints: const BoxConstraints(minHeight: 72),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: Row(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(icon, size: 20, color: colorScheme.primary),
-                  sizedBoxW8H8,
-                  Expanded(
-                    child: Text(
-                      label,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.labelLarge,
-                    ),
+                  Icon(icon, color: colorScheme.primary),
+                  sizedBoxW4H4,
+                  Text(
+                    label,
+                    maxLines: 2,
+                    textAlign: TextAlign.center,
+                    overflow: TextOverflow.ellipsis,
+                    style: appDayActionLabelStyle(context)?.copyWith(fontWeight: FontWeight.w400),
                   ),
                 ],
               ),

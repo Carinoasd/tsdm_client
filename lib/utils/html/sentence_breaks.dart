@@ -18,8 +18,8 @@ const minPieceLines = 2;
 /// What is left after a cut is at least this many lines: a cut never leaves a line or so hanging on its own.
 const minTailLines = 1.25;
 
-/// A line of a phone 390 wide at a text scale of 1: about 24.7 characters (346 / 14).
-const double phoneLineWidth = 346 / 14;
+/// A line of a phone 390 wide at a text scale of 1: about 22.4 characters (the flat floor's 358 of text at 16).
+const double phoneLineWidth = 358 / 16;
 
 /// The placeholder of a widget (an image, a smiley) in the text of a paragraph.
 const objectReplacementChar = '￼';

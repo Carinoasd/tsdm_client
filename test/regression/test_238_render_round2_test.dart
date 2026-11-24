@@ -816,8 +816,8 @@ void main() {
           '<font size="5"><pre>外层字号</pre></font>',
         ),
       );
-      // The theme's body text is the web page's 14px.
-      final scale = (_light.textTheme.bodyMedium?.fontSize ?? 14) / webPostFontSize;
+      // A post's body text (16) is the web page's 14px.
+      const scale = postBodyFontSize / webPostFontSize;
       expect(_style(tester, '外面大字').fontSize, 24 * scale);
       expect(_style(tester, '等宽大字').fontSize, 24 * 13 / 16 * scale);
       expect(_style(tester, '等宽中字').fontSize, 13 * scale);
