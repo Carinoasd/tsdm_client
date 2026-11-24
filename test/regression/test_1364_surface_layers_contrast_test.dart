@@ -31,11 +31,11 @@ const _seeds = <String, Color?>{
 
 /// The swatches of the design (`tokens-v2.md` 1.1): page, card, inset, control, line, line strong, muted, bar.
 const _swatches = <String, List<int>>{
-  'cyan dark': [0xFF0C171C, 0xFF172126, 0xFF1F292E, 0xFF273237, 0xFF2E3B42, 0xFF445259, 0xFF9AA2A6, 0xFF131D22],
+  'cyan dark': [0xFF0A0F11, 0xFF151A1D, 0xFF1D2225, 0xFF262B2D, 0xFF2C3438, 0xFF424A4E, 0xFF9AA2A6, 0xFF111619],
   'cyan light': [0xFFFAFCFF, 0xFFEDF1F5, 0xFFE7ECEF, 0xFFDFE3E7, 0xFFD6DEE3, 0xFFBAC2C7, 0xFF5C6469, 0xFFF0F4F8],
-  'pink dark': [0xFF1F1217, 0xFF291C21, 0xFF322429, 0xFF3B2C32, 0xFF47343B, 0xFF5F4B52, 0xFFAE9CA1, 0xFF25181D],
+  'pink dark': [0xFF130C0F, 0xFF1F171A, 0xFF281F22, 0xFF30282A, 0xFF3B2F33, 0xFF53464A, 0xFFAE9CA1, 0xFF1B1416],
   'pink light': [0xFFFFFBFF, 0xFFFDEDF0, 0xFFF7E7EB, 0xFFEEDFE2, 0xFFECD8DD, 0xFFCFBCC1, 0xFF6E5F64, 0xFFFFF0F3],
-  'purple dark': [0xFF17141E, 0xFF211E28, 0xFF292631, 0xFF322F3A, 0xFF3B3745, 0xFF524E5D, 0xFFA49EA9, 0xFF1D1A24],
+  'purple dark': [0xFF0F0D13, 0xFF1A191E, 0xFF232126, 0xFF2B292F, 0xFF34313A, 0xFF4B4851, 0xFFA49EA9, 0xFF16151A],
   'purple light': [0xFFFFFBFF, 0xFFF5EFF7, 0xFFEFE9F1, 0xFFE6E1E9, 0xFFE1DBE6, 0xFFC4BFCA, 0xFF65626B, 0xFFF8F2FA],
 };
 
@@ -154,13 +154,13 @@ void main() {
     }
   }
 
-  test('a seed of low chroma: no hue made up for the dark layers', () {
-    const gray = Color(0xFF7A7A80);
-    final hct = Hct.fromInt(gray.toARGB32());
-    expect(hct.chroma, lessThan(AppSurfaces.lowChromaSeed));
-    final s = AppSurfaces.forSeed(gray, Brightness.dark);
-    expect(s.page.toARGB32(), TonalPalette.of(hct.hue, 6).get(7));
-    expect(s.card.toARGB32(), TonalPalette.of(hct.hue, 6).get(12));
+  test('the dark page stays near black whatever the seed', () {
+    for (final seed in const [Color(0xFF069DC7), Color(0xFFE05C9A), Color(0xFF7C5CD6), Color(0xFF7A7A80)]) {
+      final hct = Hct.fromInt(seed.toARGB32());
+      final s = AppSurfaces.forSeed(seed, Brightness.dark);
+      expect(s.page.toARGB32(), TonalPalette.of(hct.hue, 6).get(4));
+      expect(s.card.toARGB32(), TonalPalette.of(hct.hue, 6).get(9));
+    }
   });
 
   test('a bare theme gets the layers from the surface roles of its color scheme', () {

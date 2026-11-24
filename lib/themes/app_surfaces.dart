@@ -3,8 +3,8 @@ import 'package:material_color_utilities/material_color_utilities.dart';
 
 /// The layers of surfaces of the app and the lines and quiet text on them.
 ///
-/// The app themes take them from the hue of the seed color ([AppSurfaces.forSeed]): a dark theme has a night of the
-/// seed's hue (not a near black gray), a light one a near white page with gray-tinted panels on it. Panels carry no
+/// The app themes take them from the hue of the seed color ([AppSurfaces.forSeed]): a dark theme has a near black
+/// page with a trace of the seed's hue, a light one a near white page with gray-tinted panels on it. Panels carry no
 /// border: the layers tell them apart. None of them is translucent, so what is drawn on them and its contrast are
 /// known.
 @immutable
@@ -21,29 +21,27 @@ class AppSurfaces extends ThemeExtension<AppSurfaces> {
     required this.muted,
   });
 
-  /// The layers of the app for [seed] in [brightness]: tones of a palette of the seed's hue, chroma 10 in the dark
-  /// theme and 6 in the light one (the lines 2 more); [muted] is a tone of the neutral variant palette of the seed's
-  /// scheme.
+  /// The layers of the app for [seed] in [brightness]: tones of a palette of the seed's hue at chroma 6 (the
+  /// lines 2 more); [muted] is a tone of the neutral variant palette of the seed's scheme.
   ///
-  /// A seed of low chroma (gray, black, a gray system accent) gets the chroma of the plain scheme (6) in the dark
-  /// theme too: no hue is made up for it.
+  /// The dark page is tone 4: black stays black. A stronger tint (chroma 10 from tone 7) read as a colored ground.
   factory AppSurfaces.forSeed(Color seed, Brightness brightness) {
     final dark = brightness == Brightness.dark;
     final hct = Hct.fromInt(seed.toARGB32());
-    final chroma = dark && hct.chroma >= lowChromaSeed ? 10.0 : 6.0;
+    const chroma = 6.0;
     final n = TonalPalette.of(hct.hue, chroma);
     final nv = TonalPalette.of(hct.hue, chroma + 2);
     final text = SchemeTonalSpot(sourceColorHct: hct, isDark: dark, contrastLevel: 0).neutralVariantPalette;
     Color c(int argb) => Color(argb);
     return dark
         ? AppSurfaces(
-            page: c(n.get(7)),
-            card: c(n.get(12)),
-            inset: c(n.get(16)),
-            control: c(n.get(20)),
-            bar: c(n.get(10)),
-            line: c(nv.get(24)),
-            lineStrong: c(nv.get(34)),
+            page: c(n.get(4)),
+            card: c(n.get(9)),
+            inset: c(n.get(13)),
+            control: c(n.get(17)),
+            bar: c(n.get(7)),
+            line: c(nv.get(21)),
+            lineStrong: c(nv.get(31)),
             muted: c(text.get(66)),
           )
         : AppSurfaces(
@@ -81,7 +79,7 @@ class AppSurfaces extends ThemeExtension<AppSurfaces> {
   /// [colorScheme] (the scheme of the same seed) with its surface roles set to these layers, so what takes the
   /// surface roles of the theme (dialogs, menus, fields of Material) is on the same palette: [page] the surface,
   /// [bar] the low container, [card] the container, [inset] the high one, [control] the highest, [line] the outline
-  /// variant. The lowest container is one step out of [page] (tone 4 dark, white light).
+  /// variant. The lowest container is one step out of [page] (darker in the dark theme, white in the light one).
   ColorScheme applyTo(ColorScheme colorScheme) {
     final dark = colorScheme.brightness == Brightness.dark;
     return colorScheme.copyWith(
@@ -96,9 +94,6 @@ class AppSurfaces extends ThemeExtension<AppSurfaces> {
       outlineVariant: line,
     );
   }
-
-  /// Below this chroma a seed has no hue worth tinting the dark surfaces with.
-  static const lowChromaSeed = 16.0;
 
   /// Scaffold, app bar, and the lists and floors read row by row.
   final Color page;
