@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [1.62.2] - 2026-11-25
+
+### Changed
+
+- 浅色主题改为灰底白卡片，卡片、引用框、标签的边界更清楚；引用来源行的灰字加深。深色主题不变。
+
 ## [1.62.1] - 2026-11-25
 
 ### Changed

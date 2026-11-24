@@ -16,12 +16,12 @@
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/Carinoasd/tsdm_client" alt="license"/></a>
 </p>
 
-## 最新更新：1.62.1（2026-11-25）
+## 最新更新：1.62.2（2026-11-25）
 
-- 调整了首页、帖子页与帖子列表的版面。
-- Android 构建编号为 179，可直接覆盖之前的正式版与测试版。
+- 浅色主题改为灰底白卡片，卡片、引用框、标签的边界更清楚；引用来源行的灰字加深。深色主题不变。
+- Android 构建编号为 180，可直接覆盖之前的正式版与测试版。
 
-[下载 1.62.1](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.62.1) · [完整更新日志](./CHANGELOG.md)
+[下载 1.62.2](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.62.2) · [完整更新日志](./CHANGELOG.md)
 
 ## 这是什么
 

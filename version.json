@@ -1,5 +1,5 @@
 {
-  "version": "1.62.1",
-  "versionCode": 179,
-  "changelog": "### Changed\n\n- 调整了首页、帖子页与帖子列表的版面。"
+  "version": "1.62.2",
+  "versionCode": 180,
+  "changelog": "### Changed\n\n- 浅色主题改为灰底白卡片，卡片、引用框、标签的边界更清楚；引用来源行的灰字加深。深色主题不变。"
 }
