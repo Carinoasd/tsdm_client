@@ -25,6 +25,10 @@ class AppSurfaces extends ThemeExtension<AppSurfaces> {
   /// lines 2 more); [muted] is a tone of the neutral variant palette of the seed's scheme.
   ///
   /// The dark page is tone 4: black stays black. A stronger tint (chroma 10 from tone 7) read as a colored ground.
+  ///
+  /// Each layer is told from the one it lies on by a contrast of 1.1 at least (a card on the page, a quote on a
+  /// card, a pill on a card): steps of 2 tones (a quote of tone 93 on a card of 95) could not be told apart on a
+  /// phone screen.
   factory AppSurfaces.forSeed(Color seed, Brightness brightness) {
     final dark = brightness == Brightness.dark;
     final hct = Hct.fromInt(seed.toARGB32());
@@ -36,23 +40,23 @@ class AppSurfaces extends ThemeExtension<AppSurfaces> {
     return dark
         ? AppSurfaces(
             page: c(n.get(4)),
-            card: c(n.get(9)),
-            inset: c(n.get(13)),
-            control: c(n.get(17)),
+            card: c(n.get(10)),
+            inset: c(n.get(15)),
+            control: c(n.get(20)),
             bar: c(n.get(7)),
-            line: c(nv.get(21)),
-            lineStrong: c(nv.get(31)),
-            muted: c(text.get(66)),
+            line: c(nv.get(24)),
+            lineStrong: c(nv.get(36)),
+            muted: c(text.get(70)),
           )
         : AppSurfaces(
             page: c(n.get(99)),
-            card: c(n.get(95)),
-            inset: c(n.get(93)),
-            control: c(n.get(90)),
+            card: c(n.get(94)),
+            inset: c(n.get(90)),
+            control: c(n.get(87)),
             bar: c(n.get(96)),
-            line: c(nv.get(88)),
-            lineStrong: c(nv.get(78)),
-            muted: c(text.get(42)),
+            line: c(nv.get(84)),
+            lineStrong: c(nv.get(68)),
+            muted: c(text.get(36)),
           );
   }
 

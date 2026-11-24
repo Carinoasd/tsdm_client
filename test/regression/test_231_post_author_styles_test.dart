@@ -323,8 +323,12 @@ void main() {
       expect(_style(tester, '橙红').color, const Color(0xFFF26C4F));
       expect(_style(tester, '加粗').fontWeight, FontWeight.w700);
       expect(_style(tester, '小字').fontSize, 12 * _k);
-      expect(_style(tester, '灰字').color, const Color(0xFF999999));
-      expect(_style(tester, '灰链').color, const Color(0xFF999999));
+      // The forum's gray reads on white; on the gray of a card it is darkened until it reads.
+      final gray = _style(tester, '灰字').color!;
+      expect(gray.r, closeTo(gray.g, 0.01));
+      expect(gray.g, closeTo(gray.b, 0.01));
+      expect(relativeLuminance(gray), lessThan(relativeLuminance(const Color(0xFF999999))));
+      expect(_style(tester, '灰链').color, gray);
     });
 
     testWidgets('the mark of a list item in the color and size of its text', (tester) async {

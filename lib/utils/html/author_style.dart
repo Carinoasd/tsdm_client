@@ -1525,6 +1525,15 @@ final class AuthorColors {
           return _inks.putIfAbsent((color.toARGB32(), behind.toARGB32()), () => readableInk(color, behind));
         }
       }
+      // The gray of the forum's own quote header and edit notes (#999999), read on the white of the web page, is too
+      // faint on the gray of a card or a quote: a gray that was seen there is made readable. A lighter one (a note
+      // meant to be barely seen, text hidden in white) stays.
+      if (on == null && _isGray(color)) {
+        final c = opaque(color);
+        if (contrastRatio(c, _pageWhite) >= _seenGrayContrast && contrastRatio(c, surface) < readableContrast) {
+          return _inks.putIfAbsent((color.toARGB32(), surface.toARGB32()), () => readableInk(c, surface));
+        }
+      }
       return color;
     }
     // Without a background of the author, the text is on the white of the web page: white text there is hidden on
@@ -1569,12 +1578,20 @@ final class AuthorColors {
     return _backgrounds.putIfAbsent(c.toARGB32(), () => darkBackground(c));
   }
 
+  static bool _isGray(Color color) {
+    final (_, a, b) = _toOklab(opaque(color));
+    return math.sqrt(a * a + b * b) < _grayChroma;
+  }
+
   static bool _isPageWhite(Color c) =>
       (c.r * 255).round() >= 248 && (c.g * 255).round() >= 248 && (c.b * 255).round() >= 248;
 }
 
 /// Text this close to the surface cannot be seen at all: see [AuthorColors.text].
 const _unseenContrast = 1.5;
+
+/// A gray text of this contrast on the white of the web page was seen there: see [AuthorColors.text].
+const _seenGrayContrast = 2.0;
 
 /// Text and background this close are hidden text, not unreadable text: see [AuthorColors].
 const camouflageContrast = 1.15;
