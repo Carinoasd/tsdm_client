@@ -16,6 +16,7 @@ import 'package:tsdm_client/features/reading_progress/cubit/reading_progress_cub
 import 'package:tsdm_client/features/replied_thread/cubit/replied_thread_cubit.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/themes/app_surfaces.dart';
 import 'package:tsdm_client/widgets/card/thread_card/thread_card.dart';
 import 'package:tsdm_client/widgets/indicator.dart';
 
@@ -110,68 +111,79 @@ class _GuideFeedCardState extends State<_GuideFeedCard> {
       );
     } else if (selected == null) {
       body = Padding(
-        padding: edgeInsetsL16T16R16B16,
+        padding: const EdgeInsets.symmetric(vertical: 16),
         child: Text(tr.empty, style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant)),
       );
     } else {
       body = GuideModuleList(selected, maxCount: widget.maxCount);
     }
 
-    return Card(
-      margin: EdgeInsets.zero,
-      clipBehavior: Clip.antiAlias,
-      shape: homeCardShape(context),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 4, 0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    context.t.homepage.guideTitle,
-                    style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                    overflow: TextOverflow.ellipsis,
-                  ),
+    // Read row by row: on the page itself, no panel around it.
+    final line = AppSurfaces.of(context).line;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  context.t.homepage.guideTitle,
+                  style: homeSectionTitleStyle(context),
+                  overflow: TextOverflow.ellipsis,
                 ),
-                if (selected != null)
-                  TextButton.icon(
-                    onPressed: () async => _openGuideList(context, selected.moreUrl, selected.title),
-                    icon: const Icon(Icons.chevron_right_outlined),
-                    iconAlignment: IconAlignment.end,
-                    label: Text(tr.more),
+              ),
+              OutlinedButton.icon(
+                key: const ValueKey('guide-sofa'),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(0, 36),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  tapTargetSize: MaterialTapTargetSize.padded,
+                  foregroundColor: colorScheme.onSurfaceVariant,
+                  iconColor: colorScheme.onSurfaceVariant,
+                  side: BorderSide(color: AppSurfaces.of(context).lineStrong),
+                  textStyle: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w400),
+                ),
+                icon: const Icon(Icons.weekend_outlined, size: 18),
+                label: Text(tr.sofa),
+                onPressed: () async => _openGuideList(context, guideUrl('sofa'), tr.sofa),
+              ),
+              if (selected != null)
+                TextButton.icon(
+                  style: TextButton.styleFrom(
+                    minimumSize: const Size(48, 48),
+                    textStyle: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
                   ),
-              ],
-            ),
+                  onPressed: () async => _openGuideList(context, selected.moreUrl, selected.title),
+                  icon: const Icon(Icons.chevron_right_outlined),
+                  iconAlignment: IconAlignment.end,
+                  label: Text(tr.more),
+                ),
+            ],
           ),
+        ),
+        if (modules.isNotEmpty)
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
-            padding: edgeInsetsL8R8,
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                for (final module in modules)
+                for (final (i, module) in modules.indexed) ...[
+                  if (i > 0) const SizedBox(width: homeTabGap),
                   HomeCardTab(
                     label: module.title,
                     selected: module == selected,
                     onTap: () => setState(() => _selectedView = module.view),
                   ),
-                sizedBoxW8H8,
-                ActionChip(
-                  key: const ValueKey('guide-sofa'),
-                  avatar: const Icon(Icons.weekend_outlined),
-                  label: Text(tr.sofa),
-                  onPressed: () async => _openGuideList(context, guideUrl('sofa'), tr.sofa),
-                ),
-                sizedBoxW8H8,
+                ],
               ],
             ),
           ),
-          Divider(height: 1, color: colorScheme.outlineVariant),
-          body,
-        ],
-      ),
+        Divider(height: 1, thickness: 1, color: line),
+        body,
+      ],
     );
   }
 }
@@ -195,7 +207,7 @@ class GuideModuleList extends StatelessWidget {
     final shown = module.items.where((e) => !filters.hides(title: e.title, fid: int.tryParse(e.fid ?? ''))).toList();
     if (shown.isEmpty) {
       return Padding(
-        padding: edgeInsetsL16T16R16B16,
+        padding: const EdgeInsets.symmetric(vertical: 16),
         child: Text(
           module.emptyMessage ?? tr.empty,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
@@ -208,17 +220,19 @@ class GuideModuleList extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         for (final (i, item) in items.indexed) ...[
-          if (i > 0) Divider(height: 1, indent: 16, endIndent: 16, color: colorScheme.outlineVariant),
+          if (i > 0) Divider(height: 1, thickness: 1, color: AppSurfaces.of(context).line),
           _GuideItemTile(item),
         ],
-        sizedBoxW4H4,
       ],
     );
   }
 }
 
-/// One thread row: title (highlighted ones in the error color like the red titles on the page), the forum chip and
-/// the module specific extra text (participants / time) on the right of the second line.
+/// Width of the homepage guide from which a thread is one row: title, forum, replied mark and the extra text.
+const _guideOneLineWidth = 600.0;
+
+/// One thread row: title (highlighted ones in the error color like the red titles on the page), the forum tag and the
+/// module specific extra text (participants / time) at the end; two lines on phones, one on wide layouts.
 class _GuideItemTile extends StatelessWidget {
   const _GuideItemTile(this.item);
 
@@ -228,8 +242,43 @@ class _GuideItemTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final colorScheme = Theme.of(context).colorScheme;
+    final surfaces = AppSurfaces.of(context);
     final forumName = item.forumName;
     final extra = item.extra;
+    final visited = visitMarkOf(context, item.tid) != null;
+    final replied = isThreadReplied(context, item.tid);
+    Widget title({required int maxLines}) => Text(
+      item.title,
+      maxLines: maxLines,
+      overflow: TextOverflow.ellipsis,
+      // A thread read before is dimmed and no longer bold, as in the thread lists; a highlighted one keeps its color.
+      style: visitedTitleStyle(
+        context,
+        textTheme.bodyLarge?.copyWith(
+          fontSize: 15.5,
+          height: 1.5,
+          color: item.highlighted ? colorScheme.error : colorScheme.onSurface,
+          fontWeight: item.highlighted || !visited ? FontWeight.w700 : FontWeight.w400,
+        ),
+        visited: visited,
+        background: surfaces.page,
+      ),
+    );
+    final repliedMark = Tooltip(
+      message: context.t.threadCard.replied,
+      child: Icon(Icons.reply_outlined, size: 16, color: colorScheme.tertiary),
+    );
+    final extraText = extra == null
+        ? null
+        : Text(
+            extra,
+            maxLines: 1,
+            style: textTheme.bodySmall?.copyWith(
+              fontSize: 12.5,
+              color: surfaces.muted,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          );
     return Semantics(
       button: true,
       child: InkWell(
@@ -237,48 +286,64 @@ class _GuideItemTile extends StatelessWidget {
           ScreenPaths.threadV1,
           queryParameters: {'tid': item.tid, 'appBarTitle': item.title},
         ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                item.title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                // A thread read before is dimmed, as in the thread lists.
-                style: visitedTitleStyle(
-                  context,
-                  textTheme.bodyLarge?.copyWith(
-                    color: item.highlighted ? colorScheme.error : null,
-                    fontWeight: item.highlighted ? FontWeight.bold : FontWeight.w500,
-                    height: 1.45,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            if (constraints.maxWidth >= _guideOneLineWidth) {
+              return ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 48),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  child: Row(
+                    children: [
+                      Expanded(child: title(maxLines: 1)),
+                      if (forumName != null) ...[
+                        sizedBoxW12H12,
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 160),
+                          child: _ForumChip(name: forumName, fid: item.fid),
+                        ),
+                      ],
+                      if (replied) ...[sizedBoxW8H8, repliedMark],
+                      if (extraText != null) ...[sizedBoxW12H12, extraText],
+                    ],
                   ),
-                  visited: visitMarkOf(context, item.tid) != null,
                 ),
-              ),
-              sizedBoxW4H4,
-              Row(
+              );
+            }
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (forumName != null) _ForumChip(name: forumName, fid: item.fid),
-                  if (isThreadReplied(context, item.tid)) ...[
-                    sizedBoxW4H4,
-                    Icon(Icons.reply_outlined, size: 14, color: colorScheme.onSurfaceVariant),
-                  ],
-                  const Spacer(),
-                  if (extra != null)
-                    Text(extra, style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant), maxLines: 1),
+                  title(maxLines: 2),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Row(
+                          children: [
+                            if (forumName != null)
+                              Flexible(
+                                child: _ForumChip(name: forumName, fid: item.fid),
+                              ),
+                            if (replied) ...[sizedBoxW8H8, repliedMark],
+                          ],
+                        ),
+                      ),
+                      if (extraText != null) ...[sizedBoxW8H8, extraText],
+                    ],
+                  ),
                 ],
               ),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );
   }
 }
 
-/// Small forum name tag; opens the forum when its id is known.
+/// Small forum name tag, neutral; opens the forum when its id is known.
 class _ForumChip extends StatelessWidget {
   const _ForumChip({required this.name, required this.fid});
 
@@ -289,27 +354,27 @@ class _ForumChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final fid = this.fid;
-    return Flexible(
-      child: Semantics(
-        button: true,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(6),
-          onTap: fid == null
-              ? null
-              : () async => context.pushNamed(
-                  ScreenPaths.forum,
-                  pathParameters: {'fid': fid},
-                  queryParameters: {'appBarTitle': name},
-                ),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-            decoration: BoxDecoration(color: colorScheme.secondaryContainer, borderRadius: BorderRadius.circular(6)),
-            child: Text(
-              name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(color: colorScheme.onSecondaryContainer),
-            ),
+    return Semantics(
+      button: true,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(5),
+        onTap: fid == null
+            ? null
+            : () async => context.pushNamed(
+                ScreenPaths.forum,
+                pathParameters: {'fid': fid},
+                queryParameters: {'appBarTitle': name},
+              ),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+          decoration: BoxDecoration(color: AppSurfaces.of(context).card, borderRadius: BorderRadius.circular(5)),
+          child: Text(
+            name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(
+              context,
+            ).textTheme.labelSmall?.copyWith(fontSize: 12, height: 1.4, color: colorScheme.onSurfaceVariant),
           ),
         ),
       ),

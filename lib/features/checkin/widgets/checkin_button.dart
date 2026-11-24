@@ -10,7 +10,13 @@ import 'package:tsdm_client/widgets/app_surface.dart';
 /// Widget provides ability to checkin.
 class CheckinButton extends StatelessWidget {
   /// Constructor.
-  const CheckinButton({this.enableSnackBar = false, this.useIcon = false, this.label, super.key});
+  const CheckinButton({
+    this.enableSnackBar = false,
+    this.useIcon = false,
+    this.label,
+    this.look = AppDayActionLook.button,
+    super.key,
+  });
 
   /// Enable snack bar feedback after checkin action.
   ///
@@ -27,6 +33,9 @@ class CheckinButton extends StatelessWidget {
   /// Show a filled button with this label instead of an icon button, e.g. on the homepage greeting card.
   final String? label;
 
+  /// How the button with a [label] is drawn: a tile among the actions of the phone greeting, a button elsewhere.
+  final AppDayActionLook look;
+
   /// The check-in result told last.
   ///
   /// Every button gets the same state from the app's [CheckinBloc], and several can be built at once (the homepage and
@@ -35,12 +44,7 @@ class CheckinButton extends StatelessWidget {
 
   /// The filled button used when [label] is set.
   Widget _buildLabeled(BuildContext context, {required Widget icon, required VoidCallback? onPressed}) =>
-      FilledButton.icon(
-        style: FilledButton.styleFrom(minimumSize: const Size(0, 48)),
-        icon: icon,
-        label: Text(label!),
-        onPressed: onPressed,
-      );
+      appDayAction(context, look: look, primary: true, icon: icon, label: label!, onPressed: onPressed);
 
   Future<void> _showCheckinFailedSnackBar(BuildContext context, CheckinResult result) async {
     if (!context.mounted) {
@@ -101,10 +105,11 @@ class CheckinButton extends StatelessWidget {
               // Still no action (no second check-in); the label tells a screen reader it is done.
               return Tooltip(
                 message: checkedTr.checkedInHint,
-                child: FilledButton.icon(
-                  style: appHeroActionStyle(context),
+                child: appDayAction(
+                  context,
+                  look: look,
                   icon: const Icon(Icons.check_circle),
-                  label: Text(checkedTr.checkedIn),
+                  label: checkedTr.checkedIn,
                   onPressed: null,
                 ),
               );

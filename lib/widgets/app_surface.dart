@@ -57,6 +57,79 @@ ButtonStyle appHeroActionStyle(BuildContext context, {double height = 48}) {
   );
 }
 
+/// Corner radius of the action tiles of the homepage greeting and of its tool tiles.
+const appTileRadius = 16.0;
+
+/// How an action of the day (check-in, daily red packet, the entries beside them) is drawn.
+enum AppDayActionLook {
+  /// A rounded button with its icon before the label: the account of "me", the desktop greeting.
+  button,
+
+  /// A tile, 72 high, its icon over a one line label: the four tiles on a row of the phone greeting.
+  tile,
+
+  /// A tile with its icon before the label: the two columns the phone greeting falls back to when the four tiles do
+  /// not fit (large text, long labels).
+  row,
+}
+
+/// Text style of the label of an action tile ([AppDayActionLook.tile], [AppDayActionLook.row]).
+TextStyle? appDayActionLabelStyle(BuildContext context) =>
+    Theme.of(context).textTheme.labelLarge?.copyWith(fontSize: 13, fontWeight: FontWeight.w700);
+
+/// An action of the day drawn as [look]: the [primary] one is filled with the primary color, the others are in the
+/// panel color with a primary icon ([appHeroActionStyle]). Always a [FilledButton], [onPressed] null when it does
+/// nothing (done, waiting, unavailable).
+Widget appDayAction(
+  BuildContext context, {
+  required AppDayActionLook look,
+  required Widget icon,
+  required String label,
+  required VoidCallback? onPressed,
+  bool primary = false,
+}) {
+  final base = primary ? FilledButton.styleFrom(minimumSize: const Size(0, 48)) : appHeroActionStyle(context);
+  if (look == AppDayActionLook.button) {
+    return FilledButton.icon(style: base, icon: icon, label: Text(label), onPressed: onPressed);
+  }
+  final style = base.copyWith(
+    shape: const WidgetStatePropertyAll(
+      RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(appTileRadius))),
+    ),
+    textStyle: WidgetStatePropertyAll(appDayActionLabelStyle(context)),
+  );
+  if (look == AppDayActionLook.row) {
+    return FilledButton.icon(
+      style: style.copyWith(
+        minimumSize: const WidgetStatePropertyAll(Size(0, 56)),
+        iconSize: const WidgetStatePropertyAll(20),
+        padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 16, vertical: 8)),
+        alignment: AlignmentDirectional.centerStart,
+      ),
+      icon: icon,
+      label: Text(label, maxLines: 2, overflow: TextOverflow.ellipsis),
+      onPressed: onPressed,
+    );
+  }
+  return FilledButton(
+    style: style.copyWith(
+      minimumSize: const WidgetStatePropertyAll(Size(0, 72)),
+      iconSize: const WidgetStatePropertyAll(24),
+      padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 4, vertical: 8)),
+    ),
+    onPressed: onPressed,
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        icon,
+        sizedBoxW4H4,
+        // One line: the greeting falls back to two columns before a label would have to shrink.
+        FittedBox(fit: BoxFit.scaleDown, child: Text(label, maxLines: 1)),
+      ],
+    ),
+  );
+}
+
 /// Horizontal padding of page content for the available [width]: tighter on phones.
 double appPagePadding(double width) => width < 600 ? 12 : 16;
 

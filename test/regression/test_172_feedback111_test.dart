@@ -503,7 +503,8 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('the greeting card of a portrait phone keeps two rows of actions', (tester) async {
+    // Beautify v2: the four actions are tiles on one row of a portrait phone too.
+    testWidgets('the greeting card of a portrait phone: the four actions on one row of tiles', (tester) async {
       final auth = _Auth(_alice);
       final checkin = CheckinBloc(
         checkinRepository: CheckinRepository(storageProvider: storage),
@@ -542,7 +543,7 @@ void main() {
       final packetRect = tester.getRect(find.text(tr.redPacket.daily.unavailable));
       final activitiesRect = tester.getRect(find.text(tr.activitiesPage.title));
       expect(tester.getRect(find.text(tr.homepage.welcome.checkin)).top, closeTo(packetRect.top, 1));
-      expect(activitiesRect.top, greaterThan(packetRect.bottom), reason: 'the entries wrap below on a portrait phone');
+      expect(activitiesRect.top, closeTo(packetRect.top, 1), reason: 'one row of four tiles on a portrait phone');
       expect(tester.takeException(), isNull);
     });
 
@@ -599,8 +600,9 @@ void main() {
 
     // The phone of the report is 360dp wide with a slightly larger system font; the test font is narrower than the
     // real one, so 320dp at 1.15x stands in for it.
-    for (final (width, scale) in [(360.0, 1.0), (320.0, 1.15)]) {
-      testWidgets('${width}dp, ${scale}x text: activities and medals share one row under check-in and red packet', (
+    // Beautify v2: one row of four tiles while the labels fit, else two columns.
+    for (final (width, scale, oneRow) in [(360.0, 1.0, true), (320.0, 1.15, false)]) {
+      testWidgets('${width}dp, ${scale}x text: one row of four, or two rows of two', (
         tester,
       ) async {
         final auth = _Auth(_alice);
@@ -646,7 +648,11 @@ void main() {
         final packet = tester.getRect(find.text(tr.redPacket.daily.unavailable));
         final activities = tester.getRect(find.text(tr.activitiesPage.title));
         final medals = tester.getRect(find.text(tr.medalTitleHub.title));
-        expect(activities.top, greaterThan(packet.bottom), reason: 'second row');
+        if (oneRow) {
+          expect(activities.center.dy, closeTo(packet.center.dy, 1), reason: 'one row');
+        } else {
+          expect(activities.top, greaterThan(packet.bottom), reason: 'second row');
+        }
         expect(medals.center.dy, closeTo(activities.center.dy, 1), reason: 'the two entries on one row');
         expect(medals.right, lessThanOrEqualTo(width));
         expect(tester.takeException(), isNull);
