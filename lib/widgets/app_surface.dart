@@ -57,29 +57,22 @@ ButtonStyle appHeroActionStyle(BuildContext context, {double height = 48}) {
   );
 }
 
-/// Corner radius of the action tiles of the homepage greeting and of its tool tiles.
-const appTileRadius = 16.0;
-
 /// How an action of the day (check-in, daily red packet, the entries beside them) is drawn.
 enum AppDayActionLook {
-  /// A rounded button with its icon before the label: the account of "me", the desktop greeting.
+  /// A rounded button with its icon before the label, the secondary ones in the panel color ([appHeroActionStyle]):
+  /// the account of "me".
   button,
 
-  /// A tile, 72 high, its icon over a one line label: the four tiles on a row of the phone greeting.
-  tile,
-
-  /// A tile with its icon before the label: the two columns the phone greeting falls back to when the four tiles do
-  /// not fit (large text, long labels).
-  row,
+  /// The buttons of the homepage greeting card: the primary one filled, a secondary one tonal, one that can not be
+  /// used now ([appDayAction]'s `unavailable`) outlined.
+  classic,
 }
 
-/// Text style of the label of an action tile ([AppDayActionLook.tile], [AppDayActionLook.row]).
-TextStyle? appDayActionLabelStyle(BuildContext context) =>
-    Theme.of(context).textTheme.labelLarge?.copyWith(fontSize: 13, fontWeight: FontWeight.w700);
-
-/// An action of the day drawn as [look]: the [primary] one is filled with the primary color, the others are in the
-/// panel color with a primary icon ([appHeroActionStyle]). Always a [FilledButton], [onPressed] null when it does
-/// nothing (done, waiting, unavailable).
+/// An action of the day drawn as [look], [onPressed] null when it does nothing (done, waiting, unavailable).
+///
+/// [AppDayActionLook.button]: the [primary] one is filled with the primary color, the others are in the panel color
+/// with a primary icon ([appHeroActionStyle]). [AppDayActionLook.classic]: the [primary] one filled, an [unavailable]
+/// one (no packet now, a login needed) outlined, the others tonal; [height] is its least height.
 Widget appDayAction(
   BuildContext context, {
   required AppDayActionLook look,
@@ -87,47 +80,30 @@ Widget appDayAction(
   required String label,
   required VoidCallback? onPressed,
   bool primary = false,
+  bool unavailable = false,
+  double height = 48,
 }) {
-  final base = primary ? FilledButton.styleFrom(minimumSize: const Size(0, 48)) : appHeroActionStyle(context);
-  if (look == AppDayActionLook.button) {
-    return FilledButton.icon(style: base, icon: icon, label: Text(label), onPressed: onPressed);
-  }
-  final style = base.copyWith(
-    shape: const WidgetStatePropertyAll(
-      RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(appTileRadius))),
-    ),
-    textStyle: WidgetStatePropertyAll(appDayActionLabelStyle(context)),
-  );
-  if (look == AppDayActionLook.row) {
-    return FilledButton.icon(
-      style: style.copyWith(
-        minimumSize: const WidgetStatePropertyAll(Size(0, 56)),
-        iconSize: const WidgetStatePropertyAll(20),
-        padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 16, vertical: 8)),
-        alignment: AlignmentDirectional.centerStart,
-      ),
+  if (look == AppDayActionLook.classic && !primary) {
+    final minimumSize = Size(0, height);
+    if (unavailable) {
+      return OutlinedButton.icon(
+        style: OutlinedButton.styleFrom(minimumSize: minimumSize),
+        icon: icon,
+        label: Text(label),
+        onPressed: onPressed,
+      );
+    }
+    return FilledButton.tonalIcon(
+      style: FilledButton.styleFrom(minimumSize: minimumSize),
       icon: icon,
-      label: Text(label, maxLines: 2, overflow: TextOverflow.ellipsis),
+      label: Text(label),
       onPressed: onPressed,
     );
   }
-  return FilledButton(
-    style: style.copyWith(
-      minimumSize: const WidgetStatePropertyAll(Size(0, 72)),
-      iconSize: const WidgetStatePropertyAll(24),
-      padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 4, vertical: 8)),
-    ),
-    onPressed: onPressed,
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        icon,
-        sizedBoxW4H4,
-        // One line: the greeting falls back to two columns before a label would have to shrink.
-        FittedBox(fit: BoxFit.scaleDown, child: Text(label, maxLines: 1)),
-      ],
-    ),
-  );
+  final style = primary
+      ? FilledButton.styleFrom(minimumSize: Size(0, look == AppDayActionLook.classic ? height : 48))
+      : appHeroActionStyle(context);
+  return FilledButton.icon(style: style, icon: icon, label: Text(label), onPressed: onPressed);
 }
 
 /// Horizontal padding of page content for the available [width]: tighter on phones.

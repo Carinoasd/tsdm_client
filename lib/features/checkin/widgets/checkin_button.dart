@@ -34,7 +34,7 @@ class CheckinButton extends StatelessWidget {
   /// Show a filled button with this label instead of an icon button, e.g. on the homepage greeting card.
   final String? label;
 
-  /// How the button with a [label] is drawn: a tile among the actions of the phone greeting, a button elsewhere.
+  /// How the button with a [label] is drawn: [AppDayActionLook.classic] on the homepage greeting card.
   final AppDayActionLook look;
 
   /// The check-in result told last.
