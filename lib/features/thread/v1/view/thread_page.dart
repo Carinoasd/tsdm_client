@@ -87,7 +87,6 @@ import 'package:tsdm_client/shared/models/thread_open_position.dart';
 import 'package:tsdm_client/shared/providers/storage_provider/storage_provider.dart';
 import 'package:tsdm_client/themes/app_surfaces.dart';
 import 'package:tsdm_client/utils/clipboard.dart';
-import 'package:tsdm_client/utils/html/author_style.dart';
 import 'package:tsdm_client/utils/html/html_muncher.dart';
 import 'package:tsdm_client/utils/html/post_typography.dart';
 import 'package:tsdm_client/utils/html/search_highlight.dart';
@@ -2013,10 +2012,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
     final infoTextHighlightStyle = Theme.of(context).textTheme.labelLarge?.copyWith(color: colorScheme.primary);
 
     Widget pill(String label, {IconData? icon, Color? color, VoidCallback? onTap}) {
-      // The accent of a pill (the primary color) is made readable on the control layer it is on.
-      final foreground = color == null
-          ? colorScheme.onSurfaceVariant
-          : readableInk(color, AppSurfaces.of(context).control);
+      final foreground = color ?? colorScheme.onSurfaceVariant;
       final content = Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8),
         child: Row(
