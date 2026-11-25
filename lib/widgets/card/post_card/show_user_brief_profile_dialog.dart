@@ -152,7 +152,8 @@ class _UserBriefProfileDialogState extends State<_UserBriefProfileDialog> {
     // (the 800 green read 4.3:1, the 900 shades are used).
     final colorOffset = inDarkTheme ? 200 : 900;
     final cyanOffset = inDarkTheme ? 200 : 900;
-    final orange = inDarkTheme ? Colors.orange[300] : Colors.deepOrange[900];
+    // The 900 deep orange read 4.33:1 on the inset layer of the light theme (tone 90): a darker one.
+    final orange = inDarkTheme ? Colors.orange[300] : const Color(0xFFA32D0A);
     // Measured like the badges below: the dialog content has no layout builder (the dialog sizes to intrinsics).
     final contentWidth = briefProfileDialogContentWidth(MediaQuery.sizeOf(context).width);
     final statWidth = (contentWidth - 8) / 2;

@@ -4,9 +4,9 @@ import 'package:material_color_utilities/material_color_utilities.dart';
 /// The layers of surfaces of the app and the lines and quiet text on them.
 ///
 /// The app themes take them from the hue of the seed color ([AppSurfaces.forSeed]): a dark theme has a near black
-/// page with a trace of the seed's hue, a light one a gray page with white panels on it. Panels carry no
-/// border: the layers tell them apart. None of them is translucent, so what is drawn on them and its contrast are
-/// known.
+/// page with a trace of the seed's hue, a light one a near white page with gray-tinted panels on it. Panels carry no
+/// border, the layers tell them apart; but the floors of a thread have a hairline around them in a light theme. None
+/// of them is translucent, so what is drawn on them and its contrast are known.
 @immutable
 class AppSurfaces extends ThemeExtension<AppSurfaces> {
   /// Constructor.
@@ -25,12 +25,6 @@ class AppSurfaces extends ThemeExtension<AppSurfaces> {
   /// lines 2 more); [muted] is a tone of the neutral variant palette of the seed's scheme.
   ///
   /// The dark page is tone 4: black stays black. A stronger tint (chroma 10 from tone 7) read as a colored ground.
-  ///
-  /// The light page is a gray of tone 90 with white cards on it: the text of a card is on white. Blocks and pills
-  /// are drawn on a card and on the page alike (a quote in a floor, the editor of a page; the pills of a floor, those
-  /// under the app bar), so the inset (95) and the control (85) are told from both by a contrast of 1.1 at least. A
-  /// near white page with cards 4 tones darker, and quotes 2 tones darker than those, could not be told apart on a
-  /// phone screen.
   factory AppSurfaces.forSeed(Color seed, Brightness brightness) {
     final dark = brightness == Brightness.dark;
     final hct = Hct.fromInt(seed.toARGB32());
@@ -51,14 +45,14 @@ class AppSurfaces extends ThemeExtension<AppSurfaces> {
             muted: c(text.get(66)),
           )
         : AppSurfaces(
-            page: c(n.get(90)),
-            card: c(n.get(100)),
-            inset: c(n.get(95)),
-            control: c(n.get(85)),
-            bar: c(n.get(97)),
-            line: c(nv.get(82)),
-            lineStrong: c(nv.get(60)),
-            muted: c(text.get(30)),
+            page: c(n.get(99)),
+            card: c(n.get(95)),
+            inset: c(n.get(90)),
+            control: c(n.get(87)),
+            bar: c(n.get(96)),
+            line: c(nv.get(88)),
+            lineStrong: c(nv.get(68)),
+            muted: c(text.get(42)),
           );
   }
 
@@ -91,7 +85,7 @@ class AppSurfaces extends ThemeExtension<AppSurfaces> {
     return colorScheme.copyWith(
       surface: page,
       surfaceDim: dark ? page : control,
-      surfaceBright: dark ? control : card,
+      surfaceBright: dark ? control : page,
       surfaceContainerLowest: dark ? Color.lerp(page, const Color(0xFF000000), 0.4) : const Color(0xFFFFFFFF),
       surfaceContainerLow: bar,
       surfaceContainer: card,

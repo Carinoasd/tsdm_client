@@ -1498,7 +1498,8 @@ final class AuthorColors {
   AuthorColors(ThemeData theme)
     : dark = theme.brightness == Brightness.dark,
       surface = theme.cardTheme.color ?? AppSurfaces.ofTheme(theme).card,
-      quoteSurface = AppSurfaces.ofTheme(theme).inset;
+      quoteSurface = AppSurfaces.ofTheme(theme).inset,
+      quoteInk = theme.colorScheme.onSurfaceVariant;
 
   /// The theme is dark.
   final bool dark;
@@ -1509,6 +1510,9 @@ final class AuthorColors {
   /// The surface the text of a quote is on: the gray block of the quote.
   final Color quoteSurface;
 
+  /// The color the forum's gray source line of a quote is shown in, in a light theme: that of secondary text.
+  final Color quoteInk;
+
   final _inks = <(int, int), Color>{};
   final _backgrounds = <int, Color>{};
 
@@ -1517,7 +1521,7 @@ final class AuthorColors {
   /// a text that cannot be seen at all without it (white on a dark picture) is made readable, in a light theme too.
   ///
   /// [inQuote]: the text is in a quote, a gray block in the app where the web page has a white one: the gray of the
-  /// forum's own source line (#999999, "… 发表于 …"), read on white, is too faint there and is made readable, in a
+  /// forum's own source line (#999999, "… 发表于 …"), read on white, is too faint there and is shown in [quoteInk], in a
   /// light theme too. A gray so light it was barely seen on white (a note, text hidden in white) stays.
   Color text(Color color, {Color? on, bool pictureBehind = false, bool inQuote = false}) {
     if (color.a < _seenAlpha) {
@@ -1536,7 +1540,7 @@ final class AuthorColors {
       if (inQuote && on == null && _isGray(color)) {
         final c = opaque(color);
         if (contrastRatio(c, _pageWhite) >= _seenGrayContrast && contrastRatio(c, quoteSurface) < readableContrast) {
-          return _inks.putIfAbsent((color.toARGB32(), quoteSurface.toARGB32()), () => readableInk(c, quoteSurface));
+          return quoteInk;
         }
       }
       return color;

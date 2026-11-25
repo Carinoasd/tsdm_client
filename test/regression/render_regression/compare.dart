@@ -111,7 +111,9 @@ bool _darkenedGray(String web, String app) {
     return false;
   }
   bool gray(List<int> c) => (c[0] - c[1]).abs() <= 4 && (c[1] - c[2]).abs() <= 4;
-  return gray(w) && gray(a) && a[0] < w[0] && w[0] <= 0xB7 && w[0] > 0x76;
+  // The app's color is that of secondary text: a gray with a trace of the theme's hue.
+  bool tintedGray(List<int> c) => c.reduce(math.max) - c.reduce(math.min) <= 16;
+  return gray(w) && tintedGray(a) && a.reduce(math.max) < w[0] && w[0] <= 0xB7 && w[0] > 0x76;
 }
 
 /// The sum of the differences of the channels of two colors, 999 when one is not a color.
