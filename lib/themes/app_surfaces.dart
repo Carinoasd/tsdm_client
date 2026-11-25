@@ -5,8 +5,8 @@ import 'package:material_color_utilities/material_color_utilities.dart';
 ///
 /// The app themes take them from the hue of the seed color ([AppSurfaces.forSeed]): a dark theme has a near black
 /// page with a trace of the seed's hue, a light one a near white page with gray-tinted panels on it. Panels carry no
-/// border, the layers tell them apart; but the floors of a thread have a hairline around them in a light theme. None of them is translucent, so what is drawn on them and its contrast are
-/// known.
+/// border, the layers tell them apart; but the floors of a thread have a hairline around them in a light theme. None
+/// of them is translucent, so what is drawn on them and its contrast are known.
 @immutable
 class AppSurfaces extends ThemeExtension<AppSurfaces> {
   /// Constructor.

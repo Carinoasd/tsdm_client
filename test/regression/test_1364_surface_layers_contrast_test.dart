@@ -135,6 +135,7 @@ void main() {
             'quote / inset': (c.onSurfaceVariant, s.inset),
             'secondary / control': (c.onSurfaceVariant, s.control),
             'primary / control (pill)': (c.primary, s.control),
+            'tertiary / control (pill)': (c.tertiary, s.control),
             'secondary / bar': (c.onSurfaceVariant, s.bar),
             'meta / page': (s.muted, s.page),
             'meta / card': (s.muted, s.card),
@@ -191,7 +192,7 @@ void main() {
           reason: '$gray',
         );
       }
-      // Out of a quote the text is on the white of a card, as on the web page.
+      // Out of a quote the text is on the card and stays as the author gave it.
       expect(colors.text(const Color(0xFF999999)), const Color(0xFF999999));
       expect(colors.text(const Color(0xFF333333), inQuote: true), const Color(0xFF333333));
       expect(colors.text(const Color(0xFFEEEEEE), inQuote: true), const Color(0xFFEEEEEE));
