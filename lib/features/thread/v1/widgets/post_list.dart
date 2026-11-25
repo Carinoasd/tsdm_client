@@ -1063,7 +1063,12 @@ class _FloorSurface extends StatelessWidget {
           // A light theme draws a faint line around a floor: its card is close to the page in lightness.
           shape: Theme.of(context).brightness == Brightness.dark
               ? appSurfaceShape(context)
-              : appSurfaceShapeOf().copyWith(side: BorderSide(color: AppSurfaces.of(context).line)),
+              : appSurfaceShapeOf().copyWith(
+                  side: BorderSide(
+                    // Halfway from the hairline to the strong line: the hairline alone was not seen on a phone.
+                    color: Color.lerp(AppSurfaces.of(context).line, AppSurfaces.of(context).lineStrong, 0.5)!,
+                  ),
+                ),
           child: child,
         ),
       ),
