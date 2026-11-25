@@ -47,11 +47,11 @@ class AppSurfaces extends ThemeExtension<AppSurfaces> {
         : AppSurfaces(
             page: c(n.get(99)),
             card: c(n.get(95)),
-            inset: c(n.get(93)),
-            control: c(n.get(90)),
+            inset: c(n.get(90)),
+            control: c(n.get(87)),
             bar: c(n.get(96)),
             line: c(nv.get(88)),
-            lineStrong: c(nv.get(78)),
+            lineStrong: c(nv.get(68)),
             muted: c(text.get(42)),
           );
   }

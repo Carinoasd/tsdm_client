@@ -1497,7 +1497,9 @@ final class AuthorColors {
   /// The colors in [theme].
   AuthorColors(ThemeData theme)
     : dark = theme.brightness == Brightness.dark,
-      surface = theme.cardTheme.color ?? AppSurfaces.ofTheme(theme).card;
+      surface = theme.cardTheme.color ?? AppSurfaces.ofTheme(theme).card,
+      quoteSurface = AppSurfaces.ofTheme(theme).inset,
+      quoteInk = theme.colorScheme.onSurfaceVariant;
 
   /// The theme is dark.
   final bool dark;
@@ -1505,13 +1507,23 @@ final class AuthorColors {
   /// The surface a post's text is on: its card.
   final Color surface;
 
+  /// The surface the text of a quote is on: the gray block of the quote.
+  final Color quoteSurface;
+
+  /// The color the forum's gray source line of a quote is shown in, in a light theme: that of secondary text.
+  final Color quoteInk;
+
   final _inks = <(int, int), Color>{};
   final _backgrounds = <int, Color>{};
 
   /// The color text of [color] is shown in [on] a background of the author (null: on the post's surface).
   /// [pictureBehind]: the author put the text on a picture, which the app does not show (on [on] under the picture);
   /// a text that cannot be seen at all without it (white on a dark picture) is made readable, in a light theme too.
-  Color text(Color color, {Color? on, bool pictureBehind = false}) {
+  ///
+  /// [inQuote]: the text is in a quote, a gray block in the app where the web page has a white one: the gray of the
+  /// forum's own source line (#999999, "… 发表于 …"), read on white, is too faint there and is shown in [quoteInk], in a
+  /// light theme too. A gray so light it was barely seen on white (a note, text hidden in white) stays.
+  Color text(Color color, {Color? on, bool pictureBehind = false, bool inQuote = false}) {
     if (color.a < _seenAlpha) {
       // `color: transparent`: hidden on purpose.
       return color;
@@ -1523,6 +1535,12 @@ final class AuthorColors {
         final behind = on == null ? surface : (background(on) ?? surface);
         if (contrastRatio(opaque(color), behind) < _unseenContrast) {
           return _inks.putIfAbsent((color.toARGB32(), behind.toARGB32()), () => readableInk(color, behind));
+        }
+      }
+      if (inQuote && on == null && _isGray(color)) {
+        final c = opaque(color);
+        if (contrastRatio(c, _pageWhite) >= _seenGrayContrast && contrastRatio(c, quoteSurface) < readableContrast) {
+          return quoteInk;
         }
       }
       return color;
@@ -1569,12 +1587,20 @@ final class AuthorColors {
     return _backgrounds.putIfAbsent(c.toARGB32(), () => darkBackground(c));
   }
 
+  static bool _isGray(Color color) {
+    final (_, a, b) = _toOklab(opaque(color));
+    return math.sqrt(a * a + b * b) < _grayChroma;
+  }
+
   static bool _isPageWhite(Color c) =>
       (c.r * 255).round() >= 248 && (c.g * 255).round() >= 248 && (c.b * 255).round() >= 248;
 }
 
 /// Text this close to the surface cannot be seen at all: see [AuthorColors.text].
 const _unseenContrast = 1.5;
+
+/// A gray text of this contrast on the white of the web page was seen there: see [AuthorColors.text].
+const _seenGrayContrast = 2.0;
 
 /// Text and background this close are hidden text, not unreadable text: see [AuthorColors].
 const camouflageContrast = 1.15;

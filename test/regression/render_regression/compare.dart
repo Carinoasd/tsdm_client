@@ -101,6 +101,21 @@ List<int>? _channels(String c) {
   return r == null || g == null || b == null ? null : [r, g, b];
 }
 
+/// Whether [app] is the gray [web] made darker: the gray of a quote's source line, which the app shows on the gray
+/// block of the quote and makes readable there (`AuthorColors.text`). Only a gray the app darkens: one seen on the
+/// white of the web page (a contrast of 2, #B7B7B7 or darker) that did not read (lighter than #767676).
+bool _darkenedGray(String web, String app) {
+  final w = _channels(web);
+  final a = _channels(app);
+  if (w == null || a == null) {
+    return false;
+  }
+  bool gray(List<int> c) => (c[0] - c[1]).abs() <= 4 && (c[1] - c[2]).abs() <= 4;
+  // The app's color is that of secondary text: a gray with a trace of the theme's hue.
+  bool tintedGray(List<int> c) => c.reduce(math.max) - c.reduce(math.min) <= 16;
+  return gray(w) && tintedGray(a) && a.reduce(math.max) < w[0] && w[0] <= 0xB7 && w[0] > 0x76;
+}
+
 /// The sum of the differences of the channels of two colors, 999 when one is not a color.
 int _hexDistance(String a, String b) {
   final x = _channels(a);
@@ -574,7 +589,7 @@ FloorDiff compareFloor(List<Map<String, Object?>> web, Map<String, Object?> base
       add('color:lost');
     } else if (ac.isNotEmpty && wc.isEmpty) {
       add('color:extra');
-    } else if (wc.isNotEmpty && ac.isNotEmpty && _hexDistance(wc, ac) > 30) {
+    } else if (wc.isNotEmpty && ac.isNotEmpty && _hexDistance(wc, ac) > 30 && !_darkenedGray(wc, ac)) {
       add('color:diff');
     }
     // Sizes relative to the body text of each side (14 on both), a step of 12% or more.

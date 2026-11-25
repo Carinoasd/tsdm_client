@@ -32,11 +32,11 @@ const _seeds = <String, Color?>{
 /// The swatches of the design (`tokens-v2.md` 1.1): page, card, inset, control, line, line strong, muted, bar.
 const _swatches = <String, List<int>>{
   'cyan dark': [0xFF0A0F11, 0xFF151A1D, 0xFF1D2225, 0xFF262B2D, 0xFF2C3438, 0xFF424A4E, 0xFF9AA2A6, 0xFF111619],
-  'cyan light': [0xFFFAFCFF, 0xFFEDF1F5, 0xFFE7ECEF, 0xFFDFE3E7, 0xFFD6DEE3, 0xFFBAC2C7, 0xFF5C6469, 0xFFF0F4F8],
+  'cyan light': [0xFFFAFCFF, 0xFFEDF1F5, 0xFFDFE3E7, 0xFFD6DBDE, 0xFFD6DEE3, 0xFF9FA7AC, 0xFF5C6469, 0xFFF0F4F8],
   'pink dark': [0xFF130C0F, 0xFF1F171A, 0xFF281F22, 0xFF30282A, 0xFF3B2F33, 0xFF53464A, 0xFFAE9CA1, 0xFF1B1416],
-  'pink light': [0xFFFFFBFF, 0xFFFDEDF0, 0xFFF7E7EB, 0xFFEEDFE2, 0xFFECD8DD, 0xFFCFBCC1, 0xFF6E5F64, 0xFFFFF0F3],
+  'pink light': [0xFFFFFBFF, 0xFFFDEDF0, 0xFFEEDFE2, 0xFFE6D6DA, 0xFFECD8DD, 0xFFB3A1A6, 0xFF6E5F64, 0xFFFFF0F3],
   'purple dark': [0xFF0F0D13, 0xFF1A191E, 0xFF232126, 0xFF2B292F, 0xFF34313A, 0xFF4B4851, 0xFFA49EA9, 0xFF16151A],
-  'purple light': [0xFFFFFBFF, 0xFFF5EFF7, 0xFFEFE9F1, 0xFFE6E1E9, 0xFFE1DBE6, 0xFFC4BFCA, 0xFF65626B, 0xFFF8F2FA],
+  'purple light': [0xFFFFFBFF, 0xFFF5EFF7, 0xFFE6E1E9, 0xFFDED8E0, 0xFFE1DBE6, 0xFFA9A4AE, 0xFF65626B, 0xFFF8F2FA],
 };
 
 /// Least contrast of a text pair.
@@ -175,4 +175,31 @@ void main() {
     final t = AppTheme.makeDark(_FakeContext(), seedColor: const Color(0xFF069DC7), fontFamily: '');
     expect(t.colorScheme.primary, const Color(0xFF8BD0EF));
   });
+
+  test(
+    "the forum's gray (#999999, a quote's source line) is the color of secondary text in a quote; elsewhere it stays",
+    () {
+      final t = AppTheme.makeLight(_FakeContext(), seedColor: const Color(0xFF069DC7), fontFamily: '');
+      final colors = AuthorColors(t);
+      final inset = AppSurfaces.ofTheme(t).inset;
+      for (final gray in const [Color(0xFF999999), Color(0xFFAAAAAA), Color(0xFF888888)]) {
+        expect(colors.text(gray, inQuote: true), t.colorScheme.onSurfaceVariant, reason: '$gray');
+        expect(
+          contrastRatio(colors.text(gray, inQuote: true), inset),
+          greaterThanOrEqualTo(readableContrast),
+          reason: '$gray',
+        );
+      }
+      // Out of a quote the text is on the white of a card, as on the web page.
+      expect(colors.text(const Color(0xFF999999)), const Color(0xFF999999));
+      expect(colors.text(const Color(0xFF333333), inQuote: true), const Color(0xFF333333));
+      expect(colors.text(const Color(0xFFEEEEEE), inQuote: true), const Color(0xFFEEEEEE));
+      expect(colors.text(const Color(0xFFFFFFFF), inQuote: true), const Color(0xFFFFFFFF));
+      expect(colors.text(const Color(0xFFFF9900), inQuote: true), const Color(0xFFFF9900));
+      expect(
+        colors.text(const Color(0xFF999999), on: const Color(0xFF222222), inQuote: true),
+        const Color(0xFF999999),
+      );
+    },
+  );
 }
