@@ -30,7 +30,7 @@ const appSurfaceGap = 12.0;
 const appTwoColumnWidth = 840.0;
 
 /// Shape shared by the content surfaces: rounded, without a border (the surface layers, [AppSurfaces], tell a card
-/// from the page).
+/// from the page). A floor of a thread adds a hairline to it in a light theme.
 ShapeBorder appSurfaceShape(BuildContext context) => appSurfaceShapeOf();
 
 /// [appSurfaceShape], used to build the app theme.

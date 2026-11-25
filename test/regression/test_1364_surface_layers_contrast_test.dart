@@ -8,7 +8,7 @@
 /// 2. the layers are the swatches of the design (cyan, pink, purple, both themes), a seed of low chroma gets no hue
 ///    made up in the dark theme;
 /// 3. the layers go the same way for every seed: a dark night of the seed's hue with lighter panels, a near white
-///    page with gray-tinted panels; panels have no border;
+///    page with gray-tinted panels; the panels of the theme have no border;
 /// 4. every text pair of the design is at least 4.5:1 (body, secondary and meta text on the layers, primary text,
 ///    containers, buttons).
 library;
@@ -134,6 +134,7 @@ void main() {
             'secondary / card': (c.onSurfaceVariant, s.card),
             'quote / inset': (c.onSurfaceVariant, s.inset),
             'secondary / control': (c.onSurfaceVariant, s.control),
+            'primary / control (pill)': (c.primary, s.control),
             'secondary / bar': (c.onSurfaceVariant, s.bar),
             'meta / page': (s.muted, s.page),
             'meta / card': (s.muted, s.card),
