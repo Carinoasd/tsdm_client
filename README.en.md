@@ -16,12 +16,12 @@
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/Carinoasd/tsdm_client" alt="license"/></a>
 </p>
 
-## Latest update: 1.62.2 (2026-11-25)
+## Latest update: 1.62.3 (2026-11-25)
 
-- The light theme is now white cards on a gray page, so cards, quotes and pills stand out; the gray source line of a quote is darker. The dark theme is unchanged.
-- Android build number 180 installs over earlier releases and test builds.
+- The light theme is back to light gray cards on a near white page; quotes are darker and the gray source line of a quote is clearer; the floors of a thread have a faint outline. The dark theme is unchanged.
+- Android build number 181 installs over earlier releases and test builds.
 
-[Download 1.62.2](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.62.2) · [Full changelog](./CHANGELOG.md)
+[Download 1.62.3](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.62.3) · [Full changelog](./CHANGELOG.md)
 
 ## What it is
 

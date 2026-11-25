@@ -16,12 +16,12 @@
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/Carinoasd/tsdm_client" alt="license"/></a>
 </p>
 
-## 最新更新：1.62.2（2026-11-25）
+## 最新更新：1.62.3（2026-11-25）
 
-- 浅色主题改为灰底白卡片，卡片、引用框、标签的边界更清楚；引用来源行的灰字加深。深色主题不变。
-- Android 构建编号为 180，可直接覆盖之前的正式版与测试版。
+- 浅色主题改回近白底、淡灰卡片；引用框加深，引用来源行的灰字更清楚；帖子楼层卡片加了一圈淡描边。深色主题不变。
+- Android 构建编号为 181，可直接覆盖之前的正式版与测试版。
 
-[下载 1.62.2](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.62.2) · [完整更新日志](./CHANGELOG.md)
+[下载 1.62.3](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.62.3) · [完整更新日志](./CHANGELOG.md)
 
 ## 这是什么
 
