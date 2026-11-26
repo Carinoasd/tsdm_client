@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -44,6 +45,7 @@ class _Adapter implements HttpClientAdapter {
   bool githubDown = false;
   int githubStatus = 200;
   bool mirrorDown = false;
+  bool mirrorHangs = false;
   Uint8List mirrorPayload = _bytes;
   Map<String, Object?>? mirrorInfo;
 
@@ -95,6 +97,7 @@ class _Adapter implements HttpClientAdapter {
     }
     expect(uri.host, 'drive.noire.cc');
     if (mirrorDown) throw DioException.connectionError(requestOptions: options, reason: 'down');
+    if (mirrorHangs) return Completer<ResponseBody>().future;
     if (uri.path == '/api/v4/file/url') {
       expect(options.method, 'POST');
       final path = ((options.data as Map)['uris'] as List).single as String;
@@ -253,6 +256,13 @@ void main() {
       await updates.checkUpdate(notice: false);
       expect(updates.state.latestVersionInfo?.changelog, 'github');
       await updates.close();
+    });
+
+    test("GitHub's answer does not wait for a mirror that never answers", () async {
+      adapter.mirrorHangs = true;
+      final updates = cubit(ok);
+      await updates.checkUpdate(notice: false).timeout(const Duration(seconds: 5));
+      expect(updates.state.latestVersionInfo?.changelog, 'github');
     });
 
     test('the mirror answers when GitHub cannot be read', () async {

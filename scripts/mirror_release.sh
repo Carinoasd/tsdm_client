@@ -33,7 +33,9 @@ print("\n".join(tags))
 newer_or_same() { python3 -c 'import sys; a,b=(tuple(map(int,x[1:].split("."))) for x in sys.argv[1:]); sys.exit(a<b)' "$1" "$2"; }
 
 # A tag older than every kept folder would be pruned right after its upload.
-mapfile -t existing < <(folders)
+listing=$(folders)
+mapfile -t existing <<< "$listing"
+[[ -n "$listing" ]] || existing=()
 if (( ${#existing[@]} >= keep )) && ! newer_or_same "$tag" "${existing[-keep]}"; then
   echo "$tag is older than the $keep newest mirrored releases; nothing to do"
   exit 0
@@ -92,7 +94,9 @@ else
 fi
 
 # Prune release folders beyond the newest $keep.
-mapfile -t existing < <(folders)
+listing=$(folders)
+mapfile -t existing <<< "$listing"
+[[ -n "$listing" ]] || existing=()
 (( ${#existing[@]} > keep )) || exit 0
 for old in "${existing[@]:0:${#existing[@]}-keep}"; do
   [[ "$old" == "$tag" ]] && continue

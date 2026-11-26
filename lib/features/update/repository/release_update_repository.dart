@@ -203,7 +203,8 @@ class ReleaseUpdateRepository {
       throw const UpdateDownloadException(UpdateDownloadFailure.invalidRelease);
     }
     final mirror = _mirror;
-    Future<Uri> fromMirror() => mirror!.urlOf(CloudreveMirror.assetPath(info.version, _target.assetName));
+    Future<Uri> fromMirror() =>
+        mirror!.urlOf(CloudreveMirror.assetPath(info.version, _target.assetName), cancelToken: cancelToken);
     final ({int size, String digest, Uri url}) github;
     try {
       github = await _resolveGithub(info, cancelToken);
@@ -255,7 +256,8 @@ class ReleaseUpdateRepository {
     try {
       final listed = await mirror.versionInfo(cancelToken: cancelToken);
       if (listed['version'] != info.version || listed['versionCode'] != info.versionCode) return null;
-      return CloudreveMirror.assetOf(listed, _target.assetName);
+      final asset = CloudreveMirror.assetOf(listed, _target.assetName);
+      return asset == null || asset.size > _maxSize ? null : asset;
     } on DioException catch (error) {
       if (CancelToken.isCancel(error)) rethrow;
       return null;

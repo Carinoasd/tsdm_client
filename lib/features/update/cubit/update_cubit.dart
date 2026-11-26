@@ -72,8 +72,9 @@ final class UpdateCubit extends Cubit<UpdateCubitState> with LoggerMixin {
 
     // Both at once: GitHub's copy is the authority whenever it can be read (the mirror may lag behind, or name a
     // version of its own); the mirror's answers only where GitHub cannot be reached.
-    final (github, mirrored) = await (_fromGithub(), _fromMirror()).wait;
-    final latest = github ?? mirrored;
+    // Both start at once, but an answer from GitHub never waits for the mirror.
+    final mirrored = _fromMirror();
+    final latest = await _fromGithub() ?? await mirrored;
     if (latest == null) {
       emit(state.copyWith(loading: false, latestVersionInfo: null, notice: notice));
       return;
