@@ -7,6 +7,8 @@
 #   v1.2.3/<asset>   every asset of the release
 #   version.json     the tag's version.json plus "assets": name → size and SHA-256; written last, and only when the
 #                    tag is not older than what it already names
+#   <platform>/<asset>  one shared folder per build holding only the newest release's file, for people who download
+#                    by hand; refreshed along with version.json
 # Only the newest KEEP release folders are kept.
 set -euo pipefail
 
@@ -70,10 +72,12 @@ EOF
 
 # MKCOL answers 405 when the folder exists: no retries for it.
 curl -sS -u "$WEBDAV_USER:$WEBDAV_PASS" -X MKCOL "$base/$tag/" -o /dev/null
-for file in "$work"/assets/*; do
-  name=$(basename "$file")
-  dav -T "$file" "$base/$tag/$name" -o /dev/null
-  dav -X PROPFIND -H 'Depth: 0' "$base/$tag/$name" > "$work/prop.xml"
+
+# Uploads a file and checks the size the mirror reports for it.
+copy_checked() {
+  local file=$1 path=$2 size expected
+  dav -T "$file" "$base/$path" -o /dev/null
+  dav -X PROPFIND -H 'Depth: 0' "$base/$path" > "$work/prop.xml"
   size=$(python3 -c '
 import re, sys
 m = re.search(r"getcontentlength[^>]*>\s*(\d+)\s*<", open(sys.argv[1], errors="replace").read(), re.I)
@@ -81,11 +85,47 @@ print(m.group(1) if m else "")
 ' "$work/prop.xml")
   expected=$(stat -c %s "$file")
   if [[ "$size" != "$expected" ]]; then
-    echo "$name: uploaded size '$size', expected $expected" >&2
+    echo "$path: uploaded size '$size', expected $expected" >&2
     head -c 1500 "$work/prop.xml" >&2
     exit 1
   fi
-  echo "uploaded $tag/$name"
+  echo "uploaded $path"
+}
+
+# The release's file goes in next to nothing else: every other file in the folder is removed after it is in place.
+declare -A platform=(
+  [tsdm_client-arm64_v8a.apk]=Android-arm64
+  [tsdm_client-universal.apk]=Android-universal
+  [tsdm_client-armeabi_v7a.apk]=Android-armeabi-v7a
+  [tsdm_client.ipa]=iOS
+  [tsdm_client-windows.zip]=Windows
+  [tsdm_client-universal.dmg]=macOS
+  [tsdm_client-linux.tar.gz]=Linux
+)
+latest_folders() {
+  local version=${tag#v} name folder file stale
+  for name in "${!platform[@]}"; do
+    folder=${platform[$name]}
+    if [[ ! -f "$work/assets/$name" ]]; then echo "$folder: $name not in $tag, left as is" >&2; continue; fi
+    file=${name/tsdm_client/tsdm_client-$version}
+    curl -sS -u "$WEBDAV_USER:$WEBDAV_PASS" -X MKCOL "$base/$folder/" -o /dev/null
+    copy_checked "$work/assets/$name" "$folder/$file"
+    dav -X PROPFIND -H 'Depth: 1' "$base/$folder/" | python3 -c '
+import re, sys, urllib.parse
+folder, keep = sys.argv[1], sys.argv[2]
+for href in re.findall(r"<[^>]*href>([^<]+)</", sys.stdin.read()):
+    name = urllib.parse.unquote(href).rstrip("/").split("/")[-1]
+    if name not in (folder, keep):
+        print(name)
+' "$folder" "$file" | while IFS= read -r stale; do
+      dav -X DELETE "$base/$folder/$(python3 -c 'import sys,urllib.parse;print(urllib.parse.quote(sys.argv[1]))' "$stale")" -o /dev/null
+      echo "removed $folder/$stale"
+    done
+  done
+}
+
+for file in "$work"/assets/*; do
+  copy_checked "$file" "$tag/$(basename "$file")"
 done
 
 # Only a missing version.json counts as build 0; any other failure stops here rather than risk going back.
@@ -99,6 +139,7 @@ new=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["versionCo
 if (( new >= current )); then
   dav -T "$work/version.json" "$base/version.json" -o /dev/null
   echo "version.json → $tag"
+  latest_folders
 else
   echo "version.json kept: mirror already names build $current"
 fi
