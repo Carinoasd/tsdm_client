@@ -106,7 +106,7 @@ latest_folders() {
   local version=${tag#v} name folder file stale
   for name in "${!platform[@]}"; do
     folder=${platform[$name]}
-    [[ -f "$work/assets/$name" ]] || continue
+    if [[ ! -f "$work/assets/$name" ]]; then echo "$folder: $name not in $tag, left as is" >&2; continue; fi
     file=${name/tsdm_client/tsdm_client-$version}
     curl -sS -u "$WEBDAV_USER:$WEBDAV_PASS" -X MKCOL "$base/$folder/" -o /dev/null
     copy_checked "$work/assets/$name" "$folder/$file"
