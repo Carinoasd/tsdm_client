@@ -6,6 +6,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:tsdm_client/features/update/models/latest_version_info.dart';
+import 'package:tsdm_client/features/update/repository/cloudreve_mirror.dart';
 import 'package:tsdm_client/features/update/repository/windows_update_installer.dart';
 import 'package:tsdm_client/instance.dart';
 
@@ -85,9 +86,10 @@ class DownloadedUpdate {
 }
 
 class _ReleaseAsset {
-  const _ReleaseAsset({required this.url, required this.size, required this.digest});
+  const _ReleaseAsset({required this.sources, required this.size, required this.digest});
 
-  final String url;
+  /// Where the asset can be fetched, tried in order: each resolves to a URL only when its turn comes.
+  final List<Future<Uri> Function()> sources;
   final int size;
   final String digest;
 }
@@ -156,13 +158,20 @@ class AndroidUpdateInstaller implements UpdateInstaller {
       false;
 }
 
-/// Downloads only the platform's asset ([UpdateTarget]) from an exact official GitHub release.
+/// Downloads only the platform's asset ([UpdateTarget]) of an exact official release.
+///
+/// The bytes come from the Cloudreve mirror first and from GitHub when the mirror fails; either way they must match
+/// the length and SHA-256 GitHub's release metadata publishes. Only when GitHub cannot be reached at all does Android
+/// take them from the mirror's `version.json`: the native installer then still rejects any APK not signed with the
+/// official key. Windows has no such check, so it never installs on the mirror's word alone.
 ///
 /// Uses an independent streaming Dio client: forum cookies and the native forum client's buffered GET transport
 /// must never be used for update downloads. Network failures retain the external GitHub fallback in the UI.
 class ReleaseUpdateRepository {
   /// Optional dependencies support offline release/download/installer tests.
-  ReleaseUpdateRepository({Dio? dio, UpdateInstaller? installer})
+  ///
+  /// A test that hands in its own [dio] gets no mirror unless it passes one, so it never reaches the network.
+  ReleaseUpdateRepository({Dio? dio, UpdateInstaller? installer, CloudreveMirror? mirror})
     : _dio =
           dio ??
           Dio(
@@ -171,9 +180,11 @@ class ReleaseUpdateRepository {
               receiveTimeout: const Duration(seconds: 60),
             ),
           ),
+      _mirror = mirror ?? (dio == null ? CloudreveMirror() : null),
       installer = installer ?? (Platform.isWindows ? WindowsUpdateInstaller() : AndroidUpdateInstaller());
 
   final Dio _dio;
+  final CloudreveMirror? _mirror;
 
   /// Platform bridge for private cache access and explicit installation actions.
   final UpdateInstaller installer;
@@ -187,6 +198,45 @@ class ReleaseUpdateRepository {
     if (!RegExp(r'^\d+\.\d+\.\d+$').hasMatch(info.version) || info.versionCode <= 0) {
       throw const UpdateDownloadException(UpdateDownloadFailure.invalidRelease);
     }
+    final mirror = _mirror;
+    Future<Uri> fromMirror() => mirror!.urlOf(CloudreveMirror.assetPath(info.version, _target.assetName));
+    final ({int size, String digest, Uri url}) github;
+    try {
+      github = await _resolveGithub(info, cancelToken);
+    } on DioException catch (error) {
+      // A release GitHub does not have (404) is not one to take from the mirror either.
+      if (CancelToken.isCancel(error) ||
+          error.response?.statusCode == 404 ||
+          mirror == null ||
+          _target != UpdateTarget.android) {
+        rethrow;
+      }
+      final listed = await _resolveMirror(mirror, info, cancelToken);
+      if (listed == null) rethrow;
+      return _ReleaseAsset(sources: [fromMirror], size: listed.size, digest: listed.sha256);
+    }
+    return _ReleaseAsset(
+      sources: [if (mirror != null) fromMirror, () async => github.url],
+      size: github.size,
+      digest: github.digest,
+    );
+  }
+
+  /// The mirror's listing of this exact release's asset, null when the mirror is unreachable or lists another one.
+  Future<MirroredAsset?> _resolveMirror(CloudreveMirror mirror, LatestVersionInfo info, CancelToken cancelToken) async {
+    try {
+      final listed = await mirror.versionInfo(cancelToken: cancelToken);
+      if (listed['version'] != info.version || listed['versionCode'] != info.versionCode) return null;
+      return CloudreveMirror.assetOf(listed, _target.assetName);
+    } on DioException catch (error) {
+      if (CancelToken.isCancel(error)) rethrow;
+      return null;
+    } on FormatException {
+      return null;
+    }
+  }
+
+  Future<({int size, String digest, Uri url})> _resolveGithub(LatestVersionInfo info, CancelToken cancelToken) async {
     final tag = 'v${info.version}';
     final response = await _dio.get<Object?>(
       'https://api.github.com/repos/$_repository/releases/tags/$tag',
@@ -219,7 +269,53 @@ class ReleaseUpdateRepository {
         !RegExp(r'^sha256:[0-9a-fA-F]{64}$').hasMatch(digest)) {
       throw const UpdateDownloadException(UpdateDownloadFailure.invalidRelease);
     }
-    return _ReleaseAsset(url: expectedUrl, size: size, digest: digest.substring(7).toLowerCase());
+    return (size: size, digest: digest.substring(7).toLowerCase(), url: Uri.parse(expectedUrl));
+  }
+
+  /// Streams one [source] into [partial] (replacing what an earlier source left) and verifies it against [asset].
+  Future<void> _fetch(
+    Future<Uri> Function() source,
+    File partial,
+    _ReleaseAsset asset,
+    CancelToken cancelToken,
+    void Function(int received, int total) onProgress,
+    void Function() onVerifying,
+  ) async {
+    final size = asset.size;
+    final url = await source();
+    if (cancelToken.cancelError case final error?) throw error;
+    final writer = await partial.open(mode: FileMode.writeOnly);
+    try {
+      final body = await _dio.getUri<ResponseBody>(
+        url,
+        options: Options(responseType: ResponseType.stream),
+        cancelToken: cancelToken,
+      );
+      if (body.data == null) {
+        throw const UpdateDownloadException(UpdateDownloadFailure.network);
+      }
+      var received = 0;
+      onProgress(0, size);
+      await for (final bytes in body.data!.stream) {
+        if (cancelToken.cancelError case final error?) throw error;
+        received += bytes.length;
+        if (received > size) {
+          throw const UpdateDownloadException(UpdateDownloadFailure.integrity);
+        }
+        await writer.writeFrom(bytes);
+        onProgress(received, size);
+      }
+      if (cancelToken.cancelError case final error?) throw error;
+      if (received != size) {
+        throw const UpdateDownloadException(UpdateDownloadFailure.integrity);
+      }
+    } finally {
+      await writer.close();
+    }
+    onVerifying();
+    if (!await _matchesAsset(partial, asset, cancelToken)) {
+      throw const UpdateDownloadException(UpdateDownloadFailure.integrity);
+    }
   }
 
   Future<bool> _matchesAsset(File file, _ReleaseAsset asset, CancelToken cancelToken) async {
@@ -316,47 +412,33 @@ class ReleaseUpdateRepository {
   }) async {
     File? partial;
     File? complete;
-    RandomAccessFile? writer;
     var success = false;
     try {
       final asset = await _resolve(info, cancelToken);
-      final size = asset.size;
       if (cancelToken.cancelError case final error?) throw error;
       final directory = Directory(await installer.directory());
       await directory.create(recursive: true);
       final name = 'update-${info.versionCode}-${DateTime.now().microsecondsSinceEpoch}';
       partial = File('${directory.path}/$name.part');
       complete = File('${directory.path}/$name.${_target.extension}');
-      writer = await partial.open(mode: FileMode.writeOnly);
-      final body = await _dio.get<ResponseBody>(
-        asset.url,
-        options: Options(responseType: ResponseType.stream),
-        cancelToken: cancelToken,
-      );
-      if (body.data == null) {
-        throw const UpdateDownloadException(UpdateDownloadFailure.network);
-      }
-      var received = 0;
-      onProgress(0, size);
-      await for (final bytes in body.data!.stream) {
-        if (cancelToken.cancelError case final error?) throw error;
-        received += bytes.length;
-        if (received > size) {
-          throw const UpdateDownloadException(UpdateDownloadFailure.integrity);
+      // Each source in turn: a failed or corrupt transfer from the mirror falls back to GitHub.
+      Exception? failure;
+      for (final source in asset.sources) {
+        try {
+          await _fetch(source, partial, asset, cancelToken, onProgress, onVerifying);
+          failure = null;
+          break;
+        } on DioException catch (error) {
+          if (CancelToken.isCancel(error)) rethrow;
+          failure = error;
+        } on UpdateDownloadException catch (error) {
+          if (error.failure != UpdateDownloadFailure.integrity && error.failure != UpdateDownloadFailure.network) {
+            rethrow;
+          }
+          failure = error;
         }
-        await writer.writeFrom(bytes);
-        onProgress(received, size);
       }
-      await writer.close();
-      writer = null;
-      if (cancelToken.cancelError case final error?) throw error;
-      if (received != size) {
-        throw const UpdateDownloadException(UpdateDownloadFailure.integrity);
-      }
-      onVerifying();
-      if (!await _matchesAsset(partial, asset, cancelToken)) {
-        throw const UpdateDownloadException(UpdateDownloadFailure.integrity);
-      }
+      if (failure != null) throw failure;
       if (cancelToken.cancelError case final error?) throw error;
       await partial.rename(complete.path);
       success = true;
@@ -375,7 +457,6 @@ class ReleaseUpdateRepository {
     } on PlatformException {
       throw const UpdateDownloadException(UpdateDownloadFailure.storage);
     } finally {
-      if (writer != null) await writer.close();
       if (!success) {
         await _delete(partial);
         await _delete(complete);

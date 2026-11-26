@@ -4,6 +4,7 @@ import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/features/update/cubit/update_download_cubit.dart';
 import 'package:tsdm_client/features/update/models/latest_version_info.dart';
+import 'package:tsdm_client/features/update/repository/cloudreve_mirror.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/providers/net_client_provider/net_client_provider.dart';
 import 'package:tsdm_client/utils/logger.dart';
@@ -14,6 +15,7 @@ part 'update_cubit.mapper.dart';
 ///
 /// Version info used to be a JSON blob inside a forum post owned by the upstream author; the official Discuz! X5
 /// edition reads `version.json` from its own repository instead so that releases and the in-app check stay in sync.
+/// The Cloudreve mirror's copy ([CloudreveMirror]) is read first; this one only when the mirror cannot be reached.
 const String updateInfoUrl = upgradeVersionInfoUrl;
 
 /// State of update cubit.
@@ -35,9 +37,12 @@ final class UpdateCubitState with UpdateCubitStateMappable {
 /// Checking cubit.
 final class UpdateCubit extends Cubit<UpdateCubitState> with LoggerMixin {
   /// Constructor.
-  UpdateCubit({UpdateDownloadCubit? download})
+  UpdateCubit({UpdateDownloadCubit? download, CloudreveMirror? mirror})
     : download = download ?? UpdateDownloadCubit(),
+      _mirror = mirror ?? CloudreveMirror(),
       super(const UpdateCubitState());
+
+  final CloudreveMirror _mirror;
 
   /// Download state belongs to the app-scoped update service, so navigation does not interrupt it.
   final UpdateDownloadCubit download;
@@ -45,6 +50,7 @@ final class UpdateCubit extends Cubit<UpdateCubitState> with LoggerMixin {
   @override
   Future<void> close() async {
     await download.close();
+    _mirror.dispose();
     await super.close();
   }
 
@@ -57,6 +63,18 @@ final class UpdateCubit extends Cubit<UpdateCubitState> with LoggerMixin {
       await Future<void>.delayed(delay);
     }
 
+    final LatestVersionInfo mirrored;
+    try {
+      mirrored = parseLatestVersionInfo(await _mirror.versionInfo());
+    } on Exception catch (e) {
+      warning('mirror version info unavailable, using GitHub: $e');
+      return _checkGithub(notice: notice);
+    }
+    emit(state.copyWith(loading: false, latestVersionInfo: mirrored, notice: false));
+    await download.restore(mirrored);
+  }
+
+  Future<void> _checkGithub({required bool notice}) async {
     await getIt
         .get<NetClientProvider>()
         .get(updateInfoUrl)

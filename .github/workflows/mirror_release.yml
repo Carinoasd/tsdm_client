@@ -1,0 +1,35 @@
+name: Mirror release
+
+# Copies a published release to the Cloudreve mirror the app updates from. Called by the Release build once every
+# asset is uploaded; run by hand to mirror an existing tag again.
+on:
+  workflow_call:
+    inputs:
+      tag:
+        type: string
+        required: true
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag, e.g. v1.62.3
+        required: true
+
+jobs:
+  mirror:
+    name: Mirror to Cloudreve
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Upload
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WEBDAV_URL: ${{ secrets.WEBDAV_URL }}
+          WEBDAV_USER: ${{ secrets.WEBDAV_USER }}
+          WEBDAV_PASS: ${{ secrets.WEBDAV_PASS }}
+          TAG: ${{ inputs.tag }}
+        run: bash scripts/mirror_release.sh "$TAG"
