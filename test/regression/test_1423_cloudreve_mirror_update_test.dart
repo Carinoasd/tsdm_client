@@ -263,6 +263,7 @@ void main() {
       final updates = cubit(ok);
       await updates.checkUpdate(notice: false).timeout(const Duration(seconds: 5));
       expect(updates.state.latestVersionInfo?.changelog, 'github');
+      await updates.close();
     });
 
     test('the mirror answers when GitHub cannot be read', () async {

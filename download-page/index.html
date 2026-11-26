@@ -2674,11 +2674,13 @@ var qrcode = function() {
     });
   }
 
+  // 网盘打不开或落后于 GitHub 时，「直接下载」改走 GitHub
+  var mirrorOk = true;
   var busy = false;
   function download(key) {
     var it = BY_KEY[key];
     if (!it || busy) return;
-    if (!window.fetch) { location.href = GH + it.file; return; }
+    if (!window.fetch || !mirrorOk) { location.href = GH + it.file; return; }
     busy = true;
     toast('正在获取下载地址…');
     mirrorUrl(tag + '/' + it.file).then(function (u) {
@@ -2811,16 +2813,30 @@ var qrcode = function() {
       });
   }
 
+  function ver(t) { return (t || '').replace(/^v/, '').split('.').map(Number); }
+  function older(a, b) {
+    var x = ver(a), y = ver(b);
+    for (var i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) < (y[i] || 0);
+    return false;
+  }
+
   var wanted = (location.search.match(/[?&]dl=([a-z0-9]+)/) || [])[1];
   if (!window.fetch) return;
-  fromMirror().catch(fromGithub).then(function (v) {
+  // 两边同时问：GitHub 较新时以 GitHub 为准，网盘只在 GitHub 读不到时顶上
+  var mirrored = fromMirror().catch(function () { mirrorOk = false; return null; });
+  var github = fromGithub().catch(function () { return null; });
+  Promise.all([mirrored, github]).then(function (r) {
+    var m = r[0], g = r[1];
+    if (m && g && older(m.tag, g.tag)) mirrorOk = false;
+    var v = (g && (!m || older(m.tag, g.tag))) ? g : m;
+    if (!v) return;
     var s = {}, k;
     for (k in FALLBACK.sizes) s[k] = FALLBACK.sizes[k];
     for (k in v.sizes) s[k] = v.sizes[k];
     sizes = s;
     tag = v.tag;
     renderAll(v.date);
-  }, function () {}).then(function () {
+  }).then(function () {
     // 扫码打开 ?dl=xxx：版本确定后自动开始下载
     if (wanted && BY_KEY[wanted] && !inApp) download(wanted);
   });
