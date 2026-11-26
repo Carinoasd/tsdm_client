@@ -73,8 +73,17 @@ curl -sS -u "$WEBDAV_USER:$WEBDAV_PASS" -X MKCOL "$base/$tag/" -o /dev/null
 for file in "$work"/assets/*; do
   name=$(basename "$file")
   dav -T "$file" "$base/$tag/$name" -o /dev/null
-  size=$(dav -X PROPFIND -H 'Depth: 0' "$base/$tag/$name" | grep -o '<[^>]*getcontentlength>[0-9]*<' | grep -o '[0-9]*<' | tr -d '<')
-  [[ "$size" == "$(stat -c %s "$file")" ]] || { echo "$name: uploaded size $size" >&2; exit 1; }
+  dav -X PROPFIND -H 'Depth: 0' "$base/$tag/$name" > "$work/prop.xml"
+  size=$(python3 -c '
+import re, sys
+m = re.search(r"getcontentlength[^>]*>\s*(\d+)\s*<", open(sys.argv[1]).read(), re.I)
+print(m.group(1) if m else "")
+' "$work/prop.xml")
+  if [[ "$size" != "$(stat -c %s "$file")" ]]; then
+    echo "$name: uploaded size '$size', expected $(stat -c %s "$file")" >&2
+    head -c 1500 "$work/prop.xml" >&2
+    exit 1
+  fi
   echo "uploaded $tag/$name"
 done
 
