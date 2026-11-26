@@ -2596,13 +2596,13 @@ var qrcode = function() {
 
   // key 用在 ?dl= 网址上（二维码），扫码打开本页即自动下载
   var ITEMS = [
-    { key: 'arm64', file: 'tsdm_client-arm64_v8a.apk', os: 'android', icon: 'android', t: 'Android · arm64', d: '推荐，近几年的 64 位手机都用这个' },
-    { key: 'universal', file: 'tsdm_client-universal.apk', os: 'android', icon: 'android', t: 'Android · 通用版', d: '不确定机型时用，体积较大' },
-    { key: 'v7a', file: 'tsdm_client-armeabi_v7a.apk', os: 'android', icon: 'android', t: 'Android · armeabi-v7a', d: '很旧的 32 位机型' },
-    { key: 'ios', file: 'tsdm_client.ipa', os: 'ios', icon: 'apple', t: 'iOS / iPadOS', d: 'iOS 13+，未签名，需自签安装' },
-    { key: 'windows', file: 'tsdm_client-windows.zip', os: 'windows', icon: 'windows', t: 'Windows 10 / 11', d: '64 位，解压即用' },
-    { key: 'mac', file: 'tsdm_client-universal.dmg', os: 'mac', icon: 'apple', t: 'macOS', d: 'Intel 与 Apple 芯片通用' },
-    { key: 'linux', file: 'tsdm_client-linux.tar.gz', os: 'linux', icon: 'linux', t: 'Linux', d: '需 libayatana-appindicator3-1' }
+    { key: 'arm64', share: 'ng0XT1', file: 'tsdm_client-arm64_v8a.apk', os: 'android', icon: 'android', t: 'Android · arm64', d: '推荐，近几年的 64 位手机都用这个' },
+    { key: 'universal', share: 'l4Pdc1', file: 'tsdm_client-universal.apk', os: 'android', icon: 'android', t: 'Android · 通用版', d: '不确定机型时用，体积较大' },
+    { key: 'v7a', share: '4mw8fK', file: 'tsdm_client-armeabi_v7a.apk', os: 'android', icon: 'android', t: 'Android · armeabi-v7a', d: '很旧的 32 位机型' },
+    { key: 'ios', share: 'dK0lIA', file: 'tsdm_client.ipa', os: 'ios', icon: 'apple', t: 'iOS / iPadOS', d: 'iOS 13+，未签名，需自签安装' },
+    { key: 'windows', share: 'PKOaiA', file: 'tsdm_client-windows.zip', os: 'windows', icon: 'windows', t: 'Windows 10 / 11', d: '64 位，解压即用' },
+    { key: 'mac', share: 'ooNEip', file: 'tsdm_client-universal.dmg', os: 'mac', icon: 'apple', t: 'macOS', d: 'Intel 与 Apple 芯片通用' },
+    { key: 'linux', share: 'gaYBs7', file: 'tsdm_client-linux.tar.gz', os: 'linux', icon: 'linux', t: 'Linux', d: '需 libayatana-appindicator3-1' }
   ];
   var BY_KEY = {};
   ITEMS.forEach(function (it) { BY_KEY[it.key] = it; });
@@ -2723,7 +2723,8 @@ var qrcode = function() {
     $('grid').innerHTML = ITEMS.map(function (it, i) {
       var cur = i === 0 && it.os === curOs, f = it.file;
       var links = '<a class="main" href="' + dlHref(it.key) + '" data-dl="' + it.key + '">直接下载</a>' +
-        '<a href="' + GH + f + '" rel="noopener">GitHub</a>';
+        '<a href="' + GH + f + '" rel="noopener">GitHub</a>' +
+        '<a href="' + MIRROR + '/s/' + it.share + '" rel="noopener">网盘</a>';
       return '<div class="item' + (cur ? ' is-cur' : '') + '">' +
         '<div class="row"><span class="ico">' + ICONS[it.icon] + '</span>' +
         '<span class="meta"><div class="t">' + it.t + (cur ? ' <span class="cur">当前系统</span>' : '') + '</div><div class="d">' + it.d + '</div></span>' +
