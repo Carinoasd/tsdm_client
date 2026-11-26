@@ -61,6 +61,7 @@ for asset in release["assets"]:
         sys.exit(f"{name}: does not match the release")
     assets[name] = {"size": len(data), "sha256": sha}
 info["assets"] = assets
+info["published"] = release["published_at"]
 json.dump(info, open(f"{work}/version.json", "w"), ensure_ascii=False, indent=2)
 print(f"{tag}: {len(assets)} assets")
 EOF
