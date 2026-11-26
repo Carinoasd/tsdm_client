@@ -76,11 +76,12 @@ for file in "$work"/assets/*; do
   dav -X PROPFIND -H 'Depth: 0' "$base/$tag/$name" > "$work/prop.xml"
   size=$(python3 -c '
 import re, sys
-m = re.search(r"getcontentlength[^>]*>\s*(\d+)\s*<", open(sys.argv[1]).read(), re.I)
+m = re.search(r"getcontentlength[^>]*>\s*(\d+)\s*<", open(sys.argv[1], errors="replace").read(), re.I)
 print(m.group(1) if m else "")
 ' "$work/prop.xml")
-  if [[ "$size" != "$(stat -c %s "$file")" ]]; then
-    echo "$name: uploaded size '$size', expected $(stat -c %s "$file")" >&2
+  expected=$(stat -c %s "$file")
+  if [[ "$size" != "$expected" ]]; then
+    echo "$name: uploaded size '$size', expected $expected" >&2
     head -c 1500 "$work/prop.xml" >&2
     exit 1
   fi
