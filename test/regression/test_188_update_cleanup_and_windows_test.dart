@@ -63,8 +63,10 @@ class _MetadataAdapter implements HttpClientAdapter {
     Future<void>? cancelFuture,
   ) async {
     expect(options.uri.host, 'api.github.com', reason: 'restoring never downloads');
+    // Windows confirms the offered version code with the tag's own version.json.
+    final tagged = options.uri.path.endsWith('/contents/version.json');
     return ResponseBody.fromString(
-      jsonEncode(release),
+      jsonEncode(tagged ? {'version': '1.31.0', 'versionCode': 121, 'changelog': ''} : release),
       200,
       headers: {
         Headers.contentTypeHeader: ['application/json'],

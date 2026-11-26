@@ -59,8 +59,10 @@ class _Adapter implements HttpClientAdapter {
   ) async {
     requests.add(options.uri);
     if (release == null) return ResponseBody.fromString('{}', 404);
+    // Windows confirms the offered version code with the tag's own version.json.
+    final tagged = options.uri.path.endsWith('/contents/version.json');
     return ResponseBody.fromString(
-      jsonEncode(release),
+      jsonEncode(tagged ? {'version': _info.version, 'versionCode': _info.versionCode, 'changelog': ''} : release),
       200,
       headers: {
         Headers.contentTypeHeader: ['application/json'],

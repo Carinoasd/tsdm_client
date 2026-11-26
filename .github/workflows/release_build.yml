@@ -307,3 +307,13 @@ jobs:
           omitBodyDuringUpdate: true
           omitPrereleaseDuringUpdate: true
           artifacts: "tsdm_client.ipa"
+
+  mirror:
+    name: Mirror to Cloudreve
+    needs: [build-linux, build-android, build-windows, build-macos-and-ios]
+    # In-app updates need only the Android and Windows assets: a failed desktop or iOS build does not hold them back.
+    if: ${{ !cancelled() && !contains(github.ref_name, '-') && needs.build-android.result == 'success' && needs.build-windows.result == 'success' }}
+    uses: ./.github/workflows/mirror_release.yml
+    with:
+      tag: ${{ github.ref_name }}
+    secrets: inherit

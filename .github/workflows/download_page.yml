@@ -1,0 +1,35 @@
+name: Download page
+
+# Publishes download-page/ to GitHub Pages. The page reads the latest release from the Cloudreve mirror (GitHub as
+# fallback) when opened, so it only needs publishing again when the page itself changes.
+on:
+  push:
+    branches: [master]
+    paths: ["download-page/**"]
+  workflow_dispatch:
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Upload
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: download-page
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
