@@ -161,9 +161,11 @@ class AndroidUpdateInstaller implements UpdateInstaller {
 /// Downloads only the platform's asset ([UpdateTarget]) of an exact official release.
 ///
 /// The bytes come from the Cloudreve mirror first and from GitHub when the mirror fails; either way they must match
-/// the length and SHA-256 GitHub's release metadata publishes. Only when GitHub cannot be reached at all does Android
-/// take them from the mirror's `version.json`: the native installer then still rejects any APK not signed with the
-/// official key. Windows has no such check, so it never installs on the mirror's word alone.
+/// the length and SHA-256 GitHub's release metadata publishes. Only when that metadata cannot be had (anything but a
+/// 404: no connection, rate limits, server errors) does Android take them from the mirror's `version.json`: the
+/// native installer then still rejects any APK not signed with the official key or not of the expected version.
+/// Windows has no such check, so it never installs on the mirror's word alone, and it also confirms with GitHub that
+/// the tag's `version.json` names the version code it was offered (the offer may come from the mirror).
 ///
 /// Uses an independent streaming Dio client: forum cookies and the native forum client's buffered GET transport
 /// must never be used for update downloads. Network failures retain the external GitHub fallback in the UI.
@@ -181,10 +183,12 @@ class ReleaseUpdateRepository {
             ),
           ),
       _mirror = mirror ?? (dio == null ? CloudreveMirror() : null),
+      _ownsMirror = mirror == null && dio == null,
       installer = installer ?? (Platform.isWindows ? WindowsUpdateInstaller() : AndroidUpdateInstaller());
 
   final Dio _dio;
   final CloudreveMirror? _mirror;
+  final bool _ownsMirror;
 
   /// Platform bridge for private cache access and explicit installation actions.
   final UpdateInstaller installer;
@@ -215,11 +219,35 @@ class ReleaseUpdateRepository {
       if (listed == null) rethrow;
       return _ReleaseAsset(sources: [fromMirror], size: listed.size, digest: listed.sha256);
     }
+    if (_target == UpdateTarget.windows) await _confirmVersionCode(info, cancelToken);
     return _ReleaseAsset(
       sources: [if (mirror != null) fromMirror, () async => github.url],
       size: github.size,
       digest: github.digest,
     );
+  }
+
+  /// Rejects [info] unless the release tag's own `version.json` on GitHub names the same version and version code, so
+  /// an older release cannot be offered as a newer one.
+  Future<void> _confirmVersionCode(LatestVersionInfo info, CancelToken cancelToken) async {
+    final response = await _dio.get<List<int>>(
+      'https://api.github.com/repos/$_repository/contents/version.json',
+      queryParameters: {'ref': 'v${info.version}'},
+      options: Options(
+        responseType: ResponseType.bytes,
+        headers: {'Accept': 'application/vnd.github.raw+json', 'X-GitHub-Api-Version': '2022-11-28'},
+      ),
+      cancelToken: cancelToken,
+    );
+    final LatestVersionInfo tagged;
+    try {
+      tagged = parseLatestVersionInfo(response.data);
+    } on FormatException {
+      throw const UpdateDownloadException(UpdateDownloadFailure.invalidRelease);
+    }
+    if (tagged.version != info.version || tagged.versionCode != info.versionCode) {
+      throw const UpdateDownloadException(UpdateDownloadFailure.invalidRelease);
+    }
   }
 
   /// The mirror's listing of this exact release's asset, null when the mirror is unreachable or lists another one.
@@ -531,5 +559,8 @@ class ReleaseUpdateRepository {
   }
 
   /// Closes the download-only client, without touching the forum session.
-  void dispose() => _dio.close(force: true);
+  void dispose() {
+    _dio.close(force: true);
+    if (_ownsMirror) _mirror?.dispose();
+  }
 }

@@ -15,7 +15,7 @@ part 'update_cubit.mapper.dart';
 ///
 /// Version info used to be a JSON blob inside a forum post owned by the upstream author; the official Discuz! X5
 /// edition reads `version.json` from its own repository instead so that releases and the in-app check stay in sync.
-/// The Cloudreve mirror's copy ([CloudreveMirror]) is read first; this one only when the mirror cannot be reached.
+/// The Cloudreve mirror's copy ([CloudreveMirror]) is used only when this one cannot be read.
 const String updateInfoUrl = upgradeVersionInfoUrl;
 
 /// State of update cubit.
@@ -37,12 +37,19 @@ final class UpdateCubitState with UpdateCubitStateMappable {
 /// Checking cubit.
 final class UpdateCubit extends Cubit<UpdateCubitState> with LoggerMixin {
   /// Constructor.
-  UpdateCubit({UpdateDownloadCubit? download, CloudreveMirror? mirror})
-    : download = download ?? UpdateDownloadCubit(),
-      _mirror = mirror ?? CloudreveMirror(),
-      super(const UpdateCubitState());
+  ///
+  /// [mirror] and [githubVersionInfo] replace the network sources in tests.
+  UpdateCubit({
+    UpdateDownloadCubit? download,
+    CloudreveMirror? mirror,
+    AsyncEither<Object?> Function()? githubVersionInfo,
+  }) : download = download ?? UpdateDownloadCubit(),
+       _mirror = mirror ?? CloudreveMirror(),
+       _githubVersionInfo = githubVersionInfo,
+       super(const UpdateCubitState());
 
   final CloudreveMirror _mirror;
+  final AsyncEither<Object?> Function()? _githubVersionInfo;
 
   /// Download state belongs to the app-scoped update service, so navigation does not interrupt it.
   final UpdateDownloadCubit download;
@@ -63,39 +70,45 @@ final class UpdateCubit extends Cubit<UpdateCubitState> with LoggerMixin {
       await Future<void>.delayed(delay);
     }
 
-    final LatestVersionInfo mirrored;
-    try {
-      mirrored = parseLatestVersionInfo(await _mirror.versionInfo());
-    } on Exception catch (e) {
-      warning('mirror version info unavailable, using GitHub: $e');
-      return _checkGithub(notice: notice);
+    // Both at once: GitHub's copy is the authority whenever it can be read (the mirror may lag behind, or name a
+    // version of its own); the mirror's answers only where GitHub cannot be reached.
+    final (github, mirrored) = await (_fromGithub(), _fromMirror()).wait;
+    final latest = github ?? mirrored;
+    if (latest == null) {
+      emit(state.copyWith(loading: false, latestVersionInfo: null, notice: notice));
+      return;
     }
-    emit(state.copyWith(loading: false, latestVersionInfo: mirrored, notice: false));
-    await download.restore(mirrored);
+    emit(state.copyWith(loading: false, latestVersionInfo: latest, notice: false));
+    // Android may kill the process when installation permission changes. Revalidate an existing APK after version
+    // discovery, then let the user explicitly request installation again.
+    await download.restore(latest);
   }
 
-  Future<void> _checkGithub({required bool notice}) async {
-    await getIt
-        .get<NetClientProvider>()
-        .get(updateInfoUrl)
-        .map((v) => v.data as Object?)
-        .handle(
-          (e) {
-            error('failed to check latest version: $e');
-            emit(state.copyWith(loading: false, latestVersionInfo: null, notice: notice));
-          },
-          (v) async {
-            try {
-              final latestVersionInfo = parseLatestVersionInfo(v);
-              emit(state.copyWith(loading: false, latestVersionInfo: latestVersionInfo, notice: false));
-              // Android may kill the process when installation permission changes. Revalidate an existing APK
-              // after version discovery, then let the user explicitly request installation again.
-              await download.restore(latestVersionInfo);
-            } on Exception catch (e) {
-              error('failed to deserialize latest version info: $e');
-              emit(state.copyWith(loading: false, latestVersionInfo: null, notice: notice));
-            }
-          },
-        );
+  Future<LatestVersionInfo?> _fromMirror() async {
+    try {
+      return parseLatestVersionInfo(await _mirror.versionInfo());
+    } on Exception catch (e) {
+      warning('mirror version info unavailable: $e');
+      return null;
+    }
   }
+
+  Future<LatestVersionInfo?> _fromGithub() async {
+    LatestVersionInfo? result;
+    try {
+      await (_githubVersionInfo ?? _readGithub)().handle((e) => error('failed to check latest version: $e'), (v) {
+        try {
+          result = parseLatestVersionInfo(v);
+        } on Exception catch (e) {
+          error('failed to deserialize latest version info: $e');
+        }
+      });
+    } on Exception catch (e) {
+      error('failed to check latest version: $e');
+    }
+    return result;
+  }
+
+  static AsyncEither<Object?> _readGithub() =>
+      getIt.get<NetClientProvider>().get(updateInfoUrl).map((v) => v.data as Object?);
 }

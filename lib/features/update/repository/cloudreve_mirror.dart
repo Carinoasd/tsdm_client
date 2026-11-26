@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 
@@ -39,6 +40,8 @@ class CloudreveMirror {
   /// Id of the public share of the release folder.
   static const share = 'x7L2S3';
 
+  static const int _maxVersionInfoSize = 1024 * 1024;
+
   static final _assetName = RegExp(r'^[A-Za-z0-9_.-]+$');
   static final _sha256 = RegExp(r'^[0-9a-f]{64}$');
 
@@ -64,12 +67,17 @@ class CloudreveMirror {
   /// The mirror's `version.json`, decoded.
   Future<Map<String, dynamic>> versionInfo({CancelToken? cancelToken}) async {
     final url = await urlOf('version.json', cancelToken: cancelToken);
-    final response = await _dio.getUri<List<int>>(
+    final response = await _dio.getUri<ResponseBody>(
       url,
-      options: Options(responseType: ResponseType.bytes),
+      options: Options(responseType: ResponseType.stream),
       cancelToken: cancelToken,
     );
-    final decoded = jsonDecode(utf8.decode(response.data ?? const []));
+    final bytes = BytesBuilder(copy: false);
+    await for (final chunk in response.data?.stream ?? const Stream<Uint8List>.empty()) {
+      bytes.add(chunk);
+      if (bytes.length > _maxVersionInfoSize) throw const FormatException('mirror version info too large');
+    }
+    final decoded = jsonDecode(utf8.decode(bytes.takeBytes()));
     if (decoded is! Map<String, dynamic>) throw const FormatException('mirror version info is not a JSON object');
     return decoded;
   }

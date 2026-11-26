@@ -5,9 +5,15 @@ import 'package:cryptography/dart.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fpdart/fpdart.dart';
+import 'package:talker_flutter/talker_flutter.dart';
+import 'package:tsdm_client/exceptions/exceptions.dart';
+import 'package:tsdm_client/features/update/cubit/update_cubit.dart';
+import 'package:tsdm_client/features/update/cubit/update_download_cubit.dart';
 import 'package:tsdm_client/features/update/models/latest_version_info.dart';
 import 'package:tsdm_client/features/update/repository/cloudreve_mirror.dart';
 import 'package:tsdm_client/features/update/repository/release_update_repository.dart';
+import 'package:tsdm_client/instance.dart';
 
 const _info = LatestVersionInfo(version: '1.63.0', versionCode: 182, changelog: 'update');
 const _githubUrl = 'https://github.com/Carinoasd/tsdm_client/releases/download/v1.63.0/';
@@ -40,6 +46,9 @@ class _Adapter implements HttpClientAdapter {
   bool mirrorDown = false;
   Uint8List mirrorPayload = _bytes;
   Map<String, Object?>? mirrorInfo;
+
+  /// Version code in the tag's version.json on GitHub.
+  int taggedVersionCode = 182;
   final fetched = <String>[];
 
   @override
@@ -59,6 +68,11 @@ class _Adapter implements HttpClientAdapter {
     );
     if (uri.host == 'api.github.com' || uri.host == 'github.com') {
       if (githubDown) throw DioException.connectionError(requestOptions: options, reason: 'down');
+      if (uri.host == 'api.github.com' && uri.path.endsWith('/contents/version.json')) {
+        expect(uri.queryParameters['ref'], 'v1.63.0');
+        fetched.add('github version.json');
+        return json({'version': '1.63.0', 'versionCode': taggedVersionCode, 'changelog': 'update'});
+      }
       if (uri.host == 'api.github.com') {
         return json({
           'tag_name': 'v1.63.0',
@@ -112,6 +126,8 @@ void main() {
   late _Adapter adapter;
   late String digest;
 
+  setUpAll(() => talker = TalkerFlutter.init(settings: TalkerSettings(enabled: false)));
+
   setUp(() async {
     directory = await Directory.systemTemp.createTemp('tsdm-mirror-test-');
     final hash = await const DartSha256().hash(_bytes);
@@ -151,7 +167,11 @@ void main() {
   test('corrupt mirror bytes fall back to GitHub', () async {
     adapter.mirrorPayload = Uint8List.fromList(List<int>.filled(_bytes.length, 7));
     final result = await download(UpdateTarget.windows);
-    expect(adapter.fetched, ['mirror v1.63.0/tsdm_client-windows.zip', 'github tsdm_client-windows.zip']);
+    expect(adapter.fetched, [
+      'github version.json',
+      'mirror v1.63.0/tsdm_client-windows.zip',
+      'github tsdm_client-windows.zip',
+    ]);
     expect(await File(result.path).readAsBytes(), _bytes);
     expect(await directory.list().length, 1);
   });
@@ -194,6 +214,12 @@ void main() {
     expect(adapter.fetched, isEmpty);
   });
 
+  test('Windows rejects a release whose tagged version code differs from the offer', () async {
+    adapter.taggedVersionCode = 150;
+    await expectLater(download(UpdateTarget.windows), fails(UpdateDownloadFailure.invalidRelease));
+    expect(adapter.fetched, ['github version.json']);
+  });
+
   test('a release GitHub does not have is not taken from the mirror', () async {
     adapter
       ..githubStatus = 404
@@ -209,6 +235,44 @@ void main() {
     );
     expect(info.version, '1.63.0');
     expect(info.versionCode, 182);
+  });
+
+  group('version check', () {
+    const github = {'version': '1.63.0', 'versionCode': 182, 'changelog': 'github'};
+    UpdateCubit cubit(AsyncEither<Object?> Function() githubInfo) => UpdateCubit(
+      download: UpdateDownloadCubit(supported: false),
+      mirror: CloudreveMirror(dio: Dio()..httpClientAdapter = adapter),
+      githubVersionInfo: githubInfo,
+    );
+    AsyncEither<Object?> ok() => TaskEither.right(github);
+    AsyncEither<Object?> down() => TaskEither.left(HttpRequestFailedException(503));
+
+    test('GitHub decides when it can be read, even if the mirror names something newer', () async {
+      adapter.mirrorInfo = {...listing(), 'version': '1.50.0', 'versionCode': 999};
+      final updates = cubit(ok);
+      await updates.checkUpdate(notice: false);
+      expect(updates.state.latestVersionInfo?.changelog, 'github');
+      await updates.close();
+    });
+
+    test('the mirror answers when GitHub cannot be read', () async {
+      adapter.mirrorInfo = listing();
+      final updates = cubit(down);
+      await updates.checkUpdate();
+      expect(updates.state.latestVersionInfo?.versionCode, 182);
+      expect(updates.state.notice, isFalse);
+      await updates.close();
+    });
+
+    test('neither source: a failure notice', () async {
+      adapter.mirrorDown = true;
+      final updates = cubit(down);
+      await updates.checkUpdate();
+      expect(updates.state.latestVersionInfo, isNull);
+      expect(updates.state.notice, isTrue);
+      expect(updates.state.loading, isFalse);
+      await updates.close();
+    });
   });
 
   test('asset listing rejects malformed entries', () {

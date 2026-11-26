@@ -21,6 +21,24 @@ trap 'rm -rf "$work"' EXIT
 
 dav() { curl -fsS --retry 3 --retry-all-errors -u "$WEBDAV_USER:$WEBDAV_PASS" "$@"; }
 
+# Names of the release folders on the mirror, oldest first.
+folders() {
+  dav -X PROPFIND -H 'Depth: 1' "$base/" | python3 -c '
+import re, sys, urllib.parse
+names = {urllib.parse.unquote(m).rstrip("/").split("/")[-1] for m in re.findall(r"<[^>]*href>([^<]+)</", sys.stdin.read())}
+tags = sorted((n for n in names if re.fullmatch(r"v\d+\.\d+\.\d+", n)), key=lambda n: tuple(map(int, n[1:].split("."))))
+print("\n".join(tags))
+'
+}
+newer_or_same() { python3 -c 'import sys; a,b=(tuple(map(int,x[1:].split("."))) for x in sys.argv[1:]); sys.exit(a<b)' "$1" "$2"; }
+
+# A tag older than every kept folder would be pruned right after its upload.
+mapfile -t existing < <(folders)
+if (( ${#existing[@]} >= keep )) && ! newer_or_same "$tag" "${existing[-keep]}"; then
+  echo "$tag is older than the $keep newest mirrored releases; nothing to do"
+  exit 0
+fi
+
 gh api "repos/$repo/releases/tags/$tag" > "$work/release.json"
 mkdir "$work/assets"
 gh release download "$tag" -R "$repo" -D "$work/assets"
@@ -47,8 +65,8 @@ json.dump(info, open(f"{work}/version.json", "w"), ensure_ascii=False, indent=2)
 print(f"{tag}: {len(assets)} assets")
 EOF
 
-# MKCOL answers 405 when the folder exists.
-dav -X MKCOL "$base/$tag/" -o /dev/null || true
+# MKCOL answers 405 when the folder exists: no retries for it.
+curl -sS -u "$WEBDAV_USER:$WEBDAV_PASS" -X MKCOL "$base/$tag/" -o /dev/null
 for file in "$work"/assets/*; do
   name=$(basename "$file")
   dav -T "$file" "$base/$tag/$name" -o /dev/null
@@ -57,7 +75,13 @@ for file in "$work"/assets/*; do
   echo "uploaded $tag/$name"
 done
 
-current=$(dav "$base/version.json" 2>/dev/null | python3 -c 'import json,sys; print(json.load(sys.stdin)["versionCode"])' || echo 0)
+# Only a missing version.json counts as build 0; any other failure stops here rather than risk going back.
+status=$(curl -sS --retry 3 -u "$WEBDAV_USER:$WEBDAV_PASS" -o "$work/current.json" -w '%{http_code}' "$base/version.json")
+case $status in
+  200) current=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["versionCode"])' "$work/current.json") ;;
+  404) current=0 ;;
+  *) echo "reading the mirror's version.json: HTTP $status" >&2; exit 1 ;;
+esac
 new=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["versionCode"])' "$work/version.json")
 if (( new >= current )); then
   dav -T "$work/version.json" "$base/version.json" -o /dev/null
@@ -67,13 +91,10 @@ else
 fi
 
 # Prune release folders beyond the newest $keep.
-dav -X PROPFIND -H 'Depth: 1' "$base/" | python3 -c '
-import re, sys, urllib.parse
-names = {urllib.parse.unquote(m).rstrip("/").split("/")[-1] for m in re.findall(r"<[^>]*href>([^<]+)</", sys.stdin.read())}
-tags = sorted((n for n in names if re.fullmatch(r"v\d+\.\d+\.\d+", n)), key=lambda n: tuple(map(int, n[1:].split("."))))
-print("\n".join(tags[:-int(sys.argv[1])]))
-' "$keep" | while read -r old; do
-  [[ -n "$old" ]] || continue
+mapfile -t existing < <(folders)
+(( ${#existing[@]} > keep )) || exit 0
+for old in "${existing[@]:0:${#existing[@]}-keep}"; do
+  [[ "$old" == "$tag" ]] && continue
   dav -X DELETE "$base/$old/" -o /dev/null
   echo "removed $old"
 done
