@@ -10,9 +10,10 @@ import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/string.dart';
+import 'package:tsdm_client/features/settings/view/sections/settings_shared.dart';
 import 'package:tsdm_client/features/update/cubit/update_cubit.dart';
-import 'package:tsdm_client/features/update/models/update_channel.dart';
 import 'package:tsdm_client/features/update/repository/cloudreve_mirror.dart';
+import 'package:tsdm_client/features/update/widgets/select_update_channel_dialog.dart';
 import 'package:tsdm_client/features/update/widgets/update_download_card.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/utils/git_info.dart';
@@ -30,7 +31,7 @@ class UpdatePage extends StatefulWidget {
 }
 
 class _UpdatePageState extends State<UpdatePage> {
-  /// Current version, the channel and the check button.
+  /// Current version and the check button.
   Widget _buildVersionSurface(BuildContext context, UpdateCubitState state) {
     final tr = context.t.updatePage;
     final textTheme = Theme.of(context).textTheme;
@@ -57,20 +58,6 @@ class _UpdatePageState extends State<UpdatePage> {
                 ),
               ),
             ],
-          ),
-          sizedBoxW12H12,
-          // Changing the channel while a check runs would leave that check's answer under the new choice.
-          SegmentedButton<UpdateChannel>(
-            showSelectedIcon: false,
-            segments: [
-              ButtonSegment(value: UpdateChannel.auto, label: Text(tr.channel.auto)),
-              ButtonSegment(value: UpdateChannel.mirror, label: Text(tr.channel.mirror)),
-              ButtonSegment(value: UpdateChannel.github, label: Text(tr.channel.github)),
-            ],
-            selected: {state.channel},
-            onSelectionChanged: state.loading
-                ? null
-                : (selected) async => context.read<UpdateCubit>().setChannel(selected.single),
           ),
           sizedBoxW12H12,
           Align(
@@ -143,6 +130,28 @@ class _UpdatePageState extends State<UpdatePage> {
                 padding: padding.copyWith(top: 12, bottom: 24),
                 children: [
                   _buildVersionSurface(context, state),
+                  const SizedBox(height: appSurfaceGap),
+                  AppTileGroup(
+                    children: [
+                      // Changing the channel while a check runs would leave that check's answer under the new choice.
+                      SectionListTile(
+                        key: const ValueKey('update-channel'),
+                        enabled: !state.loading,
+                        leading: const Icon(Icons.alt_route_outlined),
+                        title: Text(tr.channel.title),
+                        trailing: settingsTrailingValue(context, updateChannelName(context, state.channel)),
+                        onTap: state.loading
+                            ? null
+                            : () async {
+                                final picked = await showSelectUpdateChannelDialog(context, state.channel);
+                                if (picked == null || !context.mounted) {
+                                  return;
+                                }
+                                await context.read<UpdateCubit>().setChannel(picked);
+                              },
+                      ),
+                    ],
+                  ),
                   if (result != null) ...[const SizedBox(height: appSurfaceGap), result],
                   UpdateDownloadCard(cubit: context.read<UpdateCubit>().download, latest: newer),
                   if (newer != null && newer.changelog.isNotEmpty) ...[

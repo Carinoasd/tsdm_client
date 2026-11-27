@@ -2979,6 +2979,7 @@
     "announcementThread": "Announcement thread",
     "checkLatest": "Check for the latest version",
     "channel": {
+      "title": "Update channel",
       "auto": "Auto",
       "mirror": "Alice Drive",
       "github": "GitHub"
