@@ -27,7 +27,19 @@ import 'package:tsdm_client/widgets/notice_button.dart';
 @immutable
 class MenuCustomItem {
   /// Constructor.
-  const MenuCustomItem({required this.icon, required this.description, required this.onSelected});
+  const MenuCustomItem({
+    required this.icon,
+    required this.description,
+    required this.onSelected,
+    this.dividerBefore = false,
+    this.id,
+  });
+
+  /// Whether the item starts a group: a divider is drawn above it (not above the first item of the menu).
+  final bool dividerBefore;
+
+  /// Names the item for tests and tools (`ValueKey('menu-item-$id')` on its row); null for none.
+  final String? id;
 
   /// Icon to show in item of menu.
   final IconData icon;
@@ -62,6 +74,7 @@ class ListAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.onBackToTop,
     this.onReverseOrder,
     this.customMenuItems = const [],
+    this.pageMenuItems,
     this.leading,
     this.automaticallyImplyLeading = true,
     this.titleShown,
@@ -118,6 +131,14 @@ class ListAppBar extends StatelessWidget implements PreferredSizeWidget {
   /// Optional.
   final List<MenuCustomItem> customMenuItems;
 
+  /// The items of the page, when the page lists all of them itself: they stand for the refresh, back to top and
+  /// order items, [customMenuItems] and the link items (copy the link, open in the browser), in the order and the
+  /// groups ([MenuCustomItem.dividerBefore]) the page gives. The app wide items follow as ever.
+  ///
+  /// Built each time the menu opens, so an item says what is true then (a thread favorited meanwhile): read with
+  /// `context.read`, the menu is not part of a build. Null (the forum page): the usual items.
+  final List<MenuCustomItem> Function(BuildContext context)? pageMenuItems;
+
   /// Extra bottom widget.
   final PreferredSizeWidget? bottom;
 
@@ -163,6 +184,46 @@ class ListAppBar extends StatelessWidget implements PreferredSizeWidget {
     final showsAccount = watchCurrentAccount(context)?.showsAccount ?? false;
     final compactPagePill =
         showsAccount && MediaQuery.sizeOf(context).width < MediaQuery.textScalerOf(context).scale(_compactPillWidth);
+
+    /// The app wide places, and the debug log when debug operations are on.
+    List<PopupMenuEntry<MenuItemId>> globalItems(
+      BuildContext context,
+      PopupMenuItem<MenuItemId> Function(MenuItemId value, IconData icon, String text, {bool enabled}) item,
+      PopupMenuDivider divider,
+    ) => [
+      item(
+        MenuItemId.fixed(MenuActions.openInApp),
+        Symbols.open_in_phone,
+        context.t.openInAppPage.entryTooltip,
+      ),
+      item(MenuItemId.fixed(MenuActions.openSearchPage), Icons.search_outlined, context.t.searchPage.title),
+      item(
+        MenuItemId.fixed(MenuActions.profile),
+        Icons.person_outline,
+        context.t.profilePage.title,
+        enabled: isLogin,
+      ),
+      item(
+        MenuItemId.fixed(MenuActions.openNoticePage),
+        Icons.notifications_outlined,
+        context.t.noticePage.title,
+        enabled: isLogin,
+      ),
+      item(
+        MenuItemId.fixed(MenuActions.openSettingsPage),
+        Icons.settings_outlined,
+        context.t.general.settings,
+      ),
+
+      if (context.read<SettingsBloc>().state.settingsMap.enableDebugOperations) ...[
+        divider,
+        item(
+          MenuItemId.fixed(MenuActions.debugViewLog),
+          Icons.bug_report_outlined,
+          context.t.settingsPage.debugSection.viewLog.title,
+        ),
+      ],
+    ];
 
     return AppBar(
       leading: leading,
@@ -256,122 +317,121 @@ class ListAppBar extends StatelessWidget implements PreferredSizeWidget {
               ),
             ),
           ),
-        PopupMenuButton<MenuItemId>(
-          // Same items as before, grouped: this page (refresh, back to top, order), the page's own items, its link,
-          // then the app wide places, and the debug log when debug operations are on.
-          itemBuilder: (context) {
-            PopupMenuItem<MenuItemId> item(MenuItemId value, IconData icon, String text, {bool enabled = true}) =>
-                PopupMenuItem(
-                  enabled: enabled,
-                  value: value,
-                  child: Row(
-                    children: [
-                      Icon(icon),
-                      sizedBoxPopupMenuItemIconSpacing,
-                      Flexible(child: Text(text)),
-                    ],
-                  ),
-                );
-            const divider = PopupMenuDivider(height: 8);
-            return <PopupMenuEntry<MenuItemId>>[
-              /**
+        // The items of an opening are kept by the button, not by this build: the page may build again (and with it
+        // this bar) while the menu is open, and the item picked is looked up among the ones that were shown.
+        _OpenedMenuItems(
+          builder: (opened) => PopupMenuButton<MenuItemId>(
+            // Same items as before, grouped: this page (refresh, back to top, order), the page's own items, its link,
+            // then the app wide places, and the debug log when debug operations are on.
+            itemBuilder: (context) {
+              // The items of this opening: the one picked is looked up among them.
+              opened
+                ..clear()
+                ..addAll(pageMenuItems?.call(context) ?? const []);
+              PopupMenuItem<MenuItemId> item(MenuItemId value, IconData icon, String text, {bool enabled = true}) =>
+                  PopupMenuItem(
+                    enabled: enabled,
+                    value: value,
+                    child: Row(
+                      children: [
+                        Icon(icon),
+                        sizedBoxPopupMenuItemIconSpacing,
+                        Flexible(child: Text(text)),
+                      ],
+                    ),
+                  );
+              const divider = PopupMenuDivider(height: 8);
+              if (pageMenuItems != null) {
+                return <PopupMenuEntry<MenuItemId>>[
+                  for (final (idx, e) in opened.indexed) ...[
+                    if (e.dividerBefore && idx > 0) divider,
+                    PopupMenuItem(
+                      key: e.id == null ? null : ValueKey('menu-item-${e.id}'),
+                      value: MenuItemId.custom(idx),
+                      child: Row(
+                        children: [
+                          Icon(e.icon),
+                          sizedBoxPopupMenuItemIconSpacing,
+                          Flexible(child: Text(e.description)),
+                        ],
+                      ),
+                    ),
+                  ],
+                  divider,
+                  ...globalItems(context, item, divider),
+                ];
+              }
+              return <PopupMenuEntry<MenuItemId>>[
+                /**
                * Actions available in current page.
                */
-              item(MenuItemId.fixed(MenuActions.refresh), Icons.refresh_outlined, context.t.networkList.actionRefresh),
-              item(
-                MenuItemId.fixed(MenuActions.backToTop),
-                Icons.vertical_align_top_outlined,
-                context.t.networkList.actionBackToTop,
-              ),
-              if (showReverseOrderAction)
                 item(
-                  MenuItemId.fixed(MenuActions.reverseOrder),
-                  reverseOrder ? Icons.align_vertical_bottom_outlined : Icons.align_vertical_top_outlined,
-                  reverseOrder ? context.t.networkList.actionForwardOrder : context.t.networkList.actionReverseOrder,
+                  MenuItemId.fixed(MenuActions.refresh),
+                  Icons.refresh_outlined,
+                  context.t.networkList.actionRefresh,
+                ),
+                item(
+                  MenuItemId.fixed(MenuActions.backToTop),
+                  Icons.vertical_align_top_outlined,
+                  context.t.networkList.actionBackToTop,
+                ),
+                if (showReverseOrderAction)
+                  item(
+                    MenuItemId.fixed(MenuActions.reverseOrder),
+                    reverseOrder ? Icons.align_vertical_bottom_outlined : Icons.align_vertical_top_outlined,
+                    reverseOrder ? context.t.networkList.actionForwardOrder : context.t.networkList.actionReverseOrder,
+                  ),
+
+                // Custom items.
+                if (customMenuItems.isNotEmpty) ...[
+                  divider,
+                  ...customMenuItems.mapIndexed((idx, e) => item(MenuItemId.custom(idx), e.icon, e.description)),
+                ],
+
+                // Link of the page.
+                divider,
+                item(MenuItemId.fixed(MenuActions.copyUrl), Icons.copy_outlined, context.t.networkList.actionCopyUrl),
+                item(
+                  MenuItemId.fixed(MenuActions.openInBrowser),
+                  Icons.open_in_browser,
+                  context.t.networkList.actionOpenInBrowser,
                 ),
 
-              // Custom items.
-              if (customMenuItems.isNotEmpty) ...[
                 divider,
-                ...customMenuItems.mapIndexed((idx, e) => item(MenuItemId.custom(idx), e.icon, e.description)),
-              ],
-
-              // Link of the page.
-              divider,
-              item(MenuItemId.fixed(MenuActions.copyUrl), Icons.copy_outlined, context.t.networkList.actionCopyUrl),
-              item(
-                MenuItemId.fixed(MenuActions.openInBrowser),
-                Icons.open_in_browser,
-                context.t.networkList.actionOpenInBrowser,
-              ),
-
-              /**
-               * Global actions
-               */
-              divider,
-              item(
-                MenuItemId.fixed(MenuActions.openInApp),
-                Symbols.open_in_phone,
-                context.t.openInAppPage.entryTooltip,
-              ),
-              item(MenuItemId.fixed(MenuActions.openSearchPage), Icons.search_outlined, context.t.searchPage.title),
-              item(
-                MenuItemId.fixed(MenuActions.profile),
-                Icons.person_outline,
-                context.t.profilePage.title,
-                enabled: isLogin,
-              ),
-              item(
-                MenuItemId.fixed(MenuActions.openNoticePage),
-                Icons.notifications_outlined,
-                context.t.noticePage.title,
-                enabled: isLogin,
-              ),
-              item(
-                MenuItemId.fixed(MenuActions.openSettingsPage),
-                Icons.settings_outlined,
-                context.t.general.settings,
-              ),
-
-              if (context.read<SettingsBloc>().state.settingsMap.enableDebugOperations) ...[
-                divider,
-                item(
-                  MenuItemId.fixed(MenuActions.debugViewLog),
-                  Icons.bug_report_outlined,
-                  context.t.settingsPage.debugSection.viewLog.title,
-                ),
-              ],
-            ];
-          },
-          onSelected: (item) async {
-            switch (item.action) {
-              case MenuActions.refresh:
-                await onRefresh.call();
-              case MenuActions.copyUrl:
-                await onCopyUrl.call();
-              case MenuActions.openInBrowser:
-                await onOpenInBrowser.call();
-              case MenuActions.backToTop:
-                await onBackToTop?.call();
-              case MenuActions.reverseOrder:
-                await onReverseOrder?.call();
-              case MenuActions.openInApp:
-                await context.pushNamed(ScreenPaths.openInApp);
-              case MenuActions.openSearchPage:
-                onSearch != null ? await onSearch?.call() : context.pushNamed(ScreenPaths.search);
-              case MenuActions.profile:
-                await context.pushNamed(ScreenPaths.profile);
-              case MenuActions.openNoticePage:
-                openNoticePageInApp(context);
-              case MenuActions.openSettingsPage:
-                await context.pushNamed(ScreenPaths.settings.path);
-              case MenuActions.debugViewLog:
-                await context.pushNamed(ScreenPaths.debugLog);
-              case MenuActions.custom:
-                // Custom actions.
-                await customMenuItems.elementAt(item.customId!).onSelected.call();
-            }
-          },
+                ...globalItems(context, item, divider),
+              ];
+            },
+            onSelected: (item) async {
+              switch (item.action) {
+                case MenuActions.refresh:
+                  await onRefresh.call();
+                case MenuActions.copyUrl:
+                  await onCopyUrl.call();
+                case MenuActions.openInBrowser:
+                  await onOpenInBrowser.call();
+                case MenuActions.backToTop:
+                  await onBackToTop?.call();
+                case MenuActions.reverseOrder:
+                  await onReverseOrder?.call();
+                case MenuActions.openInApp:
+                  await context.pushNamed(ScreenPaths.openInApp);
+                case MenuActions.openSearchPage:
+                  onSearch != null ? await onSearch?.call() : context.pushNamed(ScreenPaths.search);
+                case MenuActions.profile:
+                  await context.pushNamed(ScreenPaths.profile);
+                case MenuActions.openNoticePage:
+                  openNoticePageInApp(context);
+                case MenuActions.openSettingsPage:
+                  await context.pushNamed(ScreenPaths.settings.path);
+                case MenuActions.debugViewLog:
+                  await context.pushNamed(ScreenPaths.debugLog);
+                case MenuActions.custom:
+                  // Custom actions.
+                  final items = pageMenuItems == null ? customMenuItems : opened;
+                  await items.elementAtOrNull(item.customId!)?.onSelected.call();
+              }
+            },
+          ),
         ),
       ],
     );
@@ -379,4 +439,21 @@ class ListAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Size get preferredSize => Size.fromHeight(kToolbarHeight + (bottom?.preferredSize.height ?? 0));
+}
+
+/// Keeps the list the page's menu items of the last opening are put in, across builds of the app bar.
+class _OpenedMenuItems extends StatefulWidget {
+  const _OpenedMenuItems({required this.builder});
+
+  final Widget Function(List<MenuCustomItem> opened) builder;
+
+  @override
+  State<_OpenedMenuItems> createState() => _OpenedMenuItemsState();
+}
+
+class _OpenedMenuItemsState extends State<_OpenedMenuItems> {
+  final _opened = <MenuCustomItem>[];
+
+  @override
+  Widget build(BuildContext context) => widget.builder(_opened);
 }

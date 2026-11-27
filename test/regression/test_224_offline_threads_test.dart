@@ -1428,6 +1428,8 @@ void main() {
       expect(menu, isNot(contains(t.postCard.rate)));
       expect(menu, isNot(contains(t.postCard.edit)));
       expect(menu, isNot(contains(t.postReport.menu)));
+      expect(menu, isNot(contains(t.moderate.menu)));
+      expect(menu, contains(t.postCard.shareAndCopy), reason: 'copying a floor needs no network');
 
       // The other saved page of the thread opens too; a page never saved fails as before, the floors stay.
       await jump(tester, 2);
@@ -1485,8 +1487,88 @@ void main() {
       expect(banner, findsOneWidget);
       final offline = await appBarMenu();
       expect(offline, isNot(contains(t.threadPage.favorite.add)));
-      expect(offline, isNot(contains(t.threadPage.shareToFriend.title)));
-      expect(offline, contains(t.threadPage.copyTid(tid: '1120')));
+      // The ways to share and copy are on a sheet: the one needing the network is not on it, the others are.
+      expect(offline, contains(t.postCard.shareAndCopy));
+      await tester.tap(
+        find.descendant(of: find.byType(ListAppBar), matching: find.byWidgetPredicate((w) => w is PopupMenuButton)),
+      );
+      await _settle(tester, rounds: 4);
+      // The menu opened to its end before an item far down is tapped.
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.tap(find.text(t.postCard.shareAndCopy));
+      await _settle(tester, rounds: 6);
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.text(t.threadPage.shareToFriend.title), findsNothing);
+      expect(find.text(t.threadPage.copyTid(tid: '1120')), findsOneWidget);
+      expect(find.text(t.networkList.actionCopyUrl), findsOneWidget);
+      await tester.tapAt(const Offset(5, 5));
+      await _settle(tester, rounds: 4);
+      await _dispose(tester);
+    });
+
+    testWidgets('the app bar menu: the search first, the link items once (on the sheet), the favorite as it is now', (
+      tester,
+    ) async {
+      await pumpThread(tester);
+      Future<List<String>> appBarMenu() => menu(
+        tester,
+        find.descendant(of: find.byType(ListAppBar), matching: find.byWidgetPredicate((w) => w is PopupMenuButton)),
+      );
+
+      final labels = await appBarMenu();
+      expect(labels.first, t.threadPage.search.menu);
+      expect(
+        labels,
+        containsAllInOrder([
+          t.threadPage.search.menu,
+          t.networkList.actionBackToTop,
+          t.networkList.actionRefresh,
+          t.threadPage.favorite.add,
+          t.postCard.shareAndCopy,
+          t.threadExport.menu,
+          t.general.settings,
+        ]),
+      );
+      // On the sheet, not in the menu as well.
+      expect(labels, isNot(contains(t.networkList.actionCopyUrl)));
+      expect(labels, isNot(contains(t.networkList.actionOpenInBrowser)));
+      expect(labels, isNot(contains(t.shareQr.title)));
+      expect(labels, isNot(contains(t.threadPage.copyTid(tid: '1120'))));
+      expect(labels.where((e) => e == t.postCard.shareAndCopy), hasLength(1));
+      expect(labels.where((e) => e == t.networkList.actionRefresh), hasLength(1));
+
+      // Favorited meanwhile, the page not built again: the menu says so the next time it opens.
+      final page = tester.element(find.byType(PostList));
+      final uid = RepositoryProvider.of<AuthenticationRepository>(page).currentUser!.uid!;
+      RepositoryProvider.of<FavoriteRepository>(page).remember(uid: uid, tid: '1120', favid: '9');
+      final again = await appBarMenu();
+      expect(again, contains(t.threadPage.favorite.remove));
+      expect(again, isNot(contains(t.threadPage.favorite.add)));
+      RepositoryProvider.of<FavoriteRepository>(page).forget(uid: uid, tid: '1120');
+      expect(await appBarMenu(), contains(t.threadPage.favorite.add));
+
+      // The sheet: every way to share and copy, the thread still under it; a pick closes the sheet first.
+      await tester.tap(
+        find.descendant(of: find.byType(ListAppBar), matching: find.byWidgetPredicate((w) => w is PopupMenuButton)),
+      );
+      await _settle(tester, rounds: 4);
+      // The menu opened to its end before an item far down is tapped.
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.tap(find.text(t.postCard.shareAndCopy));
+      await _settle(tester, rounds: 6);
+      for (final way in [
+        t.networkList.actionCopyUrl,
+        t.linkToken.copyShareText,
+        t.shareQr.title,
+        t.networkList.actionOpenInBrowser,
+        t.threadPage.copyTid(tid: '1120'),
+      ]) {
+        expect(find.text(way), findsOneWidget, reason: way);
+      }
+      await tester.tap(find.text(t.shareQr.title));
+      await _settle(tester);
+      expect(find.text(t.linkToken.copyShareText), findsNothing, reason: 'the sheet closed');
+      expect(find.byType(Dialog), findsOneWidget, reason: 'the QR code, opened from the page');
       await _dispose(tester);
     });
 

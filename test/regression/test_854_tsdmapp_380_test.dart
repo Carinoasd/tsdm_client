@@ -1243,9 +1243,15 @@ void main() {
       await tester.pump();
     }
 
+    /// Open the floor's menu, and the sheet of the management from it when the menu offers one: the operations are
+    /// listed there.
     Future<void> openMenu(WidgetTester tester) async {
       await tester.tap(find.byWidgetPredicate((w) => w is PopupMenuButton));
       await tester.pumpAndSettle();
+      if (find.text(t.moderate.menu).evaluate().isNotEmpty) {
+        await tester.tap(find.text(t.moderate.menu));
+        await tester.pumpAndSettle();
+      }
     }
 
     testWidgets('the menu offers the operations given; every one the floor takes when none is', (tester) async {

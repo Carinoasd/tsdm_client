@@ -313,7 +313,11 @@ void main() {
       await tester.tap(find.byIcon(Icons.adaptive.more));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
-      expect(find.text(tr.postCard.shareAsImage), findsOneWidget, reason: 'in the menu, with "copy share link"');
+      // One item of the menu for sharing and copying; the ways are on its sheet.
+      expect(find.text(tr.postCard.shareAsImage), findsNothing);
+      await tester.tap(find.text(tr.postCard.shareAndCopy));
+      await _navigated(tester);
+      expect(find.text(tr.postCard.shareAsImage), findsOneWidget, reason: 'on the sheet, with "copy share link"');
       expect(find.text(tr.postCard.share), findsOneWidget);
 
       await tester.tap(find.text(tr.postCard.shareAsImage));
@@ -488,6 +492,97 @@ void main() {
       final dark = surfaceOf(tester);
       expect(dark, ThemeData.dark().colorScheme.surface);
       expect(dark, isNot(light));
+    });
+  });
+
+  group('5. the sheet of sharing and copying a floor', () {
+    Future<void> openMenu(WidgetTester tester) async {
+      await tester.tap(find.byIcon(Icons.adaptive.more));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+    }
+
+    Future<void> openSheet(WidgetTester tester) async {
+      await openMenu(tester);
+      await tester.tap(find.text(tr.postCard.shareAndCopy));
+      await _navigated(tester);
+    }
+
+    Future<void> pumpFloor(WidgetTester tester, Post post) =>
+        pumpApp(tester, Scaffold(body: SingleChildScrollView(child: PostCard(post))));
+
+    testWidgets('one item of the menu; every way on the sheet, each named', (tester) async {
+      final post = _post('<p>floor body text</p>');
+      await pumpFloor(tester, post);
+      await openMenu(tester);
+      expect(find.text(tr.postCard.shareAndCopy), findsOneWidget);
+      for (final moved in [
+        tr.postCard.share,
+        tr.postCard.shareAsImage,
+        tr.postCard.openInBrowser,
+        tr.postCard.copyText,
+        tr.threadExport.copyPlain,
+        tr.threadExport.copyMarkdown,
+        tr.postCard.copyPid(pid: post.postID),
+      ]) {
+        expect(find.text(moved), findsNothing, reason: 'not in the menu any more: $moved');
+      }
+
+      await tester.tap(find.text(tr.postCard.shareAndCopy));
+      await _navigated(tester);
+      for (final way in [
+        tr.postCard.share,
+        tr.postCard.shareAsImage,
+        tr.postCard.openInBrowser,
+        tr.postCard.copyText,
+        tr.threadExport.copyPlain,
+        tr.threadExport.copyMarkdown,
+        tr.postCard.copyPid(pid: post.postID),
+      ]) {
+        expect(find.text(way), findsOneWidget, reason: way);
+      }
+      // Nothing to save, no online storage link: not offered.
+      expect(find.text(tr.imageBottomSheet.saveAllImages), findsNothing);
+      expect(find.text(tr.netdisk.copyAll), findsNothing);
+      // The icons of the row say what they are to a screen reader.
+      final handle = tester.ensureSemantics();
+      expect(find.bySemanticsLabel(tr.postCard.shareAsImage), findsWidgets);
+      handle.dispose();
+    });
+
+    testWidgets('pictures but no link: the sheet is still offered, with saving them alone', (tester) async {
+      final post = _post('<p>a picture</p><img src="$_a">').copyWith(shareLink: null);
+      await pumpFloor(tester, post);
+      await openSheet(tester);
+      expect(find.text(tr.imageBottomSheet.saveAllImages), findsOneWidget);
+      expect(find.text(tr.postCard.share), findsNothing);
+      expect(find.text(tr.postCard.copyPid(pid: post.postID)), findsNothing);
+    });
+
+    testWidgets('neither pictures nor a link: no item for it', (tester) async {
+      await pumpFloor(tester, _post('<p>floor body text</p>').copyWith(shareLink: null));
+      await openMenu(tester);
+      expect(find.text(tr.postCard.shareAndCopy), findsNothing);
+      expect(find.text(tr.postCard.reply), findsOneWidget, reason: 'the rest of the menu is there');
+    });
+
+    testWidgets('what is picked runs after the sheet closed, from the floor', (tester) async {
+      String? copied;
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+        if (call.method == 'Clipboard.setData') {
+          copied = (call.arguments as Map)['text'] as String?;
+        }
+        return null;
+      });
+      addTearDown(() => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, null));
+      final post = _post('<p>floor body text</p>');
+      await pumpFloor(tester, post);
+      await openSheet(tester);
+      await tester.tap(find.text(tr.postCard.copyPid(pid: post.postID)));
+      await _navigated(tester);
+      expect(copied, post.postID);
+      expect(find.text(tr.postCard.shareAsImage), findsNothing, reason: 'the sheet is gone');
+      expect(find.byType(PostCard), findsOneWidget);
     });
   });
 }

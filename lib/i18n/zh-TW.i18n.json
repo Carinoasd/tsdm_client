@@ -2214,7 +2214,8 @@
     "copyPid": "複製pid（${pid: String}）",
     "avatarBlocked": "頭像被屏蔽",
     "hotReply": "推薦",
-    "jumpToHotFloor": "跳到該樓"
+    "jumpToHotFloor": "跳到該樓",
+    "shareAndCopy": "分享與複製"
   },
   "netdisk": {
     "extractCode": "提取碼",
