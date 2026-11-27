@@ -2982,7 +2982,7 @@
     "download": {
       "title": "Android APK · ${version: String}",
       "downloadApk": "Download APK (${version: String})",
-      "universalApk": "The universal Android APK is downloaded from the official GitHub release only when you tap Download. Android will ask you to confirm installation.",
+      "universalApk": "The Android APK is downloaded from the official GitHub release only when you tap Download. Android will ask you to confirm installation.",
       "resolving": "Finding the update for this version…",
       "downloading": "Downloading the update…",
       "verifying": "Verifying the downloaded update…",

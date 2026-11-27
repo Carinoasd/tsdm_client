@@ -2982,7 +2982,7 @@
     "download": {
       "title": "Android APK · ${version: String}",
       "downloadApk": "下載 APK（${version: String}）",
-      "universalApk": "點選下載後，才會從官方 GitHub 發布頁下載 Android 通用 APK。安裝時仍需在 Android 系統安裝程式中確認。",
+      "universalApk": "點選下載後，才會從官方 GitHub 發布頁下載 Android 安裝包（APK）。安裝時仍需在 Android 系統安裝程式中確認。",
       "resolving": "正在尋找此版本的更新檔…",
       "downloading": "正在下載更新檔…",
       "verifying": "正在驗證下載的更新檔…",

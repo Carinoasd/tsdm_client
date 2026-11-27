@@ -29,13 +29,38 @@ const appSurfaceGap = 12.0;
 /// Window width from which pages may use a second column.
 const appTwoColumnWidth = 840.0;
 
-/// Shape shared by the content surfaces: rounded, without a border (the surface layers, [AppSurfaces], tell a card
-/// from the page). A floor of a thread adds a hairline to it in a light theme.
-ShapeBorder appSurfaceShape(BuildContext context) => appSurfaceShapeOf();
+/// Shape shared by the content surfaces: rounded, and in a light theme with a faint line around it ([AppSurfaces
+/// .line], one pixel: a light card is close to the page in lightness, the line tells where it ends). A dark theme
+/// draws none, its layers are apart enough.
+///
+/// A surface inside another one ([AppSurfaceScope]: a card in a card, a block in a floor) has no line of its own:
+/// two lines a few pixels apart read as a frame.
+ShapeBorder appSurfaceShape(BuildContext context) {
+  if (Theme.of(context).brightness == Brightness.dark || AppSurfaceScope.insideOf(context)) {
+    return appSurfaceShapeOf();
+  }
+  return appSurfaceShapeOf().copyWith(side: BorderSide(color: AppSurfaces.of(context).line));
+}
 
-/// [appSurfaceShape], used to build the app theme.
+/// The shape of the surfaces without the line: what the app theme gives every `Card` (dialogs, menus and the cards
+/// that do not ask for [appSurfaceShape] stay as they were).
 RoundedRectangleBorder appSurfaceShapeOf() =>
     RoundedRectangleBorder(borderRadius: BorderRadius.circular(appSurfaceRadius));
+
+/// Marks what is inside a content surface, so a surface there draws no line of its own ([appSurfaceShape]).
+///
+/// [AppSurface] puts it around its child; a card built by hand with [appSurfaceShape] does the same when surfaces go
+/// in it (a floor of a thread).
+class AppSurfaceScope extends InheritedWidget {
+  /// Constructor.
+  const AppSurfaceScope({required super.child, super.key});
+
+  /// Whether [context] is inside a content surface.
+  static bool insideOf(BuildContext context) => context.dependOnInheritedWidgetOfExactType<AppSurfaceScope>() != null;
+
+  @override
+  bool updateShouldNotify(AppSurfaceScope oldWidget) => false;
+}
 
 /// Style of a secondary action of the greeting of the homepage or the account of "me": a button in the panel color
 /// ([AppSurfaces.card]), its label in the text color and its icon in the primary color; the primary action (the
@@ -144,7 +169,9 @@ class AppSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final content = Padding(padding: padding, child: child);
+    final content = AppSurfaceScope(
+      child: Padding(padding: padding, child: child),
+    );
     return Card(
       margin: margin,
       clipBehavior: Clip.antiAlias,

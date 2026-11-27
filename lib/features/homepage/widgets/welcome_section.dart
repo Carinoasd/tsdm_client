@@ -1,7 +1,44 @@
 part of 'widgets.dart';
 
 const double _kahrpbaPicWidth = 300;
-const double _kahrpbaPicHeight = 218;
+
+/// Corner radius of a picture of the swiper: a little tighter than the cards around it, so the corners of a banner
+/// (often text right to its edges) are not cut away.
+const double _kahrpbaPicRadius = 16;
+
+/// Width over height of the swiper before a picture told its own.
+const double homeBannerDefaultRatio = 16 / 9;
+
+/// The ratios (width over height) a picture may give the swiper: from 4:3 to 4:1. A picture outside of them (a tall
+/// poster, a thin strip) does not shape the swiper, it is cropped to [homeBannerDefaultRatio].
+const double homeBannerMinRatio = 4 / 3;
+
+/// See [homeBannerMinRatio].
+const double homeBannerMaxRatio = 4;
+
+/// Least and most height of the swiper.
+const double homeBannerMinHeight = 96;
+
+/// See [homeBannerMinHeight].
+const double homeBannerMaxHeight = 220;
+
+/// Whether a picture of [size] may shape the swiper ([homeBannerMinRatio] to [homeBannerMaxRatio]).
+bool homeBannerRatioAccepted(Size size) {
+  if (size.width <= 0 || size.height <= 0) {
+    return false;
+  }
+  final ratio = size.width / size.height;
+  return ratio >= homeBannerMinRatio && ratio <= homeBannerMaxRatio;
+}
+
+/// Height of the swiper whose pictures are [width] wide and [ratio] (width over height; null before a picture told
+/// it, or one out of range) in shape, kept between [homeBannerMinHeight] and [homeBannerMaxHeight].
+double homeBannerHeight({double? ratio, double width = _kahrpbaPicWidth}) {
+  final used = ratio != null && ratio >= homeBannerMinRatio && ratio <= homeBannerMaxRatio
+      ? ratio
+      : homeBannerDefaultRatio;
+  return (width / used).clamp(homeBannerMinHeight, homeBannerMaxHeight);
+}
 
 /// A section of homepage, contains swiper and user info.
 class WelcomeSection extends StatefulWidget {
@@ -33,18 +70,39 @@ class _WelcomeSectionState extends State<WelcomeSection> with LoggerMixin {
   Timer? _swiperTimer;
   bool _reverseSwiper = false;
 
+  /// The shape of the first picture that loaded with one the swiper takes ([homeBannerRatioAccepted]); null before.
+  final _bannerRatio = ValueNotifier<double?>(null);
+
+  /// A picture was decoded: the first one of a usable shape gives the swiper its height. Told while the image
+  /// builds, so the height changes after the frame.
+  void _onBannerSize(Size size) {
+    if (_bannerRatio.value != null || !homeBannerRatioAccepted(size)) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _bannerRatio.value == null) {
+        _bannerRatio.value = size.width / size.height;
+      }
+    });
+  }
+
+  /// The pictures in a row, each as wide as before and as high as their shape asks ([homeBannerHeight]), filled to
+  /// their edges: no card behind them, no band above or under a banner that is flatter than the box.
   Widget _buildKahrpbaSwiper(BuildContext context, List<SwiperUrl> swiperUrlList) {
-    return Card(
-      margin: EdgeInsets.zero,
-      clipBehavior: Clip.antiAlias,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxHeight: _kahrpbaPicHeight),
+    return ValueListenableBuilder(
+      valueListenable: _bannerRatio,
+      builder: (context, ratio, _) => SizedBox(
+        key: const ValueKey('home-banner'),
+        height: homeBannerHeight(ratio: ratio),
         child: CarouselView(
           reverse: _reverseSwiper,
           controller: _swiperController,
           itemSnapping: true,
           itemExtent: _kahrpbaPicWidth,
           shrinkExtent: _kahrpbaPicWidth,
+          // Only between the pictures: none above and under them.
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_kahrpbaPicRadius)),
           onTap: (index) async {
             final parseResult = swiperUrlList[index].linkUrl.parseUrlToRoute();
             if (parseResult == null) {
@@ -56,7 +114,14 @@ class _WelcomeSectionState extends State<WelcomeSection> with LoggerMixin {
               queryParameters: parseResult.queryParameters,
             );
           },
-          children: swiperUrlList.map((e) => CachedImage(e.coverUrl)).toList(),
+          children: [
+            for (final e in swiperUrlList)
+              CachedImage(
+                e.coverUrl,
+                fit: BoxFit.cover,
+                onImageSize: (size, {required downscaled}) => _onBannerSize(size),
+              ),
+          ],
         ),
       ),
     );
@@ -135,6 +200,7 @@ class _WelcomeSectionState extends State<WelcomeSection> with LoggerMixin {
   @override
   void dispose() {
     _swiperTimer?.cancel();
+    _bannerRatio.dispose();
     _swiperController.dispose();
     super.dispose();
   }
