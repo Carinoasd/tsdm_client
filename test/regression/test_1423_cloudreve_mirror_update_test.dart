@@ -27,6 +27,8 @@ class _Installer implements UpdateInstaller {
   @override
   final UpdateTarget target;
   @override
+  List<UpdateAsset> get assets => [target.asset];
+  @override
   Future<String> directory() async => path;
   @override
   Future<bool> canInstall() async => true;

@@ -1,3 +1,4 @@
+import 'dart:ffi' show Abi;
 import 'dart:io';
 import 'dart:isolate';
 
@@ -46,9 +47,57 @@ class UpdateDownloadException implements Exception {
   final UpdateDownloadFailure failure;
 }
 
+/// One file of an official release that a platform can install.
+final class UpdateAsset {
+  /// Constructor.
+  const UpdateAsset(this.name, {this.abiSuffix});
+
+  /// Android, 64 bit ARM only: a third of the universal APK.
+  static const androidArm64 = UpdateAsset('tsdm_client-arm64_v8a.apk', abiSuffix: 3);
+
+  /// Android, 32 bit ARM only.
+  static const androidArmV7 = UpdateAsset('tsdm_client-armeabi_v7a.apk', abiSuffix: 2);
+
+  /// Android, every ABI the app is built for: what any device can install.
+  static const androidUniversal = UpdateAsset('tsdm_client-universal.apk', abiSuffix: 9);
+
+  /// Windows: the portable zip, holding the `tsdm_client` folder.
+  static const windows = UpdateAsset('tsdm_client-windows.zip');
+
+  /// File name of the asset in the GitHub release (and on the mirror).
+  final String name;
+
+  /// Android: the digit the build appends to the version code of this APK (`android/app/build.gradle`: 2 for
+  /// armeabi-v7a, 3 for arm64-v8a, 9 for the universal one); null where the version code is the release's.
+  final int? abiSuffix;
+
+  /// Version code of the installed build for the release [versionCode].
+  ///
+  /// The release's code times ten plus the digit: any APK of a newer release is above every APK of an older one, so
+  /// a device on the universal APK (…9) takes the split one of the next release (…3 of a higher code). Within one
+  /// release the split APKs are below the universal one: Android (and the native check before it) refuses to go
+  /// from the universal APK to a split one of the same release, which is no update anyway.
+  int installedVersionCode(int versionCode) => abiSuffix == null ? versionCode : versionCode * 10 + abiSuffix!;
+
+  @override
+  String toString() => 'UpdateAsset($name)';
+}
+
+/// The APKs an Android device running the app as [abi] takes, the best first: the one built for that ABI alone, then
+/// the universal one (always last, so an update is never left without a file: an ABI the app has no split APK for,
+/// an ABI not told, a release that lacks the split APK).
+///
+/// [abi] is the ABI of the running process (`Abi.current()`): what the installed APK runs as on this device, so the
+/// split APK of the same ABI runs on it too.
+List<UpdateAsset> androidUpdateAssets(Abi? abi) => [
+  if (abi == Abi.androidArm64) UpdateAsset.androidArm64 else if (abi == Abi.androidArm) UpdateAsset.androidArmV7,
+  UpdateAsset.androidUniversal,
+];
+
 /// The official release asset a platform installs.
 enum UpdateTarget {
-  /// Android: the universal APK; its version code carries the ABI suffix 9.
+  /// Android: an APK, the one for the device's ABI or the universal one ([androidUpdateAssets]). [assetName] and
+  /// [abiSuffix] are the universal APK's, the one always there.
   android(assetName: 'tsdm_client-universal.apk', extension: 'apk', abiSuffix: 9),
 
   /// Windows: the portable zip, holding the `tsdm_client` folder.
@@ -57,17 +106,20 @@ enum UpdateTarget {
 
   const UpdateTarget({required this.assetName, required this.extension, this.abiSuffix});
 
-  /// File name of the asset in the GitHub release.
+  /// File name of the asset every device of the platform can install.
   final String assetName;
 
   /// Extension of a complete download in the update cache.
   final String extension;
 
-  /// Android ABI digit appended to the version code of the installed package.
+  /// Android ABI digit appended to the version code of the installed package, of [assetName].
   final int? abiSuffix;
 
-  /// Version code of the installed build for the release [versionCode].
-  int installedVersionCode(int versionCode) => abiSuffix == null ? versionCode : versionCode * 10 + abiSuffix!;
+  /// The asset every device of the platform can install.
+  UpdateAsset get asset => UpdateAsset(assetName, abiSuffix: abiSuffix);
+
+  /// Version code of the installed build of [asset] for the release [versionCode].
+  int installedVersionCode(int versionCode) => asset.installedVersionCode(versionCode);
 }
 
 /// An asset whose size and SHA-256 matched the exact published release asset.
@@ -81,12 +133,15 @@ class DownloadedUpdate {
   /// Expected APK version name.
   final String version;
 
-  /// Expected version code of the installed build (Android: including the universal ABI suffix).
+  /// Expected version code of the installed build (Android: including the ABI digit of the APK downloaded).
   final int versionCode;
 }
 
 class _ReleaseAsset {
-  const _ReleaseAsset({required this.sources, required this.size, required this.digest});
+  const _ReleaseAsset({required this.asset, required this.sources, required this.size, required this.digest});
+
+  /// Which file of the release it is.
+  final UpdateAsset asset;
 
   /// Where the asset can be fetched, tried in order: each resolves to a URL only when its turn comes.
   final List<Future<Uri> Function()> sources;
@@ -98,6 +153,10 @@ class _ReleaseAsset {
 abstract interface class UpdateInstaller {
   /// The release asset this platform installs.
   UpdateTarget get target;
+
+  /// The files of a release this device can install, the best first: the first one the release has is downloaded.
+  /// The last is one every device of the platform installs.
+  List<UpdateAsset> get assets;
 
   /// Directory holding downloads; only this app writes to it.
   Future<String> directory();
@@ -124,6 +183,10 @@ class AndroidUpdateInstaller implements UpdateInstaller {
 
   @override
   UpdateTarget get target => UpdateTarget.android;
+
+  /// The APK of the ABI the app runs as, then the universal one.
+  @override
+  List<UpdateAsset> get assets => androidUpdateAssets(Abi.current());
 
   /// Returns the private directory exposed only to the system installer.
   @override
@@ -203,9 +266,9 @@ class ReleaseUpdateRepository {
       throw const UpdateDownloadException(UpdateDownloadFailure.invalidRelease);
     }
     final mirror = _mirror;
-    Future<Uri> fromMirror() =>
-        mirror!.urlOf(CloudreveMirror.assetPath(info.version, _target.assetName), cancelToken: cancelToken);
-    final ({int size, String digest, Uri url}) github;
+    Future<Uri> Function() fromMirror(UpdateAsset asset) =>
+        () => mirror!.urlOf(CloudreveMirror.assetPath(info.version, asset.name), cancelToken: cancelToken);
+    final ({UpdateAsset asset, int size, String digest, Uri url}) github;
     try {
       github = await _resolveGithub(info, cancelToken);
     } on DioException catch (error) {
@@ -218,11 +281,19 @@ class ReleaseUpdateRepository {
       }
       final listed = await _resolveMirror(mirror, info, cancelToken);
       if (listed == null) rethrow;
-      return _ReleaseAsset(sources: [fromMirror], size: listed.size, digest: listed.sha256);
+      return _ReleaseAsset(
+        asset: listed.asset,
+        sources: [fromMirror(listed.asset)],
+        size: listed.file.size,
+        digest: listed.file.sha256,
+      );
     }
     if (_target == UpdateTarget.windows) await _confirmVersionCode(info, cancelToken);
     return _ReleaseAsset(
-      sources: [if (mirror != null) fromMirror, () async => github.url],
+      asset: github.asset,
+      // The mirror may not have the file GitHub has (a release mirrored before the split APKs were): the transfer
+      // fails there and goes on from GitHub.
+      sources: [if (mirror != null) fromMirror(github.asset), () async => github.url],
       size: github.size,
       digest: github.digest,
     );
@@ -251,13 +322,23 @@ class ReleaseUpdateRepository {
     }
   }
 
-  /// The mirror's listing of this exact release's asset, null when the mirror is unreachable or lists another one.
-  Future<MirroredAsset?> _resolveMirror(CloudreveMirror mirror, LatestVersionInfo info, CancelToken cancelToken) async {
+  /// The mirror's listing of this exact release's asset (the first of the installer's the mirror lists), null when
+  /// the mirror is unreachable, lists another release or none of them.
+  Future<({UpdateAsset asset, MirroredAsset file})?> _resolveMirror(
+    CloudreveMirror mirror,
+    LatestVersionInfo info,
+    CancelToken cancelToken,
+  ) async {
     try {
       final listed = await mirror.versionInfo(cancelToken: cancelToken);
       if (listed['version'] != info.version || listed['versionCode'] != info.versionCode) return null;
-      final asset = CloudreveMirror.assetOf(listed, _target.assetName);
-      return asset == null || asset.size > _maxSize ? null : asset;
+      for (final asset in installer.assets) {
+        final file = CloudreveMirror.assetOf(listed, asset.name);
+        if (file != null) {
+          return file.size > _maxSize ? null : (asset: asset, file: file);
+        }
+      }
+      return null;
     } on DioException catch (error) {
       if (CancelToken.isCancel(error)) rethrow;
       return null;
@@ -266,7 +347,12 @@ class ReleaseUpdateRepository {
     }
   }
 
-  Future<({int size, String digest, Uri url})> _resolveGithub(LatestVersionInfo info, CancelToken cancelToken) async {
+  /// The release's file to download: the first of the installer's the release has uploaded. A file that is there
+  /// but not as it must be (its link, size or digest) fails the update; it is not passed over for the next one.
+  Future<({UpdateAsset asset, int size, String digest, Uri url})> _resolveGithub(
+    LatestVersionInfo info,
+    CancelToken cancelToken,
+  ) async {
     final tag = 'v${info.version}';
     final response = await _dio.get<Object?>(
       'https://api.github.com/repos/$_repository/releases/tags/$tag',
@@ -281,14 +367,27 @@ class ReleaseUpdateRepository {
         release['assets'] is! List<dynamic>) {
       throw const UpdateDownloadException(UpdateDownloadFailure.invalidRelease);
     }
-    final assets = (release['assets'] as List<dynamic>).whereType<Map<String, dynamic>>().where(
-      (asset) => asset['name'] == _target.assetName && asset['state'] == 'uploaded',
-    );
-    if (assets.length != 1) {
+    final uploaded = (release['assets'] as List<dynamic>)
+        .whereType<Map<String, dynamic>>()
+        .where((asset) => asset['state'] == 'uploaded')
+        .toList();
+    UpdateAsset? wanted;
+    Map<String, dynamic>? asset;
+    for (final candidate in installer.assets) {
+      final named = uploaded.where((e) => e['name'] == candidate.name).toList();
+      if (named.length > 1) {
+        throw const UpdateDownloadException(UpdateDownloadFailure.releaseUnavailable);
+      }
+      if (named.length == 1) {
+        wanted = candidate;
+        asset = named.single;
+        break;
+      }
+    }
+    if (wanted == null || asset == null) {
       throw const UpdateDownloadException(UpdateDownloadFailure.releaseUnavailable);
     }
-    final asset = assets.single;
-    final expectedUrl = 'https://github.com/$_repository/releases/download/$tag/${_target.assetName}';
+    final expectedUrl = 'https://github.com/$_repository/releases/download/$tag/${wanted.name}';
     final size = asset['size'];
     final digest = asset['digest'];
     if (asset['browser_download_url'] != expectedUrl ||
@@ -299,7 +398,7 @@ class ReleaseUpdateRepository {
         !RegExp(r'^sha256:[0-9a-fA-F]{64}$').hasMatch(digest)) {
       throw const UpdateDownloadException(UpdateDownloadFailure.invalidRelease);
     }
-    return (size: size, digest: digest.substring(7).toLowerCase(), url: Uri.parse(expectedUrl));
+    return (asset: wanted, size: size, digest: digest.substring(7).toLowerCase(), url: Uri.parse(expectedUrl));
   }
 
   /// Streams one [source] into [partial] (replacing what an earlier source left) and verifies it against [asset].
@@ -415,7 +514,7 @@ class ReleaseUpdateRepository {
           return DownloadedUpdate(
             path: candidate.path,
             version: info.version,
-            versionCode: _target.installedVersionCode(info.versionCode),
+            versionCode: asset.asset.installedVersionCode(info.versionCode),
           );
         }
         await _delete(candidate);
@@ -475,7 +574,7 @@ class ReleaseUpdateRepository {
       return DownloadedUpdate(
         path: complete.path,
         version: info.version,
-        versionCode: _target.installedVersionCode(info.versionCode),
+        versionCode: asset.asset.installedVersionCode(info.versionCode),
       );
     } on DioException catch (error) {
       if (CancelToken.isCancel(error)) rethrow;
