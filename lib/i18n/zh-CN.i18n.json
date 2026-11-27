@@ -2979,6 +2979,7 @@
     "announcementThread": "公告帖",
     "checkLatest": "检测最新版本",
     "channel": {
+      "title": "检测通道",
       "auto": "自动",
       "mirror": "爱丽丝盘",
       "github": "GitHub"

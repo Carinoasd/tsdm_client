@@ -2979,6 +2979,7 @@
     "announcementThread": "公告帖",
     "checkLatest": "偵測最新版本",
     "channel": {
+      "title": "偵測通道",
       "auto": "自動",
       "mirror": "愛麗絲盤",
       "github": "GitHub"

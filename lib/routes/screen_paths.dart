@@ -660,6 +660,9 @@ class DialogPaths {
   /// Dialog to select the app icon.
   static const String selectAppIcon = '/dialog/selectAppIcon';
 
+  /// Dialog to select where the update check asks for the latest version.
+  static const String selectUpdateChannel = '/dialog/selectUpdateChannel';
+
   /// Dialog to select the script Chinese text is shown in.
   static const String selectChineseDisplay = '/dialog/selectChineseDisplay';
 
