@@ -490,10 +490,11 @@ void main() {
         read('lib/features/forum/view/forum_page.dart'),
         contains('?pinToHomeMenuItem(context, PinnedForum.tryParse(widget.fid), state.title ?? widget.title)'),
       );
-      expect(
-        read('lib/features/thread/v1/view/thread_page.dart'),
-        contains('?pinToHomeMenuItem(context, PinnedThread.tryParse(state.tid), state.title ?? widget.title)'),
-      );
+      // The thread page offers it on its sheet of sharing and copying (`thread_page_menu.dart`).
+      final threadMenu = read('lib/features/thread/v1/view/thread_page_menu.dart');
+      expect(threadMenu, contains('pinToHomeMenuItem(context, PinnedThread.tryParse(tid), title)'));
+      expect(threadMenu, contains('if (pin != null) ThreadShareAction.pinToHome'));
+      expect(threadMenu, contains('await pin?.onSelected()'));
     });
   });
 }
