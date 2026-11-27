@@ -671,28 +671,23 @@ final class ImageCacheProvider with LoggerMixin {
   /// Not update the cached file.
   void _updateCacheUsedTime(String imageUrl) => getIt.get<StorageProvider>().markImageCacheUsed(imageUrl);
 
-  int _calculateDirectorySize(Directory dir) {
-    final fileList = dir.listSync(recursive: true);
-    return fileList.fold<int>(0, (acc, x) {
-      return acc + x.statSync().size;
-    });
-  }
+  // Walking and emptying the cache directories in another isolate, as [trimCache] does: thousands of files listed on
+  // the main isolate hold frames back. Each through a function of its own, see below.
+  static Future<List<int>> _sizesIn(List<String> dirs) => Isolate.run(() => [for (final dir in dirs) directorySizeOf(dir)]);
+
+  static Future<void> _emptyIn(String dir) => Isolate.run(() => emptyDirectory(dir));
 
   /// Calculate cache size in bytes.
   Future<CacheStorageInfo> calculateCache() async {
-    final imageSize = _calculateDirectorySize(_imageCacheDirectory);
-    final emojiSize = _calculateDirectorySize(_emojiCacheDirectory);
-    final logSize = _calculateDirectorySize(await getLogDir());
-    return CacheStorageInfo(imageSize: imageSize, emojiSize: emojiSize, logSize: logSize);
+    final sizes = await _sizesIn([_imageCacheDirectory.path, _emojiCacheDirectory.path, (await getLogDir()).path]);
+    return CacheStorageInfo(imageSize: sizes[0], emojiSize: sizes[1], logSize: sizes[2]);
   }
 
   /// Clear cache in [_imageCacheDirectory].
   Future<void> clearCache(CacheClearInfo clearInfo) async {
     if (clearInfo.clearImage) {
       await getIt.get<StorageProvider>().clearImageCache();
-      for (final f in _imageCacheDirectory.listSync()) {
-        await f.delete(recursive: true);
-      }
+      await _emptyIn(_imageCacheDirectory.path);
       _avatarWithoutFile.clear();
     }
     if (clearInfo.clearEmoji) {
@@ -1133,27 +1128,43 @@ final class ImageCacheProvider with LoggerMixin {
     return data.isEmpty ? null : data;
   }
 
+  /// The emoji read lately by [getEmojiCacheSync], least recently used first: at most [_emojiBytesLimit] bytes.
+  final _BytesLru _emojiBytes = _BytesLru(_emojiBytesLimit);
+
+  static const int _emojiBytesLimit = 8 * 1024 * 1024;
+
   /// Get the cached file of emoji with specified [groupId] and [id].
+  ///
+  /// Read from the disk once, then kept in memory: a panel of emoji builds a hundred of these in one frame, and builds
+  /// them again each time it opens or its tab changes. Synchronous so an emoji in a post is there in the first frame
+  /// (no empty box, no second layout).
   Uint8List? getEmojiCacheSync(String groupId, String id) {
     final cachePath = _formatEmojiCachePath(groupId, id);
     if (cachePath == null) {
       return null;
+    }
+    final kept = _emojiBytes[cachePath];
+    if (kept != null) {
+      return kept;
     }
     final cacheFile = File(cachePath);
     if (!cacheFile.existsSync()) {
       return null;
     }
     final data = cacheFile.readAsBytesSync();
-    return data.isEmpty ? null : data;
+    if (data.isEmpty) {
+      return null;
+    }
+    _emojiBytes[cachePath] = data;
+    return data;
   }
 
   /// Clear all emoji cache files.
   ///
   /// The emoji list goes with them: until the panel loads it again, the forum's emoji are images like any other.
   Future<void> clearEmojiCache() async {
-    for (final f in _emojiCacheDirectory.listSync()) {
-      await f.delete(recursive: true);
-    }
+    await _emptyIn(_emojiCacheDirectory.path);
+    _emojiBytes.clear();
     _emojiIndex = null;
     _emojiIndexLoading = null;
   }
@@ -1177,6 +1188,7 @@ final class ImageCacheProvider with LoggerMixin {
       await part.parent.create(recursive: true);
       await part.writeAsBytes(imageData);
       await part.rename(fileName);
+      _emojiBytes.remove(fileName);
     } on FileSystemException catch (e) {
       warning('could not save the emoji $groupId/$id: ${e.message}');
       try {
@@ -1259,5 +1271,43 @@ final class _Slots {
         _running--;
       }
     }
+  }
+}
+
+/// Bytes by key, the least recently read dropped first once they are more than [limit] together.
+final class _BytesLru {
+  _BytesLru(this.limit);
+
+  final int limit;
+
+  // Insertion order is the order of use: a read moves its entry to the end.
+  final _entries = <String, Uint8List>{};
+  var _bytes = 0;
+
+  Uint8List? operator [](String key) {
+    final data = _entries.remove(key);
+    if (data != null) {
+      _entries[key] = data;
+    }
+    return data;
+  }
+
+  void operator []=(String key, Uint8List data) {
+    remove(key);
+    if (data.length > limit) {
+      return;
+    }
+    _entries[key] = data;
+    _bytes += data.length;
+    while (_bytes > limit) {
+      remove(_entries.keys.first);
+    }
+  }
+
+  void remove(String key) => _bytes -= _entries.remove(key)?.length ?? 0;
+
+  void clear() {
+    _entries.clear();
+    _bytes = 0;
   }
 }

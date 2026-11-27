@@ -115,14 +115,8 @@ Future<void> initLogger() async {
   final sep = Platform.pathSeparator;
   final logDir = await getLogDir();
 
-  // Delete logs from 7 days ago.
-  if (logDir.existsSync()) {
-    for (final logFileCache in logDir.listSync(followLinks: false)) {
-      if (logFileCache.existsSync() && nowTime.difference(logFileCache.statSync().modified).inDays.abs() > 7) {
-        await logFileCache.delete();
-      }
-    }
-  } else {
+  final hadLogs = logDir.existsSync();
+  if (!hadLogs) {
     await logDir.create();
   }
 
@@ -133,6 +127,32 @@ Future<void> initLogger() async {
   // Secrets (cookies, passwords, form hashes, private form contents) are redacted before a log entry exists, see
   // [RedactingTalker]; the console output mirrors TalkerFlutter.init on Android.
   talker = buildRedactingTalker(console: (message) => debugPrint(message), writeLine: _writeLogLine);
+
+  if (hadLogs) {
+    // Not waited for: the start of the app does not depend on it.
+    unawaited(deleteOldLogs(logDir, nowTime));
+  }
+}
+
+/// Delete the logs of [logDir] last written more than 7 days before [now].
+///
+/// Listed and deleted without blocking the isolate (the first frame is being built meanwhile). Best effort: what
+/// could not be deleted is tried again at the next start.
+@visibleForTesting
+Future<void> deleteOldLogs(Directory logDir, DateTime now) async {
+  try {
+    await for (final entity in logDir.list(followLinks: false)) {
+      try {
+        if (now.difference((await entity.stat()).modified).inDays.abs() > 7) {
+          await entity.delete();
+        }
+      } on FileSystemException catch (e) {
+        talker.warning('could not delete the old log ${entity.uri.pathSegments.last}: ${e.message}');
+      }
+    }
+  } on FileSystemException catch (e) {
+    talker.warning('could not list the logs: ${e.message}');
+  }
 }
 
 /// Close the log sink.

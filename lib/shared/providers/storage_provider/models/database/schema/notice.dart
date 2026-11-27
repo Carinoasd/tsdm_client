@@ -3,7 +3,10 @@ part of 'schema.dart';
 /// Table for local notice.
 ///
 /// Generated when interacting with other users: reply, mention, rate, ...
+///
+/// The index on [uid] and [timestamp] is for the list of an account, newest first.
 @DataClassName('NoticeEntity')
+@TableIndex(name: 'notice_uid_time', columns: {#uid, #timestamp})
 class Notice extends Table {
   /// Uid of the user who owns the notice.
   IntColumn get uid => integer()();

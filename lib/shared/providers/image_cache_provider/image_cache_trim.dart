@@ -179,6 +179,41 @@ Map<String, ImageCacheFileStat> listImageCacheFiles(String path) {
   return files;
 }
 
+/// The bytes of every file under the directory at [path] (0 when there is none).
+int directorySizeOf(String path) {
+  final dir = Directory(path);
+  if (!dir.existsSync()) {
+    return 0;
+  }
+  var size = 0;
+  for (final entity in dir.listSync(recursive: true, followLinks: false)) {
+    try {
+      size += entity.statSync().size;
+    } on FileSystemException catch (_) {
+      // Gone meanwhile: nothing to count.
+    }
+  }
+  return size;
+}
+
+/// Delete everything in the directory at [path]; the directory stays.
+///
+/// Best effort: what can not be deleted (a download writing it, a file another program holds open on Windows) stays
+/// and the rest still goes.
+void emptyDirectory(String path) {
+  final dir = Directory(path);
+  if (!dir.existsSync()) {
+    return;
+  }
+  for (final entity in dir.listSync(followLinks: false)) {
+    try {
+      entity.deleteSync(recursive: true);
+    } on FileSystemException catch (_) {
+      // Held or gone meanwhile: the next clean up finds it again.
+    }
+  }
+}
+
 /// Delete the files [names] of the image cache directory at [path]; returns how many were deleted.
 int deleteImageCacheFiles(String path, List<String> names) {
   var deleted = 0;

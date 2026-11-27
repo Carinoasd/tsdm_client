@@ -51,6 +51,9 @@ flutter test test/regression/<檔案>_test.dart
 - Android 的背景服務在自己的 isolate 開同一個資料庫檔，更新後兩邊可能同時跑同一步遷移。每一步都要能重跑：
   加欄位前先查 `PRAGMA table_info`，建表與索引用 `IF NOT EXISTS`，遇到「另一條連線剛做完」的錯誤就略過
   （照 `from13To14`、`from14To15` 的寫法）。
+- 資料庫是 WAL 模式（`connection/native.dart` 的 `setupConnection`）：最新的寫入在 `-wal` 裡，`-wal`／`-shm` 是資料庫的
+  一部分。要複製或換掉資料庫檔，先 checkpoint 再動，換檔後清掉舊的旁檔（照 `BackupRepository` 的寫法）；備份檔本身
+  一律不是 WAL 模式。
 
 ### i18n
 
