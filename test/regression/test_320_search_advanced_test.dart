@@ -21,6 +21,7 @@ import 'package:talker_flutter/talker_flutter.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
+import 'package:tsdm_client/features/quick_open/view/quick_open_dialog.dart';
 import 'package:tsdm_client/features/search/bloc/search_bloc.dart';
 import 'package:tsdm_client/features/search/models/models.dart';
 import 'package:tsdm_client/features/search/repository/search_history_store.dart';
@@ -428,6 +429,21 @@ void main() {
       }
       await tester.pumpAndSettle();
     }
+
+    testWidgets('the app bar has a button for the quick open box', (tester) async {
+      forum.answer = (uri) => _file('search_ctrl_x5.html');
+      await tester.pumpWidget(app(const SearchPage()));
+      await settle(tester);
+      final button = find.byKey(const ValueKey('search-quick-open'));
+      expect(button, findsOneWidget);
+      expect(tester.widget<IconButton>(button).tooltip, t.quickOpen.title);
+      await tester.tap(button);
+      await settle(tester);
+      expect(find.byType(QuickOpenDialog), findsOneWidget);
+      await tester.tapAt(const Offset(5, 5));
+      await settle(tester);
+      expect(find.byType(QuickOpenDialog), findsNothing);
+    });
 
     testWidgets('the history under the empty keyword, the filters chosen in chips go with the search', (tester) async {
       await tester.runAsync(() async {

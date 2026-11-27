@@ -27,6 +27,7 @@ import 'package:tsdm_client/features/notification/bloc/notification_bloc.dart';
 import 'package:tsdm_client/features/notification/repository/notification_info_repository.dart';
 import 'package:tsdm_client/features/profile/bloc/current_title_cubit.dart';
 import 'package:tsdm_client/features/profile/repository/profile_repository.dart';
+import 'package:tsdm_client/features/quick_open/view/quick_open_dialog.dart';
 import 'package:tsdm_client/features/root/stream/scroll_to_top_stream.dart';
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
 import 'package:tsdm_client/features/settings/widgets/support_development_dialog.dart';
@@ -432,10 +433,26 @@ class _HomepagePageState extends State<HomepagePage> {
 
     return [
       if (showDailyActionsInBar) ?button(activities),
-      IconButton(
-        icon: const Icon(Symbols.search_rounded),
-        tooltip: context.t.searchPage.title,
-        onPressed: () async => context.pushNamed(ScreenPaths.search),
+      // A tap searches the forum; a long press opens the quick open box (forums, threads read or put aside, floors
+      // bookmarked, users), which a phone has no key for. The tooltip is shown on hover only: its own long press
+      // would take this one.
+      Tooltip(
+        message: context.t.searchPage.title,
+        triggerMode: TooltipTriggerMode.manual,
+        excludeFromSemantics: true,
+        // One node for a screen reader: the button, named, with what its long press does.
+        child: MergeSemantics(
+          child: Semantics(
+            label: context.t.searchPage.title,
+            onLongPressHint: context.t.quickOpen.title,
+            child: IconButton(
+              key: const ValueKey('home-search'),
+              icon: const Icon(Symbols.search_rounded),
+              onPressed: () async => context.pushNamed(ScreenPaths.search),
+              onLongPress: () async => showQuickOpenDialog(context),
+            ),
+          ),
+        ),
       ),
       ?button(support),
       if (username != null) ...[

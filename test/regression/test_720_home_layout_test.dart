@@ -36,6 +36,7 @@ import 'package:tsdm_client/features/notification/bloc/notification_bloc.dart';
 import 'package:tsdm_client/features/notification/bloc/notification_state_cubit.dart';
 import 'package:tsdm_client/features/notification/repository/notification_info_repository.dart';
 import 'package:tsdm_client/features/profile/repository/profile_repository.dart';
+import 'package:tsdm_client/features/quick_open/view/quick_open_dialog.dart';
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
 import 'package:tsdm_client/features/settings/repositories/settings_repository.dart';
 import 'package:tsdm_client/features/settings/view/home_layout_page.dart';
@@ -512,6 +513,30 @@ void main() {
     }
 
     Iterable<Uri> guideRequests() => forum.requests.where((e) => e.queryParameters['mod'] == 'guide');
+
+    testWidgets('a long press on the search button opens the quick open box, on a phone too', (tester) async {
+      await openHomepage(tester);
+      await drain(tester);
+      final search = find.byKey(const ValueKey('home-search'));
+      expect(search, findsOneWidget);
+      expect(find.byType(QuickOpenDialog), findsNothing);
+      // Named for a screen reader, with what the long press does.
+      final handle = tester.ensureSemantics();
+      final node = tester.getSemantics(search);
+      expect(node.label, t.searchPage.title);
+      expect(node.hintOverrides?.onLongPressHint, t.quickOpen.title);
+      handle.dispose();
+
+      await tester.longPress(search);
+      await settle(tester);
+      expect(find.byType(QuickOpenDialog), findsOneWidget);
+      expect(
+        find.byType(Tooltip).evaluate().where((e) => (e.widget as Tooltip).message == t.searchPage.title),
+        hasLength(1),
+      );
+      await tester.tapAt(const Offset(5, 5));
+      await settle(tester);
+    });
 
     testWidgets('the default arrangement, the guide asked for', (tester) async {
       await openHomepage(tester);

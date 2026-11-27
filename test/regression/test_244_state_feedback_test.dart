@@ -42,6 +42,7 @@ import 'package:tsdm_client/features/draft_box/repository/draft_repository.dart'
 import 'package:tsdm_client/features/favorite/bloc/favorite_bloc.dart';
 import 'package:tsdm_client/features/favorite/repository/favorite_repository.dart';
 import 'package:tsdm_client/features/favorite/view/favorite_page.dart';
+import 'package:tsdm_client/features/favorite/widgets/favorite_card.dart';
 import 'package:tsdm_client/features/forum/bloc/forum_bloc.dart';
 import 'package:tsdm_client/features/forum/models/models.dart';
 import 'package:tsdm_client/features/forum/repository/forum_repository.dart';
@@ -61,6 +62,7 @@ import 'package:tsdm_client/features/notification/bloc/notification_bloc.dart';
 import 'package:tsdm_client/features/notification/bloc/notification_state_cubit.dart';
 import 'package:tsdm_client/features/notification/repository/notification_info_repository.dart';
 import 'package:tsdm_client/features/notification/repository/notification_repository.dart';
+import 'package:tsdm_client/features/offline_thread/repository/offline_thread_repository.dart';
 import 'package:tsdm_client/features/points/bloc/points_bloc.dart';
 import 'package:tsdm_client/features/points/repository/points_repository.dart';
 import 'package:tsdm_client/features/search/bloc/search_bloc.dart';
@@ -1077,6 +1079,94 @@ void main() {
       await settle(tester);
       expect(find.text(t.favoritePage.empty), findsOneWidget);
       expect(find.text(t.favoritePage.emptyHint), findsOneWidget);
+    });
+  });
+
+  group('favorites: the filter of the app bar', () {
+    ResponseBody threads(RequestOptions o) => ResponseBody.fromString(
+      File('test/data/tsdmapp/favorite_v8_thread.json').readAsStringSync(),
+      200,
+      headers: {
+        Headers.contentTypeHeader: ['application/json; charset=utf-8'],
+      },
+    );
+
+    Future<void> pump(WidgetTester tester) async {
+      forum.answer = threads;
+      final repository = FavoriteRepository();
+      addTearDown(repository.dispose);
+      await tester.pumpWidget(
+        app(
+          RepositoryProvider<FavoriteRepository>.value(
+            value: repository,
+            child: const MaterialApp(home: FavoritePage()),
+          ),
+        ),
+      );
+      await settle(tester);
+    }
+
+    final field = find.byKey(const ValueKey('list-filter-field'));
+    Iterable<String> titles(WidgetTester tester) =>
+        tester.widgetList<FavoriteCard>(find.byType(FavoriteCard, skipOffstage: false)).map((e) => e.item.title);
+
+    testWidgets('by title and note among the records loaded, nothing asked from the forum', (tester) async {
+      await pump(tester);
+      final all = titles(tester).toList();
+      expect(all.length, greaterThan(3));
+      final asked = forum.requests.length;
+
+      await tester.tap(find.byKey(const ValueKey('list-filter-open')));
+      await settle(tester);
+      expect(find.byType(TabBar), findsOneWidget, reason: 'the tabs stay under the field');
+      await tester.enterText(field, 'atp');
+      await settle(tester);
+      expect(titles(tester), isNotEmpty);
+      expect(titles(tester).every((e) => e.toLowerCase().contains('atp')), isTrue);
+      expect(titles(tester).length, lessThan(all.length));
+
+      // The note of the first record.
+      await tester.enterText(field, '最後一則');
+      await settle(tester);
+      expect(titles(tester).single, startsWith('PP'));
+
+      await tester.enterText(field, 'no such favorite');
+      await settle(tester);
+      expect(find.byType(FavoriteCard), findsNothing);
+      expect(find.text(t.listFilter.noMatch(query: 'no such favorite')), findsOneWidget);
+      expect(find.text(t.favoritePage.empty), findsNothing);
+      expect(forum.requests.length, asked, reason: 'filtered on the device: no request, no next page loaded');
+
+      await tester.tap(find.byKey(const ValueKey('list-filter-close')));
+      await settle(tester);
+      expect(titles(tester).length, all.length);
+    });
+
+    testWidgets('picking threads for the offline batch and filtering take turns', (tester) async {
+      await tester.runAsync(() => settings.setValue(SettingsKeys.offlineThreads, true));
+      getIt.registerSingleton<OfflineThreadRepository>(
+        OfflineThreadRepository(storage: storage, settings: settings, currentUid: () => _alice.uid),
+      );
+      await pump(tester);
+      final picked = find.text(t.offlineBatch.selectedCount(count: 1));
+
+      // Filtering, then a long press picks a thread: the field closes, the pick stays among the whole list.
+      await tester.tap(find.byKey(const ValueKey('list-filter-open')));
+      await settle(tester);
+      await tester.enterText(field, 'atp');
+      await settle(tester);
+      final shown = titles(tester).length;
+      await tester.longPress(find.byType(FavoriteCard).first);
+      await settle(tester);
+      expect(field, findsNothing, reason: 'picking closed the filter');
+      expect(picked, findsOneWidget);
+      expect(titles(tester).length, greaterThan(shown), reason: 'the whole list again');
+
+      // Picking, then the filter opened: the picks are dropped.
+      await tester.tap(find.byKey(const ValueKey('list-filter-open')));
+      await settle(tester);
+      expect(field, findsOneWidget);
+      expect(picked, findsNothing);
     });
   });
 

@@ -135,6 +135,44 @@ void main() {
       expect(find.text('thread opened'), findsOneWidget);
     });
 
+    testWidgets('the filter of the app bar: by title, author and forum name, said when nothing fits', (tester) async {
+      await storage.addReadLater(uid: 31, tid: 7, title: 'seven', author: 'Bob', forumName: '動畫討論');
+      await storage.addReadLater(uid: 31, tid: 8, title: 'Eight', author: 'Carol', forumName: 'Games');
+      final cubit = ReadLaterCubit(storageProvider: storage, uid: 31);
+      addTearDown(cubit.close);
+      await tester.pumpWidget(host(const ReadLaterPage(), cubit));
+      await settle(tester);
+      final field = find.byKey(const ValueKey('list-filter-field'));
+
+      await tester.tap(find.byKey(const ValueKey('list-filter-open')));
+      await settle(tester);
+      expect(find.byKey(const ValueKey('read-later-clear')), findsNothing, reason: 'the field has the bar');
+      await tester.enterText(field, 'eight');
+      await settle(tester);
+      expect(find.text('Eight'), findsOneWidget, reason: 'the title, in any case');
+      expect(find.text('seven'), findsNothing);
+
+      await tester.enterText(field, 'bob');
+      await settle(tester);
+      expect(find.text('seven'), findsOneWidget, reason: 'the author');
+      expect(find.text('Eight'), findsNothing);
+
+      await tester.enterText(field, 'games carol');
+      await settle(tester);
+      expect(find.text('Eight'), findsOneWidget, reason: 'the forum and the author, a word each');
+
+      await tester.enterText(field, 'nothing like it');
+      await settle(tester);
+      expect(find.text(t.listFilter.noMatch(query: 'nothing like it')), findsOneWidget);
+      expect(find.text(t.readLater.empty), findsNothing, reason: 'the list is not empty');
+
+      await tester.tap(find.byKey(const ValueKey('list-filter-close')));
+      await settle(tester);
+      expect(find.text('seven'), findsOneWidget);
+      expect(find.text('Eight'), findsOneWidget);
+      expect(find.byKey(const ValueKey('read-later-clear')), findsOneWidget);
+    });
+
     testWidgets('clear asks first, then empties the list', (tester) async {
       await storage.addReadLater(uid: 31, tid: 7, title: 'seven');
       final cubit = ReadLaterCubit(storageProvider: storage, uid: 31);

@@ -4231,7 +4231,8 @@
     "tabsFull": "最多同時開啟 ${count: int} 個分頁"
   },
   "quickOpen": {
-    "search": "搜尋：$text"
+    "search": "搜尋：$text",
+    "title": "快速跳轉"
   },
   "keyboardShortcutsPage": {
     "title": "鍵盤快捷鍵",
@@ -4831,5 +4832,10 @@
     "openPage": "開啟頁面",
     "copyShareText": "複製分享文字",
     "shareText": "【$site】$title $url"
+  },
+  "listFilter": {
+    "open": "篩選列表",
+    "hint": "篩選",
+    "noMatch": "找不到符合「${query}」的項目"
   }
 }

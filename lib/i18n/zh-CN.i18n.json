@@ -4231,7 +4231,8 @@
     "tabsFull": "最多同时打开 ${count: int} 个标签页"
   },
   "quickOpen": {
-    "search": "搜索：$text"
+    "search": "搜索：$text",
+    "title": "快速跳转"
   },
   "keyboardShortcutsPage": {
     "title": "键盘快捷键",
@@ -4831,5 +4832,10 @@
     "openPage": "打开页面",
     "copyShareText": "复制分享文字",
     "shareText": "【$site】$title $url"
+  },
+  "listFilter": {
+    "open": "筛选列表",
+    "hint": "筛选",
+    "noMatch": "没有符合“${query}”的项目"
   }
 }

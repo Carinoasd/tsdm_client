@@ -20,6 +20,7 @@ import 'package:tsdm_client/utils/show_dialog.dart';
 import 'package:tsdm_client/utils/show_toast.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/failure_view.dart';
+import 'package:tsdm_client/widgets/list_filter.dart';
 import 'package:tsdm_client/widgets/list_footer.dart';
 import 'package:tsdm_client/widgets/list_skeleton.dart';
 import 'package:tsdm_client/widgets/two_pane.dart';
@@ -36,18 +37,20 @@ class FavoritePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // A wide window shows the thread tapped on the right of the list.
-    return TwoPaneLayout(list: _buildPage(context));
+    return TwoPaneLayout(list: ListFilterHost(builder: _buildPage));
   }
 
-  /// The page, under the [TwoPaneLayout] of [build].
-  Widget _buildPage(BuildContext context) {
+  /// The page, under the [TwoPaneLayout] of [build]. One filter for both tabs: each lists what fits of its own
+  /// records.
+  Widget _buildPage(BuildContext context, ListFilterController filter) {
     final tr = context.t.favoritePage;
     return DefaultTabController(
       length: FavoriteType.values.length,
       initialIndex: FavoriteType.values.indexOf(initialType),
       child: Scaffold(
-        appBar: AppBar(
-          title: Text(tr.title),
+        appBar: ListFilterAppBar(
+          controller: filter,
+          title: tr.title,
           bottom: TabBar(
             tabs: [
               Tab(text: tr.threadTab),
@@ -58,7 +61,7 @@ class FavoritePage extends StatelessWidget {
         body: SafeArea(
           bottom: false,
           child: TabBarView(
-            children: [for (final type in FavoriteType.values) _FavoriteTab(type, key: ValueKey(type))],
+            children: [for (final type in FavoriteType.values) _FavoriteTab(type, filter, key: ValueKey(type))],
           ),
         ),
       ),
@@ -68,9 +71,12 @@ class FavoritePage extends StatelessWidget {
 
 /// One tab: the list of records of [type] with pull to refresh, load more and removal.
 class _FavoriteTab extends StatefulWidget {
-  const _FavoriteTab(this.type, {super.key});
+  const _FavoriteTab(this.type, this.filter, {super.key});
 
   final FavoriteType type;
+
+  /// The filter of the page: the words typed among the records loaded (title and note).
+  final ListFilterController filter;
 
   @override
   State<_FavoriteTab> createState() => _FavoriteTabState();
@@ -96,7 +102,16 @@ class _FavoriteTabState extends State<_FavoriteTab> with AutomaticKeepAliveClien
   @override
   void initState() {
     super.initState();
+    widget.filter.addListener(_onFilterChanged);
     unawaited(_loadCopies());
+  }
+
+  /// Picking threads and filtering do not go together: the picks are of the whole list, the filter hides part of
+  /// it. Opening the filter ends the picking; picking a thread closes the filter (see the card's `onSelect`).
+  void _onFilterChanged() {
+    if (widget.filter.open && _selected.isNotEmpty && mounted) {
+      setState(_selected.clear);
+    }
   }
 
   Future<void> _loadCopies() async {
@@ -192,6 +207,7 @@ class _FavoriteTabState extends State<_FavoriteTab> with AutomaticKeepAliveClien
 
   @override
   void dispose() {
+    widget.filter.removeListener(_onFilterChanged);
     _refreshController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -217,12 +233,26 @@ class _FavoriteTabState extends State<_FavoriteTab> with AutomaticKeepAliveClien
       _refreshController.finishRefresh();
     }
     final bloc = context.read<FavoriteBloc>();
+    final filter = widget.filter;
+    // Only what is loaded is filtered: nothing is asked from the forum for it, the pages not loaded yet are not
+    // searched (and not loaded while filtering: the footer that asks for them is left out).
+    final items = filter.active
+        ? state.items.where((e) => filter.matches([e.title, e.description])).toList()
+        : state.items;
     final list = EasyRefresh.builder(
       controller: _refreshController,
       scrollController: _scrollController,
       header: const MaterialHeader(),
       onRefresh: () => bloc.add(const FavoriteRefreshRequested()),
       childBuilder: (context, physics) {
+        if (items.isEmpty && state.items.isNotEmpty) {
+          return ListView(
+            physics: physics,
+            controller: _scrollController,
+            padding: edgeInsetsL12T4R12.add(context.safePadding()),
+            children: [sizedBoxW32H32, ListFilterNoMatch(filter.query)],
+          );
+        }
         if (state.items.isEmpty) {
           // What the list is for and how a record gets in it.
           return ListView(
@@ -251,9 +281,9 @@ class _FavoriteTabState extends State<_FavoriteTab> with AutomaticKeepAliveClien
             controller: _scrollController,
             padding: side.copyWith(top: 8).add(context.safePadding()),
             // The end of the list is its last item: built when it comes near, it asks the next page.
-            itemCount: state.items.length + 1,
+            itemCount: items.length + (filter.active ? 0 : 1),
             itemBuilder: (context, index) {
-              if (index == state.items.length) {
+              if (index == items.length) {
                 return ListFooter(
                   status: listFooterStatus(
                     hasMore: state.nextPageUrl != null,
@@ -266,7 +296,7 @@ class _FavoriteTabState extends State<_FavoriteTab> with AutomaticKeepAliveClien
                   onRetry: () => bloc.add(const FavoriteLoadMoreRequested()),
                 );
               }
-              final item = state.items[index];
+              final item = items[index];
               return FavoriteCard(
                 item,
                 removing: state.removing.contains(item.favid),
@@ -274,7 +304,11 @@ class _FavoriteTabState extends State<_FavoriteTab> with AutomaticKeepAliveClien
                 offline: _copied.contains(item.targetId),
                 selected: _selected.contains(item.targetId),
                 onSelect: _offlineOn && item is FavoriteThread
-                    ? () => setState(() => _selected.add(item.targetId))
+                    ? () {
+                        // Picked among the whole list: the filter goes, the pick stays.
+                        widget.filter.close();
+                        setState(() => _selected.add(item.targetId));
+                      }
                     : null,
                 onToggle: _selected.isEmpty
                     ? null

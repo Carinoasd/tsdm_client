@@ -1,9 +1,13 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
 import 'package:tsdm_client/features/editor/repository/mention_repository.dart';
 import 'package:tsdm_client/features/editor/widgets/mention_picker.dart';
+import 'package:tsdm_client/features/floor_bookmark/cubit/floor_bookmark_cubit.dart';
+import 'package:tsdm_client/features/floor_bookmark/models/floor_bookmark.dart';
 import 'package:tsdm_client/features/quick_open/models/quick_open_candidate.dart';
+import 'package:tsdm_client/features/read_later/cubit/read_later_cubit.dart';
 import 'package:tsdm_client/features/share_receive/share_dispatcher.dart';
 import 'package:tsdm_client/features/thread_visit_history/repository/thread_visit_history_repository.dart';
 import 'package:tsdm_client/shared/models/models.dart';
@@ -42,7 +46,26 @@ List<QuickOpenUser> quickOpenUsersOf(MentionCandidates candidates) {
 
 /// Hands one loaded source of the box over; the others stay as they were.
 typedef QuickOpenSourcesArrived =
-    void Function({List<QuickOpenForum>? forums, List<QuickOpenThread>? threads, List<QuickOpenUser>? users});
+    void Function({
+      List<QuickOpenForum>? forums,
+      List<QuickOpenThread>? threads,
+      List<QuickOpenUser>? users,
+      List<QuickOpenThread>? readLater,
+      List<QuickOpenBookmark>? bookmarks,
+    });
+
+/// The threads put aside to read later, newest first as the list holds them.
+List<QuickOpenThread> quickOpenReadLaterOf(List<ReadLaterItem> items) => [
+  for (final item in items)
+    if (item.title.isNotEmpty) (tid: item.tid, title: item.title),
+];
+
+/// The floors bookmarked, the ones removed left out.
+List<QuickOpenBookmark> quickOpenBookmarksOf(List<FloorBookmark> items) => [
+  for (final item in items)
+    if (!item.deleted && (item.threadTitle.isNotEmpty || item.note.isNotEmpty))
+      (pid: item.pid, title: item.threadTitle, note: item.note, floor: item.floor),
+];
 
 /// Loads each source of the box on its own and hands it to [onLoaded] as it arrives; a source that fails stays empty.
 ///
@@ -52,11 +75,26 @@ Future<void> loadQuickOpenSources(
   required QuickOpenSourcesArrived onLoaded,
   required bool Function() isActive,
 }) async {
-  final historyRepository = context.read<ThreadVisitHistoryRepo>();
-  final forumRepository = context.read<ForumHomeRepository>();
+  // A source the page above does not provide stays empty, as one that fails to load does.
+  final historyRepository = context.readOrNull<ThreadVisitHistoryRepo>();
+  final forumRepository = context.readOrNull<ForumHomeRepository>();
   final selfUid = context.read<AuthenticationRepository?>()?.currentUser?.uid?.toString();
 
+  // What the account put aside and bookmarked is on the device already (their lists keep it loaded): handed over at
+  // once, nothing is read for it.
+  final readLater = context.readOrNull<ReadLaterCubit>()?.state.items;
+  final bookmarks = context.readOrNull<FloorBookmarkCubit>()?.state.items;
+  if (readLater != null || bookmarks != null) {
+    onLoaded(
+      readLater: readLater == null ? null : quickOpenReadLaterOf(readLater),
+      bookmarks: bookmarks == null ? null : quickOpenBookmarksOf(bookmarks),
+    );
+  }
+
   Future<void> history() async {
+    if (historyRepository == null) {
+      return;
+    }
     final result = await historyRepository.fetchAllHistory().run();
     if (isActive()) {
       result.fold((_) {}, (value) => onLoaded(threads: quickOpenThreadsOf(value)));
@@ -64,6 +102,9 @@ Future<void> loadQuickOpenSources(
   }
 
   Future<void> forums() async {
+    if (forumRepository == null) {
+      return;
+    }
     final groups = await loadForumGroups(forumRepository);
     if (isActive()) {
       onLoaded(forums: quickOpenForumsOf(groups));

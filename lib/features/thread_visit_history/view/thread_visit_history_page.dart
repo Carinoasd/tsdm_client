@@ -11,6 +11,7 @@ import 'package:tsdm_client/utils/load_failure.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/failure_view.dart';
 import 'package:tsdm_client/widgets/indicator.dart';
+import 'package:tsdm_client/widgets/list_filter.dart';
 import 'package:tsdm_client/widgets/tips.dart';
 
 /// Page of thread visit history.
@@ -104,64 +105,77 @@ class _ThreadVisitHistoryPageState extends State<ThreadVisitHistoryPage> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final tr = context.t.threadVisitHistoryPage;
-    return BlocProvider(
-      create: (context) => ThreadVisitHistoryBloc(context.repo())..add(const ThreadVisitHistoryFetchAllRequested()),
-      child: BlocBuilder<ThreadVisitHistoryBloc, ThreadVisitHistoryState>(
-        builder: (context, state) {
-          // Most recently visited account first, the same order as the records.
-          final accounts = <int, String>{};
-          for (final record in state.history) {
-            accounts.putIfAbsent(record.uid, () => record.username);
-          }
-          // Keep the selected account in the menu when its last record was removed during a refresh.
-          if (_selectedUid != null) {
-            accounts.putIfAbsent(_selectedUid!, () => _selectedUsername);
-          }
-          final history = _selectedUid == null
-              ? state.history
-              : state.history.where((record) => record.uid == _selectedUid).toList();
-          final body = switch (state.status) {
-            ThreadVisitHistoryStatus.initial ||
-            ThreadVisitHistoryStatus.loadingData => const CenteredCircularIndicator(),
-            // No history at all says what gets in it; no history for the account chosen offers all the accounts.
-            ThreadVisitHistoryStatus.savingData || ThreadVisitHistoryStatus.success => _Body(
-              history,
-              emptyText: _selectedUid == null ? tr.empty : tr.emptyForAccount,
-              emptyDetail: _selectedUid == null ? tr.emptyHint : null,
-              emptyAction: _selectedUid == null
-                  ? null
-                  : FilledButton.tonalIcon(
-                      icon: const Icon(Icons.filter_list_off),
-                      label: Text(tr.showAllAccounts),
-                      onPressed: () => _select(null, accounts),
-                    ),
-            ),
-            ThreadVisitHistoryStatus.failure => FailureView(
-              onRetry: () => context.read<ThreadVisitHistoryBloc>().add(const ThreadVisitHistoryFetchAllRequested()),
-              failure: LoadFailure(LoadFailureKind.unknown),
-            ),
-          };
+  Widget build(BuildContext context) => BlocProvider(
+    create: (context) => ThreadVisitHistoryBloc(context.repo())..add(const ThreadVisitHistoryFetchAllRequested()),
+    child: ListFilterHost(builder: _buildPage),
+  );
 
-          return Scaffold(
-            appBar: AppBar(title: Text(tr.title), bottom: Tips(tr.localOnlyTip, sizePreferred: true)),
-            // The account filter shares the safe area of the list: outside of it the chip sat under the cutout in
-            // landscape, out of line with the tip and the cards (feedback 110).
-            body: SafeArea(
-              top: false,
-              child: Column(
-                children: [
-                  _buildFilter(context, accounts),
-                  Expanded(
-                    child: AnimatedSwitcher(duration: duration200, child: body),
+  Widget _buildPage(BuildContext context, ListFilterController filter) {
+    final tr = context.t.threadVisitHistoryPage;
+    return BlocBuilder<ThreadVisitHistoryBloc, ThreadVisitHistoryState>(
+      builder: (context, state) {
+        // Most recently visited account first, the same order as the records.
+        final accounts = <int, String>{};
+        for (final record in state.history) {
+          accounts.putIfAbsent(record.uid, () => record.username);
+        }
+        // Keep the selected account in the menu when its last record was removed during a refresh.
+        if (_selectedUid != null) {
+          accounts.putIfAbsent(_selectedUid!, () => _selectedUsername);
+        }
+        // The account chosen first, then the words typed among its records: by title, forum name and the name of
+        // the account that read the thread (the history keeps no author).
+        final ofAccount = _selectedUid == null
+            ? state.history
+            : state.history.where((record) => record.uid == _selectedUid).toList();
+        final history = filter.active
+            ? ofAccount.where((e) => filter.matches([e.threadTitle, e.forumName, e.username])).toList()
+            : ofAccount;
+        final noMatch = filter.active && history.isEmpty && ofAccount.isNotEmpty;
+        final body = switch (state.status) {
+          ThreadVisitHistoryStatus.initial || ThreadVisitHistoryStatus.loadingData => const CenteredCircularIndicator(),
+          // No history at all says what gets in it; no history for the account chosen offers all the accounts.
+          ThreadVisitHistoryStatus.savingData ||
+          ThreadVisitHistoryStatus.success when noMatch => ListFilterNoMatch(filter.query),
+          ThreadVisitHistoryStatus.savingData || ThreadVisitHistoryStatus.success => _Body(
+            history,
+            emptyText: _selectedUid == null ? tr.empty : tr.emptyForAccount,
+            emptyDetail: _selectedUid == null ? tr.emptyHint : null,
+            emptyAction: _selectedUid == null
+                ? null
+                : FilledButton.tonalIcon(
+                    icon: const Icon(Icons.filter_list_off),
+                    label: Text(tr.showAllAccounts),
+                    onPressed: () => _select(null, accounts),
                   ),
-                ],
-              ),
+          ),
+          ThreadVisitHistoryStatus.failure => FailureView(
+            onRetry: () => context.read<ThreadVisitHistoryBloc>().add(const ThreadVisitHistoryFetchAllRequested()),
+            failure: LoadFailure(LoadFailureKind.unknown),
+          ),
+        };
+
+        return Scaffold(
+          appBar: ListFilterAppBar(
+            controller: filter,
+            title: tr.title,
+            bottom: Tips(tr.localOnlyTip, sizePreferred: true),
+          ),
+          // The account filter shares the safe area of the list: outside of it the chip sat under the cutout in
+          // landscape, out of line with the tip and the cards (feedback 110).
+          body: SafeArea(
+            top: false,
+            child: Column(
+              children: [
+                _buildFilter(context, accounts),
+                Expanded(
+                  child: AnimatedSwitcher(duration: duration200, child: body),
+                ),
+              ],
             ),
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 }

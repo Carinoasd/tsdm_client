@@ -115,6 +115,43 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('the words typed filter among the records of the account chosen: title, forum, account', (tester) async {
+    await pump(tester);
+    final field = find.byKey(const ValueKey('list-filter-field'));
+    List<int> visibleThreads() =>
+        tester.widgetList<ThreadVisitHistoryCard>(find.byType(ThreadVisitHistoryCard)).map((c) => c.model.threadId).toList();
+
+    await tester.tap(find.byKey(const ValueKey('list-filter-open')));
+    await tester.pumpAndSettle();
+    expect(find.byType(ActionChip), findsOneWidget, reason: 'the account filter stays');
+    await tester.enterText(field, 'thread');
+    await tester.pumpAndSettle();
+    expect(visibleAccounts(tester), [22, 11, 33], reason: 'every title has the word');
+
+    await tester.enterText(field, 'account b');
+    await tester.pumpAndSettle();
+    expect(visibleAccounts(tester), [22]);
+
+    await tester.enterText(field, 'other name');
+    await tester.pumpAndSettle();
+    expect(visibleAccounts(tester), [33], reason: 'the name of the account that read it');
+
+    await tester.enterText(field, 'forum');
+    await tester.pumpAndSettle();
+    expect(visibleThreads(), [100, 100, 101], reason: 'the forum name');
+
+    // With an account chosen: only among its records.
+    await tester.enterText(field, '');
+    await tester.pumpAndSettle();
+    await select(tester, 'UID 11');
+    expect(visibleAccounts(tester), [11]);
+    await tester.enterText(field, 'account b');
+    await tester.pumpAndSettle();
+    expect(find.byType(ThreadVisitHistoryCard), findsNothing);
+    expect(find.text(t.listFilter.noMatch(query: 'account b')), findsOneWidget);
+    expect(find.text(t.threadVisitHistoryPage.emptyForAccount), findsNothing, reason: 'the account has records');
+  });
+
   testWidgets('refresh keeps the account filter and shows new records of that account', (tester) async {
     await pump(tester);
     await select(tester, 'UID 11');

@@ -11,6 +11,7 @@ import 'package:tsdm_client/features/quick_open/utils/quick_open_search.dart';
 import 'package:tsdm_client/features/root/view/root_page.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/utils/local_filter.dart';
 
 /// Opens the quick open box over [context] (a context under the root navigator).
 Future<void> showQuickOpenDialog(BuildContext context) => showDialog<void>(
@@ -25,6 +26,8 @@ IconData quickOpenIconOf(QuickOpenKind kind) => switch (kind) {
   QuickOpenKind.typedLink => Icons.link,
   QuickOpenKind.forum => Icons.forum_outlined,
   QuickOpenKind.thread => Icons.history,
+  QuickOpenKind.readLater => Icons.watch_later_outlined,
+  QuickOpenKind.bookmark => Icons.turned_in_not_outlined,
   QuickOpenKind.user => Icons.person_outline,
   QuickOpenKind.search => Icons.search,
 };
@@ -67,17 +70,28 @@ class _QuickOpenDialogState extends State<QuickOpenDialog> {
   void initState() {
     super.initState();
     _controller.addListener(_refresh);
+    // Simplified and traditional characters find each other once the dictionary is there: loaded on the way, the
+    // lines are matched again when it arrives.
+    unawaited(
+      ensureSearchFolding().then((_) {
+        if (mounted) {
+          _rebuildCandidates(keepSelection: true);
+        }
+      }),
+    );
     final load = widget.loader ?? (widget.sources == null ? loadQuickOpenSources : null);
     if (load != null) {
       unawaited(
         load(
           context,
           isActive: () => mounted,
-          onLoaded: ({forums, threads, users}) {
+          onLoaded: ({forums, threads, users, readLater, bookmarks}) {
             _sources = QuickOpenSources(
               forums: forums ?? _sources.forums,
               threads: threads ?? _sources.threads,
               users: users ?? _sources.users,
+              readLater: readLater ?? _sources.readLater,
+              bookmarks: bookmarks ?? _sources.bookmarks,
             );
             _rebuildCandidates(keepSelection: true);
           },
