@@ -53,46 +53,59 @@ The package name is `com.tsdm.tsdm_client`, signed with the forum's official key
 
 ## Features
 
-### Browsing and interaction
-- Home: forum statistics, the four digest modules (hot, digest, latest replies, latest posts) and the "grab the sofa" entry, each opening its full list
-- Forum groups: the boards of every group with their moderators; "My favourite boards" follows the favourites set on the website
-- Boards and threads: thread lists, floors, comments, ratings, purchases, attachments, spoilers, @ mentions, and a "replied" mark on threads you answered
-- Save viewed threads offline (off by default, in the settings): the saved pages open again without network, only for the account that saved them, with the actions that need the network hidden
-- Favourite or unfavourite a board from its page; the favourites page has "Threads" and "Boards" tabs
-- Share a thread with a friend: pick someone from your friend list and send the title and link as a private message
-- Notices, private messages, chat and public messages; plain-text URLs in notices are tappable; friend requests show up as notices
-- Ordinary polls can be voted on inside the app, single or multiple choice; the result shown is what the forum reports after a fresh read, and a vote is never resent automatically
-- "Activities" on the home page lists the links of the forum's activity section; forum links open inside the app
+### Browsing and reading
+- Homepage (forum statistics, guide, first-reply list, activities), forum groups and forums, threads and floors; threads you replied to or read are marked, with +N when replies arrive after your last visit
+- Search inside a thread, jump to a floor, show one author only, continuous loading; the reading position is remembered, immersive reading can turn on by itself per forum
+- Online storage links: Baidu, Lanzou, Quark, Aliyun and other links in a post list the provider, the extraction code and the archive password; tap a code to copy it
+- Audio attachments and NetEase Cloud Music links play in the app and keep playing across pages; background playback and notification controls on Android, iOS and macOS
+- Read aloud (TTS): floor by floor from the current one, with skip, pause and speed (Android, iOS, Windows, macOS)
+- Simplified / Traditional Chinese display conversion; adjustable text size, line height, paragraph spacing and reading width; data saver mode
+- Offline copies of threads you read (off by default), batch download from the favorites
+- Export a thread as plain text, Markdown or PDF; share a floor as an image, share threads, forums and profiles as QR codes
 
-### Posting and replying
-- BBCode editor, quick reply templates, drafts
-- Typing `@` opens a mention menu with your friends and the official @ list, filtered as you type
-- "My images": keep image URLs or image-host codes on the device and insert them from the emoji panel; long-press an image in a post to save it there
-- Ctrl+Enter / Alt+Enter sends on desktop
+### Posting and interaction
+- BBCode editor, local drafts and the forum's draft box, quick reply and rating templates
+- Reply, quote several floors, comment, rate, vote, purchase, report; typing `@` lists friends and the official @ list
+- "My images" and custom emoji packs in the emoji panel
+- Red packets, rewards, activities, debates and other special threads as native cards with their actions
+- Attachments download in the app, with a download manager to retry, open and share
 
-### Accounts
-- Multiple accounts; automatic check-in (per account, with retry when rate-limited); the account page shows whether each account has checked in today
-- Sync the notices and private messages of every account with one tap, with a per-account progress page
-- Expired sessions are flagged and can be logged in again with one tap; the app tells you at start-up how many accounts expired
-- Delete several accounts at once, or remove the current account from this device without a network connection
-- Backup export/import, optionally encrypting the login data with a password so other devices need no re-login
-- Friend list and friend requests; red packets, including the daily one
-- "My achievements" and "Medal centre" on your profile page: read achievements, browse medal categories/pages, search by keyword and read acquisition conditions, and use the medal purchase, application and claim actions offered by the forum; open unsupported features in the browser
-- "My titles" to switch the worn title, plus an in-app title shop to browse and buy titles (a bought title is not worn automatically)
+### Keeping track
+- Favorites (threads and forums), collections, read later, floor bookmarks with notes, browsing history
+- Follow a thread for new replies; new-thread and keyword alerts for forums
+- Block users, keywords and forums
 
-### Notifications and settings
-- Foreground/background polling for new messages with system notifications; a cold start from a notification goes straight to the message centre
-- The settings page shows and requests the notification permission and battery-optimisation exemption (Android); the Debug section can send a test notification and export the logs
-- Windows: a system notification with a sound when the automatic sync finds new notices or private messages; tapping it restores the window and opens the message centre
-- Android, Windows: optional "Background notifications: all logged-in accounts": the automatic sync (while the app is open or in the tray, and the Android background message service) checks every account logged in on the device in turn, each with its own login and on its own; notifications name the account, and tapping one switches to it before opening the message centre
-- The fetch window of the automatic sync follows the forum's clock, so a wrong device clock does not skip notices or messages
-- Unread notices are tracked per device: a notice another device of the same account already fetched is still unread the first time it shows up here, until you view it here or mark all as read
-- Android: an optional background message service keeps a foreground service running and checks for new messages at the auto sync interval while the app is in the background or was cleared; it shares the database with the in-app sync, so nothing is announced twice
-- Light and dark themes, font scaling, log page in the app theme
+### Accounts and data
+- Multiple accounts, automatic check-in and daily red packet, expired-login notice with one-tap re-login
+- Cross-device sync: reading progress, phrases and block lists, optionally drafts, bookmarks, templates, read later, followed threads, "My images" and more
+- Backup export and import (logins can be encrypted with a password), automatic WebDAV backup and restore
+- App lock; login device management, password and security, privacy settings
+- Medal center, titles and the title shop, achievements, credit transfer and exchange, friends and private messages
+
+### Notifications
+- Notices and private messages are synced in the app and in the background and posted as system notifications, for every signed-in account of the device if you want
+- Each category (replies, mentions, ratings and comments, private messages, system notices…) can be turned off; quiet hours
+- Android: background message service (a foreground service) and direct reply from the notification
+- Windows: system notifications with sound; clicking one restores the window and opens the message center
+
+### Forum services
+- Community bank, background shop, pet center, tasks and items as pages of the app
+- Game center, tribunal, CP system and jobs open in the in-app browser signed in as the current account
+
+### Moderators and staff
+- Thread and floor management: stick, highlight, digest, move, close, delete, hide, warn, remove ratings, ban and more, shown as the forum's permissions allow
+- Moderator panel: moderation queue, reports, recycle bin, logs; batch rating (when the forum has that plugin)
+- Staff: grant medals, titles and backgrounds, adjust credits and user groups
+
+### Tablets and desktop
+- Two panes on wide windows: the list on the left, the thread on the right, with several thread tabs and a draggable divider
+- `Ctrl+K` quick open: type a thread id, a link, a forum name, a thread title or a user name
+- Keyboard shortcuts (also on an iPad with a hardware keyboard), `Ctrl+Enter` to send, system tray, close to tray, boss key
 
 ### Platforms
-- Android (arm64 / armv7 / universal), iOS (unsigned sideload), Windows, macOS, Linux; "Check for updates" reads `version.json` from this repository
-- Windows: tray icon with a context menu (current account, history, favourites, manage accounts, exit); picking a page while the window is minimised restores and focuses it first
+- Android (arm64 / armv7 / universal), iOS (unsigned, sideloaded), Windows, macOS, Linux
+- Android and Windows download and install updates in the app; the file is verified before it is installed
+- Android: launcher shortcuts, pin a forum or a thread to the home screen, alternative app icons; iOS: home screen widgets and quick actions
 
 ## Known issues
 

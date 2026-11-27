@@ -100,6 +100,9 @@ class WindowsUpdateInstaller implements UpdateInstaller {
   UpdateTarget get target => UpdateTarget.windows;
 
   @override
+  List<UpdateAsset> get assets => const [UpdateAsset.windows];
+
+  @override
   Future<String> directory() async =>
       _updateDirectory ?? p.join((await getApplicationSupportDirectory()).path, 'updates');
 
