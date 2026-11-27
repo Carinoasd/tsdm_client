@@ -443,4 +443,54 @@ void main() {
       await db.close();
     });
   }
+
+  const indexesOf21 = [
+    'image_cache_last_used',
+    'notice_uid_time',
+    'personal_message_uid_time',
+    'thread_visit_history_uid_time',
+  ];
+
+  test('upgrade from 20 to 21 adds the indexes of the lists and the image clean up, keeping the rows', () async {
+    final verifier = SchemaVerifier(GeneratedHelper());
+    final schema = await verifier.schemaAt(20);
+    schema.rawDatabase
+      ..execute("INSERT INTO notice (uid, nid, timestamp, data, already_read) VALUES (1000, 7, 100, 'x', 0)")
+      ..execute(
+        'INSERT INTO read_later (uid, tid, thread_title, added_at) '
+        "VALUES (1000, 1264975, 'title', 100)",
+      );
+    final db = AppDatabase(schema.newConnection());
+    await verifier.migrateAndValidate(db, 21);
+    expect((await db.select(db.notice).get()).single.nid, 7);
+    expect((await db.select(db.readLater).get()).single.tid, 1264975);
+    final indexes = await db
+        .customSelect("SELECT name FROM sqlite_master WHERE type = 'index' AND name NOT LIKE 'sqlite_%'")
+        .map((row) => row.read<String>('name'))
+        .get();
+    expect(indexes, containsAll(indexesOf21));
+    await db.close();
+  });
+
+  test('the 20 to 21 step runs again safely when another connection already created the indexes', () async {
+    final verifier = SchemaVerifier(GeneratedHelper());
+    final schema = await verifier.schemaAt(21);
+    // Some made by the other connection, the version not written yet.
+    schema.rawDatabase
+      ..execute('DROP INDEX notice_uid_time')
+      ..execute('PRAGMA user_version = 20');
+    final db = AppDatabase(schema.newConnection());
+    await verifier.migrateAndValidate(db, 21);
+    await db.close();
+  });
+
+  for (final from in [10, 15, 19]) {
+    test('upgrade from $from to 21 in one go', () async {
+      final verifier = SchemaVerifier(GeneratedHelper());
+      final connection = await verifier.startAt(from);
+      final db = AppDatabase(connection);
+      await verifier.migrateAndValidate(db, 21);
+      await db.close();
+    });
+  }
 }

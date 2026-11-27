@@ -3,7 +3,10 @@ part of 'schema.dart';
 /// Table for local stored personal message, aka private message.
 ///
 /// This type of message is generated when chatting with other users.
+///
+/// The index on [uid] and [timestamp] is for the list of an account, newest first.
 @DataClassName('PersonalMessageEntity')
+@TableIndex(name: 'personal_message_uid_time', columns: {#uid, #timestamp})
 class PersonalMessage extends Table {
   /// Uid of the user who owns the notice.
   IntColumn get uid => integer()();

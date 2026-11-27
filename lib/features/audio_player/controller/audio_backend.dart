@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_background/just_audio_background.dart';
+import 'package:tsdm_client/features/audio_player/audio_player_init.dart';
 import 'package:tsdm_client/features/audio_player/models/audio_track.dart';
 
 /// What the player does with what it loaded.
@@ -55,7 +56,14 @@ abstract interface class AudioBackend {
 final class JustAudioBackend implements AudioBackend {
   AudioPlayer? _player;
 
-  AudioPlayer get _p => _player ??= AudioPlayer();
+  AudioPlayer get _p {
+    final player = _player;
+    if (player != null) {
+      return player;
+    }
+    ensureDesktopAudioPlayer();
+    return _player = AudioPlayer();
+  }
 
   @override
   Stream<bool> get playingStream => _p.playingStream;

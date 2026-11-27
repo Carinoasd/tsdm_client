@@ -305,8 +305,12 @@ final class BackupRepository with LoggerMixin {
           accounts = payload.accountCount;
           _writeSecrets(exported, await _seal(payload, password));
         }
-        // Rewrite the file so removed rows leave no trace in free pages.
-        exported.execute('VACUUM');
+        // A backup is one file: never in WAL mode, whatever the copy took over from the app's database (opening it
+        // would leave `-wal` and `-shm` files beside it, also on the device that imports it).
+        // Then rewrite the file so removed rows leave no trace in free pages.
+        exported
+          ..select('PRAGMA journal_mode = DELETE')
+          ..execute('VACUUM');
       } finally {
         exported.dispose();
       }
@@ -320,6 +324,42 @@ final class BackupRepository with LoggerMixin {
       if (copy.existsSync()) {
         await copy.delete();
       }
+      await _deleteSidecars(copy);
+    }
+  }
+
+  /// What sqlite keeps beside a database file: the write-ahead log and its index (WAL mode, the app's database), the
+  /// rollback journal.
+  static const sidecarSuffixes = ['-wal', '-shm', '-journal'];
+
+  /// Delete the [sidecarSuffixes] files of [database]. Never throws.
+  static Future<void> _deleteSidecars(File database) async {
+    for (final suffix in sidecarSuffixes) {
+      await _deleteQuietly(File('${database.path}$suffix'));
+    }
+  }
+
+  /// Write what the write-ahead log of [database] holds into the file itself, so a copy of the file alone is the whole
+  /// database (the app's database is in WAL mode: its last writes are in `-wal` until a checkpoint).
+  ///
+  /// The connection of the app is closed before an import, which does this already; the log is still there when
+  /// another connection had the file open (the Android background service) or the app ended without closing it. Best
+  /// effort: a file that is no database, or one still held, is copied as it is.
+  static void _foldWal(File database) {
+    try {
+      final db = sqlite3.open(database.path);
+      try {
+        db.execute('PRAGMA busy_timeout = $_busyTimeoutMs');
+        // One row: whether it was held back, the frames of the log, the frames moved.
+        final busy = db.select('PRAGMA wal_checkpoint(TRUNCATE)').firstOrNull?.columnAt(0);
+        if (busy != 0) {
+          talker.warning('backup: the database is held by another connection, its log is not fully checkpointed');
+        }
+      } finally {
+        db.dispose();
+      }
+    } on SqliteException catch (e) {
+      talker.warning('backup: can not checkpoint the database before copying it: $e');
     }
   }
 
@@ -768,15 +808,21 @@ final class BackupRepository with LoggerMixin {
         }
         db
           ..execute('DROP TABLE IF EXISTS $secretsTable')
+          // Installed as one file: a backup in WAL mode (a copy of a database file made by hand) would bring its
+          // `-wal` and `-shm` along. The app sets its own mode when it opens the database.
+          ..select('PRAGMA journal_mode = DELETE')
           ..execute('VACUUM');
       } finally {
         db.dispose();
       }
 
       if (target.existsSync()) {
+        // The copy must hold the last writes too: they are in `-wal` until a checkpoint.
+        _foldWal(target);
         await target.copy(previous.path);
       }
-      for (final suffix in ['-wal', '-shm', '-journal']) {
+      // What is left of them belongs to the replaced database: sqlite would apply a stale `-wal` to the new file.
+      for (final suffix in sidecarSuffixes) {
         final stale = File('${target.path}$suffix');
         if (stale.existsSync()) {
           await stale.delete();
@@ -804,6 +850,7 @@ final class BackupRepository with LoggerMixin {
       throw BackupReplaceException(e.message, restored: restored);
     } finally {
       await _deleteQuietly(importCopy);
+      await _deleteSidecars(importCopy);
     }
   }
 
@@ -835,14 +882,17 @@ final class BackupRepository with LoggerMixin {
         if (entity is! File) {
           continue;
         }
-        final name = entity.uri.pathSegments.last;
+        final fileName = entity.uri.pathSegments.last;
+        // The `-wal`, `-shm` and `-journal` of a copy go with it; those of the database itself are never matched.
+        final suffix = sidecarSuffixes.where(fileName.endsWith).firstOrNull ?? '';
+        final name = fileName.substring(0, fileName.length - suffix.length);
         final copy = name == '$base$importSuffix' || (name.startsWith(exportPrefix) && name.endsWith('.tmp'));
         final leftover =
             (copy && (now ?? DateTime.now()).difference(entity.lastModifiedSync()) > staleCopyAge) ||
             (name == '$base$backupSuffix' && databaseFile.existsSync());
         if (leftover) {
           await _deleteQuietly(entity);
-          talker.info('backup: deleted the leftover $name');
+          talker.info('backup: deleted the leftover $fileName');
         }
       }
     } on Object catch (e) {
@@ -868,6 +918,8 @@ final class BackupRepository with LoggerMixin {
       return false;
     }
     try {
+      // Those of the database that failed: never applied to the one put back.
+      await _deleteSidecars(target);
       await previous.copy(target.path);
       await _deleteQuietly(previous);
       return true;

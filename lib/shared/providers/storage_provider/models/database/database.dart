@@ -36,7 +36,7 @@ final class AppDatabase extends _$AppDatabase with LoggerMixin {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 20;
+  int get schemaVersion => 21;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -315,6 +315,39 @@ final class AppDatabase extends _$AppDatabase with LoggerMixin {
         // connection created it first, see from13To14.
         await m.create(schema.readingTime);
         info('migrating database schema from 19 to 20... ok!');
+      },
+      from20To21: (m, schema) async {
+        info('migrating database schema from 20 to 21...');
+        // Indexes for the lists read newest first per account and for the clean up of the image cache. The broadcast
+        // messages need none: their primary key is (uid, timestamp) already. Each is created only when missing, the
+        // step runs again safely when the background service isolate opened the file together with the app (see
+        // from14To15).
+        for (final index in [
+          schema.imageCacheLastUsed,
+          schema.noticeUidTime,
+          schema.personalMessageUidTime,
+          schema.threadVisitHistoryUidTime,
+        ]) {
+          final existing = await schema.database
+              .customSelect(
+                "SELECT 1 FROM sqlite_master WHERE type = 'index' AND name = ?",
+                variables: [Variable.withString(index.entityName)],
+              )
+              .get();
+          if (existing.isNotEmpty) {
+            continue;
+          }
+          try {
+            await m.create(index);
+          } on Object catch (e) {
+            // Created by the other connection between the check and here.
+            if (!'$e'.contains('already exists')) {
+              rethrow;
+            }
+            info('${index.entityName} created by another connection');
+          }
+        }
+        info('migrating database schema from 20 to 21... ok!');
       },
     ),
   );

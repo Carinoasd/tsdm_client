@@ -26,9 +26,29 @@ LazyDatabase connect() {
     talker.debug('connect to database');
     return NativeDatabase.createBackgroundConnection(
       await databaseFile,
-      // The Android background message service opens the same file from its own isolate: wait for a lock instead
-      // of failing with "database is locked" when both write at the same moment (#80).
-      setup: (db) => db.execute('PRAGMA busy_timeout = 5000'),
+      setup: setupConnection,
     );
   });
+}
+
+/// What every connection to the app's database is opened with.
+///
+/// * `busy_timeout`: the Android background message service opens the same file from its own isolate: wait for a lock
+///   instead of failing with "database is locked" when both write at the same moment (#80). First, the change of
+///   the journal mode below waits with it too.
+/// * `journal_mode = WAL`: a reader no longer waits for the writer of the other isolate, nor a writer for readers. Kept
+///   in the file once set; the `-wal` and `-shm` files beside it are part of the database (`BackupRepository` folds
+///   them in before it copies or replaces the file). A mode that could not be changed (the other isolate holds the
+///   file in the old mode right after an update) stays as it was, and is changed at the next start.
+/// * `synchronous = NORMAL`: with WAL a commit no longer waits for the disk, the checkpoint does. A power cut may
+///   lose the last commits, never the consistency of the file.
+void setupConnection(Database db) {
+  db.execute('PRAGMA busy_timeout = 5000');
+  try {
+    // Answers the mode it is in afterwards.
+    db.select('PRAGMA journal_mode = WAL');
+  } on SqliteException catch (_) {
+    // Held by the other isolate: stays as it was. Runs in the isolate of the connection, where there is no log.
+  }
+  db.execute('PRAGMA synchronous = NORMAL');
 }

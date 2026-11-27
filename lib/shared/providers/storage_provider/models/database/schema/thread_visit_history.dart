@@ -3,7 +3,10 @@ part of 'schema.dart';
 /// Table for history of all users visited thread.
 ///
 /// Including user info, thread info and visit time.
+///
+/// The index on [uid] and [visitTime] is for the history of an account, newest first.
 @DataClassName('ThreadVisitHistoryEntity')
+@TableIndex(name: 'thread_visit_history_uid_time', columns: {#uid, #visitTime})
 class ThreadVisitHistory extends Table {
   /// User id, part of [primaryKey].
   IntColumn get uid => integer()();
