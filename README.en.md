@@ -16,12 +16,14 @@
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/Carinoasd/tsdm_client" alt="license"/></a>
 </p>
 
-## Latest update: 1.62.3 (2026-11-25)
+## Latest update: 1.63.0 (2026-11-27)
 
-- The light theme is back to light gray cards on a near white page; quotes are darker and the gray source line of a quote is clearer; the floors of a thread have a faint outline. The dark theme is unchanged.
-- Android build number 181 installs over earlier releases and test builds.
+- The settings can be searched; favorites, browsing history, offline threads, floor bookmarks and read later can be filtered on the device; a long press on the homepage search button opens quick open on phones.
+- Shorter thread and floor menus: sharing and copying, and floor moderation, each on a sheet of their own; cross-device sync and notification categories are sub pages of the settings.
+- In-app updates download from the mirror first, and Android takes the APK built for the device; smoother database and cache work; the homepage banner and the light theme cards look tidier.
+- Android build number 182 installs over earlier releases and test builds.
 
-[Download 1.62.3](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.62.3) · [Full changelog](./CHANGELOG.md)
+[Download 1.63.0](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.63.0) · [Full changelog](./CHANGELOG.md)
 
 ## What it is
 
