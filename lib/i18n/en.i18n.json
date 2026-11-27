@@ -4231,7 +4231,8 @@
     "tabsFull": "Up to ${count: int} tabs can be open"
   },
   "quickOpen": {
-    "search": "Search: $text"
+    "search": "Search: $text",
+    "title": "Quick open"
   },
   "keyboardShortcutsPage": {
     "title": "Keyboard shortcuts",
@@ -4831,5 +4832,10 @@
     "openPage": "Open page",
     "copyShareText": "Copy share text",
     "shareText": "[$site] $title $url"
+  },
+  "listFilter": {
+    "open": "Filter this list",
+    "hint": "Filter",
+    "noMatch": "Nothing matches \"${query}\""
   }
 }

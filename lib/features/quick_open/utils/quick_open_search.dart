@@ -2,6 +2,7 @@ import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/features/open_in_app/utils/forum_link_in_text.dart';
 import 'package:tsdm_client/features/quick_open/models/quick_open_candidate.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
+import 'package:tsdm_client/utils/local_filter.dart';
 
 /// Most lines of one kind the box lists.
 const int quickOpenPerKindLimit = 5;
@@ -49,13 +50,14 @@ QuickOpenCandidate? parseQuickOpenTarget(String input) {
 
 /// How well [text] fits [tokens], lower is better, null when it does not fit.
 ///
-/// Every token must be in the text (case insensitive). The text equal to the query is the best, then tokens opening a
+/// Every token must be in the text, both folded as every local search of the app folds them ([foldForSearch]: any
+/// case, simplified or traditional characters; [tokens] come from [searchTokens]). The text equal to the query is the best, then tokens opening a
 /// word, then tokens inside a word; an earlier place is better than a later one.
 int? matchScore(String text, List<String> tokens) {
   if (tokens.isEmpty) {
     return null;
   }
-  final lower = text.toLowerCase();
+  final lower = foldForSearch(text);
   var score = 0;
   for (final token in tokens) {
     final index = lower.indexOf(token);
@@ -89,8 +91,9 @@ bool _isWordChar(int unit) {
 /// The lines of the box for the typed [input], first the one Enter opens.
 ///
 /// * What [parseQuickOpenTarget] names comes first.
-/// * Then the forums, the threads visited and the users fitting the text, the best fit first; the same fit keeps the
-///   kind order (forum, thread, user) and then the order of the source (the threads newest first).
+/// * Then the forums, the threads put aside, the threads visited, the floors bookmarked and the users fitting the
+///   text, the best fit first; the same fit keeps that order of the kinds and then the order of the source (the
+///   threads newest first). A thread put aside is listed as that, not again as one visited.
 /// * The last line is always the search for the typed text, so Enter never ends nowhere; nothing typed lists nothing.
 List<QuickOpenCandidate> buildQuickOpenCandidates(
   String input,
@@ -101,7 +104,7 @@ List<QuickOpenCandidate> buildQuickOpenCandidates(
   if (text.isEmpty) {
     return const [];
   }
-  final tokens = text.toLowerCase().split(RegExp(r'\s+'));
+  final tokens = searchTokens(text);
   final scored = <({int score, int kindOrder, int index, QuickOpenCandidate candidate})>[];
 
   void collect<T>(
@@ -134,9 +137,24 @@ List<QuickOpenCandidate> buildQuickOpenCandidates(
     ),
   );
   collect<QuickOpenThread>(
-    QuickOpenKind.thread,
+    QuickOpenKind.readLater,
     1,
-    sources.threads,
+    sources.readLater,
+    (e) => e.title,
+    (e) => QuickOpenCandidate(
+      QuickOpenKind.readLater,
+      e.title,
+      RecognizedRoute(ScreenPaths.threadV1, queryParameters: {'tid': '${e.tid}'}),
+    ),
+  );
+  final putAside = {for (final e in sources.readLater) e.tid};
+  collect<QuickOpenThread>(
+    QuickOpenKind.thread,
+    2,
+    [
+      for (final e in sources.threads)
+        if (!putAside.contains(e.tid)) e,
+    ],
     (e) => e.title,
     (e) => QuickOpenCandidate(
       QuickOpenKind.thread,
@@ -144,9 +162,28 @@ List<QuickOpenCandidate> buildQuickOpenCandidates(
       RecognizedRoute(ScreenPaths.threadV1, queryParameters: {'tid': '${e.tid}'}),
     ),
   );
+  // By the thread's title and the note; opened at the floor (the forum's `findpost` finds its page).
+  collect<QuickOpenBookmark>(
+    QuickOpenKind.bookmark,
+    3,
+    sources.bookmarks,
+    (e) => '${e.title} ${e.note}',
+    (e) => QuickOpenCandidate(
+      QuickOpenKind.bookmark,
+      [
+        if (e.title.isNotEmpty) e.title,
+        if (e.floor case final floor?) '#$floor',
+        if (e.note.isNotEmpty) e.note,
+      ].join(' '),
+      RecognizedRoute(
+        ScreenPaths.threadV1,
+        queryParameters: {'pid': '${e.pid}', if (e.title.isNotEmpty) 'appBarTitle': e.title},
+      ),
+    ),
+  );
   collect<QuickOpenUser>(
     QuickOpenKind.user,
-    2,
+    4,
     sources.users,
     (e) => e.name,
     (e) => QuickOpenCandidate(

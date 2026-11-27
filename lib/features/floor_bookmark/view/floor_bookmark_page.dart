@@ -12,6 +12,7 @@ import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/utils/show_dialog.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/indicator.dart';
+import 'package:tsdm_client/widgets/list_filter.dart';
 
 /// The floor bookmarks of [items] by thread: the thread changed last first, its floors in order.
 List<({int tid, String title, List<FloorBookmark> items})> groupFloorBookmarks(List<FloorBookmark> items) {
@@ -56,10 +57,20 @@ class FloorBookmarkPage extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => ListFilterHost(builder: _buildPage);
+
+  Widget _buildPage(BuildContext context, ListFilterController filter) {
     final tr = context.t.floorBookmark;
     final state = context.watch<FloorBookmarkCubit>().state;
     final textTheme = Theme.of(context).textTheme;
+    // By the thread's title, the note, what was kept of the floor and its number (`#12`); the author is not kept.
+    final items = filter.active
+        ? state.items
+              .where(
+                (e) => filter.matches([e.threadTitle, e.note, e.excerpt, if (e.floor case final floor?) '#$floor']),
+              )
+              .toList()
+        : state.items;
     final Widget body;
     if (state.uid == null) {
       body = AppStateView(icon: Icons.login_outlined, message: tr.needLogin);
@@ -67,8 +78,10 @@ class FloorBookmarkPage extends StatelessWidget {
       body = const CenteredCircularIndicator();
     } else if (state.items.isEmpty) {
       body = AppStateView(icon: Icons.turned_in_not_outlined, message: tr.empty);
+    } else if (items.isEmpty) {
+      body = ListFilterNoMatch(filter.query);
     } else {
-      final groups = groupFloorBookmarks(state.items);
+      final groups = groupFloorBookmarks(items);
       body = AppCenteredList(
         builder: (context, side, _) => ListView.separated(
           padding: side.copyWith(top: 4, bottom: 16),
@@ -104,7 +117,7 @@ class FloorBookmarkPage extends StatelessWidget {
       );
     }
     return Scaffold(
-      appBar: AppBar(title: Text(tr.title)),
+      appBar: ListFilterAppBar(controller: filter, title: tr.title),
       body: SafeArea(bottom: false, child: body),
     );
   }

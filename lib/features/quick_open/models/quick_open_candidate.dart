@@ -14,6 +14,12 @@ enum QuickOpenKind {
   /// A thread visited recently.
   thread,
 
+  /// A thread put aside to read later.
+  readLater,
+
+  /// A floor bookmarked.
+  bookmark,
+
   /// A user (a friend or somebody mentioned recently).
   user,
 
@@ -45,10 +51,19 @@ typedef QuickOpenThread = ({int tid, String title});
 /// A user the box can jump to.
 typedef QuickOpenUser = ({String uid, String name});
 
+/// A floor bookmarked: its thread's `title`, the `note` written on it, and the `floor` it is when known.
+typedef QuickOpenBookmark = ({int pid, String title, String note, int? floor});
+
 /// Everything the box matches the typed text against.
 final class QuickOpenSources {
   /// Constructor.
-  const QuickOpenSources({this.forums = const [], this.threads = const [], this.users = const []});
+  const QuickOpenSources({
+    this.forums = const [],
+    this.threads = const [],
+    this.users = const [],
+    this.readLater = const [],
+    this.bookmarks = const [],
+  });
 
   /// Forums of the local forum index.
   final List<QuickOpenForum> forums;
@@ -58,4 +73,10 @@ final class QuickOpenSources {
 
   /// Friends and users mentioned recently.
   final List<QuickOpenUser> users;
+
+  /// Threads the account put aside to read later, newest first.
+  final List<QuickOpenThread> readLater;
+
+  /// Floors the account bookmarked.
+  final List<QuickOpenBookmark> bookmarks;
 }

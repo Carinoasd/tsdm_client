@@ -12,10 +12,11 @@ import 'package:tsdm_client/features/thread/v1/repository/thread_repository.dart
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/routes/screen_paths.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
+import 'package:tsdm_client/widgets/list_filter.dart';
 import 'package:tsdm_client/widgets/two_pane.dart';
 
 /// One thread kept for reading without network, as the list shows it.
-typedef OfflineThreadItem = ({int tid, String title, int pageCount, int size, DateTime savedAt});
+typedef OfflineThreadItem = ({int tid, String title, String? forumName, int pageCount, int size, DateTime savedAt});
 
 /// The threads kept for the account in use, most recently used first: title (read from a saved page), pages, size and
 /// when they were loaded. The update of all of them is in the app bar.
@@ -50,17 +51,22 @@ class _OfflineThreadsPageState extends State<OfflineThreadsPage> {
       for (final copy in await offline.copies(uid)) {
         // The title is not stored apart: it is read from a saved page, which the list does not mark as used.
         String? title;
+        String? forumName;
         if (copy.defaultPages.isNotEmpty) {
           final saved = await offline.peek(
             OfflineThreadKey(uid: uid, tid: copy.tid, page: copy.defaultPages.first, orderType: 0, authorId: 0),
           );
-          title = saved == null ? null : threads.summaryOfSaved(saved.body)?.title;
+          final summary = saved == null ? null : threads.namesOfSaved(saved.body);
+          title = summary?.title;
+          // Only for the filter of the list; a page that does not name its forum has none.
+          forumName = summary?.forumName;
           // A page of HTML takes a moment to read: let the page draw in between.
           await Future<void>.delayed(Duration.zero);
         }
         items.add((
           tid: copy.tid,
           title: title == null || title.isEmpty ? '#${copy.tid}' : title,
+          forumName: forumName,
           pageCount: copy.pageCount,
           size: copy.size,
           savedAt: copy.savedAt,
@@ -102,47 +108,54 @@ class _OfflineThreadsPageState extends State<OfflineThreadsPage> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => TwoPaneLayout(list: ListFilterHost(builder: _buildPage));
+
+  Widget _buildPage(BuildContext context, ListFilterController filter) {
     final tr = context.t.offlineBatch;
-    final items = _items;
-    return TwoPaneLayout(
-      list: Scaffold(
-        appBar: AppBar(
-          title: Text(tr.copies),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.sync),
-              tooltip: tr.updateAll,
-              onPressed: items == null || items.isEmpty ? null : _updateAll,
-            ),
-          ],
-        ),
-        body: SafeArea(
-          bottom: false,
-          child: switch (items) {
-            null => const Center(child: CircularProgressIndicator()),
-            [] => AppStateView(icon: Icons.offline_pin_outlined, message: tr.empty),
-            _ => AppCenteredList(
-              builder: (context, side, _) => ListView.separated(
-                padding: side.copyWith(top: 8).add(context.safePadding()),
-                itemCount: items.length,
-                itemBuilder: (context, index) => _OfflineThreadCard(
-                  items[index],
-                  size: _size(items[index].size),
-                  onRemove: () async => _remove(items[index]),
-                ),
-                separatorBuilder: (context, index) => appListSeparator,
+    final all = _items;
+    // By title, forum name (when the saved page names it) and thread id. Updating all still means all of them.
+    final items = all == null || !filter.active
+        ? all
+        : all.where((e) => filter.matches([e.title, e.forumName, '${e.tid}'])).toList();
+    return Scaffold(
+      appBar: ListFilterAppBar(
+        controller: filter,
+        title: tr.copies,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.sync),
+            tooltip: tr.updateAll,
+            onPressed: all == null || all.isEmpty ? null : _updateAll,
+          ),
+        ],
+      ),
+      body: SafeArea(
+        bottom: false,
+        child: switch (items) {
+          null => const Center(child: CircularProgressIndicator()),
+          [] when filter.active && all != null && all.isNotEmpty => ListFilterNoMatch(filter.query),
+          [] => AppStateView(icon: Icons.offline_pin_outlined, message: tr.empty),
+          _ => AppCenteredList(
+            builder: (context, side, _) => ListView.separated(
+              padding: side.copyWith(top: 8).add(context.safePadding()),
+              itemCount: items.length,
+              itemBuilder: (context, index) => _OfflineThreadCard(
+                items[index],
+                key: ValueKey('offline-thread-${items[index].tid}'),
+                size: _size(items[index].size),
+                onRemove: () async => _remove(items[index]),
               ),
+              separatorBuilder: (context, index) => appListSeparator,
             ),
-          },
-        ),
+          ),
+        },
       ),
     );
   }
 }
 
 class _OfflineThreadCard extends StatelessWidget {
-  const _OfflineThreadCard(this.item, {required this.size, required this.onRemove});
+  const _OfflineThreadCard(this.item, {required this.size, required this.onRemove, super.key});
 
   final OfflineThreadItem item;
   final String size;

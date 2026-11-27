@@ -14,6 +14,7 @@ import 'package:tsdm_client/features/moderate/repository/moderate_repository.dar
 import 'package:tsdm_client/features/moderate/widgets/thread_picking.dart';
 import 'package:tsdm_client/features/open_in_app/utils/forum_link_in_text.dart';
 import 'package:tsdm_client/features/open_in_app/view/open_in_app_page.dart';
+import 'package:tsdm_client/features/quick_open/view/quick_open_dialog.dart';
 import 'package:tsdm_client/features/root/view/root_page.dart';
 import 'package:tsdm_client/features/search/bloc/search_bloc.dart';
 import 'package:tsdm_client/features/search/models/models.dart';
@@ -865,6 +866,13 @@ class _SearchPageState extends State<SearchPage> with LoggerMixin, ListThreadPic
                     title: Text(context.t.searchPage.title),
                     actions: [
                       const OpenInAppPageButton(),
+                      // The quick open box where it is looked for: beside the search, on a phone too.
+                      IconButton(
+                        key: const ValueKey('search-quick-open'),
+                        icon: const Icon(Icons.bolt_outlined),
+                        tooltip: context.t.quickOpen.title,
+                        onPressed: () async => showQuickOpenDialog(context),
+                      ),
                       IconButton(
                         icon: const Icon(Icons.sell_outlined),
                         tooltip: context.t.tagPage.cloudTitle,

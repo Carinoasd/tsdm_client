@@ -278,6 +278,17 @@ class ThreadRepository {
     }
   }
 
+  /// The title and the forum name the saved page [body] names (the list of the offline copies shows the first and
+  /// is filtered by both); null when it is no page.
+  ({String? title, String? forumName})? namesOfSaved(String body) {
+    try {
+      final page = _readThreadPage(body, pageNumber: 1).toNullable()?.page;
+      return page == null ? null : (title: page.title, forumName: page.forumName);
+    } on Object catch (_) {
+      return null;
+    }
+  }
+
   /// Fetch the first page of thread [tid], oldest floor first, to learn who started it (the thread page does, when the
   /// thread was opened on a later page and the current account blocks somebody).
   ///

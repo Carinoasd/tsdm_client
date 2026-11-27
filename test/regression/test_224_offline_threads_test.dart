@@ -45,6 +45,7 @@ import 'package:tsdm_client/features/notification/bloc/notification_state_cubit.
 import 'package:tsdm_client/features/notification/repository/notification_info_repository.dart';
 import 'package:tsdm_client/features/offline_thread/repository/offline_thread_repository.dart';
 import 'package:tsdm_client/features/offline_thread/utils/thread_refusal.dart';
+import 'package:tsdm_client/features/offline_thread/view/offline_threads_page.dart';
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
 import 'package:tsdm_client/features/settings/models/models.dart';
 import 'package:tsdm_client/features/settings/repositories/backup_repository.dart';
@@ -1504,6 +1505,37 @@ void main() {
       await tester.tapAt(const Offset(5, 5));
       await _settle(tester, rounds: 4);
       await _dispose(tester);
+    });
+
+    testWidgets('the list of the copies is filtered by title and thread id, said when nothing fits', (tester) async {
+      await tester.runAsync(turnOn);
+      await pumpThread(tester);
+      await savedPages(tester, 1);
+      final title = threadBloc(tester).state.title!;
+      expect(title.length, greaterThan(3));
+      await _dispose(tester);
+
+      await tester.pumpWidget(TranslationProvider(child: const MaterialApp(home: OfflineThreadsPage())));
+      await _settle(tester, rounds: 12);
+      final cards = find.byKey(const ValueKey('offline-thread-1120'));
+      expect(cards, findsOneWidget);
+      final field = find.byKey(const ValueKey('list-filter-field'));
+      await tester.tap(find.byKey(const ValueKey('list-filter-open')));
+      await _settle(tester, rounds: 3);
+
+      await tester.enterText(field, '1120');
+      await _settle(tester, rounds: 2);
+      expect(cards, findsOneWidget, reason: 'the thread id');
+      await tester.enterText(field, title.substring(1, 4).toUpperCase());
+      await _settle(tester, rounds: 2);
+      expect(cards, findsOneWidget, reason: 'the title read from the saved page');
+      await tester.enterText(field, 'no such copy');
+      await _settle(tester, rounds: 2);
+      expect(cards, findsNothing);
+      expect(find.text(t.listFilter.noMatch(query: 'no such copy')), findsOneWidget);
+      expect(find.text(t.offlineBatch.empty), findsNothing);
+      await tester.pumpWidget(const SizedBox());
+      await _settle(tester, rounds: 2);
     });
 
     testWidgets('the app bar menu: the search first, the link items once (on the sheet), the favorite as it is now', (

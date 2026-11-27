@@ -13,6 +13,7 @@ import 'package:tsdm_client/utils/show_dialog.dart';
 import 'package:tsdm_client/widgets/app_surface.dart';
 import 'package:tsdm_client/widgets/card/thread_card/thread_card.dart';
 import 'package:tsdm_client/widgets/indicator.dart';
+import 'package:tsdm_client/widgets/list_filter.dart';
 
 /// Page of the threads the current account put aside to read later.
 class ReadLaterPage extends StatelessWidget {
@@ -101,9 +102,15 @@ class ReadLaterPage extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => ListFilterHost(builder: _buildPage);
+
+  Widget _buildPage(BuildContext context, ListFilterController filter) {
     final tr = context.t.readLater;
     final state = context.watch<ReadLaterCubit>().state;
+    // By title, author and forum name.
+    final items = filter.active
+        ? state.items.where((e) => filter.matches([e.title, e.author, e.forumName])).toList()
+        : state.items;
     final Widget body;
     if (state.uid == null) {
       body = AppStateView(icon: Icons.login_outlined, message: tr.needLogin);
@@ -111,19 +118,22 @@ class ReadLaterPage extends StatelessWidget {
       body = const CenteredCircularIndicator();
     } else if (state.items.isEmpty) {
       body = AppStateView(icon: Icons.watch_later_outlined, message: tr.empty);
+    } else if (items.isEmpty) {
+      body = ListFilterNoMatch(filter.query);
     } else {
       body = AppCenteredList(
         builder: (context, side, _) => ListView.separated(
           padding: side.copyWith(top: 4, bottom: 16),
-          itemCount: state.items.length,
+          itemCount: items.length,
           separatorBuilder: (_, _) => appListSeparator,
-          itemBuilder: (context, index) => _buildItem(context, state.items[index]),
+          itemBuilder: (context, index) => _buildItem(context, items[index]),
         ),
       );
     }
     return Scaffold(
-      appBar: AppBar(
-        title: Text(tr.title),
+      appBar: ListFilterAppBar(
+        controller: filter,
+        title: tr.title,
         actions: [
           if (state.items.isNotEmpty)
             IconButton(

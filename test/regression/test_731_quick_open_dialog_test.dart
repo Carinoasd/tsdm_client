@@ -13,7 +13,13 @@ import 'package:tsdm_client/routes/screen_paths.dart';
 
 /// The quick open box on screen: Ctrl+K opens it on desktop, the arrows move the selection, Enter opens the selected
 /// line and the first one at first.
-void _noop({List<QuickOpenForum>? forums, List<QuickOpenThread>? threads, List<QuickOpenUser>? users}) {}
+void _noop({
+  List<QuickOpenForum>? forums,
+  List<QuickOpenThread>? threads,
+  List<QuickOpenUser>? users,
+  List<QuickOpenThread>? readLater,
+  List<QuickOpenBookmark>? bookmarks,
+}) {}
 
 bool _yes() => true;
 

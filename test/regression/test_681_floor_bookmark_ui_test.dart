@@ -320,6 +320,38 @@ void main() {
       expect(find.text(t.floorBookmark.empty), findsOneWidget);
     });
 
+    testWidgets('the filter of the app bar: by title, note, what was kept of the floor and its number', (tester) async {
+      makeBookmarks();
+      await store.put(_uid, tid: 9, pid: 105, floor: 5, excerpt: '第五楼', threadTitle: '测试帖');
+      await store.put(_uid, tid: 8, pid: 201, floor: 1, note: '另一帖的备注', excerpt: '一楼', threadTitle: '另一帖');
+      await store.put(_uid, tid: 9, pid: 102, floor: 2, excerpt: '第二楼', threadTitle: '测试帖');
+      await pump(tester);
+      final field = find.byKey(const ValueKey('list-filter-field'));
+      await tester.tap(find.byKey(const ValueKey('list-filter-open')));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(field, '备注');
+      await tester.pumpAndSettle();
+      expect(find.text('另一帖'), findsOneWidget, reason: 'the note');
+      expect(find.text('测试帖'), findsNothing);
+
+      await tester.enterText(field, '第五');
+      await tester.pumpAndSettle();
+      expect(find.text('第五楼'), findsOneWidget, reason: 'what was kept of the floor');
+      expect(find.text('第二楼'), findsNothing, reason: 'the other floor of the thread is left out');
+      expect(find.text('另一帖'), findsNothing);
+
+      await tester.enterText(field, '测试帖 #2');
+      await tester.pumpAndSettle();
+      expect(find.text('第二楼'), findsOneWidget, reason: 'the title and the number');
+      expect(find.text('第五楼'), findsNothing);
+
+      await tester.enterText(field, 'zzz');
+      await tester.pumpAndSettle();
+      expect(find.text(t.listFilter.noMatch(query: 'zzz')), findsOneWidget);
+      expect(find.text(t.floorBookmark.empty), findsNothing);
+    });
+
     testWidgets('by thread; a tap opens the floor by its pid, a long press removes it', (tester) async {
       makeBookmarks();
       await store.put(_uid, tid: 9, pid: 105, floor: 5, excerpt: '第五楼', threadTitle: '测试帖');
