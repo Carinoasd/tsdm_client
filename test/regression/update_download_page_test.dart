@@ -1,3 +1,6 @@
+import 'dart:ffi' show Abi;
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -7,6 +10,7 @@ import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/features/update/cubit/update_cubit.dart';
 import 'package:tsdm_client/features/update/cubit/update_download_cubit.dart';
 import 'package:tsdm_client/features/update/models/latest_version_info.dart';
+import 'package:tsdm_client/features/update/repository/cloudreve_mirror.dart';
 import 'package:tsdm_client/features/update/view/update_page.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
@@ -287,7 +291,7 @@ void main() {
     expect(download.installs, 0);
   });
 
-  testWidgets('non-Android keeps an explicit external-browser GitHub download', (tester) async {
+  testWidgets('non-Android keeps explicit external-browser downloads: the mirror first, then GitHub', (tester) async {
     final tr = LocaleSettings.instance.currentTranslations.updatePage.download;
     await updates.close();
     download = _DownloadCubit(supported: false);
@@ -295,14 +299,36 @@ void main() {
     checked(const UpdateCubitState(latestVersionInfo: _newer));
     await pumpPage(tester);
     expect(find.text(tr.downloadApk(version: _newer.version)), findsNothing);
-    expect(find.text(tr.githubTip), findsOneWidget);
-    await tester.tap(find.text(tr.github));
+    expect(tester.getTopLeft(find.text(tr.mirror)).dy, lessThan(tester.getTopLeft(find.text(tr.github)).dy));
+    await tester.tap(find.text(tr.mirror));
     await tester.pump();
     expect(browserCalls, hasLength(1));
-    final arguments = browserCalls.single.arguments as Map<Object?, Object?>;
+    final mirror = browserCalls.single.arguments as Map<Object?, Object?>;
+    expect(
+      mirror['url'],
+      CloudreveMirror.latestPage(operatingSystem: Platform.operatingSystem, abi: Abi.current()).toString(),
+    );
+    expect(mirror['useWebView'], isFalse);
+    await tester.tap(find.text(tr.github));
+    await tester.pump();
+    expect(browserCalls, hasLength(2));
+    final arguments = browserCalls.last.arguments as Map<Object?, Object?>;
     expect(arguments['url'], upgradeGithubReleaseUrl);
     expect(arguments['useWebView'], isFalse);
     expect(download.downloads, isEmpty);
+  });
+
+  test('the mirror page is the share of the one file the device takes', () {
+    Uri page(String os, [Abi? abi]) => CloudreveMirror.latestPage(operatingSystem: os, abi: abi);
+    expect(page('android', Abi.androidArm64).toString(), 'https://drive.noire.cc/s/ng0XT1');
+    expect(page('android', Abi.androidArm).toString(), 'https://drive.noire.cc/s/4mw8fK');
+    expect(page('android', Abi.androidX64).toString(), 'https://drive.noire.cc/s/l4Pdc1');
+    expect(page('android').toString(), 'https://drive.noire.cc/s/l4Pdc1');
+    expect(page('ios', Abi.iosArm64).toString(), 'https://drive.noire.cc/s/dK0lIA');
+    expect(page('windows', Abi.windowsX64).toString(), 'https://drive.noire.cc/s/PKOaiA');
+    expect(page('macos', Abi.macosArm64).toString(), 'https://drive.noire.cc/s/ooNEip');
+    expect(page('linux', Abi.linuxX64).toString(), 'https://drive.noire.cc/s/gaYBs7');
+    expect(page('fuchsia').toString(), 'https://drive.noire.cc/s/x7L2S3');
   });
 
   testWidgets('download, permission and error actions wrap on a narrow screen with large text', (tester) async {

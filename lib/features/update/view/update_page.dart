@@ -1,3 +1,6 @@
+import 'dart:ffi' show Abi;
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
@@ -8,6 +11,7 @@ import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/features/update/cubit/update_cubit.dart';
+import 'package:tsdm_client/features/update/repository/cloudreve_mirror.dart';
 import 'package:tsdm_client/features/update/widgets/update_download_card.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/utils/git_info.dart';
@@ -25,8 +29,7 @@ class UpdatePage extends StatefulWidget {
 }
 
 class _UpdatePageState extends State<UpdatePage> {
-  /// Current version and the check button; the source tip used to sit in a fixed 40 pixels app bar strip that cut it
-  /// at large text scales.
+  /// Current version and the check button.
   Widget _buildVersionSurface(BuildContext context, UpdateCubitState state) {
     final tr = context.t.updatePage;
     final textTheme = Theme.of(context).textTheme;
@@ -54,8 +57,6 @@ class _UpdatePageState extends State<UpdatePage> {
               ),
             ],
           ),
-          sizedBoxW12H12,
-          Text(tr.sourceTip, style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant)),
           sizedBoxW12H12,
           Align(
             alignment: AlignmentDirectional.centerStart,
@@ -155,9 +156,17 @@ class _UpdatePageState extends State<UpdatePage> {
                         onTap: () async => context.dispatchAsUrl('forum.php?mod=viewthread&tid=1265238'),
                       ),
                       SectionListTile(
+                        leading: const Icon(Icons.cloud_download_outlined),
+                        title: Text(tr.download.mirror),
+                        trailing: const Icon(Icons.open_in_new),
+                        onTap: () async => launchUrl(
+                          CloudreveMirror.latestPage(operatingSystem: Platform.operatingSystem, abi: Abi.current()),
+                          mode: LaunchMode.externalApplication,
+                        ),
+                      ),
+                      SectionListTile(
                         leading: Icon(MdiIcons.github),
                         title: Text(tr.download.github),
-                        subtitle: Text(tr.download.githubTip),
                         trailing: const Icon(Icons.open_in_new),
                         onTap: () async =>
                             launchUrl(Uri.parse(upgradeGithubReleaseUrl), mode: LaunchMode.externalApplication),

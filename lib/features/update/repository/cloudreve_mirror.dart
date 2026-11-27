@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:ffi' show Abi;
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -39,6 +40,24 @@ class CloudreveMirror {
 
   /// Id of the public share of the release folder.
   static const share = 'x7L2S3';
+
+  /// The page a browser opens to download the newest release for [operatingSystem] (`Platform.operatingSystem`)
+  /// running as [abi]: the public share holding that one file, kept current by the Release build, so there is nothing
+  /// to choose there. An Android ABI without an APK of its own gets the universal one; a system without a build
+  /// gets the folder of all releases.
+  static Uri latestPage({required String operatingSystem, Abi? abi}) {
+    final id = switch (operatingSystem) {
+      'android' when abi == Abi.androidArm64 => 'ng0XT1',
+      'android' when abi == Abi.androidArm => '4mw8fK',
+      'android' => 'l4Pdc1',
+      'ios' => 'dK0lIA',
+      'windows' => 'PKOaiA',
+      'macos' => 'ooNEip',
+      'linux' => 'gaYBs7',
+      _ => share,
+    };
+    return Uri.parse('$origin/s/$id');
+  }
 
   static const int _maxVersionInfoSize = 1024 * 1024;
 
