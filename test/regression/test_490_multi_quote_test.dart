@@ -293,6 +293,8 @@ void main() {
     await tester.tap(find.descendant(of: cardOf(floor), matching: find.byIcon(Icons.more_vert)));
     await tester.pump(const Duration(milliseconds: 500));
     await settle(tester);
+    // The menu opened to its end: it is short now, an item is not shown before its turn.
+    await tester.pump(const Duration(milliseconds: 300));
     await tester.tap(find.text('Add quote'));
     await tester.pump(const Duration(milliseconds: 500));
     await settle(tester);

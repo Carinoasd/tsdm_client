@@ -2214,7 +2214,8 @@
     "copyPid": "Copy pid (${pid: String})",
     "avatarBlocked": "Avatar hidden",
     "hotReply": "Recommended",
-    "jumpToHotFloor": "Go to the floor"
+    "jumpToHotFloor": "Go to the floor",
+    "shareAndCopy": "Share and copy"
   },
   "netdisk": {
     "extractCode": "Extract code",

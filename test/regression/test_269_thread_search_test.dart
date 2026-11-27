@@ -845,6 +845,8 @@ void main() {
       await tester.tap(floorMenu(floor));
       await tester.pump(const Duration(milliseconds: 500));
       await settle(tester);
+      // The menu opened to its end: it is short now, an item is not shown before its turn.
+      await tester.pump(const Duration(milliseconds: 300));
       await tester.tap(find.text(item));
       await settle(tester);
     }

@@ -74,9 +74,12 @@ import 'package:tsdm_client/features/thread/v1/utils/replied_thread_seed.dart';
 import 'package:tsdm_client/features/thread/v1/utils/share_thread_action.dart';
 import 'package:tsdm_client/features/thread/v1/utils/thread_export_action.dart';
 import 'package:tsdm_client/features/thread/v1/utils/thread_search.dart';
+import 'package:tsdm_client/features/thread/v1/view/thread_multi_quote_bar.dart';
+import 'package:tsdm_client/features/thread/v1/view/thread_search_bar.dart';
 import 'package:tsdm_client/features/thread/v1/widgets/collapsing_app_bar.dart';
 import 'package:tsdm_client/features/thread/v1/widgets/post_list.dart';
 import 'package:tsdm_client/features/thread/v1/widgets/reading_gestures.dart';
+import 'package:tsdm_client/features/thread/v1/widgets/thread_share_sheet.dart';
 import 'package:tsdm_client/features/thread_follow/cubit/followed_threads_cubit.dart';
 import 'package:tsdm_client/features/thread_visit_history/bloc/thread_visit_history_bloc.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
@@ -106,6 +109,9 @@ import 'package:tsdm_client/widgets/reply_bar/models/reply_types.dart';
 import 'package:tsdm_client/widgets/reply_bar/reply_bar.dart';
 import 'package:tsdm_client/widgets/reply_bar/repository/reply_repository.dart';
 import 'package:tsdm_client/widgets/two_pane.dart';
+
+part 'thread_page_menu.dart';
+part 'thread_page_parts.dart';
 
 /// Page to show thread.
 class ThreadPage extends StatefulWidget {
@@ -247,7 +253,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
 
   /// Where the reading of this thread stopped last time, offered to go on with ("continue" banner) while the list is
   /// near the start; null when there is nothing to offer, or once taken or dismissed.
-  ReadingProgress? _resumeOffer;
+  final _resumeOffer = ValueNotifier<ReadingProgress?>(null);
 
   /// Where the reading stopped last time, gone on with right away (the "continue where I stopped" setting).
   ReadingProgress? _resumeAt;
@@ -286,7 +292,8 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
       _batchRate = null;
       BatchRateAccess.check(uid!, fid: fid, stillCurrent: () => auth.effectiveCurrentUid == uid).then((info) {
         if (mounted && _batchRateAsked == key && info != null && info.offersThread) {
-          setState(() => _batchRate = info);
+          // No rebuild: only the menu shows it, and its items are made when it opens.
+          _batchRate = info;
         }
       }).ignore();
     }
@@ -976,7 +983,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
       case ThreadOpenPosition.fromStart:
         _heldPosition = progress;
       case ThreadOpenPosition.ask:
-        _resumeOffer = progress;
+        _resumeOffer.value = progress;
         _heldPosition = progress;
       case ThreadOpenPosition.resume:
         if (atOpen) {
@@ -1123,10 +1130,10 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
         _checkReadToEnd();
       }
     });
-    final offer = _resumeOffer;
+    final offer = _resumeOffer.value;
     if (offer != null && (!atThreadTop || (post.shownFloor ?? 0) >= (offer.floor ?? 0))) {
       // Read on from the start, or got there: nothing to offer any more.
-      setState(() => _resumeOffer = null);
+      _resumeOffer.value = null;
     }
     final bloc = _threadBloc;
     final uid = context.read<AuthenticationRepository>().currentUser?.uid;
@@ -1311,14 +1318,6 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
     return ImmersiveForums.parse(settings?.immersiveForums ?? '', all: settings?.immersiveAllForums ?? false);
   }
 
-  /// The forums opening in immersive reading, the build following the settings (the menu item's check).
-  ImmersiveForums _watchedImmersiveForums(BuildContext context) {
-    final (raw, all) = context.select<SettingsBloc, (String, bool)>(
-      (bloc) => (bloc.state.settingsMap.immersiveForums, bloc.state.settingsMap.immersiveAllForums),
-    );
-    return ImmersiveForums.parse(raw, all: all);
-  }
-
   /// Whether a reply is being written: the editor is open or a text field has the focus.
   bool get _editingReply =>
       _replyBarController.showingEditor ||
@@ -1477,43 +1476,6 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
       _appBarCollapser.show();
     }
     setState(() {});
-  }
-
-  /// The bar of picking floors to quote: how many are picked and the reply with their quotes.
-  PreferredSizeWidget _buildMultiQuoteBar(BuildContext context, PreferredSizeWidget breadcrumbs) {
-    final tr = context.t.threadPage.multiQuote;
-    return AppBar(
-      automaticallyImplyLeading: false,
-      leading: IconButton(
-        key: const ValueKey('multi-quote-exit'),
-        tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
-        icon: const Icon(Icons.close),
-        onPressed: _multiQuote.exit,
-      ),
-      title: ListenableBuilder(
-        listenable: _multiQuote,
-        builder: (context, _) => Text(
-          tr.selected(count: _multiQuote.length, max: MultiQuoteSelection.maxEntries),
-          key: const ValueKey('multi-quote-count'),
-        ),
-      ),
-      actions: [
-        Padding(
-          padding: const EdgeInsets.only(right: 12),
-          child: ListenableBuilder(
-            listenable: _multiQuote,
-            builder: (context, _) => FilledButton(
-              key: const ValueKey('multi-quote-reply'),
-              onPressed: _multiQuote.length == 0 || _multiQuote.busy ? null : _replyWithQuotes,
-              child: _multiQuote.busy
-                  ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                  : Text(tr.reply),
-            ),
-          ),
-        ),
-      ],
-      bottom: breadcrumbs,
-    );
   }
 
   /// Reply to the thread with the quote of every floor picked, in the order picked, each followed by a blank line.
@@ -1773,16 +1735,14 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
     }
   }
 
-  /// The app bar while searching: the words and where the current hit is among the hits, the pages not searched yet
-  /// once the hits on screen are gone through; as tall as the app bar it stands for, the forum path under it kept
-  /// ([bottom]).
+  /// The app bar while searching ([ThreadSearchBar]): where the current hit is among [hits], and the pages not
+  /// searched yet once the hits on screen are gone through.
   PreferredSizeWidget _buildSearchBar(
     BuildContext context,
     ThreadState state,
     PreferredSizeWidget bottom,
     List<Post> hits,
   ) {
-    final tr = context.t.threadPage.search;
     final at = hits.indexWhere((e) => e.postID == _searchCurrentPid);
     final side = _searchLoadSide(state);
     // Offered at the end of the hits the way the page would be added (after them, or before them).
@@ -1791,65 +1751,17 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
       false => state.previousStatus == ThreadEdgeStatus.loading,
       _ => state.nextStatus == ThreadEdgeStatus.loading,
     };
-    return AppBar(
-      automaticallyImplyLeading: false,
-      title: TextField(
-        key: const ValueKey('thread-search-field'),
-        controller: _searchController,
-        autofocus: true,
-        textInputAction: TextInputAction.search,
-        decoration: InputDecoration(
-          hintText: tr.hint,
-          border: InputBorder.none,
-          suffix: _searchPattern == null
-              ? null
-              : Text(
-                  tr.count(n: at + 1, total: hits.length),
-                  key: const ValueKey('thread-search-count'),
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-                ),
-        ),
-        // Enter goes to the next hit, the field keeps the focus (and the keyboard stays up).
-        onEditingComplete: () {},
-        onSubmitted: _onSearchSubmitted,
-      ),
-      actions: [
-        if (_searchPattern != null && atEdge && (state.canLoadMore || state.canLoadPrevious))
-          loading
-              ? const SizedBox.square(
-                  dimension: 48,
-                  child: Center(
-                    child: SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2)),
-                  ),
-                )
-              : IconButton(
-                  key: const ValueKey('thread-search-load-more'),
-                  tooltip: tr.loadMore,
-                  icon: const Icon(Icons.playlist_add),
-                  onPressed: side == null ? null : () => _loadMoreForSearch(state),
-                ),
-        IconButton(
-          key: const ValueKey('thread-search-previous'),
-          tooltip: tr.previous,
-          icon: const Icon(Icons.keyboard_arrow_up),
-          onPressed: hits.isEmpty ? null : () => _stepHit(-1),
-        ),
-        IconButton(
-          key: const ValueKey('thread-search-next'),
-          tooltip: tr.next,
-          icon: const Icon(Icons.keyboard_arrow_down),
-          onPressed: hits.isEmpty ? null : () => _stepHit(1),
-        ),
-        IconButton(
-          key: const ValueKey('thread-search-close'),
-          tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
-          icon: const Icon(Icons.close),
-          onPressed: _closeSearch,
-        ),
-      ],
+    return ThreadSearchBar(
+      controller: _searchController,
+      searched: _searchPattern != null,
+      current: at,
+      total: hits.length,
+      morePages: _searchPattern != null && atEdge && (state.canLoadMore || state.canLoadPrevious)
+          ? (loading: loading, onLoad: side == null ? null : () => _loadMoreForSearch(state))
+          : null,
+      onSubmitted: _onSearchSubmitted,
+      onStep: _stepHit,
+      onClose: _closeSearch,
       bottom: bottom,
     );
   }
@@ -1907,13 +1819,14 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
     context.read<ThreadBloc>().add(ThreadJumpToFloorRequested(floor));
   }
 
-  /// The floor bookmarks of the thread of [state] of the account in use, by floor; rebuilds the caller when they change.
+  /// The floor bookmarks of the thread of [state] of the account in use, by floor, as they are now (read when the
+  /// menu opens).
   List<FloorBookmark> _threadBookmarks(BuildContext context, ThreadState state) {
     final tid = int.tryParse(state.tid ?? '');
     if (tid == null || context.readOrNull<FloorBookmarkCubit>() == null) {
       return const [];
     }
-    return context.select<FloorBookmarkCubit, List<FloorBookmark>>((cubit) => cubit.state.ofThread(tid));
+    return context.read<FloorBookmarkCubit>().state.ofThread(tid);
   }
 
   /// List the floor [bookmarks] of the thread, and go to the one picked: in the thread on screen, its page loaded when
@@ -1938,9 +1851,9 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
 
   /// Go on reading where it stopped last time ([_resumeOffer]).
   void _resume() {
-    final offer = _resumeOffer;
+    final offer = _resumeOffer.value;
     _heldPosition = null;
-    setState(() => _resumeOffer = null);
+    _resumeOffer.value = null;
     if (offer == null) {
       return;
     }
@@ -2299,20 +2212,26 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
                             ),
                           ),
                           // Not for one author's floors: the reading position is the whole thread's.
-                          if (_resumeOffer case final offer? when state.onlyVisibleUid == null)
+                          // The banner alone follows the offer: the floors are not built again when it goes.
+                          if (state.onlyVisibleUid == null)
                             Positioned(
                               left: 12,
                               right: 12,
                               bottom: 12,
-                              child: Center(
-                                child: ConstrainedBox(
-                                  constraints: const BoxConstraints(maxWidth: 560),
-                                  child: _ResumeBanner(
-                                    floor: offer.floor ?? 1,
-                                    onResume: _resume,
-                                    onClose: () => setState(() => _resumeOffer = null),
-                                  ),
-                                ),
+                              child: ValueListenableBuilder(
+                                valueListenable: _resumeOffer,
+                                builder: (context, offer, _) => offer == null
+                                    ? const SizedBox.shrink()
+                                    : Center(
+                                        child: ConstrainedBox(
+                                          constraints: const BoxConstraints(maxWidth: 560),
+                                          child: _ResumeBanner(
+                                            floor: offer.floor ?? 1,
+                                            onResume: _resume,
+                                            onClose: () => _resumeOffer.value = null,
+                                          ),
+                                        ),
+                                      ),
                               ),
                             ),
                         ],
@@ -2546,6 +2465,7 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
 
   @override
   void dispose() {
+    _resumeOffer.dispose();
     _paneThread?.detach(_paneQuery);
     // Where the reading is when leaving the page.
     _keepProgress();
@@ -2820,10 +2740,10 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
             // In the detail pane of a list page the back button would close that page: none, or one taking the
             // thread opened above this one away.
             final pane = TwoPaneScope.detailOf(context);
-            // Watched here, in the build: the menu items are made later, when the menu opens.
-            final immersiveForums = _watchedImmersiveForums(context);
+            // Asked once the account is known to moderate the forum, so the menu has the answer when it opens.
+            _batchRateFor(context, state);
             final appBar = _multiQuote.active
-                ? _buildMultiQuoteBar(context, breadcrumbs)
+                ? ThreadMultiQuoteBar(selection: _multiQuote, onReply: _replyWithQuotes, bottom: breadcrumbs)
                 : _searching
                 ? _buildSearchBar(context, state, breadcrumbs, searchHits)
                 : ListAppBar(
@@ -2848,174 +2768,8 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
                     onOpenInBrowser: () async => context.dispatchAsUrl(threadUrl!, external: true),
                     onBackToTop: () async => _backToTop(context),
                     onReverseOrder: () => context.readOrNull<ThreadBloc>()?.add(const ThreadChangeViewOrderRequested()),
-                    customMenuItems: [
-                      if (state.postList.isNotEmpty)
-                        MenuCustomItem(
-                          icon: Icons.search,
-                          description: context.t.threadPage.search.menu,
-                          onSelected: _openSearch,
-                        ),
-                      if (state.tid != null) ...[
-                        if (state.fid != null && !immersiveForums.all)
-                          MenuCustomItem(
-                            icon: immersiveForums.picks(state.fid!)
-                                ? Icons.check_box_outlined
-                                : Icons.check_box_outline_blank,
-                            description: context.t.threadPage.immersiveForum,
-                            onSelected: () => _toggleImmersiveForum(
-                              context,
-                              state.fid!,
-                              picked: !immersiveForums.picks(state.fid!),
-                            ),
-                          ),
-                        // Favorite and share need the network: not offered on floors read back offline.
-                        if (!state.isOffline)
-                          MenuCustomItem(
-                            icon: isThreadFavorited(context, tid: state.tid!)
-                                ? Icons.bookmark_remove_outlined
-                                : Icons.bookmark_add_outlined,
-                            description: isThreadFavorited(context, tid: state.tid!)
-                                ? context.t.threadPage.favorite.remove
-                                : context.t.threadPage.favorite.add,
-                            onSelected: () async {
-                              final changed = await toggleThreadFavorite(context, tid: state.tid!);
-                              if (changed && mounted) {
-                                // Relabel the menu item.
-                                setState(() {});
-                              }
-                            },
-                          ),
-                        // Not on one author's floors: their count is not the thread's.
-                        if (!state.isOffline &&
-                            state.onlyVisibleUid == null &&
-                            context.read<AuthenticationRepository>().effectiveCurrentUid != null &&
-                            context.readOrNull<FollowedThreadsCubit>() != null)
-                          MenuCustomItem(
-                            icon: followedThreadOf(context, state.tid) != null
-                                ? Icons.notifications_off_outlined
-                                : Icons.notifications_active_outlined,
-                            description: followedThreadOf(context, state.tid) != null
-                                ? context.t.threadPage.follow.remove
-                                : context.t.threadPage.follow.add,
-                            onSelected: () async => _toggleFollow(context, state),
-                          ),
-                        if (!state.isOffline && context.read<AuthenticationRepository>().effectiveCurrentUid != null)
-                          MenuCustomItem(
-                            icon: Icons.forward_to_inbox_outlined,
-                            description: context.t.threadPage.shareToFriend.title,
-                            onSelected: () async =>
-                                shareThreadToFriend(context, tid: state.tid!, title: state.title ?? ''),
-                          ),
-                        // The forum's 淘帖: put the thread in collections of the account.
-                        if (int.tryParse(state.tid!) case final tid?
-                            when tid > 0 &&
-                                !state.isOffline &&
-                                context.read<AuthenticationRepository>().effectiveCurrentUid != null)
-                          MenuCustomItem(
-                            icon: Icons.collections_bookmark_outlined,
-                            description: context.t.collection.collect,
-                            onSelected: () async => showCollectThreadSheet(context, tid: tid),
-                          ),
-                        MenuCustomItem(
-                          icon: Icons.qr_code_2_outlined,
-                          description: context.t.shareQr.title,
-                          onSelected: () async => showShareQrDialog(
-                            context,
-                            url: shareQrThreadUrl(state.tid!),
-                            title: state.title ?? widget.title ?? '',
-                            fileName: 'tsdm-thread-${state.tid}',
-                          ),
-                        ),
-                        MenuCustomItem(
-                          icon: Icons.share_outlined,
-                          description: context.t.linkToken.copyShareText,
-                          onSelected: () async => copyToClipboard(
-                            context,
-                            threadShareText(
-                              context,
-                              title: state.title ?? widget.title ?? '',
-                              url: shortThreadUrl(threadUrl!),
-                            ),
-                          ),
-                        ),
-                        ?pinToHomeMenuItem(context, PinnedThread.tryParse(state.tid), state.title ?? widget.title),
-                        // Put aside on this device for the account in use: offline floors can be too.
-                        if (context.readOrNull<ReadLaterCubit>() != null &&
-                            context.select<ReadLaterCubit, int?>((cubit) => cubit.state.uid) != null)
-                          MenuCustomItem(
-                            icon: isReadLater(context, state.tid) ? Icons.watch_later : Icons.watch_later_outlined,
-                            description: isReadLater(context, state.tid)
-                                ? context.t.readLater.remove
-                                : context.t.readLater.add,
-                            onSelected: () async {
-                              // Before the list changes: nothing may take it off in between.
-                              final tid = int.tryParse(state.tid!);
-                              if (tid != null &&
-                                  !(context.readOrNull<ReadLaterCubit>()?.state.contains(tid) ?? false)) {
-                                _readLaterAddedHere = tid;
-                              }
-                              final added = await toggleReadLater(
-                                context,
-                                tid: state.tid!,
-                                title: state.title ?? widget.title ?? '',
-                                author: state.postList.firstWhereOrNull((e) => e.postFloor == 1)?.author.name,
-                                forumName: state.forumName,
-                              );
-                              _readLaterAddedHere = added ? tid : null;
-                              if (mounted) {
-                                setState(() {});
-                              }
-                            },
-                          ),
-                        // Floor numbers are where the floors are only when every author's floors are listed.
-                        if (state.onlyVisibleUid == null && state.postList.isNotEmpty)
-                          MenuCustomItem(
-                            icon: Icons.format_list_numbered_outlined,
-                            description: context.t.threadPage.jumpToFloor.menu,
-                            onSelected: () async => _askJumpToFloor(context, state),
-                          ),
-                        if (state.postList.isNotEmpty)
-                          MenuCustomItem(
-                            icon: Icons.file_download_outlined,
-                            description: context.t.threadExport.menu,
-                            onSelected: () async => exportThread(context, state),
-                          ),
-                        if (state.postList.isNotEmpty && _canSpeak)
-                          MenuCustomItem(
-                            icon: Icons.record_voice_over_outlined,
-                            description: context.t.threadTts.menu,
-                            onSelected: () async => _startTts(state),
-                          ),
-                        if (_batchRateFor(context, state) case final info?)
-                          MenuCustomItem(
-                            icon: Icons.thumbs_up_down_outlined,
-                            description: context.t.batchRate.title,
-                            onSelected: () async => _openBatchRate(context, state, info),
-                          ),
-                        // The floors of this thread the account bookmarked.
-                        if (_threadBookmarks(context, state) case final bookmarks when bookmarks.isNotEmpty)
-                          MenuCustomItem(
-                            icon: Icons.turned_in_not_outlined,
-                            description: context.t.floorBookmark.title,
-                            onSelected: () async => _showBookmarks(context, bookmarks),
-                          ),
-                        MenuCustomItem(
-                          icon: Icons.numbers_outlined,
-                          description: context.t.threadPage.copyTid(tid: state.tid!),
-                          onSelected: () async => copyToClipboard(context, state.tid!),
-                        ),
-                        if (_threadOperations(state).isNotEmpty ||
-                            (!state.isOffline &&
-                                state.tid != null &&
-                                state.fid != null &&
-                                (state.perms?.adminActions(formsKnown: threadAdminFormsKnown()).isNotEmpty ?? false)))
-                          MenuCustomItem(
-                            icon: Icons.admin_panel_settings_outlined,
-                            description: context.t.moderate.menu,
-                            onSelected: () async => _moderate(context, state),
-                          ),
-                      ],
-                    ],
+                    // Every item of the page, made when the menu opens (`thread_page_menu.dart`).
+                    pageMenuItems: (_) => _pageMenuItems(context, threadUrl!),
                   );
             _appBarCollapser.barHeight = appBar.preferredSize.height;
             // Read the body's MediaQuery after Scaffold has consumed the app bar's top inset.
@@ -3065,201 +2819,4 @@ class _ThreadPageState extends State<ThreadPage> with TickerProviderStateMixin, 
       ),
     );
   }
-}
-
-/// Tells [onChanged] whether the route of this widget is the one on top, first when built and then whenever that
-/// changes (a page or a dialog pushed above it, or gone again), without rebuilding [child].
-///
-/// The thread page depends on it through this widget rather than in its own state: that would rebuild the whole page
-/// for every page, dialog or menu opened above it.
-class _RouteOnTopListener extends StatefulWidget {
-  const _RouteOnTopListener({required this.onChanged, required this.child});
-
-  final void Function({required bool onTop}) onChanged;
-
-  final Widget child;
-
-  @override
-  State<_RouteOnTopListener> createState() => _RouteOnTopListenerState();
-}
-
-class _RouteOnTopListenerState extends State<_RouteOnTopListener> {
-  bool? _onTop;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Depends on this part of the route only.
-    final onTop = ModalRoute.isCurrentOf(context) ?? true;
-    if (onTop != _onTop) {
-      _onTop = onTop;
-      widget.onChanged(onTop: onTop);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) => widget.child;
-}
-
-/// Shown instead of a thread whose author could not be learnt while the current account blocks somebody.
-///
-/// Neutral: the thread is not known to be blocked, only not shown until its author is known.
-class _AuthorLookupFailure extends StatelessWidget {
-  const _AuthorLookupFailure({required this.onRetry});
-
-  /// Try again.
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return AppStateView(
-      error: true,
-      icon: Icons.error_outline,
-      message: context.t.general.failedToLoad,
-      action: Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        alignment: WrapAlignment.center,
-        children: [
-          // In the detail pane of a list page, back takes this thread out of the pane rather than closing the page.
-          if (TwoPaneScope.detailOf(context) case final pane?)
-            OutlinedButton(onPressed: pane.pop, child: Text(context.t.userBlock.goBack))
-          else if (Navigator.of(context).canPop())
-            OutlinedButton(
-              onPressed: () => Navigator.of(context).maybePop(),
-              child: Text(context.t.userBlock.goBack),
-            ),
-          FilledButton(onPressed: onRetry, child: Text(context.t.general.retry)),
-        ],
-      ),
-    );
-  }
-}
-
-/// Asks for a floor of the thread to go to ([max] floors when known).
-class _JumpToFloorDialog extends StatefulWidget {
-  const _JumpToFloorDialog({required this.max});
-
-  final int? max;
-
-  @override
-  State<_JumpToFloorDialog> createState() => _JumpToFloorDialogState();
-}
-
-class _JumpToFloorDialogState extends State<_JumpToFloorDialog> {
-  final _controller = TextEditingController();
-  bool _invalid = false;
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _submit() {
-    final floor = int.tryParse(_controller.text.trim());
-    if (floor == null || floor < 1) {
-      setState(() => _invalid = true);
-      return;
-    }
-    Navigator.of(context).pop(floor);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final tr = context.t.threadPage.jumpToFloor;
-    return AlertDialog(
-      title: Text(tr.title),
-      content: TextField(
-        key: const ValueKey('jump-to-floor-field'),
-        controller: _controller,
-        autofocus: true,
-        keyboardType: TextInputType.number,
-        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-        textInputAction: TextInputAction.go,
-        decoration: InputDecoration(
-          labelText: tr.label,
-          hintText: widget.max == null ? null : tr.hint(max: widget.max!),
-          errorText: _invalid ? tr.invalid : null,
-          prefixText: '#',
-        ),
-        onSubmitted: (_) => _submit(),
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(context.t.general.cancel)),
-        TextButton(key: const ValueKey('jump-to-floor-go'), onPressed: _submit, child: Text(tr.go)),
-      ],
-    );
-  }
-}
-
-/// Offers to go on reading where it stopped last time, floating above the floors (it moves none of them).
-class _ResumeBanner extends StatelessWidget {
-  const _ResumeBanner({required this.floor, required this.onResume, required this.onClose});
-
-  final int floor;
-
-  final VoidCallback onResume;
-
-  final VoidCallback onClose;
-
-  @override
-  Widget build(BuildContext context) {
-    final tr = context.t.threadPage.resume;
-    final colorScheme = Theme.of(context).colorScheme;
-    return Material(
-      key: const ValueKey('thread-resume-banner'),
-      elevation: 3,
-      color: colorScheme.secondaryContainer,
-      borderRadius: BorderRadius.circular(appInnerRadius * 2),
-      clipBehavior: Clip.antiAlias,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 4, 4, 4),
-        child: Row(
-          children: [
-            Icon(Icons.bookmark_outline, size: 20, color: colorScheme.onSecondaryContainer),
-            sizedBoxW8H8,
-            Expanded(
-              child: Text(
-                tr.message(floor: floor),
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: colorScheme.onSecondaryContainer),
-              ),
-            ),
-            TextButton(key: const ValueKey('thread-resume-go'), onPressed: onResume, child: Text(tr.action)),
-            IconButton(
-              key: const ValueKey('thread-resume-close'),
-              tooltip: tr.close,
-              icon: const Icon(Icons.close),
-              color: colorScheme.onSecondaryContainer,
-              onPressed: onClose,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// [post], or for a hot reply the closest floor of the thread around it in [posts]: the next one, else the one
-/// before it: the floor the reading is at when a hot reply is at the top of the list.
-@visibleForTesting
-Post readFloorAround(List<Post> posts, Post post) {
-  if (!post.hot) {
-    return post;
-  }
-  final at = posts.indexOf(post);
-  if (at < 0) {
-    return post;
-  }
-  for (var i = at + 1; i < posts.length; i++) {
-    if (!posts[i].hot) {
-      return posts[i];
-    }
-  }
-  for (var i = at - 1; i >= 0; i--) {
-    if (!posts[i].hot) {
-      return posts[i];
-    }
-  }
-  return post;
 }
