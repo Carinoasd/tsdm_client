@@ -110,7 +110,7 @@ void main() {
 
   test('the minimum and the expected version', () {
     expect(tsdmAppMinimumVersion, '3.5.0');
-    expect(expectedTsdmAppVersion, '4.0.0');
+    expect(expectedTsdmAppVersion, '4.1.0');
     expect(compareTsdmAppVersions(expectedTsdmAppVersion, tsdmAppMinimumVersion), greaterThan(0));
   });
 

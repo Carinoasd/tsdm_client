@@ -121,10 +121,11 @@ void main() {
       expect(TsdmAppV4.announce || TsdmAppV4.notifyPaging || TsdmAppV4.achievement, isFalse);
     });
 
-    test('the version the app is written against is 4.0.0', () {
-      expect(expectedTsdmAppVersion, '4.0.0');
+    test('the version the app is written against is 4.1.0', () {
+      expect(expectedTsdmAppVersion, '4.1.0');
       expect(TsdmAppPluginInfo.fromAnswer(v4Status({'version': '3.9.0'}))!.olderThanExpected, isTrue);
-      expect(TsdmAppPluginInfo.fromAnswer(v4Status())!.olderThanExpected, isFalse);
+      expect(TsdmAppPluginInfo.fromAnswer(v4Status())!.olderThanExpected, isTrue, reason: 'the recorded 4.0.0');
+      expect(TsdmAppPluginInfo.fromAnswer(v4Status({'version': '4.1.0'}))!.olderThanExpected, isFalse);
     });
   });
 
