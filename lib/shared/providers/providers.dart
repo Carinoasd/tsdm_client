@@ -65,7 +65,6 @@ Future<void> initProviders() async {
     ..registerSingleton(settingsRepo, dispose: (s) async => s.dispose())
     ..registerSingleton(CookieProvider.build())
     ..registerFactory(CookieProvider.buildEmpty, instanceName: ServiceKeys.empty)
-    ..registerSingleton(ImageCacheProvider.new)
     ..registerFactory(NetClientProvider.build)
     ..registerFactory(NetClientProvider.buildNoCookie, instanceName: ServiceKeys.noCookie)
     ..registerSingleton(NetErrorSaver())

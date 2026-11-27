@@ -558,7 +558,7 @@ abstract final class TsdmAppApi {
 /// the lean answers it asks for (`nodoc=1`), are what that plugin gives. An older plugin answers less; the app then
 /// parses those pages from the web page (or the blocks of the answer) as before. Shown on the settings page beside
 /// the version the forum's plugin last named ([TsdmAppApi.pluginInfo]).
-const expectedTsdmAppVersion = '4.0.0';
+const expectedTsdmAppVersion = '4.1.0';
 
 /// The oldest version of the forum's plugin whose actions the app uses ([TsdmAppApi.knownTooOld]): the forum ran it for
 /// a long time. It answers the post forms (2.9.0, [TsdmAppApi.knowsPostForm]) and the previews of the list rows

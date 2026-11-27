@@ -433,7 +433,7 @@ void main() {
 
   group('I. the plugin version', () {
     test('expected version, and the order of versions', () {
-      expect(expectedTsdmAppVersion, '4.0.0');
+      expect(expectedTsdmAppVersion, '4.1.0');
       expect(compareTsdmAppVersions('2.2.0', '2.3.0'), lessThan(0));
       expect(compareTsdmAppVersions('2.3.0', '2.3.0'), 0);
       expect(compareTsdmAppVersions('2.3', '2.3.0'), 0);
@@ -476,7 +476,12 @@ void main() {
         isTrue,
         reason: 'no tsdmv=4',
       );
-      expect(TsdmAppPluginInfo.fromAnswer(_status('4.0.0', nodoc: true))!.olderThanExpected, isFalse);
+      expect(
+        TsdmAppPluginInfo.fromAnswer(_status('4.0.0', nodoc: true))!.olderThanExpected,
+        isTrue,
+        reason: 'no site_plugins, bgshop or credit_forms',
+      );
+      expect(TsdmAppPluginInfo.fromAnswer(_status('4.1.0', nodoc: true))!.olderThanExpected, isFalse);
       final older = TsdmAppPluginInfo.fromAnswer(_status('2.2.0'))!;
       expect(older.nodoc, isFalse);
       expect(older.olderThanExpected, isTrue);
@@ -693,12 +698,12 @@ void main() {
       expect(tester.widget<ListTile>(row).isThreeLine, isTrue);
 
       // The expected plugin: no note.
-      TsdmAppApi.pluginInfo.value = const TsdmAppPluginInfo(version: '4.0.0', api: 1, nodoc: true);
+      TsdmAppApi.pluginInfo.value = const TsdmAppPluginInfo(version: '4.1.0', api: 1, nodoc: true);
       await tester.pumpAndSettle();
       expect(
         find.descendant(
           of: row,
-          matching: find.text(t.detected(seen: '4.0.0', expected: expectedTsdmAppVersion)),
+          matching: find.text(t.detected(seen: '4.1.0', expected: expectedTsdmAppVersion)),
         ),
         findsOneWidget,
       );
