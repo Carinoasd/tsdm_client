@@ -201,6 +201,12 @@ class ScreenPaths {
   /// Settings page for the order and visibility of the homepage blocks.
   static const settingsHomeLayout = NestedPath._('homeLayout', settings);
 
+  /// Settings page of the cross-device sync: its switch and what it carries.
+  static const settingsCrossDeviceSync = NestedPath._('crossDeviceSync', settings);
+
+  /// Settings page of the notification categories and the quiet hours.
+  static const settingsNoticeCategories = NestedPath._('noticeCategories', settings);
+
   /// Thread page.
   ///
   /// Parameters MUST provided within the queryParameters.

@@ -379,7 +379,11 @@
         "replyTemplates": "Reply templates",
         "readLater": "Read later",
         "followedThreads": "Followed threads",
-        "customImages": "My images"
+        "customImages": "My images",
+        "off": "Off",
+        "onWith": "On · ${n}/${total} lists",
+        "always": "The reading progress, the phrases and the block lists are always synced",
+        "choose": "Also sync"
       },
       "loginDevices": "Login devices",
       "security": "Password and security",
@@ -656,7 +660,8 @@
         "quietEnd": "Until",
         "forumNewThread": "New threads in forums",
         "keywordAlert": "Keyword alerts",
-        "forumWatch": "New thread and keyword alerts"
+        "forumWatch": "New thread and keyword alerts",
+        "enabledOf": "${n}/${total} on"
       },
       "notificationHideContent": {
         "title": "Hide notification content",
@@ -931,6 +936,38 @@
       "inAppBrowserForForum": "Open forum pages in the in-app browser",
       "inAppBrowserForAll": "Open all links in the in-app browser",
       "clipboardLinkPrompt": "Offer to open forum links just copied"
+    },
+    "search": {
+      "title": "Search settings",
+      "empty": "No setting found",
+      "keywords(map)": {
+        "settings-theme-mode": "dark light night theme mode",
+        "settings-dark-schedule": "dark night schedule time",
+        "settings-language": "language locale chinese english",
+        "settings-accent-color": "color accent theme",
+        "settings-font-family": "font typeface",
+        "settings-text-scale": "font size text size zoom",
+        "settings-chinese-display": "traditional simplified chinese convert",
+        "settings-reading-layout": "line height spacing width reading",
+        "settings-two-pane-layout": "tablet split two pane columns",
+        "settings-app-icon": "icon launcher",
+        "settings-cross-device-sync-entry": "sync devices cloud",
+        "settings-notice-categories": "notification push quiet mute do not disturb",
+        "notice-quiet-hours": "mute do not disturb silent night",
+        "settings-auto-sync-notice": "notification refresh interval poll",
+        "settings-background-message-service": "background service keep alive notification",
+        "settings-post-image-auto-load": "image picture data wifi",
+        "settings-data-saver-mode": "data saver traffic mobile",
+        "settings-clear-cache": "cache storage clean space",
+        "settings-proxy": "proxy vpn network http",
+        "settings-export-data": "backup export save",
+        "settings-import-data": "backup import restore",
+        "settings-auto-checkin": "check in sign daily",
+        "settings-about": "about version license",
+        "settings-update": "update upgrade version new",
+        "settings-feedback": "feedback bug report issue",
+        "settings-debug-expansion": "debug log troubleshoot"
+      }
     }
   },
   "aboutPage": {

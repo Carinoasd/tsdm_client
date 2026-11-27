@@ -379,7 +379,11 @@
         "replyTemplates": "回覆模板",
         "readLater": "稍後閱讀",
         "followedThreads": "追蹤的帖子",
-        "customImages": "我的圖片"
+        "customImages": "我的圖片",
+        "off": "已關閉",
+        "onWith": "已開啟 · ${n}/${total} 項",
+        "always": "閱讀進度、常用語與屏蔽列表一律同步",
+        "choose": "另外同步"
       },
       "loginDevices": "登入裝置",
       "security": "密碼與安全",
@@ -656,7 +660,8 @@
         "quietEnd": "結束",
         "forumNewThread": "版塊新帖",
         "keywordAlert": "關鍵字提醒",
-        "forumWatch": "新帖與關鍵字提醒"
+        "forumWatch": "新帖與關鍵字提醒",
+        "enabledOf": "已開啟 ${n}/${total} 項"
       },
       "notificationHideContent": {
         "title": "通知不顯示內容",
@@ -931,6 +936,38 @@
       "inAppBrowserForForum": "論壇網頁用內建瀏覽器開啟",
       "inAppBrowserForAll": "所有連結用內建瀏覽器開啟",
       "clipboardLinkPrompt": "提示開啟剛複製的論壇連結"
+    },
+    "search": {
+      "title": "搜尋設定",
+      "empty": "找不到符合的設定",
+      "keywords(map)": {
+        "settings-theme-mode": "深色 淺色 夜間 黑暗 暗黑 主題",
+        "settings-dark-schedule": "深色 夜間 定時 時間",
+        "settings-language": "語言 繁體 簡體 英文 language",
+        "settings-accent-color": "顏色 主題色 配色",
+        "settings-font-family": "字體 字型",
+        "settings-text-scale": "字級 字體大小 文字大小 縮放",
+        "settings-chinese-display": "繁體 簡體 繁簡 轉換",
+        "settings-reading-layout": "行距 段距 行高 寬度 排版",
+        "settings-two-pane-layout": "平板 分欄 雙欄 兩欄",
+        "settings-app-icon": "圖示 圖標 桌面圖示",
+        "settings-cross-device-sync-entry": "同步 多裝置 雲端 跨裝置",
+        "settings-notice-categories": "通知 推播 靜音 免打擾 勿擾",
+        "notice-quiet-hours": "靜音 免打擾 勿擾 夜間",
+        "settings-auto-sync-notice": "通知 重新整理 間隔 輪詢 拉取",
+        "settings-background-message-service": "背景 後台 保活 常駐 通知",
+        "settings-post-image-auto-load": "圖片 流量 省流 無圖",
+        "settings-data-saver-mode": "省流 流量 節省",
+        "settings-clear-cache": "快取 緩存 清理 空間 儲存",
+        "settings-proxy": "代理 梯子 網路",
+        "settings-export-data": "備份 匯出",
+        "settings-import-data": "備份 匯入 還原 恢復",
+        "settings-auto-checkin": "簽到 打卡 自動",
+        "settings-about": "關於 版本 授權",
+        "settings-update": "更新 升級 版本 新版",
+        "settings-feedback": "回饋 反饋 問題 回報",
+        "settings-debug-expansion": "除錯 調試 日誌 排查"
+      }
     }
   },
   "aboutPage": {

@@ -852,11 +852,13 @@ void main() {
       final entry = find.byKey(const ValueKey('notice-forum-watch'));
       await tester.scrollUntilVisible(entry, 300, scrollable: find.byType(Scrollable).first);
       expect(entry, findsOneWidget);
-      // The categories only where notifications are posted (`autoSyncPostsNotifications`), the entry everywhere.
+      // The way to the categories (on a page of their own) only where notifications are posted
+      // (`autoSyncPostsNotifications`), the entry everywhere.
       expect(
-        find.byKey(const ValueKey('notice-category-keywordAlert'), skipOffstage: false),
+        find.byKey(const ValueKey('settings-notice-categories'), skipOffstage: false),
         autoSyncPostsNotifications ? findsOneWidget : findsNothing,
       );
+      expect(find.byKey(const ValueKey('notice-category-keywordAlert'), skipOffstage: false), findsNothing);
     });
 
     testWidgets('the alerts, then what is watched: forums with their count, keywords, scope, interval', (tester) async {

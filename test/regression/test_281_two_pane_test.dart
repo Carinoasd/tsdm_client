@@ -676,7 +676,7 @@ void main() {
   });
 
   test('the settings page has the switch, on by default', () {
-    final source = File('lib/features/settings/view/settings_page.dart').readAsStringSync();
+    final source = File('lib/features/settings/view/sections/appearance_section.dart').readAsStringSync();
     expect(source, contains("ValueKey('settings-two-pane-layout')"));
     expect(SettingsKeys.twoPaneLayout.defaultValue, isTrue);
     for (final locale in ['zh-CN', 'zh-TW', 'en']) {

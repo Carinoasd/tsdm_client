@@ -379,7 +379,11 @@
         "replyTemplates": "回复模板",
         "readLater": "稍后阅读",
         "followedThreads": "追踪的帖子",
-        "customImages": "我的图片"
+        "customImages": "我的图片",
+        "off": "已关闭",
+        "onWith": "已开启 · ${n}/${total} 项",
+        "always": "阅读进度、常用语与屏蔽列表始终同步",
+        "choose": "另外同步"
       },
       "loginDevices": "登录设备",
       "security": "密码与安全",
@@ -656,7 +660,8 @@
         "quietEnd": "结束",
         "forumNewThread": "版块新帖",
         "keywordAlert": "关键字提醒",
-        "forumWatch": "新帖与关键字提醒"
+        "forumWatch": "新帖与关键字提醒",
+        "enabledOf": "已开启 ${n}/${total} 项"
       },
       "notificationHideContent": {
         "title": "通知不显示内容",
@@ -931,6 +936,38 @@
       "inAppBrowserForForum": "论坛网页用内置浏览器打开",
       "inAppBrowserForAll": "所有链接用内置浏览器打开",
       "clipboardLinkPrompt": "提示打开刚复制的论坛链接"
+    },
+    "search": {
+      "title": "搜索设置",
+      "empty": "找不到符合的设置",
+      "keywords(map)": {
+        "settings-theme-mode": "深色 浅色 夜间 黑暗 暗黑 主题",
+        "settings-dark-schedule": "深色 夜间 定时 时间",
+        "settings-language": "语言 繁体 简体 英文 language",
+        "settings-accent-color": "颜色 主题色 配色",
+        "settings-font-family": "字体 字型",
+        "settings-text-scale": "字号 字体大小 文字大小 缩放",
+        "settings-chinese-display": "繁体 简体 繁简 转换",
+        "settings-reading-layout": "行距 段距 行高 宽度 排版",
+        "settings-two-pane-layout": "平板 分栏 双栏 两栏",
+        "settings-app-icon": "图标 桌面图标",
+        "settings-cross-device-sync-entry": "同步 多设备 云端 跨设备",
+        "settings-notice-categories": "通知 推送 静音 免打扰 勿扰",
+        "notice-quiet-hours": "静音 免打扰 勿扰 夜间",
+        "settings-auto-sync-notice": "通知 刷新 间隔 轮询 拉取",
+        "settings-background-message-service": "后台 保活 常驻 通知",
+        "settings-post-image-auto-load": "图片 流量 省流 无图",
+        "settings-data-saver-mode": "省流 流量 节省",
+        "settings-clear-cache": "缓存 清理 空间 存储",
+        "settings-proxy": "代理 梯子 网络",
+        "settings-export-data": "备份 导出",
+        "settings-import-data": "备份 导入 恢复 还原",
+        "settings-auto-checkin": "签到 打卡 自动",
+        "settings-about": "关于 版本 许可",
+        "settings-update": "更新 升级 版本 新版",
+        "settings-feedback": "反馈 问题 报告",
+        "settings-debug-expansion": "调试 日志 排查"
+      }
     }
   },
   "aboutPage": {
