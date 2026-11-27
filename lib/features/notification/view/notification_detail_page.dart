@@ -71,7 +71,11 @@ class _NoticeDetailPage extends State<NoticeDetailPage> with LoggerMixin {
         padding: EdgeInsets.fromLTRB(side, 8, side, 12),
         child: AppContentWidth(
           maxWidth: appReadingMaxWidth,
-          child: Card(margin: EdgeInsets.zero, shape: appSurfaceShape(context), child: PostCard(post)),
+          child: Card(
+            margin: EdgeInsets.zero,
+            shape: appSurfaceShape(context),
+            child: AppSurfaceScope(child: PostCard(post)),
+          ),
         ),
       ),
     );

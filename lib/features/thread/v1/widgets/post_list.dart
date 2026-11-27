@@ -1060,11 +1060,9 @@ class _FloorSurface extends StatelessWidget {
         maxWidth: ReadingWidthScope.floorOf(context),
         child: Card(
           margin: EdgeInsets.zero,
-          // A light theme draws a faint line around a floor: its card is close to the page in lightness.
-          shape: Theme.of(context).brightness == Brightness.dark
-              ? appSurfaceShape(context)
-              : appSurfaceShapeOf().copyWith(side: BorderSide(color: AppSurfaces.of(context).line)),
-          child: child,
+          // The faint line of the surfaces in a light theme; what is in the floor draws none of its own.
+          shape: appSurfaceShape(context),
+          child: AppSurfaceScope(child: child),
         ),
       ),
     );
