@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:tsdm_client/features/update/models/latest_version_info.dart';
+import 'package:tsdm_client/features/update/models/update_channel.dart';
 import 'package:tsdm_client/features/update/repository/release_update_repository.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/utils/git_info.dart';
@@ -100,6 +101,11 @@ class UpdateDownloadCubit extends Cubit<UpdateDownloadState> {
 
   final ReleaseUpdateRepository _repository;
   final int _currentVersionCode;
+
+  /// Where the downloads started from now on take the update from.
+  UpdateChannel get channel => _repository.channel;
+
+  set channel(UpdateChannel value) => _repository.channel = value;
 
   /// The release asset this platform installs, decides the wording of the update page.
   UpdateTarget get target => _repository.installer.target;

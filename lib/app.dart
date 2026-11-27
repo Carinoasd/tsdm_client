@@ -80,6 +80,7 @@ import 'package:tsdm_client/features/thread_follow/utils/followed_thread_notice.
 import 'package:tsdm_client/features/thread_visit_history/bloc/thread_visit_history_bloc.dart';
 import 'package:tsdm_client/features/thread_visit_history/repository/thread_visit_history_repository.dart';
 import 'package:tsdm_client/features/update/cubit/update_cubit.dart';
+import 'package:tsdm_client/features/update/models/update_channel.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/routes/app_routes.dart';
@@ -598,7 +599,11 @@ class _AppState extends State<App> with WindowListener, WidgetsBindingObserver, 
           ),
           BlocProvider(
             create: (context) {
-              final cubit = UpdateCubit();
+              final settings = getIt.get<SettingsRepository>();
+              final cubit = UpdateCubit(
+                channel: UpdateChannel.of(settings.currentSettings.updateChannel),
+                saveChannel: (channel) => settings.setValue(SettingsKeys.updateChannel, channel.index),
+              );
               if (widget.checkUpdate) {
                 // We intend to spawn the check process asynchronously, so do not wait it.
                 unawaited(cubit.checkUpdate(delay: const Duration(seconds: 1), notice: false));

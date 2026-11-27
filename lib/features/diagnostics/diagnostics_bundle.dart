@@ -109,6 +109,7 @@ const diagnosticSettingNames = <String>[
   'netClientUseProxy',
   'useDetectedProxyWhenStartup',
   'enableUpdateCheckOnStartup',
+  'updateChannel',
   'autoCheckin',
   'autoSyncNoticeSeconds',
   'enableBackgroundMessageService',

@@ -12,6 +12,7 @@ import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/features/update/cubit/update_cubit.dart';
 import 'package:tsdm_client/features/update/cubit/update_download_cubit.dart';
 import 'package:tsdm_client/features/update/models/latest_version_info.dart';
+import 'package:tsdm_client/features/update/models/update_channel.dart';
 import 'package:tsdm_client/features/update/repository/cloudreve_mirror.dart';
 import 'package:tsdm_client/features/update/repository/release_update_repository.dart';
 import 'package:tsdm_client/instance.dart';
@@ -55,6 +56,9 @@ class _Adapter implements HttpClientAdapter {
   int taggedVersionCode = 182;
   final fetched = <String>[];
 
+  /// Requests that reached GitHub, the API included.
+  int githubRequests = 0;
+
   @override
   Future<ResponseBody> fetch(
     RequestOptions options,
@@ -71,6 +75,7 @@ class _Adapter implements HttpClientAdapter {
       },
     );
     if (uri.host == 'api.github.com' || uri.host == 'github.com') {
+      githubRequests++;
       if (githubDown) throw DioException.connectionError(requestOptions: options, reason: 'down');
       if (uri.host == 'api.github.com' && uri.path.endsWith('/contents/version.json')) {
         expect(uri.queryParameters['ref'], 'v1.63.0');
@@ -147,8 +152,13 @@ void main() {
     mirror: CloudreveMirror(dio: Dio()..httpClientAdapter = adapter),
   );
 
-  Future<DownloadedUpdate> download(UpdateTarget target) =>
-      repository(target).download(_info, cancelToken: CancelToken(), onProgress: (_, _) {}, onVerifying: () {});
+  Future<DownloadedUpdate> download(UpdateTarget target, {UpdateChannel channel = UpdateChannel.auto}) =>
+      (repository(target)..channel = channel).download(
+        _info,
+        cancelToken: CancelToken(),
+        onProgress: (_, _) {},
+        onVerifying: () {},
+      );
 
   Matcher fails(UpdateDownloadFailure failure) =>
       throwsA(isA<UpdateDownloadException>().having((error) => error.failure, 'failure', failure));
@@ -233,6 +243,76 @@ void main() {
     expect(adapter.fetched, isEmpty);
   });
 
+  group('channel', () {
+    test('GitHub only: the mirror is not asked, and is no fallback', () async {
+      await download(UpdateTarget.android, channel: UpdateChannel.github);
+      expect(adapter.fetched, ['github tsdm_client-universal.apk']);
+      adapter
+        ..fetched.clear()
+        ..githubDown = true
+        ..mirrorInfo = listing();
+      await expectLater(
+        download(UpdateTarget.android, channel: UpdateChannel.github),
+        fails(UpdateDownloadFailure.network),
+      );
+      expect(adapter.fetched, isEmpty);
+    });
+
+    test('mirror only on Android: GitHub is not asked at all', () async {
+      adapter.mirrorInfo = listing();
+      final result = await download(UpdateTarget.android, channel: UpdateChannel.mirror);
+      expect(adapter.fetched, ['mirror version.json', 'mirror v1.63.0/tsdm_client-universal.apk']);
+      expect(adapter.githubRequests, 0);
+      expect(await File(result.path).readAsBytes(), _bytes);
+    });
+
+    test('mirror only on Android: no fallback to GitHub for a release or bytes the mirror lacks', () async {
+      adapter.mirrorInfo = listing(version: '1.62.3');
+      await expectLater(
+        download(UpdateTarget.android, channel: UpdateChannel.mirror),
+        fails(UpdateDownloadFailure.releaseUnavailable),
+      );
+      adapter
+        ..mirrorInfo = listing()
+        ..mirrorPayload = Uint8List.fromList(List<int>.filled(_bytes.length, 7));
+      await expectLater(
+        download(UpdateTarget.android, channel: UpdateChannel.mirror),
+        fails(UpdateDownloadFailure.integrity),
+      );
+      expect(adapter.githubRequests, 0);
+      expect(await directory.list().length, 0);
+    });
+
+    test("mirror only on Windows: the bytes are the mirror's, GitHub still vouches for them", () async {
+      adapter.mirrorInfo = listing();
+      await download(UpdateTarget.windows, channel: UpdateChannel.mirror);
+      expect(adapter.fetched, ['github version.json', 'mirror v1.63.0/tsdm_client-windows.zip']);
+      adapter
+        ..fetched.clear()
+        ..mirrorPayload = Uint8List.fromList(List<int>.filled(_bytes.length, 7));
+      await expectLater(
+        download(UpdateTarget.windows, channel: UpdateChannel.mirror),
+        fails(UpdateDownloadFailure.integrity),
+      );
+      expect(adapter.fetched, ['github version.json', 'mirror v1.63.0/tsdm_client-windows.zip']);
+      adapter
+        ..fetched.clear()
+        ..githubDown = true;
+      await expectLater(
+        download(UpdateTarget.windows, channel: UpdateChannel.mirror),
+        fails(UpdateDownloadFailure.network),
+      );
+      expect(adapter.fetched, isEmpty);
+    });
+
+    test('a stored index this version does not know is the automatic channel', () {
+      expect(UpdateChannel.of(1), UpdateChannel.mirror);
+      expect(UpdateChannel.of(2), UpdateChannel.github);
+      expect(UpdateChannel.of(7), UpdateChannel.auto);
+      expect(UpdateChannel.of(-1), UpdateChannel.auto);
+    });
+  });
+
   test('mirror version info parses as the repository one', () async {
     adapter.mirrorInfo = listing();
     final info = parseLatestVersionInfo(
@@ -244,11 +324,16 @@ void main() {
 
   group('version check', () {
     const github = {'version': '1.63.0', 'versionCode': 182, 'changelog': 'github'};
-    UpdateCubit cubit(AsyncEither<Object?> Function() githubInfo) => UpdateCubit(
-      download: UpdateDownloadCubit(supported: false),
-      mirror: CloudreveMirror(dio: Dio()..httpClientAdapter = adapter),
-      githubVersionInfo: githubInfo,
-    );
+    final saved = <UpdateChannel>[];
+    setUp(saved.clear);
+    UpdateCubit cubit(AsyncEither<Object?> Function() githubInfo, {UpdateChannel channel = UpdateChannel.auto}) =>
+        UpdateCubit(
+          download: UpdateDownloadCubit(supported: false),
+          mirror: CloudreveMirror(dio: Dio()..httpClientAdapter = adapter),
+          githubVersionInfo: githubInfo,
+          channel: channel,
+          saveChannel: (channel) async => saved.add(channel),
+        );
     AsyncEither<Object?> ok() => TaskEither.right(github);
     AsyncEither<Object?> down() => TaskEither.left(HttpRequestFailedException(503));
 
@@ -275,6 +360,58 @@ void main() {
       expect(updates.state.latestVersionInfo?.versionCode, 182);
       expect(updates.state.notice, isFalse);
       await updates.close();
+    });
+
+    test('mirror only: GitHub is not asked, even where it would answer', () async {
+      adapter.mirrorInfo = {...listing(), 'changelog': 'mirror'};
+      var asked = 0;
+      final updates = cubit(() {
+        asked++;
+        return ok();
+      }, channel: UpdateChannel.mirror);
+      await updates.checkUpdate();
+      expect(updates.state.latestVersionInfo?.changelog, 'mirror');
+      expect(asked, 0);
+      adapter.mirrorDown = true;
+      await updates.checkUpdate();
+      expect(updates.state.latestVersionInfo, isNull);
+      expect(updates.state.notice, isTrue);
+      expect(asked, 0);
+      await updates.close();
+    });
+
+    test('GitHub only: the mirror is not asked and does not answer for it', () async {
+      adapter.mirrorInfo = listing();
+      final updates = cubit(ok, channel: UpdateChannel.github);
+      await updates.checkUpdate();
+      expect(updates.state.latestVersionInfo?.changelog, 'github');
+      expect(adapter.fetched, isEmpty);
+      await updates.close();
+      final offline = cubit(down, channel: UpdateChannel.github);
+      await offline.checkUpdate();
+      expect(offline.state.latestVersionInfo, isNull);
+      expect(offline.state.notice, isTrue);
+      expect(adapter.fetched, isEmpty);
+      await offline.close();
+    });
+
+    test('a new choice is kept, reaches the downloads and drops the answer of the old channel', () async {
+      final updates = cubit(ok);
+      expect(updates.download.channel, UpdateChannel.auto);
+      await updates.checkUpdate();
+      expect(updates.state.latestVersionInfo, isNotNull);
+      await updates.setChannel(UpdateChannel.mirror);
+      expect(updates.state.channel, UpdateChannel.mirror);
+      expect(updates.state.latestVersionInfo, isNull);
+      expect(updates.download.channel, UpdateChannel.mirror);
+      expect(saved, [UpdateChannel.mirror]);
+      await updates.setChannel(UpdateChannel.mirror);
+      expect(saved, [UpdateChannel.mirror]);
+      await updates.close();
+      final restored = cubit(ok, channel: UpdateChannel.github);
+      expect(restored.state.channel, UpdateChannel.github);
+      expect(restored.download.channel, UpdateChannel.github);
+      await restored.close();
     });
 
     test('neither source: a failure notice', () async {

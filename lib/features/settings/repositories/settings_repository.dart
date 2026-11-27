@@ -219,6 +219,7 @@ final class SettingsRepository with LoggerMixin {
       fontFamily: s.extract(_SK.fontFamily),
       enableEditorBBCodeParser: s.extract(_SK.enableEditorBBCodeParser),
       enableUpdateCheckOnStartup: s.extract(_SK.enableUpdateCheckOnStartup),
+      updateChannel: s.extract(_SK.updateChannel),
       editorRecentUsedCustomColors: s.extract(_SK.editorRecentUsedCustomColors),
       useDetectedProxyWhenStartup: s.extract(_SK.useDetectedProxyWhenStartup),
       enableAutoClearImageCache: s.extract(_SK.enableAutoClearImageCache),

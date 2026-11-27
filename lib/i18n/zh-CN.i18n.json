@@ -2976,13 +2976,17 @@
   },
   "updatePage": {
     "title": "获取更新",
-    "sourceTip": "正式版由论坛官方在 GitHub 发布；「检测最新版本」读取最新发布的版本文件",
     "announcementThread": "公告帖",
     "checkLatest": "检测最新版本",
+    "channel": {
+      "auto": "自动",
+      "mirror": "爱丽丝盘",
+      "github": "GitHub"
+    },
     "download": {
       "title": "Android APK · ${version: String}",
       "downloadApk": "下载 APK（${version: String}）",
-      "universalApk": "点击下载后，才会从官方 GitHub 发布页下载 Android 安装包（APK）。安装时仍需在 Android 系统安装器中确认。",
+      "universalApk": "点击下载后，才会下载 Android 安装包（APK）。安装时仍需在 Android 系统安装器中确认。",
       "resolving": "正在查找此版本的更新文件…",
       "downloading": "正在下载更新文件…",
       "verifying": "正在验证下载的更新文件…",
@@ -3000,24 +3004,24 @@
       "progress": "${received: String} / ${total: String}（${percent: String}%）",
       "received": "已下载 ${bytes: String}",
       "github": "从 GitHub 下载",
-      "githubTip": "在外部浏览器中打开发布页，请选择适合设备的文件。",
-      "networkError": "更新文件下载失败。请检查网络后重试，或通过下方 GitHub 链接下载。",
-      "releaseUnavailableError": "此版本暂时没有可用的更新文件。请稍后重试，或查看下方 GitHub 发布页。",
-      "invalidReleaseError": "无法验证发布信息。请通过下方 GitHub 链接查看官方发布页。",
-      "integrityError": "下载的更新文件未通过验证，已被移除。请重试下载，或使用下方 GitHub 链接。",
+      "mirror": "从爱丽丝盘下载",
+      "networkError": "更新文件下载失败。请检查网络后重试，或通过下方的链接下载。",
+      "releaseUnavailableError": "此版本暂时没有可用的更新文件。请稍后重试，或通过下方的链接下载。",
+      "invalidReleaseError": "无法验证发布信息。请通过下方的链接下载。",
+      "integrityError": "下载的更新文件未通过验证，已被移除。请重试下载，或使用下方的链接。",
       "storageError": "无法保存更新文件。请检查可用存储空间后重试。",
-      "installError": "无法打开 Android 系统安装器。请重试安装，或通过下方 GitHub 链接下载。",
-      "unsupportedError": "应用内 APK 安装仅适用于 Android。请通过下方 GitHub 链接下载适合设备的版本。",
-      "installLocationError": "无法写入应用所在的文件夹（例如放在 Program Files 里）。请把 tsdm_client 文件夹移到「文档」或桌面等可写入的位置，或通过下方 GitHub 链接下载后手动覆盖。",
+      "installError": "无法打开 Android 系统安装器。请重试安装，或通过下方的链接下载。",
+      "unsupportedError": "应用内 APK 安装仅适用于 Android。请通过下方的链接下载适合设备的版本。",
+      "installLocationError": "无法写入应用所在的文件夹（例如放在 Program Files 里）。请把 tsdm_client 文件夹移到「文档」或桌面等可写入的位置，或通过下方的链接下载后手动覆盖。",
       "windows": {
         "title": "Windows · ${version: String}",
         "download": "下载更新（${version: String}）",
-        "intro": "点击下载后，才会从官方 GitHub 发布页下载 Windows 版。安装时会关闭应用、替换所在文件夹里的文件后重新打开；设置与账号都会保留。",
+        "intro": "点击下载后，才会下载 Windows 版。安装时会关闭应用、替换所在文件夹里的文件后重新打开；设置与账号都会保留。",
         "ready": "更新已准备就绪。点击「安装更新」后应用会关闭，并以新版本重新打开。",
         "installing": "正在准备文件…",
         "installerOpened": "应用即将关闭，并以新版本重新打开。如果没有自动打开，请到所在文件夹打开 tsdm_client.exe。",
-        "installError": "无法开始更新。请重试安装，或通过下方 GitHub 链接下载。",
-        "unsupportedError": "这个副本无法自行更新（不是官方的免安装文件夹）。请通过下方 GitHub 链接下载。"
+        "installError": "无法开始更新。请重试安装，或通过下方的链接下载。",
+        "unsupportedError": "这个副本无法自行更新（不是官方的免安装文件夹）。请通过下方的链接下载。"
       }
     },
     "availableDialog": {

@@ -285,6 +285,9 @@ enum SettingsKeys<T> implements Comparable<SettingsKeys<T>> {
   /// Enable the update check when app startup.
   enableUpdateCheckOnStartup<bool>(name: 'enableUpdateCheckOnStartup', type: bool, defaultValue: true),
 
+  /// Where updates are looked for and downloaded from: the index of an `UpdateChannel` (0: both, the default).
+  updateChannel<int>(name: 'updateChannel', type: int, defaultValue: 0),
+
   /// Recent used custom colors in editor.
   ///
   /// The length of the list is determined to .
