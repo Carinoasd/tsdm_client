@@ -16,14 +16,13 @@
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/Carinoasd/tsdm_client" alt="license"/></a>
 </p>
 
-## Latest update: 1.63.0 (2026-11-27)
+## Latest update: 1.64.0 (2026-11-28)
 
-- The settings can be searched; favorites, browsing history, offline threads, floor bookmarks and read later can be filtered on the device; a long press on the homepage search button opens quick open on phones.
-- Shorter thread and floor menus: sharing and copying, and floor moderation, each on a sheet of their own; cross-device sync and notification categories are sub pages of the settings.
-- In-app updates download from the mirror first, and Android takes the APK built for the device; smoother database and cache work; the homepage banner and the light theme cards look tidier.
-- Android build number 182 installs over earlier releases and test builds.
+- The update page has an update channel: auto, Alice Drive or GitHub, so a check still works when one of them cannot be reached.
+- The update page opens the Alice Drive page of the package built for the device.
+- Android build number 183 installs over earlier releases and test builds.
 
-[Download 1.63.0](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.63.0) · [Full changelog](./CHANGELOG.md)
+[Download 1.64.0](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.64.0) · [Full changelog](./CHANGELOG.md)
 
 ## What it is
 

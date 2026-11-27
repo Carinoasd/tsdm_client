@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [1.64.0] - 2026-11-28
+
+### Added
+
+- 更新页新增「检测通道」：自动、爱丽丝盘、GitHub 三选一。连不上其中一边时可以只用另一边检测；App 内下载也跟着所选的通道走。
+- 更新页新增「从爱丽丝盘下载」，直接打开对应机型的网盘页面。
+
+### Changed
+
+- 更新页的手动下载入口整理为公告帖、爱丽丝盘、GitHub 三行。
+
 ## [1.63.0] - 2026-11-27
 
 ### Added

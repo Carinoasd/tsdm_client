@@ -16,14 +16,13 @@
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/Carinoasd/tsdm_client" alt="license"/></a>
 </p>
 
-## 最新更新：1.63.0（2026-11-27）
+## 最新更新：1.64.0（2026-11-28）
 
-- 设置页可以搜索；收藏夹、浏览历史、离线帖子、楼层书签、稍后阅读可以在本机筛选；手机长按首页搜索按钮可用快速跳转。
-- 帖子页与楼层菜单精简：分享与复制、楼层管理各收进一个面板；设置页的跨设备同步与通知类别收进子页。
-- App 内更新优先走国内镜像，Android 下载对应机型的安装包；数据库与缓存操作更流畅；首页轮播图与浅色主题卡片的外观调整。
-- Android 构建编号为 182，可直接覆盖之前的正式版与测试版。
+- 更新页新增「检测通道」：自动、爱丽丝盘、GitHub 三选一，连不上其中一边时可以只用另一边。
+- 更新页新增「从爱丽丝盘下载」，直接打开对应机型的网盘页面。
+- Android 构建编号为 183，可直接覆盖之前的正式版与测试版。
 
-[下载 1.63.0](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.63.0) · [完整更新日志](./CHANGELOG.md)
+[下载 1.64.0](https://github.com/Carinoasd/tsdm_client/releases/tag/v1.64.0) · [完整更新日志](./CHANGELOG.md)
 
 ## 这是什么
 
