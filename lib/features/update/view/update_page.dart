@@ -11,6 +11,7 @@ import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/features/update/cubit/update_cubit.dart';
+import 'package:tsdm_client/features/update/models/update_channel.dart';
 import 'package:tsdm_client/features/update/repository/cloudreve_mirror.dart';
 import 'package:tsdm_client/features/update/widgets/update_download_card.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
@@ -29,7 +30,7 @@ class UpdatePage extends StatefulWidget {
 }
 
 class _UpdatePageState extends State<UpdatePage> {
-  /// Current version and the check button.
+  /// Current version, the channel and the check button.
   Widget _buildVersionSurface(BuildContext context, UpdateCubitState state) {
     final tr = context.t.updatePage;
     final textTheme = Theme.of(context).textTheme;
@@ -56,6 +57,20 @@ class _UpdatePageState extends State<UpdatePage> {
                 ),
               ),
             ],
+          ),
+          sizedBoxW12H12,
+          // Changing the channel while a check runs would leave that check's answer under the new choice.
+          SegmentedButton<UpdateChannel>(
+            showSelectedIcon: false,
+            segments: [
+              ButtonSegment(value: UpdateChannel.auto, label: Text(tr.channel.auto)),
+              ButtonSegment(value: UpdateChannel.mirror, label: Text(tr.channel.mirror)),
+              ButtonSegment(value: UpdateChannel.github, label: Text(tr.channel.github)),
+            ],
+            selected: {state.channel},
+            onSelectionChanged: state.loading
+                ? null
+                : (selected) async => context.read<UpdateCubit>().setChannel(selected.single),
           ),
           sizedBoxW12H12,
           Align(

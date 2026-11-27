@@ -76,6 +76,7 @@ class SettingsMap with SettingsMapMappable {
     this.notificationDirectReply = true,
     this.systemNotificationsOptIn = false,
     this.readingTimeStats = true,
+    this.updateChannel = 0,
     this.notifyReply = true,
     this.notifyMention = true,
     this.notifyRate = true,
@@ -266,6 +267,9 @@ class SettingsMap with SettingsMapMappable {
   final String fontFamily;
   final bool enableEditorBBCodeParser;
   final bool enableUpdateCheckOnStartup;
+
+  /// See `SettingsKeys.updateChannel`. Not required: backups from older versions lack it.
+  final int updateChannel;
   final List<int> editorRecentUsedCustomColors;
   final bool useDetectedProxyWhenStartup;
   final bool enableAutoClearImageCache;
@@ -519,6 +523,7 @@ class SettingsMap with SettingsMapMappable {
       SettingsKeys.fontFamily => copyWith(fontFamily: value as String?),
       SettingsKeys.enableEditorBBCodeParser => copyWith(enableEditorBBCodeParser: value as bool?),
       SettingsKeys.enableUpdateCheckOnStartup => copyWith(enableUpdateCheckOnStartup: value as bool?),
+      SettingsKeys.updateChannel => copyWith(updateChannel: value as int?),
       SettingsKeys.editorRecentUsedCustomColors => copyWith(editorRecentUsedCustomColors: value as List<int>?),
       SettingsKeys.useDetectedProxyWhenStartup => copyWith(useDetectedProxyWhenStartup: value as bool?),
       SettingsKeys.enableAutoClearImageCache => copyWith(enableAutoClearImageCache: value as bool?),

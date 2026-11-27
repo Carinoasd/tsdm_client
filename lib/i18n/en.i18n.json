@@ -2978,6 +2978,11 @@
     "title": "Get updates",
     "announcementThread": "Announcement thread",
     "checkLatest": "Check for the latest version",
+    "channel": {
+      "auto": "Auto",
+      "mirror": "Alice Drive",
+      "github": "GitHub"
+    },
     "download": {
       "title": "Android APK · ${version: String}",
       "downloadApk": "Download APK (${version: String})",

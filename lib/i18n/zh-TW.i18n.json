@@ -2978,6 +2978,11 @@
     "title": "取得更新",
     "announcementThread": "公告帖",
     "checkLatest": "偵測最新版本",
+    "channel": {
+      "auto": "自動",
+      "mirror": "愛麗絲盤",
+      "github": "GitHub"
+    },
     "download": {
       "title": "Android APK · ${version: String}",
       "downloadApk": "下載 APK（${version: String}）",

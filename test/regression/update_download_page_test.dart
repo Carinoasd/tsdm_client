@@ -10,6 +10,7 @@ import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/features/update/cubit/update_cubit.dart';
 import 'package:tsdm_client/features/update/cubit/update_download_cubit.dart';
 import 'package:tsdm_client/features/update/models/latest_version_info.dart';
+import 'package:tsdm_client/features/update/models/update_channel.dart';
 import 'package:tsdm_client/features/update/repository/cloudreve_mirror.dart';
 import 'package:tsdm_client/features/update/view/update_page.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
@@ -316,6 +317,28 @@ void main() {
     expect(arguments['url'], upgradeGithubReleaseUrl);
     expect(arguments['useWebView'], isFalse);
     expect(download.downloads, isEmpty);
+  });
+
+  testWidgets('the channel is chosen on the page, and not while a check runs', (tester) async {
+    final tr = LocaleSettings.instance.currentTranslations.updatePage.channel;
+    final saved = <UpdateChannel>[];
+    await updates.close();
+    download = _DownloadCubit();
+    updates = UpdateCubit(download: download, saveChannel: (channel) async => saved.add(channel));
+    await pumpPage(tester);
+    SegmentedButton<UpdateChannel> buttons() => tester.widget(find.byType(SegmentedButton<UpdateChannel>));
+    expect(buttons().selected, {UpdateChannel.auto});
+    await tester.tap(find.text(tr.mirror));
+    await tester.pump();
+    expect(buttons().selected, {UpdateChannel.mirror});
+    expect(saved, [UpdateChannel.mirror]);
+    expect(download.channel, UpdateChannel.mirror);
+    checked(const UpdateCubitState(loading: true, channel: UpdateChannel.mirror));
+    await tester.pump();
+    expect(buttons().onSelectionChanged, isNull);
+    await tester.tap(find.text(tr.github), warnIfMissed: false);
+    await tester.pump();
+    expect(saved, [UpdateChannel.mirror]);
   });
 
   test('the mirror page is the share of the one file the device takes', () {

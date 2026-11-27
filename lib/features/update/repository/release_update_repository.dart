@@ -7,6 +7,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:tsdm_client/features/update/models/latest_version_info.dart';
+import 'package:tsdm_client/features/update/models/update_channel.dart';
 import 'package:tsdm_client/features/update/repository/cloudreve_mirror.dart';
 import 'package:tsdm_client/features/update/repository/windows_update_installer.dart';
 import 'package:tsdm_client/instance.dart';
@@ -256,6 +257,9 @@ class ReleaseUpdateRepository {
   /// Platform bridge for private cache access and explicit installation actions.
   final UpdateInstaller installer;
 
+  /// Where the next download takes the release from, see [_resolve].
+  UpdateChannel channel = UpdateChannel.auto;
+
   UpdateTarget get _target => installer.target;
 
   static const _repository = 'Carinoasd/tsdm_client';
@@ -265,9 +269,24 @@ class ReleaseUpdateRepository {
     if (!RegExp(r'^\d+\.\d+\.\d+$').hasMatch(info.version) || info.versionCode <= 0) {
       throw const UpdateDownloadException(UpdateDownloadFailure.invalidRelease);
     }
-    final mirror = _mirror;
+    final channel = this.channel;
+    // GitHub only: as if there were no mirror.
+    final mirror = channel == UpdateChannel.github ? null : _mirror;
     Future<Uri> Function() fromMirror(UpdateAsset asset) =>
         () => mirror!.urlOf(CloudreveMirror.assetPath(info.version, asset.name), cancelToken: cancelToken);
+    // The mirror only, on Android: GitHub is not asked at all (the point of the choice is not to wait for it), the
+    // size and digest are the mirror's and the system installer's signature check is what vouches for the APK, as
+    // when GitHub cannot be reached. Windows has no such check and still takes them from GitHub below.
+    if (channel == UpdateChannel.mirror && mirror != null && _target == UpdateTarget.android) {
+      final listed = await _resolveMirror(mirror, info, cancelToken);
+      if (listed == null) throw const UpdateDownloadException(UpdateDownloadFailure.releaseUnavailable);
+      return _ReleaseAsset(
+        asset: listed.asset,
+        sources: [fromMirror(listed.asset)],
+        size: listed.file.size,
+        digest: listed.file.sha256,
+      );
+    }
     final ({UpdateAsset asset, int size, String digest, Uri url}) github;
     try {
       github = await _resolveGithub(info, cancelToken);
@@ -293,7 +312,10 @@ class ReleaseUpdateRepository {
       asset: github.asset,
       // The mirror may not have the file GitHub has (a release mirrored before the split APKs were): the transfer
       // fails there and goes on from GitHub.
-      sources: [if (mirror != null) fromMirror(github.asset), () async => github.url],
+      sources: [
+        if (mirror != null) fromMirror(github.asset),
+        if (mirror == null || channel != UpdateChannel.mirror) () async => github.url,
+      ],
       size: github.size,
       digest: github.digest,
     );
